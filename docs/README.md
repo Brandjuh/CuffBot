@@ -4,10 +4,10 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 
 | Module | Manual | Status |
 |---|---|---|
-| *(none yet — the first module lands with Milestone M1)* | | |
+| core | [`modules/core.md`](modules/core.md) | stable (S1) |
 
 ## Reading order for newcomers
 
-1. Root [`README.md`](../README.md) — what CuffBot is.
+1. Root [`README.md`](../README.md) — what CuffBot is and how to run it.
 2. [`ROADMAP.md`](../ROADMAP.md) — where it is going.
 3. The manual of whichever module you are touching.

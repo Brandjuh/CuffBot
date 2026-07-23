@@ -7,7 +7,7 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
 - [x] **M0 — Build system** *(Session 0)*
   The `run-skill-generator` skill, state files, roadmap, manual template, docs index.
 
-- [ ] **M1 — Bot core: on the air** 📻
+- [x] **M1 — Bot core: on the air** 📻 *(Session 1)*
   `package.json` (ESM; scripts `start` / `test` / `deploy-commands`), `src/index.js`, `src/core/{config,logger,loader}.js`, `src/deploy-commands.js`, module `core` with `/radio-check` (latency check), `.env.example`, loader smoke test.
   *Accept when:* `npm test` passes; `node --check` clean on all files; boot fails fast with a clear message when `.env` is missing; `docs/modules/core.md` complete per template; README quickstart section written.
 

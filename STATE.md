@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 0 · 2026-07-23
-**Phase:** M0 (build system) complete → next up is M1 (bot core scaffold)
+**Last updated:** Session 1 · 2026-07-23
+**Phase:** M1 (bot core) complete → next up is M2 (enforcement)
 
 ## Verification block — run this before trusting the rest
 
@@ -14,35 +14,41 @@
 | Skill intact | `ls .claude/skills/run-skill-generator/references/` | `architecture.md`, `discord-reference.md`, `module-manual-template.md`, `self-improvement.md` |
 | State files present | `ls STATE.md SESSION_LOG.md ROADMAP.md CLAUDE.md docs/README.md` | All exist |
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
-| Bot source | `ls src/ 2>/dev/null` | **Does not exist yet** — first bot code lands in M1 |
+| Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
+| Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
+| Tests green | `npm test` | 11/11 pass as of S1 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'core' ]` |
+| Manuals current | `ls docs/modules/` | `core.md` |
+| Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 
-Once `src/` exists, extend this block with `npm test` and a `node --check` sweep — keep it matching the current phase.
+## What exists (verified Session 1 · 2026-07-23)
 
-## What exists (verified Session 0 · 2026-07-23)
-
-- **Build system (M0):** the `run-skill-generator` skill (`SKILL.md`, 4 references, `CHANGELOG.md` at 0.1.0, `LEARNINGS.md`, `evals/evals.json`), plus `CLAUDE.md`, `STATE.md`, `SESSION_LOG.md`, `ROADMAP.md`, `docs/README.md` (empty manual index), `.gitignore`, root `README.md`.
-- **No bot source yet.** `src/`, `package.json`, and `test/` do not exist — creating them is Milestone M1.
+- **Build system (M0):** the `run-skill-generator` skill (SKILL.md, 4 references, CHANGELOG, LEARNINGS, evals with graded expectations) plus `CLAUDE.md`, this file, `SESSION_LOG.md`, `ROADMAP.md`, `docs/README.md`, `.gitignore`, root `README.md`. Skill loads and is invocable as `/run-skill-generator` (confirmed in-session S1).
+- **Bot core (M1):** `package.json` (ESM, discord.js ^14.27.0 installed, scripts `start`/`test`/`deploy-commands`), `src/index.js` (fail-fast config, interaction router with themed error handling), `src/core/{config,logger,loader}.js`, `src/deploy-commands.js` (guild-scoped registration), module `core` (`/radio-check`, on-duty sweep, guild lockdown, pure `lib/` logic), `test/` 11 tests green, `.env.example`, `config.json` with `homeGuildId`, manual `docs/modules/core.md`, README Quickstart.
+- **Product decision:** CuffBot is a **single-guild bot**. Home precinct: `411157175948541954` (`config.json → homeGuildId`). The bot leaves any other guild (live join + boot sweep).
+- **Not yet possible here:** live Discord login (owner holds the token). Owner-facing steps live in README → Quickstart and the manual's live-test checklist.
 
 ## Resume point
 
-**Session 1 → Milestone M1: scaffold the bot core.**
+**Session 2 → Milestone M2: enforcement module.**
 
-1. Read `.claude/skills/run-skill-generator/references/architecture.md` (stack, layout, module pattern).
-2. Create `package.json` (ESM, scripts: `start`, `test`, `deploy-commands`), install `discord.js`.
-3. Build `src/index.js`, `src/core/{config,logger,loader}.js`, `src/deploy-commands.js`, and the `core` module with `/radio-check`.
-4. Add `test/` (loader smoke test + any lib logic), `.env.example`, and the `docs/modules/core.md` manual.
-5. Acceptance criteria: see `ROADMAP.md` → M1.
+1. Read `.claude/skills/run-skill-generator/references/architecture.md` and `discord-reference.md → Moderation APIs` first.
+2. Create `src/modules/enforcement/` with `/cite` (warn) first, then `/detain` (timeout + duration option), `/release`, `/arrest` (ban) — per `ROADMAP.md → M2` acceptance criteria.
+3. Duration parsing in `src/modules/enforcement/lib/duration.js` with tests (`10m`, `2h`, `7d`, invalid input, 28-day timeout cap).
+4. Hierarchy/permission checks per `discord-reference.md` (check both invoker permission and bot ability; reply honestly when blocked).
+5. Manual at `docs/modules/enforcement.md`; update `docs/README.md` index.
+6. Note: infraction *storage* is M3 (records) — M2 acts via Discord + audit-log reasons only.
 
 ## Open problems / blockers
 
-- None.
+- Owner-side setup pending: fill `.env`, invite the bot to the home precinct, run `npm run deploy-commands`, `npm start` (README → Quickstart). Until then no live verification of `/radio-check` — automated layers are green.
 
-## Environment facts (verified Session 0 · 2026-07-23)
+## Environment facts (verified Session 0–1 · 2026-07-23)
 
-- Node v22.22.2, npm 10.9.7. npm registry reachable through the outbound proxy (`npm view discord.js version` → 14.27.0).
+- Node v22.22.2, npm 10.9.7. npm registry reachable through the outbound proxy; `npm install` works (S1: 25 packages in ~8 s).
 - Python 3.11.15 available (used by skill tooling, not by the bot).
 - Sessions run in an **ephemeral container** — unpushed work is destroyed. Push every session.
-- No `gh` CLI; GitHub operations go through the GitHub MCP tools.
+- No `gh` CLI; GitHub operations go through the GitHub MCP tools. PR #1 tracks the feature branch.
 - Live Discord testing is impossible from this environment (no token in the repo — by design). Build confidence in layers per `architecture.md → Verification habits`; give the owner a manual test checklist in each module manual.
 
 ## Maintenance notes

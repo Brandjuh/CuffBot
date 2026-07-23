@@ -38,7 +38,7 @@ CuffBot/
 │   └── modules/<name>.md     # one manual per module (see template)
 ├── data/                     # runtime JSON storage — gitignored
 ├── .env.example              # every env var the bot reads, with placeholder values
-├── config.json               # non-secret settings (prefixes, colors, limits)
+├── config.json               # non-secret product settings (homeGuildId, colors, limits)
 └── package.json              # scripts: start, test, deploy-commands
 ```
 
@@ -108,7 +108,8 @@ Replies are short, in-character, and always in English. Emoji sparingly (🚔 �
 
 - **Errors:** every `execute` is wrapped by the loader in a try/catch that logs via `logger` and answers the user with an ephemeral in-theme apology ("📻 Dispatch, we have a malfunction…"). Commands still handle *expected* failures themselves (missing permissions, target not found) with specific messages.
 - **Permissions:** set `setDefaultMemberPermissions` on moderation commands *and* re-check at execute time (`interaction.memberPermissions`) — UI defaults can be overridden by server admins. Check the bot's own ability too (`member.moderatable` / `.bannable`) before acting, and reply honestly when the hierarchy blocks an action.
-- **Config:** secrets (`DISCORD_TOKEN`, `CLIENT_ID`, `DEV_GUILD_ID`) come from `.env`; everything else from `config.json`. `config.js` validates on boot and fails fast with a clear message listing what is missing. Never log the token; never commit `.env`; keep `.env.example` in sync.
+- **Config:** secrets (`DISCORD_TOKEN`, `CLIENT_ID`) come from `.env`; non-secret product settings come from committed `config.json` — most importantly `homeGuildId`. `config.js` validates on boot and fails fast with a clear message listing what is missing. Never log the token; never commit `.env`; keep `.env.example` in sync.
+- **Single-guild by design (owner decision, S1):** CuffBot serves exactly one precinct — `config.json → homeGuildId` (currently `411157175948541954`). Slash commands register guild-scoped there only (instant, no global registration), and the `core` module enforces jurisdiction: leave foreign guilds on join and sweep them at boot. New modules may assume home-precinct context; per-guild data structures still key by guild id so a future multi-guild pivot stays cheap.
 - **Storage:** modules read/write through `src/core/store.js` (added with the first stateful module): `getGuildData(guildId, key, fallback)` / `setGuildData(guildId, key, value)`, JSON files under `data/<guildId>.json`, atomic write (temp file + rename).
 - **Style:** small files, one export per command file, `camelCase` functions, `kebab-case` command names and filenames, JSDoc on lib functions. Comments explain *constraints*, not narration.
 
