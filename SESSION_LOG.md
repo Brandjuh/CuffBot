@@ -257,3 +257,26 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** No protocol change. Existing LEARNINGS "rendered assets need eyes" reconfirmed (sample sent to owner). Version unchanged (project code, not skill).
 
 **Handoff:** Owner: confirm the animation look (sample sent). Next build session: M4 (dispatch / evidence locker) per `STATE.md → Resume point`. Design specs for M5 (academy) and M6 (patrol) are in hand from the design workflow; M7 (public-affairs) design will be done inline.
+
+## Session 11 — 2026-07-23
+
+**Goal:** Milestone M4 (dispatch / evidence locker) per the resume point, plus the owner's mid-session tweak: flip the citation animation to print bottom-to-top.
+
+**Done:**
+- Module `dispatch`: `lib/format.js` (pure APIEmbed builders — typed/colored per action, officer + case + reason + extra fields; announcement embed), `lib/api.js` (store helpers get/set/clear evidence locker, `resolveLocker` with reason codes, `logEnforcement` best-effort send), commands `/evidence-locker` (set-current-channel / status / clear, Manage Server) and `/dispatch` (announcement, Manage Messages).
+- Wired all four enforcement actions (cite/detain/release/arrest) to `logEnforcement`, each in try/catch after replying — the cross-module seam; a missing/unreachable locker never blocks or fails an action.
+- Animation flip (owner): `/cite` GIF now prints **bottom-to-top** — the ticket rises out of a bottom slot, header last. Sample sent for confirmation.
+- Test robustness: replaced the fragile raw-byte GIF frame count with a proper block-walker (`countFrames`) — LZW image data can contain the marker bytes.
+- Tests 98/98 (14 new for dispatch: embeds, store roundtrip, resolveLocker reason codes, logEnforcement delivery + graceful no-op, command smokes). Manual `dispatch.md`; docs index (also de-duplicated a stray records row); enforcement manual notes locker logging; ROADMAP M4 ticked. 12 commands, 4 modules.
+
+**Decisions:**
+- `/evidence-locker` uses the current channel for "set" (no channel option) — keeps it identical as a text command (adapter doesn't resolve channel mentions) and matches the "run this in your log channel" convention.
+- Best-effort logging via try/catch at the call site, consistent with how records is called — one uniform cross-module pattern.
+
+**Corrections:** Found and removed a duplicate `records` row in `docs/README.md` (S8 added it; my S11 edit re-added it) — caught by re-reading the table. Also corrected two stale lines in STATE (test count 46→98, verified-date header) during the update.
+
+**Learned:** The cross-module convention (call target lib, wrap in try/catch) now has three consumers (enforcement→records, enforcement→dispatch) and holds up cleanly — no event bus needed yet.
+
+**Skill:** No protocol change; the convention documented in S8 proved out again. No version bump.
+
+**Handoff:** Owner: confirm the bottom-up animation; optionally `/evidence-locker action:set` in a log channel to see enforcement embeds. Next build session: M5 (academy / ranks) per `STATE.md → Resume point` — an academy design spec from the design workflow is summarized there.

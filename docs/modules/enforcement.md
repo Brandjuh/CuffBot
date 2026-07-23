@@ -52,6 +52,10 @@ Concept credit for the ticket: the `citation` cog in TrustyJAID/Trusty-cogs (ori
 - **What happens:** checks permission and hierarchy (`bannable`) when the target is still a member; **works by id when they already left**. Refuses when already banned. Bans with the officer-embedded audit reason and the chosen `deleteMessageSeconds`.
 - **Reply:** public confirmation incl. wipe note; refusals ephemeral and specific.
 
+## Evidence-locker logging
+
+Every enforcement action (cite / detain / release / arrest) also posts a typed embed to the **evidence locker** if one is configured (see `docs/modules/dispatch.md`). This is best-effort: the call is wrapped in try/catch, so a missing or unreachable locker never blocks or fails the action — the moderation still happens and is still recorded on the rap sheet; only the channel echo is skipped.
+
 ## Events
 
 None — this module only adds commands. (Automated screening arrives with M6 patrol.)

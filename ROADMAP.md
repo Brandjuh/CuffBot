@@ -19,7 +19,7 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
   `src/core/store.js` (atomic JSON per guild, gitignored `data/`), module `records`: infractions written by enforcement actions, `/rapsheet` (view a member's history, ephemeral), retention/clear command for admins.
   *Accept when:* store has tests (concurrent-ish writes, missing file, corrupt file recovery); enforcement writes records; `/rapsheet` paginates or truncates gracefully; manual complete.
 
-- [ ] **M4 — Dispatch: the evidence locker** 🗄️
+- [x] **M4 — Dispatch: the evidence locker** 🗄️ *(Session 11)*
   Module `dispatch`: configurable log channel (evidence locker) receiving enforcement/records events; `/dispatch` announcement command for the force.
   *Accept when:* log channel configurable per guild via command + stored in records store; missing-channel and missing-permission cases handled; manual complete.
 

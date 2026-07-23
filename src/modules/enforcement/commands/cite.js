@@ -7,6 +7,7 @@ import {
 import { renderCitationGif } from '../lib/citation-card.js';
 import { ensureInvokerPermission, ensureSensibleTarget } from '../guards.js';
 import { addRecord } from '../../records/lib/api.js';
+import { logEnforcement } from '../../dispatch/lib/api.js';
 import { logger } from '../../../core/logger.js';
 
 export default {
@@ -81,6 +82,19 @@ export default {
         content: '(No DM copy delivered — their DMs are closed.)',
         flags: MessageFlags.Ephemeral,
       }).catch(() => {});
+    }
+
+    try {
+      await logEnforcement(interaction.guild, {
+        type: 'citation',
+        subject: `${target}`,
+        officer: `${interaction.user}`,
+        reason,
+        caseNumber,
+        fields: penalty ? [{ name: 'Penalty', value: penalty, inline: true }] : [],
+      });
+    } catch (error) {
+      logger.warn('Evidence-locker log failed (citation):', error);
     }
   },
 };
