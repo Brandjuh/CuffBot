@@ -413,3 +413,31 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 - Tests 210 → **230** (bounds, channel types, pinned-gates, self-heal, race, coupling, bot-refusal, system messages, sparse config, clamps). Manuals updated (leveling, academy); STATE resume point now flags the owner's one-time `/rank-setup` pin.
 
 **Learned (added to LEARNINGS):** automation needs a stronger trust gate than human-in-the-loop commands — the academy heuristic was safe under `/promote` because a human watched; the moment leveling automated the same ladder it became an attack/failure surface.
+
+---
+
+## Session 17 — 2026-07-23
+
+**Goal:** M9 — AI conversation (module `detective`): talk to the bot via `/ask` and @mentions, on a free-tier provider, under the owner's exact global rate limits.
+
+**Done:**
+- Module `detective` (2 commands, 1 event; zero new dependencies — plain `fetch`):
+  - `lib/ratelimit.js` (pure): process-global sliding-window limiter — **owner spec implemented exactly: ONE budget for the whole server, 1 AI message / 7 s AND 62 / rolling hour**; `take(now)` returns themed-refusal data (`reason`, `retryAfterMs`); in-RAM by design (restart forgets ≤1 h, errs generous, spares the SD card).
+  - `lib/prompt.js` (pure): detective persona (in-character, answers in the asker's language, ~150 words, declines harmful/personal-data asks, points moderation asks to /commands), question cut at 1000 chars, reply clamp at 1900 + `@everyone`/`@here` neutering, per-channel history pruning (8 exchanges / 30 min).
+  - `lib/providers.js`: Groq (`llama-3.1-8b-instant`) + Gemini (`gemini-2.0-flash`), injectable `fetch`, 20 s `AbortSignal.timeout`, ≤400 output tokens; `pickProvider(env)` = `CUFFBOT_AI_PROVIDER` pin or first configured key (Groq first).
+  - `service.js`: single `askDetective` pipeline shared by both entry points — enabled? → provider? → question? → **rate limit before any tokens** → provider call; never throws, every branch returns a user-ready in-theme message. Per-channel RAM memory so conversations have context; user turns stored as `Name: question` for multi-user attribution.
+  - `commands/ask.js` (defer → editReply; greedy `question` for `!ask …`), `commands/ai-config.js` (admin: enabled toggle, provider/model/usage status), `events/mention-reply.js` (@mention → same pipeline; guards: home guild, no bots/system, no @everyone/role-ping triggers, `!`-prefix left to the router; silent without Message Content).
+- `.env.example`: documented `GROQ_API_KEY` / `GEMINI_API_KEY` (+ optional provider/model overrides) with the two key-creation URLs.
+- Tests 230 → **254**: limiter edges (7 s boundary, 62-cap, rolling aging), prompt limits, both providers' request/response shapes + error paths via fake fetch, pipeline branches (happy incl. cross-call memory, keyless, disabled, empty, cooldown, provider-error), `/ask` defer contract, `/ai-config` status, mention stripping + all event gates. **No test touches the network; ambient AI keys are deleted at suite start.**
+- Manual `docs/modules/detective.md` (incl. Owner setup + troubleshooting); README (9 modules, 29 commands) + docs index rows; ROADMAP M9 ✅; STATE updated (resume: M10; owner actions: rank-setup pin + API key).
+
+**Decisions:**
+- Module named `detective` (police theme for "ask the bot"). Groq preferred over Gemini when both keys exist (faster, generous free tier) — override via `CUFFBOT_AI_PROVIDER`.
+- Conversation memory is RAM-only (privacy + SD wear): a restart forgets chats; documented.
+- The 62/h + 7 s limits are code constants (`DEFAULT_LIMITS`), not owner-tunable config — they encode an owner decision; changing them should be a deliberate code change, not a slider.
+
+**Corrections:** none — but note for honesty: model names (`llama-3.1-8b-instant`, `gemini-2.0-flash`) follow the providers' current free tiers as of knowledge cutoff; if a provider retires one, `CUFFBOT_AI_MODEL` overrides without a code change (troubleshooting covers the symptom).
+
+**State for next session:** M9 shipped and self-merged. Next: **M10 birthdays** (or owner's backlog pick). Owner must add an API key before the detective answers (STATE → Owner actions).
+
+**Skill:** retro run; no protocol gaps found this session (the S16 lessons — Read-before-Edit after compaction, seam conventions — were applied, not re-learned). LEARNINGS S16 "automation trust gate" candidate reconfirmed by design here: mention-replies (automated) get stricter triggers (no @everyone/role pings) than the human-invoked /ask. CHANGELOG unchanged (no skill edits warranted; recorded here per protocol).
