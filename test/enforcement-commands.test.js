@@ -1,12 +1,24 @@
 // Command smoke tests with hand-rolled fake interactions — proves option
 // parsing, guard order, and reply shapes without a token or network
 // (the pattern from discord-reference.md → Testing without a live bot).
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
 import cite from '../src/modules/enforcement/commands/cite.js';
 import detain from '../src/modules/enforcement/commands/detain.js';
 import arrest from '../src/modules/enforcement/commands/arrest.js';
 import release from '../src/modules/enforcement/commands/release.js';
+
+// Commands file records through the store; point it at a scratch directory
+// (read at call time) so tests never touch the repo's data/.
+const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-cmd-test-'));
+process.env.CUFFBOT_DATA_DIR = DATA_DIR;
+after(() => {
+  delete process.env.CUFFBOT_DATA_DIR;
+  rmSync(DATA_DIR, { recursive: true, force: true });
+});
 
 const BOT_ID = '999000000000000999';
 
@@ -28,6 +40,7 @@ function fakeInteraction({ perms = [], target, options = {}, member = null, bans
     client: { user: { id: BOT_ID } },
     memberPermissions: { has: (flag) => perms.includes(flag) },
     guild: {
+      id: '411157175948541954',
       name: 'Test Precinct',
       members: {
         fetch: async () => {
@@ -89,6 +102,7 @@ test('cite: happy path attaches a citation.png and DMs a copy', async () => {
   await cite.execute(ix);
   assert.equal(ix.replies.length, 1, 'no ephemeral DM-failure note expected');
   assert.match(ix.replies[0].content, /Citation issued/);
+  assert.match(ix.replies[0].content, /Case #\d+/, 'citation is filed on the rap sheet');
   assert.equal(ix.replies[0].files.length, 1);
   assert.ok(dm, 'target got a DM');
   assert.equal(dm.files.length, 1);
@@ -138,6 +152,7 @@ test('detain: times out a moderatable member with an audit reason', async () => 
   assert.equal(timeout.ms, 90 * 60_000);
   assert.match(timeout.reason, /contempt of donut — by officer via CuffBot/);
   assert.match(ix.replies[0].content, /1 hour 30 minutes/);
+  assert.match(ix.replies[0].content, /Case #\d+/, 'detainment is filed on the rap sheet');
 });
 
 test('detain: hierarchy block replies with role guidance', async () => {

@@ -184,3 +184,27 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** 0.2.1 — LEARNINGS backfill + new candidates (see skill CHANGELOG).
 
 **Handoff:** Owner: grant the bot *Moderate Members* + *Ban Members*, position its role above target roles (enforcement manual → Permissions & safety), re-run `bash ~/CuffBot/scripts/setup-pi.sh` once to arm the self-update timer, then walk both live checklists. Next build session: Session 8 → M3 (records) per `STATE.md → Resume point`. Eval runs from S0 still pending.
+
+## Session 8 — 2026-07-23
+
+**Goal:** Milestone M3 (records / the rap sheet) per the resume point.
+
+**Done:**
+- `src/core/store.js`: the storage seam — atomic per-guild JSON (temp + rename), corrupt-file recovery (moved aside as `*.corrupt-<ts>`, not deleted), `getGuildData`/`setGuildData`/`updateGuildData`, `CUFFBOT_DATA_DIR` override for test isolation.
+- Module `records`: `lib/api.js` (case-numbered `addRecord`, `recordsFor`, `expungeRecords`; numbers never reused), `lib/format.js` (pure rap-sheet rendering, counts + latest-first, hard 2000-char cap), `/rapsheet` (ephemeral, Moderate Members), `/expunge` (Manage Server, one case or whole sheet).
+- Wired enforcement → records: `/cite`, `/detain`, `/arrest`, `/release` all file records via `records/lib/api.js`, each try/caught so records trouble degrades the reply (no case number + logged warning) instead of blocking the action. Replies now show `Case #N`.
+- Tests 60/60 (14 new): store roundtrip/corruption/atomicity, case sequencing across expunge, formatting/truncation, records command permission tiers + ephemerality; enforcement smokes now assert a case number. Verified `data/` is gitignored.
+- Docs: `records.md`, enforcement manual updated, docs index, ROADMAP M3 ticked.
+
+**Decisions:**
+- **Cross-module calls go through the target module's `lib/` API, wrapped in try/catch** — chosen over an event bus for being explicit, greppable, testable; recorded in `architecture.md → Cross-module calls`. The primary action (moderation) must never fail because an auxiliary module (records) is unhappy.
+- `/expunge` gated behind Manage Server (a tier above moderation) because erasing history is more dangerous than creating it; case numbers monotonic so stale references can't collide.
+- Rap sheets ephemeral — a record is for the force, not public shaming; the public trail is the audit log now and the evidence locker in M4.
+
+**Corrections:** None — S7 state matched reality (46 tests, two modules, clean tree).
+
+**Learned:** Test isolation for a storage layer needs an injectable path read at call time, not import time — `CUFFBOT_DATA_DIR` checked inside each function so a test setting it via `process.env` before calling works. Kept the store's option-object form for the same reason.
+
+**Skill:** `architecture.md` gained the implemented Storage details and the Cross-module calls convention (evidence: first stateful module + first inter-module dependency this session). No SKILL.md protocol change. Version bump recorded in the skill CHANGELOG (0.3.0).
+
+**Handoff:** Session 9 → M4 (dispatch / evidence locker) per `STATE.md → Resume point`. Owner live-verification of M1/M2/M3 still pending. S0 eval runs still pending.

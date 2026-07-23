@@ -15,7 +15,7 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
   Module `enforcement`: `/cite` (warn, delivered as a generated ticket image), `/detain` (timeout with duration option), `/release` (lift timeout / unban), `/arrest` (ban, with message-deletion window option). Hierarchy + permission checks per `discord-reference.md`; audit-log reasons always set; duration parsing in `lib/` with tests.
   *Accept when:* all four commands registered and syntax-clean; lib tests pass (incl. duration edge cases: `10m`, `2h`, `7d`, invalid); every failure mode replies specifically; `docs/modules/enforcement.md` complete incl. owner's live-test checklist.
 
-- [ ] **M3 — Records: the rap sheet** 📋
+- [x] **M3 — Records: the rap sheet** 📋 *(Session 8)*
   `src/core/store.js` (atomic JSON per guild, gitignored `data/`), module `records`: infractions written by enforcement actions, `/rapsheet` (view a member's history, ephemeral), retention/clear command for admins.
   *Accept when:* store has tests (concurrent-ish writes, missing file, corrupt file recovery); enforcement writes records; `/rapsheet` paginates or truncates gracefully; manual complete.
 

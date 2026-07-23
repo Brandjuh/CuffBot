@@ -6,6 +6,8 @@ import {
   fetchMember,
   replyHierarchyBlocked,
 } from '../guards.js';
+import { addRecord } from '../../records/lib/api.js';
+import { logger } from '../../../core/logger.js';
 
 // Discord accepts 0..604800 seconds (7 days) of message history deletion.
 const WIPE_CHOICES = [
@@ -63,11 +65,24 @@ export default {
       deleteMessageSeconds,
     });
 
+    let caseNumber = null;
+    try {
+      caseNumber = addRecord(interaction.guild.id, {
+        type: 'arrest',
+        userId: target.id,
+        officerId: interaction.user.id,
+        reason,
+        meta: { wipeSeconds: deleteMessageSeconds },
+      }).caseNumber;
+    } catch (error) {
+      logger.warn('Records unavailable — arrest not filed:', error);
+    }
+
     const wipeNote = deleteMessageSeconds > 0
       ? ` Message history wiped: ${WIPE_CHOICES.find((c) => c.value === deleteMessageSeconds)?.name.replace('Wipe last ', 'last ') ?? ''}.`
       : '';
     await interaction.reply(
-      `🚨 ${target} has been **arrested** (banned). Reason: ${reason ?? 'No reason given'}.${wipeNote}`,
+      `🚨 ${target} has been **arrested** (banned)${caseNumber ? ` — Case #${caseNumber}` : ''}. Reason: ${reason ?? 'No reason given'}.${wipeNote}`,
     );
   },
 };

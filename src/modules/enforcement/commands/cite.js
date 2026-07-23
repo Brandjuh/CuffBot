@@ -6,6 +6,8 @@ import {
 } from 'discord.js';
 import { renderCitation } from '../lib/citation-card.js';
 import { ensureInvokerPermission, ensureSensibleTarget } from '../guards.js';
+import { addRecord } from '../../records/lib/api.js';
+import { logger } from '../../../core/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -45,8 +47,24 @@ export default {
       badgeSeed: target.id,
     });
 
+    // File the case before announcing it, so the reply can carry the number.
+    // Records being unavailable must never block a citation (see
+    // architecture.md → Cross-module calls).
+    let caseNumber = null;
+    try {
+      caseNumber = addRecord(interaction.guild.id, {
+        type: 'citation',
+        userId: target.id,
+        officerId: interaction.user.id,
+        reason,
+        meta: penalty ? { penalty } : {},
+      }).caseNumber;
+    } catch (error) {
+      logger.warn('Records unavailable — citation not filed:', error);
+    }
+
     await interaction.reply({
-      content: `📋 Citation issued to ${target}. Reason: ${reason}`,
+      content: `📋 Citation issued to ${target}${caseNumber ? ` (Case #${caseNumber})` : ''}. Reason: ${reason}`,
       files: [new AttachmentBuilder(png, { name: 'citation.png' })],
     });
 

@@ -1,6 +1,23 @@
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { auditReason } from '../lib/audit.js';
 import { ensureInvokerPermission, fetchMember } from '../guards.js';
+import { addRecord } from '../../records/lib/api.js';
+import { logger } from '../../../core/logger.js';
+
+function fileRelease(interaction, target, reason, released) {
+  try {
+    return addRecord(interaction.guild.id, {
+      type: 'release',
+      userId: target.id,
+      officerId: interaction.user.id,
+      reason,
+      meta: { released },
+    }).caseNumber;
+  } catch (error) {
+    logger.warn('Records unavailable — release not filed:', error);
+    return null;
+  }
+}
 
 export default {
   data: new SlashCommandBuilder()
@@ -32,7 +49,10 @@ export default {
           return;
         }
         await member.timeout(null, audit);
-        await interaction.reply(`🔓 ${target} released from the holding cell (timeout lifted).`);
+        const caseNumber = fileRelease(interaction, target, reason, 'timeout');
+        await interaction.reply(
+          `🔓 ${target} released from the holding cell (timeout lifted)${caseNumber ? ` — Case #${caseNumber}` : ''}.`,
+        );
         return;
       }
     }
@@ -49,7 +69,10 @@ export default {
         return;
       }
       await interaction.guild.members.unban(target.id, audit);
-      await interaction.reply(`🔓 ${target} released — ban lifted. They may rejoin the precinct.`);
+      const caseNumber = fileRelease(interaction, target, reason, 'ban');
+      await interaction.reply(
+        `🔓 ${target} released — ban lifted${caseNumber ? ` (Case #${caseNumber})` : ''}. They may rejoin the precinct.`,
+      );
       return;
     }
 
