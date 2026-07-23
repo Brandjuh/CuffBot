@@ -37,6 +37,16 @@ The script is **safe to re-run** (also the way to update the bot later): it pull
 
 Overrides: `CUFFBOT_DIR` (install directory), `CUFFBOT_BRANCH` (branch to check out).
 
+## Self-update (armed by setup step 8)
+
+A systemd timer (`cuffbot-update.timer`) runs `scripts/update.sh` every 15 minutes: fetch → if new commits: fast-forward, `npm install`, **run the test suite** → only a green suite gets its commands re-registered and the service restarted. A red suite is rolled back and the old bot keeps serving — unattended updates never trade uptime for freshness. Requirements: stored git credentials (the setup step arranges this) — that is also why the setup does one interactive fetch.
+
+| Task | Command |
+|---|---|
+| Update history / last run | `journalctl -u cuffbot-update` |
+| Force an update check now | `sudo systemctl start cuffbot-update.service` |
+| Pause / resume auto-update | `sudo systemctl disable --now cuffbot-update.timer` / `… enable --now …` |
+
 ## Day-to-day operation
 
 | Task | Command |
@@ -45,7 +55,7 @@ Overrides: `CUFFBOT_DIR` (install directory), `CUFFBOT_BRANCH` (branch to check 
 | Status | `systemctl status cuffbot` |
 | Restart | `sudo systemctl restart cuffbot` |
 | Stop / disable autostart | `sudo systemctl stop cuffbot` / `sudo systemctl disable cuffbot` |
-| Update to latest code | re-run `bash ~/CuffBot/scripts/setup-pi.sh` |
+| Update immediately (manual) | `bash ~/CuffBot/scripts/update.sh` (or re-run the setup script) |
 | Rotate the token | Reset in the Developer Portal → edit `~/CuffBot/.env` → `sudo systemctl restart cuffbot` |
 
 ## Troubleshooting
