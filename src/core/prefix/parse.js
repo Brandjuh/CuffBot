@@ -60,54 +60,69 @@ function parseBoolean(token) {
   return null;
 }
 
+// Does a single token satisfy an option's type? Used to decide whether an
+// OPTIONAL trailing option should claim a tail token or leave it to the greedy
+// free-text field. (An optional STRING never claims a tail token — any word
+// "fits" it, so it would ambiguously steal the last word of the reason.)
+function tokenFits(def, token) {
+  switch (def.type) {
+    case OPTION_TYPE.USER:
+    case OPTION_TYPE.CHANNEL:
+    case OPTION_TYPE.ROLE:
+      return extractId(token) !== null;
+    case OPTION_TYPE.INTEGER:
+    case OPTION_TYPE.NUMBER: {
+      const n = Number(token);
+      if (!Number.isFinite(n) || (def.type === OPTION_TYPE.INTEGER && !Number.isInteger(n))) return false;
+      return !def.choices?.length || def.choices.some((c) => c.value === n);
+    }
+    case OPTION_TYPE.BOOLEAN:
+      return parseBoolean(token) !== null;
+    default:
+      return false;
+  }
+}
+
 /**
- * Map tokens onto a command's option definitions, in declaration order. The
- * LAST string option is greedy (it takes the whole remainder) so
- * "!cite @user being a repeat offender" puts the sentence into `reason`.
+ * Map tokens onto a command's option definitions.
+ *
+ * One option is the greedy "rest" field (free text): explicitly the option named
+ * `greedyName` (a command's `textGreedyArg`), else the last option if it is a
+ * string. Options BEFORE it bind one token each from the front; options AFTER it
+ * bind one token each from the TAIL (right-to-left), so a free-text `reason`
+ * declared before an optional `penalty`/`wipe`/`anonymous` still absorbs the
+ * middle of the line instead of being truncated. Optional trailing options only
+ * claim a tail token when it fits their type (and optional strings never do).
  *
  * @param {Array<{name,type,required?,choices?}>} optionDefs from data.toJSON().options
  * @param {{tokens:string[]}} parsed from parseCommandLine
+ * @param {string|null} [greedyName] the option that should absorb free text
  * @returns {{ values: Record<string, any>, userIds: Record<string,string>, errors: string[] }}
- *   values: STRING/INTEGER/NUMBER/BOOLEAN resolved; USER/CHANNEL/ROLE ids go in userIds.
  */
-export function assignOptions(optionDefs, parsed) {
+export function assignOptions(optionDefs, parsed, greedyName = null) {
   const defs = optionDefs ?? [];
   const tokens = parsed?.tokens ?? [];
   const values = {};
   const userIds = {};
   const errors = [];
 
-  // Only a TRAILING string option is greedy (takes the rest of the line). If a
-  // non-string option follows it, the string must stay single-token so the
-  // later option still gets its token — otherwise e.g. "!rank-link Chief @role"
-  // would let `rank` swallow the role mention.
-  const lastIdx = defs.length - 1;
-  const greedyStringIndex = lastIdx >= 0 && defs[lastIdx].type === OPTION_TYPE.STRING ? lastIdx : -1;
-
-  let cursor = 0;
   const missing = (def) => {
     if (def.required) errors.push(`missing required argument \`${def.name}\``);
   };
 
-  defs.forEach((def, i) => {
-    const token = tokens[cursor];
+  // Bind exactly one token to an option (used from front and tail).
+  const bindToken = (def, token) => {
     switch (def.type) {
       case OPTION_TYPE.USER:
       case OPTION_TYPE.CHANNEL:
       case OPTION_TYPE.ROLE: {
-        if (token === undefined) return missing(def);
         const id = extractId(token);
-        if (!id) {
-          errors.push(`\`${def.name}\` should be a mention or id, got "${token}"`);
-        } else {
-          userIds[def.name] = id;
-        }
-        cursor += 1;
+        if (!id) errors.push(`\`${def.name}\` should be a mention or id, got "${token}"`);
+        else userIds[def.name] = id;
         break;
       }
       case OPTION_TYPE.INTEGER:
       case OPTION_TYPE.NUMBER: {
-        if (token === undefined) return missing(def);
         const num = Number(token);
         if (!Number.isFinite(num) || (def.type === OPTION_TYPE.INTEGER && !Number.isInteger(num))) {
           errors.push(`\`${def.name}\` should be a number, got "${token}"`);
@@ -116,36 +131,75 @@ export function assignOptions(optionDefs, parsed) {
         } else {
           values[def.name] = num;
         }
-        cursor += 1;
         break;
       }
       case OPTION_TYPE.BOOLEAN: {
-        if (token === undefined) return missing(def);
         const bool = parseBoolean(token);
         if (bool === null) errors.push(`\`${def.name}\` should be true/false, got "${token}"`);
         else values[def.name] = bool;
-        cursor += 1;
         break;
       }
-      case OPTION_TYPE.STRING: {
-        if (i === greedyStringIndex) {
-          const rest = tokens.slice(cursor);
-          if (rest.length === 0) return missing(def);
-          values[def.name] = rest.join(' ');
-          cursor = tokens.length;
-        } else {
-          if (token === undefined) return missing(def);
-          values[def.name] = token;
-          cursor += 1;
-        }
+      case OPTION_TYPE.STRING:
+        values[def.name] = token;
         break;
-      }
       default:
-        // Unsupported option types (attachment, subcommand) are not reachable
-        // via text — the command's slash form must be used.
-        if (def.required) errors.push(`\`${def.name}\` can only be provided via the /${''}slash command`);
+        if (def.required) errors.push(`\`${def.name}\` can only be provided via the slash command`);
     }
-  });
+  };
+
+  // Pick the greedy free-text option.
+  let greedyIndex = -1;
+  if (greedyName) {
+    const gi = defs.findIndex((d) => d.name === greedyName && d.type === OPTION_TYPE.STRING);
+    if (gi >= 0) greedyIndex = gi;
+  }
+  if (greedyIndex < 0) {
+    const lastIdx = defs.length - 1;
+    if (lastIdx >= 0 && defs[lastIdx].type === OPTION_TYPE.STRING) greedyIndex = lastIdx;
+  }
+
+  if (greedyIndex < 0) {
+    // No greedy option: bind everything from the front, one token each.
+    let cursor = 0;
+    for (const def of defs) {
+      if (tokens[cursor] === undefined) missing(def);
+      else bindToken(def, tokens[cursor++]);
+    }
+    return { values, userIds, errors };
+  }
+
+  // Front: options before the greedy take one token each.
+  let front = 0;
+  for (let i = 0; i < greedyIndex; i += 1) {
+    if (tokens[front] === undefined) missing(defs[i]);
+    else bindToken(defs[i], tokens[front++]);
+  }
+
+  // Tail: options after the greedy take one token each from the end, in reverse
+  // declaration order. Optional ones only claim a token that fits their type.
+  let tail = tokens.length;
+  for (let i = defs.length - 1; i > greedyIndex; i -= 1) {
+    const def = defs[i];
+    if (def.type === OPTION_TYPE.STRING && !def.required) continue; // ambiguous — leave to slash/quotes
+    if (front >= tail) {
+      missing(def);
+      continue;
+    }
+    const token = tokens[tail - 1];
+    if (def.required) {
+      bindToken(def, token);
+      tail -= 1;
+    } else if (tokenFits(def, token)) {
+      bindToken(def, token);
+      tail -= 1;
+    }
+    // optional + doesn't fit → leave unset, token stays for the greedy field
+  }
+
+  // Greedy absorbs the middle.
+  const mid = tokens.slice(front, tail);
+  if (mid.length === 0) missing(defs[greedyIndex]);
+  else values[defs[greedyIndex].name] = mid.join(' ');
 
   return { values, userIds, errors };
 }

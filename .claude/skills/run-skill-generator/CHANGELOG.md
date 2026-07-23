@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.4.0 — 2026-07-23 (Session 15)
+
+- `self-improvement.md`: added "Before declaring a milestone or the base done: adversarially audit" — an independent, verified cross-dimension review is now part of the protocol, because author-written tests share the author's blind spots.
+- `LEARNINGS.md`: promoted two candidates confirmed repeatedly across sessions — (a) the cross-module seam convention (call a target module's `lib/` API wrapped in try/catch; ~6 consumers held up), already in `architecture.md`; (b) "the owner's reality overrides the generic design" (S1 single-guild, S12 leveler ranks, S15 VC-time request).
+- Evidence: S15 final audit found a HIGH-severity parser bug (multi-word `!cite`/`!fine` reasons silently truncated into `penalty` and filed into permanent records; `!arrest`/`!911` reasons rejected) that 150+ passing tests missed. Fixed via per-command `textGreedyArg` + tail-binding of trailing options; plus mention-injection hardening, loader event validation, channel-aware prefix permissions, and doc corrections.
+
 ## 0.3.1 — 2026-07-23 (Session 9)
 
 - `discord-reference.md`: documented the graceful privileged-intent fallback pattern (try-with, catch 4014/"disallowed intents", retry-without, gate features on a flag) so a self-updating bot can add a privileged intent without risking a crash-loop; plus the GuildMessages + MessageContent split for text-command invocation.

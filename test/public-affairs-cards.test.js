@@ -7,7 +7,6 @@ import {
   pickCrime,
   pickDonut,
   reportEmbed,
-  wantedEmbed,
 } from '../src/modules/public-affairs/lib/cards.js';
 
 test('hashSeed is deterministic and unsigned', () => {
@@ -36,9 +35,6 @@ test('wanted picks are deterministic per seed and in range', () => {
   const bounty = pickBounty('user-1');
   assert.equal(bounty, pickBounty('user-1'));
   assert.ok(bounty >= 100 && bounty <= 5000 && bounty % 50 === 0);
-  const embed = wantedEmbed({ displayName: 'Perp', crime: pickCrime('user-1'), bounty });
-  assert.match(embed.title, /W A N T E D/);
-  assert.match(embed.fields[0].value, /donuts/);
 });
 
 test('pickDonut is deterministic and returns a donut string', () => {

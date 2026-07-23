@@ -75,6 +75,17 @@ test('adapter routes an ephemeral reply to the author DM', async () => {
   assert.equal(channelSends.length, 0, 'ephemeral output must not hit the channel');
 });
 
+test('adapter falls back to the channel (with a note) when the author DM is closed', async () => {
+  const { message, channelSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
+  message.author.send = async () => { throw new Error('Cannot send messages to this user'); };
+  const parsed = parseCommandLine(message.content, '!');
+  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  await interaction.reply({ content: 'private note', flags: MessageFlags.Ephemeral });
+  assert.equal(channelSends.length, 1, 'DM failure falls back to the channel');
+  assert.match(channelSends[0].content, /private note/);
+  assert.ok(!channelSends[0].flags, 'the ephemeral flag is stripped for the channel message');
+});
+
 test('adapter reply supports withResponse (for /radio-check style latency)', async () => {
   const { message } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
   const parsed = parseCommandLine(message.content, '!');

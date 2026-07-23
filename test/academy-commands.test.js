@@ -122,6 +122,14 @@ test('promote is blocked when the target rank role is above the bot', async () =
   assert.match(ix.replies[0].content, /highest role/i);
 });
 
+test('promote is blocked when the bot itself lacks Manage Roles', async () => {
+  await configure();
+  const ix = fakeInteraction({ perms: [MANAGE_ROLES], target: TARGET, memberRoleIds: [], botCanManage: false });
+  await promote.execute(ix);
+  assert.equal(ix.added.length, 0);
+  assert.match(ix.replies[0].content, /grant CuffBot the \*\*Manage Roles\*\*/);
+});
+
 test('demote busts a member down one rung', async () => {
   await configure();
   const ix = fakeInteraction({ perms: [MANAGE_ROLES], target: TARGET, memberRoleIds: ['r-veteran'] });

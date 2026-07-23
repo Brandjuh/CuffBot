@@ -83,8 +83,12 @@ Boot fails fast with a named-variable error message when required settings are m
 |---|---|
 | `src/modules/core/index.js` | Manifest |
 | `src/modules/core/commands/radio-check.js` | `/radio-check` command |
+| `src/modules/core/commands/help.js` | `/help` — generated command roster |
+| `src/modules/core/commands/update.js` | `/update` — manual self-update (admin-only) |
 | `src/modules/core/events/on-duty.js` | Ready log + offline-invite sweep |
 | `src/modules/core/events/guild-lockdown.js` | Live jurisdiction enforcement |
+| `src/core/prefix/{parse,adapter,router}.js` | Dual invocation: text (`!command`) support |
+| `src/core/help.js` | Pure help-roster construction (used by `/help`) |
 | `src/modules/core/lib/precinct.js` | Pure: home-guild check |
 | `src/modules/core/lib/radio.js` | Pure: latency verdict formatting |
 | `src/core/{config,logger,loader}.js` | Plumbing exercised by this module |

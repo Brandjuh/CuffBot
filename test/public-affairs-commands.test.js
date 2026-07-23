@@ -6,9 +6,11 @@ import { tmpdir } from 'node:os';
 import { MessageFlags } from 'discord.js';
 import badge from '../src/modules/public-affairs/commands/badge.js';
 import donut from '../src/modules/public-affairs/commands/donut.js';
+import wanted from '../src/modules/public-affairs/commands/wanted.js';
 import report911 from '../src/modules/public-affairs/commands/911.js';
 import { addRecord } from '../src/modules/records/lib/api.js';
 import { setEvidenceLocker, clearEvidenceLocker } from '../src/modules/dispatch/lib/api.js';
+import { encodePng } from '../src/modules/enforcement/lib/png.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-pa-'));
 process.env.CUFFBOT_DATA_DIR = DATA_DIR;
@@ -81,6 +83,50 @@ test('donut hands out a treat', async () => {
   await donut.execute(ix);
   assert.match(ix.replies[0].content, /hands <@2>/);
   assert.match(ix.replies[0].content, /🍩/);
+});
+
+test('wanted renders a poster attachment with the fetched avatar', async () => {
+  const png = encodePng(new Uint8Array(16 * 16 * 3).fill(120), 16, 16);
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    arrayBuffer: async () => png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength),
+  });
+  try {
+    const target = { ...fakeUser('2', 'perp') };
+    const edits = [];
+    let deferred = false;
+    const ix = {
+      guild: { members: { fetch: async () => ({ displayName: 'perp' }) } },
+      options: { getUser: () => target, getString: () => null },
+      deferReply: async () => { deferred = true; },
+      editReply: async (p) => edits.push(p),
+    };
+    await wanted.execute(ix);
+    assert.equal(deferred, true, 'defers before the slow render');
+    assert.equal(edits[0].files[0].name, 'wanted.png');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('wanted still posts a poster when the avatar fetch fails', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('network down'); };
+  try {
+    const target = { ...fakeUser('3', 'perp2') };
+    const edits = [];
+    const ix = {
+      guild: { members: { fetch: async () => null } },
+      options: { getUser: () => target, getString: () => null },
+      deferReply: async () => {},
+      editReply: async (p) => edits.push(p),
+    };
+    await wanted.execute(ix);
+    assert.equal(edits[0].files[0].name, 'wanted.png');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('911 files to the evidence locker and confirms privately', async () => {

@@ -97,6 +97,34 @@ test('logEnforcement sends an embed to the configured channel', async () => {
   clearEvidenceLocker(GUILD);
 });
 
+test('resolveLocker reports no-permission when the bot cannot post there', async () => {
+  const { PermissionFlagsBits } = await import('discord.js');
+  const channel = { send: async () => {} };
+  const guild = {
+    id: GUILD,
+    channels: { cache: new Map([['777', channel]]), fetch: async () => channel },
+    members: { me: {} },
+  };
+  channel.permissionsFor = () => ({ has: (f) => f !== PermissionFlagsBits.SendMessages });
+  setEvidenceLocker(GUILD, '777');
+  const r = await resolveLocker(guild);
+  assert.equal(r.reason, 'no-permission');
+  clearEvidenceLocker(GUILD);
+});
+
+test('logEnforcement reports send-failed when the channel send throws', async () => {
+  const channel = { send: async () => { throw new Error('boom'); } };
+  const guild = {
+    id: GUILD,
+    channels: { cache: new Map([['777', channel]]), fetch: async () => channel },
+    members: { me: {} },
+  };
+  setEvidenceLocker(GUILD, '777');
+  const r = await logEnforcement(guild, { type: 'citation', subject: 'x', officer: 'y', reason: 'z' });
+  assert.deepEqual(r, { delivered: false, reason: 'send-failed' });
+  clearEvidenceLocker(GUILD);
+});
+
 test('logEnforcement is a graceful no-op when no locker is configured', async () => {
   clearEvidenceLocker(GUILD);
   const result = await logEnforcement({ id: GUILD, channels: { cache: new Map() } }, {

@@ -64,17 +64,7 @@ export function pickBounty(seed) {
   return Math.round(raw / 50) * 50;
 }
 
-export function wantedEmbed({ displayName, crime, bounty, avatarURL = null }) {
-  const embed = {
-    title: '🚨  W A N T E D  🚨',
-    color: 0x2b2b2b,
-    description: `**${displayName}**\nWanted for: _${crime}_`,
-    fields: [{ name: 'Bounty', value: `🍩 ${bounty} donuts`, inline: true }],
-    footer: { text: 'If seen, notify the nearest officer. Approach with snacks.' },
-  };
-  if (avatarURL) embed.thumbnail = { url: avatarURL };
-  return embed;
-}
+// The WANTED poster itself is rendered as an image in lib/poster.js.
 
 // --- /donut ------------------------------------------------------------------
 

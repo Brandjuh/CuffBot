@@ -25,6 +25,7 @@ export default {
         .setDescription('Penalty text (default: PAY UP IN DONUTS)')
         .setMaxLength(100),
     ),
+  textGreedyArg: 'reason',
   async execute(interaction) {
     const target = interaction.options.getUser('target', true);
     if (target.id === interaction.client.user.id) {
@@ -49,6 +50,9 @@ export default {
     await interaction.reply({
       content: `🎟️ ${interaction.user} slapped ${target} with a citation — all in good fun. Reason: ${reason}`,
       files: [new AttachmentBuilder(gif, { name: 'citation.gif' })],
+      // /fine is available to everyone and echoes user text — restrict pings to
+      // the two people named, so it can't be used to mass-ping @everyone/roles.
+      allowedMentions: { users: [interaction.user.id, target.id] },
     });
   },
 };

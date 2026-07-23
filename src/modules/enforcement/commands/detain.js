@@ -29,6 +29,7 @@ export default {
     .addStringOption((option) =>
       option.setName('reason').setDescription('Why (lands in the audit log)').setMaxLength(400),
     ),
+  textGreedyArg: 'reason',
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ModerateMembers, 'Moderate Members'))) return;
     const target = interaction.options.getUser('target', true);
@@ -80,9 +81,10 @@ export default {
       logger.warn('Records unavailable — detainment not filed:', error);
     }
 
-    await interaction.reply(
-      `🚔 ${target} detained in the holding cell for **${formatDuration(ms)}** (timeout)${caseNumber ? ` — Case #${caseNumber}` : ''}. Reason: ${reason ?? 'No reason given'}`,
-    );
+    await interaction.reply({
+      content: `🚔 ${target} detained in the holding cell for **${formatDuration(ms)}** (timeout)${caseNumber ? ` — Case #${caseNumber}` : ''}. Reason: ${reason ?? 'No reason given'}`,
+      allowedMentions: { users: [target.id] },
+    });
 
     try {
       await logEnforcement(interaction.guild, {

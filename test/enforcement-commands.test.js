@@ -135,6 +135,26 @@ test('fine: cannot fine the bot', async () => {
   assert.match(ix.replies[0].content, /cannot fine the police/i);
 });
 
+test('cite: refuses to cite yourself (Internal Affairs)', async () => {
+  const officer = fakeUser('111000000000000111', 'officer');
+  const ix = fakeInteraction({ perms: [MOD], target: officer, options: { reason: 'x' } });
+  // make the invoking user the same as the target
+  ix.user = officer;
+  await cite.execute(ix);
+  assert.match(ix.replies[0].content, /against yourself/i);
+});
+
+test('detain: replies specifically when the target is not in the precinct', async () => {
+  const ix = fakeInteraction({
+    perms: [MOD],
+    target: fakeUser('2', 'ghost'),
+    options: { duration: '10m' },
+    member: null, // fetchMember returns null → not a member
+  });
+  await detain.execute(ix);
+  assert.match(ix.replies[0].content, /not in the precinct/i);
+});
+
 test('detain: rejects nonsense durations with guidance', async () => {
   const ix = fakeInteraction({
     perms: [MOD],

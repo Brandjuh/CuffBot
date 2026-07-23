@@ -24,7 +24,7 @@ Builds an embed with the member's current **rank** (via academy's `currentRank`)
 
 ### /wanted
 
-A gag WANTED poster (embed with the member's avatar, a "crime", and a donut bounty). The crime and bounty are **deterministic per target** unless you pass a custom `crime`. Pure fun — changes nothing.
+Renders a **real WANTED poster image** (`wanted.png`) with the member's **profile picture composited into the center** — headline, DEAD OR ALIVE, framed photo, name, crime, and a donut reward. The crime and bounty are **deterministic per target** unless you pass a custom `crime`. Pure fun — changes nothing. If the avatar can't be fetched/decoded, the poster still renders with a NO PHOTO placeholder. The poster is drawn in pure JS (own PNG decoder + encoder + pixel font), so it needs no native image libraries and runs on the Pi.
 
 ### /donut
 
@@ -62,9 +62,11 @@ None of its own. Reads the evidence-locker channel (dispatch config) for `/911`.
 | Path | Role |
 |---|---|
 | `src/modules/public-affairs/index.js` | Manifest |
-| `src/modules/public-affairs/lib/cards.js` | Pure: all embed builders + deterministic pickers |
+| `src/modules/public-affairs/lib/cards.js` | Pure: badge/report embeds + deterministic pickers |
+| `src/modules/public-affairs/lib/png-decode.js` | Pure: PNG decoder + avatar fetch + RGB resize |
+| `src/modules/public-affairs/lib/poster.js` | Pure: WANTED poster compositing (avatar + text) |
 | `src/modules/public-affairs/commands/{badge,wanted,donut,911}.js` | The four commands |
-| `test/public-affairs-cards.test.js`, `test/public-affairs-commands.test.js` | Coverage |
+| `test/public-affairs-cards.test.js`, `test/public-affairs-commands.test.js`, `test/wanted-poster.test.js` | Coverage |
 
 ## Testing
 

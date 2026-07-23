@@ -61,6 +61,9 @@ export async function loadModules(client) {
     }
 
     for (const event of mod.events) {
+      if (!event?.name || typeof event.execute !== 'function') {
+        throw new Error(`Module "${mod.name}" has an event without a name or execute function.`);
+      }
       const handler = (...args) => {
         Promise.resolve(event.execute(...args)).catch((error) =>
           logger.error(`Event ${event.name} handler failed:`, error),

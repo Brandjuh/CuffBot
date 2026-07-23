@@ -16,6 +16,9 @@ export default {
     .addBooleanOption((option) =>
       option.setName('anonymous').setDescription('Hide your name from the report (default: false)'),
     ),
+  // Text invocation: everything after the target is the reason; the optional
+  // `anonymous` flag is only claimed from the tail when it reads as true/false.
+  textGreedyArg: 'reason',
   async execute(interaction) {
     const target = interaction.options.getUser('target', true);
     const reason = interaction.options.getString('reason', true);
