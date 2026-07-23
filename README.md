@@ -37,6 +37,16 @@ Prerequisites: Node.js ≥ 18 and a Discord account that can add bots to the hom
 
 Something not working? Every module manual ends with a troubleshooting table — start with [`docs/modules/core.md`](docs/modules/core.md).
 
+### Run it on a Raspberry Pi (recommended for 24/7)
+
+One command — it installs Node, clones the repo, asks for your credentials, registers the commands, and sets up autostart via systemd:
+
+```bash
+git clone https://github.com/Brandjuh/CuffBot.git ~/CuffBot && bash ~/CuffBot/scripts/setup-pi.sh
+```
+
+Details, updating, and troubleshooting: [`docs/operations/raspberry-pi.md`](docs/operations/raspberry-pi.md).
+
 ## How this repo is built
 
 CuffBot is developed session-by-session by Claude using a **self-improving build skill** in [`.claude/skills/run-skill-generator/`](.claude/skills/run-skill-generator/SKILL.md). Every session follows the same loop — orient on state, *verify it against reality*, build, document, record, and improve the skill itself — so sessions hand off seamlessly and the system gets sharper as the project grows.

@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 1 · 2026-07-23
-**Phase:** M1 (bot core) complete → next up is M2 (enforcement)
+**Last updated:** Session 2 · 2026-07-23
+**Phase:** M1 (bot core) complete, Pi deployment script shipped early (part of M8) → next up is M2 (enforcement)
 
 ## Verification block — run this before trusting the rest
 
@@ -26,6 +26,8 @@
 - **Build system (M0):** the `run-skill-generator` skill (SKILL.md, 4 references, CHANGELOG, LEARNINGS, evals with graded expectations) plus `CLAUDE.md`, this file, `SESSION_LOG.md`, `ROADMAP.md`, `docs/README.md`, `.gitignore`, root `README.md`. Skill loads and is invocable as `/run-skill-generator` (confirmed in-session S1).
 - **Bot core (M1):** `package.json` (ESM, discord.js ^14.27.0 installed, scripts `start`/`test`/`deploy-commands`), `src/index.js` (fail-fast config, interaction router with themed error handling), `src/core/{config,logger,loader}.js`, `src/deploy-commands.js` (guild-scoped registration), module `core` (`/radio-check`, on-duty sweep, guild lockdown, pure `lib/` logic), `test/` 11 tests green, `.env.example`, `config.json` with `homeGuildId`, manual `docs/modules/core.md`, README Quickstart.
 - **Product decision:** CuffBot is a **single-guild bot**. Home precinct: `411157175948541954` (`config.json → homeGuildId`). The bot leaves any other guild (live join + boot sweep).
+- **Deployment (S2, pulled forward from M8):** `scripts/setup-pi.sh` — idempotent Raspberry Pi installer (NodeSource Node 22, clone/update, `.env` prompt, tests, guild-scoped command registration, systemd service `cuffbot`) + runbook `docs/operations/raspberry-pi.md`. Verified with `bash -n` and review only — **not yet run on real Pi hardware**; owner is the first live test.
+- **Deployment target (owner fact, S2):** a Raspberry Pi. Repo is **private** → cloning from the Pi needs a GitHub Personal Access Token (documented in the runbook).
 - **Not yet possible here:** live Discord login (owner holds the token). Owner-facing steps live in README → Quickstart and the manual's live-test checklist.
 
 ## Resume point
