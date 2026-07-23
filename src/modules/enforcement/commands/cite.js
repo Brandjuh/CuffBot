@@ -31,6 +31,9 @@ export default {
         .setDescription('Penalty text on the ticket (default: OFFICIAL WARNING)')
         .setMaxLength(100),
     ),
+  // Text invocation: everything after the target is the reason (penalty is
+  // slash-only, since two free-text fields can't be split positionally).
+  textGreedyArg: 'reason',
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ModerateMembers, 'Moderate Members'))) return;
     const target = interaction.options.getUser('target', true);
@@ -67,6 +70,8 @@ export default {
     await interaction.reply({
       content: `📋 Citation issued to ${target}${caseNumber ? ` (Case #${caseNumber})` : ''}. Reason: ${reason}`,
       files: [new AttachmentBuilder(gif, { name: 'citation.gif' })],
+      // Reason is user text — only let the target ping, never @everyone/roles.
+      allowedMentions: { users: [target.id] },
     });
 
     // Best-effort DM copy — closed DMs are common and not an error.

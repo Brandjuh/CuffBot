@@ -35,6 +35,23 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
   Module `public-affairs`: `/badge` (member card: join date, rank, record count), `/wanted` (playful poster embed), `/donut` (fun), `/911` (report to the force → evidence locker).
   *Accept when:* commands work without privileged intents where possible; `/911` respects anonymity choice; manual complete.
 
-- [ ] **M8 — Deployment & operations** 🚀 *(large slices delivered early: S2 Pi installer + runbook, S5 doctor, S7 test-gated self-update timer)*
-  Remaining: `data/` backup note (once M3 exists), token rotation runbook polish, troubleshooting FAQ sweep.
+- [x] **M8 — Deployment & operations** 🚀 *(large slices delivered early: S2 Pi installer + runbook, S5 doctor, S7 test-gated self-update timer; S15 backup/rotation docs + final audit)*
+  Remaining: token rotation runbook polish, troubleshooting FAQ sweep.
   *Accept when:* a competent non-expert can take the repo to a live bot using `docs/` alone; ops runbook reviewed against `discord-reference.md → Token hygiene`.
+
+---
+
+## Backlog — owner feature requests (M9+, not yet scheduled)
+
+Captured from the owner; each becomes its own milestone (build + tests + manual + state) when scheduled. Several are independent and could be reordered.
+
+- [ ] **M9 — AI conversation** 🤖 — let members talk to the bot. **Blocked on a decision:** which AI provider/cost (see the owner question — "free ChatGPT" is not a real production API; realistic options are a paid API, a free-tier API with limits, or none). Design: a `/ask` command and/or replies when mentioned; an API-key config; rate limits; safety. Depends on the provider choice.
+- [ ] **M10 — Birthdays** 🎂 — members set their birthday + timezone (`/birthday set`); the bot announces on the day in the configured timezone. Store per-guild; a daily scheduler (the self-update timer pattern, or a `node` interval) checks due birthdays.
+- [ ] **M11 — Police trivia** ❓ — `/trivia` game with a question bank (police-themed), scoring; built so more trivia sets can be added later (data-driven question files).
+- [ ] **M12 — Fallen tracker** 🕯️ — poll RSS feeds and post new entries, tagging a role:
+  - Fallen firefighters: `https://www.firehero.org/feed/` → role `627943529544417300`
+  - Fallen officers: `https://www.odmp.org/feed` → role `451095508560379934`
+  - Needs an RSS fetch+parse (pure, testable), a "seen" store to avoid reposts, a target channel, and a polling scheduler.
+- [ ] **M13 — Starboard** ⭐ — react with X ⭐ on a message → it's reposted to a starboard/"reminder" channel. Configurable threshold + channel; store which messages were already boarded.
+- [ ] **M14 — Goal tracker** 🎯 — track goals/progress (scope to define with the owner).
+- [ ] **M15 — Chat starter** 💬 — after X minutes of channel inactivity, post an open-ended question. List-based question bank (optionally AI-generated if M9 lands).

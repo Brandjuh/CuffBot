@@ -52,6 +52,10 @@ Entry format:
 - Evidence: S3 rebuilt the store API from scratch because conventions were undocumented (retro Q5).
 ```
 
+## Before declaring a milestone or the base "done": adversarially audit
+
+Your own unit tests share your own blind spots — they pass precisely because they encode the behavior you *intended*, including your mistakes. Before calling a milestone (or the whole base) finished, run an **independent adversarial review** across dimensions (correctness, security, cross-module seams, consistency, docs-vs-reality, test gaps), and **verify each finding against the code** before acting on it. Evidence this earns its place: the S15 audit caught a HIGH-severity parser bug (a "documented limitation" that silently truncated a moderator's multi-word reason and filed the corrupted text into the permanent rap sheet) that ~150 author-written tests had sailed past — because the same author wrote the parser, its tests, and the comment excusing the behavior. A "documented limitation" that silently corrupts persistent data is a bug, not a limitation. Treat a green suite as necessary, not sufficient.
+
 ## Keeping the evals honest
 
 `evals/evals.json` holds prompts that test whether this skill actually helps (bootstrap work, and continuing from state that contains deliberate drift). After a significant skill change, or when the project enters a new kind of work (first stateful module, first deployment), add or update an eval prompt. When asked to evaluate the skill, run the prompts with and without the skill in separate worktrees/copies and compare against the assertions — never test in the real repo.

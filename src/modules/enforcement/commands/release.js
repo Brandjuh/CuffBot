@@ -46,6 +46,7 @@ export default {
     .addStringOption((option) =>
       option.setName('reason').setDescription('Why (lands in the audit log)').setMaxLength(400),
     ),
+  textGreedyArg: 'reason',
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ModerateMembers, 'Moderate Members'))) return;
     const target = interaction.options.getUser('target', true);

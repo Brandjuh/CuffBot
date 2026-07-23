@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 14 · 2026-07-23
-**Phase:** M7 (public affairs) complete — all feature modules M1–M7 done → next up is M8 finish + final audit
+**Last updated:** Session 15 · 2026-07-23
+**Phase:** M1–M8 complete + final audit done. **The base is finished.** Next: owner backlog (M9+), pending two decisions (AI provider; academy XP/VC-time).
 
 ## Verification block — run this before trusting the rest
 
@@ -16,16 +16,17 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 143/143 pass as of S14 |
+| Tests green | `npm test` | 165/165 pass as of S15 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'core', 'dispatch', 'enforcement', 'patrol', 'public-affairs', 'records' ]` |
 | Manuals current | `ls docs/modules/` | academy, core, dispatch, enforcement, patrol, public-affairs, records |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 14 · 2026-07-23)
+## What exists (verified Session 15 · 2026-07-23)
 
 - **Dual invocation (S9):** every command runs as `/x` AND `!x` (`src/core/prefix/` — parser, adapter, router; ephemeral→DM). `/help` (generated roster) and `/update` (manual, admin-only, test-gated) added to core. Message Content intent enabled with graceful slash-only fallback (`client.messageContentAvailable`); `config.json → prefix`. Text commands + patrol need that intent (portal enablement).
+- **Finalization (S15):** real `/wanted` poster image (member avatar composited via a pure-JS PNG **decoder** + poster renderer; graceful NO-PHOTO fallback). Final adversarial audit (workflow, 6 dimensions, each finding verified) → fixed a HIGH-severity prefix-parser bug (multi-word `!cite`/`!fine`/`!arrest`/`!911` reasons; now per-command `textGreedyArg` + tail-binding), mention-injection hardening (allowedMentions on reason-echoing replies), loader event validation, channel-aware prefix permissions, doc corrections. M8 ops docs (backup/rotation). Skill 0.4.0.
 - **Public Affairs (M7, S14):** module `public-affairs` — `/badge` (rank via academy `currentRank`, record count via records `recordsFor`, join date; graceful fallbacks), `/wanted` (playful poster embed, deterministic crime/bounty), `/donut` (fun), `/911` (report to the evidence locker via dispatch `sendToEvidenceLocker`; **anonymity option**, ephemeral confirm). `lib/cards.js` pure. No privileged intents. Manual `public-affairs.md`.
 - **Patrol (M6, S13):** module `patrol` — automod. `lib/screen.js` (pure) screens for banned terms (evasion-aware normalization: leet/spacing/diacritics → substring), invite links, and spam (mention flood / char runs). `MessageCreate` handler gated on `client.messageContentAvailable`, mod-exempt, home-guild only; on a hit deletes + DMs + files a record + logs to the evidence locker (cross-module seams). `/patrol` (on/off/status), `/patrol-rule`, `/patrol-term`. Off by default; config in store `patrolConfig`. False-positive story documented. Needs Message Content intent. Manual `patrol.md`.
 - **Academy (M5, S12):** module `academy` — adopts the **server's own rank roles** (not a fixed police ladder). `lib/ladder.js` (pure) detects ranks from roles under a `[LEVELER]`-style header, highest-first, minus managed/@everyone/excluded, stopping at the next divider; `planPromotion`/`planDemotion` normalize to one rank role. `/promote`, `/demote` (to: role option), `/ranks`, `/rank-setup` (header), `/rank-exclude`. Config in store `academyConfig={headerRoleId,excludedRoleIds}`; ladder recomputed live. `currentRank` exported for /badge (M7). Manual `academy.md`.
@@ -38,16 +39,16 @@
 - **Enforcement (M2, S7; animated S10):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`. **S10:** `/cite` emits an animated GIF (prints out of a slot) via a zero-dependency GIF89a encoder (`lib/gif.js`); added the public for-fun `/fine` (no perms, no records).
 - **Deployment/ops (M8 slices):** `scripts/setup-pi.sh` (8 steps incl. invite gate and self-update arming), `scripts/update.sh` (fetch → ff → npm install → **test gate** → deploy-commands → restart; rollback on red — proven in a clone-pair simulation incl. failure path and exit codes), runbook `docs/operations/raspberry-pi.md`.
 - **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated.
-- **Tests:** 143 via `node:test` — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution), help, enforcement lib + GIF, academy ladder + commands, dispatch, patrol screen/event/commands, and command smokes with fake interactions.
+- **Tests:** 165 via `node:test` — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution), help, enforcement lib + GIF, academy ladder + commands, dispatch, patrol screen/event/commands, and command smokes with fake interactions.
 
 ## Resume point
 
-**Session 15 → M8 finish + final adversarial audit.**
+**The base (M1–M8) is complete: 7 modules, 24 commands, 165 tests, dual invocation, self-update, audited.** Next work is the owner's backlog in `ROADMAP.md` → "Backlog", which needs two decisions before building:
 
-1. M8 remainder: `data/` backup note (now that records/store exist), token-rotation runbook polish, a troubleshooting-FAQ sweep across manuals. Verify the ops runbook against `discord-reference.md → Token hygiene`.
-2. Run a final **audit workflow** (adversarial review across the whole codebase: correctness, security, cross-module seams, theme/English consistency, doc/reality drift, test coverage). Verify findings; fix the real ones; log what was dropped.
-3. Update the skill retrospective (promote any twice-confirmed LEARNINGS candidates), STATE, SESSION_LOG. Tick M8.
-4. All feature modules (M1–M7) are complete: 7 modules, 24 commands, dual invocation, self-update. The base is done; M8 closes it out.
+1. **Academy XP / VC-time (owner asked S15):** CuffBot currently does NOT compute rank progression — it adopts the existing leveler bot's roles and only does manual `/promote`/`/demote`. The owner wants an XP system where **voice-channel time counts** toward automatic ranking. This is a new milestone (message XP + voice XP → thresholds → auto-assign rank roles). Decide with the owner: replace or run alongside the existing leveler? XP rates (per message, per VC-minute)? Thresholds per rank? Needs `GuildVoiceStates` intent + a voice-session tracker + a scheduler.
+2. **AI conversation (owner asked S15):** "free ChatGPT" is not a real production API — decide provider/cost (paid API, free-tier API with limits, or skip). Blocks M9 and the AI variant of M15 (chat starter).
+
+Everything else in the backlog (birthdays, trivia, fallen tracker with the given RSS feeds + role ids, starboard, goal tracker) is buildable without external decisions when scheduled.
 
 
 ## Open problems / blockers

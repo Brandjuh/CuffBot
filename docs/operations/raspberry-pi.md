@@ -62,7 +62,8 @@ Every command also works as `!command` (e.g. `!help`, `!cite @user spam`). This 
 | Restart | `sudo systemctl restart cuffbot` |
 | Stop / disable autostart | `sudo systemctl stop cuffbot` / `sudo systemctl disable cuffbot` |
 | Update immediately (manual) | `bash ~/CuffBot/scripts/update.sh` (or re-run the setup script) |
-| Rotate the token | Reset in the Developer Portal → edit `~/CuffBot/.env` → `sudo systemctl restart cuffbot` |
+| Rotate the token | See [`backup-and-recovery.md`](backup-and-recovery.md) → Rotating the bot token |
+| Back up member data | See [`backup-and-recovery.md`](backup-and-recovery.md) — `data/` is the only Pi-only state |
 
 ## Troubleshooting
 

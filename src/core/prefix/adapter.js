@@ -35,7 +35,7 @@ const OPTION_TYPE = { USER: 6, CHANNEL: 7, ROLE: 8 };
 
 export async function createMessageInteraction(message, command, parsed) {
   const optionDefs = command.data.toJSON().options ?? [];
-  const { values, userIds: refIds, errors } = assignOptions(optionDefs, parsed);
+  const { values, userIds: refIds, errors } = assignOptions(optionDefs, parsed, command.textGreedyArg ?? null);
   const typeByName = Object.fromEntries(optionDefs.map((o) => [o.name, o.type]));
 
   // Resolve user/role/channel ids to objects (async), by option type, preferring
@@ -91,7 +91,10 @@ export async function createMessageInteraction(message, command, parsed) {
     guildId: message.guildId,
     channel: message.channel,
     client: message.client,
-    memberPermissions: message.member?.permissions ?? null,
+    // Channel-aware, like a slash interaction's memberPermissions — so a
+    // per-channel permission overwrite is honored, not just the guild-level role.
+    memberPermissions:
+      message.channel?.permissionsFor?.(message.member) ?? message.member?.permissions ?? null,
     createdTimestamp: message.createdTimestamp,
     commandName: command.data.name,
     replied: false,

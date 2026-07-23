@@ -348,3 +348,25 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** No change this session; will consolidate LEARNINGS in the M8 retrospective.
 
 **Handoff:** All feature modules M1–M7 done. Next session: M8 finish (backup note, rotation runbook, FAQ sweep) + a final adversarial **audit workflow** across the codebase, then close out. Owner live checklist for M7 is in `public-affairs.md → Testing`.
+
+## Session 15 — 2026-07-23
+
+**Goal:** Finish the base: owner's real `/wanted` poster request, M8 ops docs, and a final adversarial audit of the whole codebase.
+
+**Done:**
+- **Real `/wanted` poster:** pure-JS PNG **decoder** (`png-decode.js`, node:zlib, filters 0–4, color types 0/2/3/4/6, alpha-over-white) + `poster.js` compositing the member's avatar into a WANTED poster image (headline, framed photo, name, crime, reward); `/wanted` fetches the avatar as PNG, decodes, renders; graceful NO-PHOTO fallback. Decoder proven by round-trip against our own encoder; poster visually verified.
+- **M8 ops docs:** `backup-and-recovery.md` (backing up gitignored `data/`, restore, corrupt-file recovery, token rotation via the doctor, moving Pi); README feature overview; docs index Operations section. M8 ticked.
+- **Final audit** (Workflow: 6 dimensions × review → adversarial verify): 17 confirmed findings. **Fixed:** the HIGH-severity prefix-parser bug — multi-word `!cite`/`!fine` reasons were silently truncated into `penalty` (corrupting permanent records) and `!arrest`/`!911` reasons were rejected — via per-command `textGreedyArg` + tail-binding of trailing options (regression-tested). Mention-injection hardening (`allowedMentions` on reason-echoing replies). Loader now validates events. Prefix permission checks are channel-aware. Doc corrections (release perms, core Files table). Added the audit's missing-coverage tests (config prefix, dispatch failure paths, adapter DM fallback, academy bot-perms, self-target, detain-not-member, update gate).
+- Tests 165/165. Skill 0.4.0 (adversarial-audit-before-done practice + two promoted LEARNINGS).
+
+**Decisions:**
+- Zero-dependency PNG decoder (matches the encoder/GIF ethos) so the avatar poster runs on the Pi.
+- Parser: per-command `textGreedyArg` names the free-text field; options after it bind from the tail, optional non-strings only when the tail token fits their type, optional trailing strings stay slash-only. This is the general fix for `reason`-before-optional shapes without breaking `duration`-before-`reason`.
+
+**Corrections:** The audit caught my own bug and my own excusing comment. The "trailing-string-greedy" rule I introduced in S12 (and documented as a mere limitation) was in fact corrupting rap-sheet data on `main`. Fixed and shipped; the lesson is promoted into the skill.
+
+**Learned:** Author-written tests share the author's blind spots — a green suite is necessary, not sufficient. An independent adversarial audit is now part of the protocol before declaring a milestone/base done.
+
+**Skill:** 0.4.0 — see its CHANGELOG.
+
+**Handoff:** The base is complete and audited. Two owner questions are open and recorded in `STATE.md → Resume point`: (1) academy XP/VC-time system, (2) AI provider/cost. The rest of the backlog (M10–M14) is buildable on request. I'll ask the owner about these two before building M9/the XP system.

@@ -37,6 +37,7 @@ export default {
         .setDescription('How much recent message history to remove')
         .addChoices(...WIPE_CHOICES),
     ),
+  textGreedyArg: 'reason',
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.BanMembers, 'Ban Members'))) return;
     const target = interaction.options.getUser('target', true);
@@ -83,9 +84,10 @@ export default {
       ? WIPE_CHOICES.find((c) => c.value === deleteMessageSeconds)?.name.replace('Wipe last ', 'last ') ?? ''
       : '';
     const wipeNote = wipeLabel ? ` Message history wiped: ${wipeLabel}.` : '';
-    await interaction.reply(
-      `🚨 ${target} has been **arrested** (banned)${caseNumber ? ` — Case #${caseNumber}` : ''}. Reason: ${reason ?? 'No reason given'}.${wipeNote}`,
-    );
+    await interaction.reply({
+      content: `🚨 ${target} has been **arrested** (banned)${caseNumber ? ` — Case #${caseNumber}` : ''}. Reason: ${reason ?? 'No reason given'}.${wipeNote}`,
+      allowedMentions: { users: [target.id] },
+    });
 
     try {
       await logEnforcement(interaction.guild, {

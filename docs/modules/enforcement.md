@@ -18,7 +18,7 @@ Concept credit for the ticket: the `citation` cog in TrustyJAID/Trusty-cogs (ori
 | `/cite` | Issues a citation: posts an **animated** ticket (prints out of a slot) + DMs a copy + files a record | `target`, `reason` (required), `penalty` | Moderate Members | `/cite target:@user reason:spam` |
 | `/fine` | The **for-fun** citation anyone can issue — same animated ticket, no permissions, no record, no consequences | `target`, `reason` (required), `penalty` | Everyone | `/fine target:@friend reason:excessive donuts` |
 | `/detain` | Timeout ("holding cell") | `target`, `duration` (required), `reason` | Moderate Members | `/detain target:@user duration:2h` |
-| `/release` | Lifts a timeout, or lifts a ban | `target`, `reason` | Moderate Members (timeout) / Ban Members (ban) | `/release target:@user` |
+| `/release` | Lifts a timeout, or lifts a ban | `target`, `reason` | Moderate Members (unban **also** needs Ban Members) | `/release target:@user` |
 | `/arrest` | Ban, with optional message wipe | `target`, `reason`, `wipe` | Ban Members | `/arrest target:@user wipe:Wipe last 24 hours` |
 
 ### /cite
@@ -43,7 +43,7 @@ Concept credit for the ticket: the `citation` cog in TrustyJAID/Trusty-cogs (ori
 
 ### /release
 
-- **What happens:** if the member has an active timeout → lifts it (Moderate Members). Otherwise, if the user is banned → unbans (**requires Ban Members** — lifting a ban is a bigger power). Otherwise says there is nothing to release.
+- **What happens:** the command itself requires **Moderate Members** to invoke. If the member has an active timeout → lifts it. Otherwise, if the user is banned → unbans, which **additionally requires Ban Members** (lifting a ban is a bigger power, so it needs both). Otherwise says there is nothing to release.
 - **Reply:** public on success; ephemeral and specific otherwise.
 
 ### /arrest
