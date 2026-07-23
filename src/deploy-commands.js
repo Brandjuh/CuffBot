@@ -29,8 +29,8 @@ try {
     console.error('   Invite it first (you need Manage Server in that guild), then re-run:');
     console.error(`   ${inviteUrl}\n`);
   } else if (status === 401) {
-    console.error('\n❌ Unauthorized: DISCORD_TOKEN is wrong or has been reset.');
-    console.error('   Use the BOT token (Developer Portal → Bot → Reset Token) — not the OAuth2 Client Secret — and update .env.\n');
+    console.error('\n❌ Unauthorized: Discord rejects DISCORD_TOKEN (or it does not belong to CLIENT_ID).');
+    console.error('   Run `npm run doctor` — it verifies the token against Discord and names the exact problem.\n');
   } else if (apiCode === 10002) {
     console.error('\n❌ Unknown application: CLIENT_ID does not match an application.');
     console.error('   Use the Application ID from Developer Portal → General Information, and update .env.\n');

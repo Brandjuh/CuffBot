@@ -122,3 +122,22 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** No SKILL.md change; LEARNINGS candidate added: error paths must name the most-likely real-world cause first, verified against a live failure, not just the cause the developer thought of.
 
 **Handoff:** Owner: re-run the script after checking the printed cause. Next build session: M2 (enforcement) per `STATE.md → Resume point`. Eval runs still pending.
+
+## Session 5 — 2026-07-23
+
+**Goal:** Owner's Pi run keeps failing with 401 while they are certain the credentials are right. Stop instructing, start measuring: ship a doctor command that verifies credentials against Discord itself.
+
+**Done:**
+- `src/core/diagnostics.js` (pure, tested): raw-secret defect analysis (quotes, whitespace, CR), masked token fingerprint, offline bot-id decode from the token's first segment.
+- `src/doctor.js` + `npm run doctor`: inspects the raw `.env` (defects that survive env parsing), shows what the bot actually sees, then asks Discord: `GET /users/@me` (is the token valid, whose is it) and `GET /oauth2/applications/@me` (which application owns it — compared against `CLIENT_ID`, catching the mixed-two-applications case). Named verdict + fix per failure; exit 1 on problems (verified).
+- deploy-commands' 401 branch now routes to the doctor; runbook and core manual troubleshooting updated. Tests 15/15.
+
+**Decisions:** The doctor reports, never auto-fixes `.env` — the owner must fix the file or the bot would still read the broken value. 403 on `/users/@me` is called out as a proxy artifact (seen in this container; the Pi talks to Discord directly).
+
+**Corrections:** None in repo state.
+
+**Learned:** A dry run here surfaced that this container's egress proxy intercepts discord.com (403) — the doctor can only be truth-tested live by the owner; its non-network paths are unit-tested.
+
+**Skill:** No SKILL.md change. LEARNINGS candidate: owner-operated projects need a `doctor` command early — "verify, never assume" applies to the owner's environment too, and a tool beats instructions after the first "I am 100% sure".
+
+**Handoff:** Owner: `cd ~/CuffBot && git pull && npm run doctor`, fix what it names, re-run the setup script. Next build session: M2 (enforcement). Eval runs still pending.
