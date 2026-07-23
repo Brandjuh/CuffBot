@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MessageFlags } from 'discord.js';
 import detain from '../src/modules/enforcement/commands/detain.js';
+import rankExclude from '../src/modules/academy/commands/rank-exclude.js';
 import { createMessageInteraction } from '../src/core/prefix/adapter.js';
 import { parseCommandLine } from '../src/core/prefix/parse.js';
 
@@ -80,4 +81,15 @@ test('adapter reply supports withResponse (for /radio-check style latency)', asy
   const { interaction } = await createMessageInteraction(message, detain, parsed);
   const res = await interaction.reply({ content: '📻', withResponse: true });
   assert.ok(res.resource.message, 'withResponse returns a resource.message');
+});
+
+test('adapter resolves a role option from a mention (non-trailing)', async () => {
+  const { message } = fakeMessage('!rank-exclude <@&555000000000000555> add');
+  const role = { id: '555000000000000555', name: 'DJ' };
+  message.guild.roles = { cache: new Map([[role.id, role]]), fetch: async () => role };
+  const parsed = parseCommandLine(message.content, '!');
+  const { errors, interaction } = await createMessageInteraction(message, rankExclude, parsed);
+  assert.deepEqual(errors, []);
+  assert.equal(interaction.options.getRole('role', true).id, role.id);
+  assert.equal(interaction.options.getString('action'), 'add');
 });

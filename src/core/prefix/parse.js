@@ -46,10 +46,10 @@ export function parseCommandLine(content, prefix) {
   return { name, argString, tokens: tokenize(argString) };
 }
 
-/** Extract a user id from a mention (<@id> / <@!id>) or a raw snowflake. */
+/** Extract an id from a user/role/channel mention or a raw snowflake. */
 export function extractId(token) {
   if (typeof token !== 'string') return null;
-  const mention = token.match(/^<@[!&]?(\d{17,20})>$/);
+  const mention = token.match(/^<(?:@[!&]?|#)(\d{17,20})>$/); // <@id> <@!id> <@&id> <#id>
   if (mention) return mention[1];
   return /^\d{17,20}$/.test(token) ? token : null;
 }
@@ -77,10 +77,12 @@ export function assignOptions(optionDefs, parsed) {
   const userIds = {};
   const errors = [];
 
-  let lastStringIndex = -1;
-  defs.forEach((def, i) => {
-    if (def.type === OPTION_TYPE.STRING) lastStringIndex = i;
-  });
+  // Only a TRAILING string option is greedy (takes the rest of the line). If a
+  // non-string option follows it, the string must stay single-token so the
+  // later option still gets its token — otherwise e.g. "!rank-link Chief @role"
+  // would let `rank` swallow the role mention.
+  const lastIdx = defs.length - 1;
+  const greedyStringIndex = lastIdx >= 0 && defs[lastIdx].type === OPTION_TYPE.STRING ? lastIdx : -1;
 
   let cursor = 0;
   const missing = (def) => {
@@ -126,7 +128,7 @@ export function assignOptions(optionDefs, parsed) {
         break;
       }
       case OPTION_TYPE.STRING: {
-        if (i === lastStringIndex) {
+        if (i === greedyStringIndex) {
           const rest = tokens.slice(cursor);
           if (rest.length === 0) return missing(def);
           values[def.name] = rest.join(' ');

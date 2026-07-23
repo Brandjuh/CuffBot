@@ -31,17 +31,36 @@ function forChannel(payload) {
  * Resolve the parsed option ids into Discord objects and build the interaction.
  * @returns {Promise<{ errors: string[], interaction: object|null }>}
  */
+const OPTION_TYPE = { USER: 6, CHANNEL: 7, ROLE: 8 };
+
 export async function createMessageInteraction(message, command, parsed) {
   const optionDefs = command.data.toJSON().options ?? [];
-  const { values, userIds, errors } = assignOptions(optionDefs, parsed);
+  const { values, userIds: refIds, errors } = assignOptions(optionDefs, parsed);
+  const typeByName = Object.fromEntries(optionDefs.map((o) => [o.name, o.type]));
 
-  // Resolve user/channel/role ids to objects (async), preferring cached mentions.
+  // Resolve user/role/channel ids to objects (async), by option type, preferring
+  // cached mentions/entities.
   const users = {};
-  for (const [name, id] of Object.entries(userIds)) {
-    let user = message.mentions?.users?.get(id) ?? null;
-    if (!user) user = await message.client.users.fetch(id).catch(() => null);
-    if (!user) errors.push(`could not find user for \`${name}\``);
-    else users[name] = user;
+  const roles = {};
+  const channels = {};
+  for (const [name, id] of Object.entries(refIds)) {
+    const type = typeByName[name];
+    if (type === OPTION_TYPE.ROLE) {
+      let role = message.guild?.roles?.cache?.get(id) ?? null;
+      if (!role) role = await message.guild?.roles?.fetch(id).catch(() => null);
+      if (!role) errors.push(`could not find role for \`${name}\``);
+      else roles[name] = role;
+    } else if (type === OPTION_TYPE.CHANNEL) {
+      let channel = message.guild?.channels?.cache?.get(id) ?? null;
+      if (!channel) channel = await message.guild?.channels?.fetch(id).catch(() => null);
+      if (!channel) errors.push(`could not find channel for \`${name}\``);
+      else channels[name] = channel;
+    } else {
+      let user = message.mentions?.users?.get(id) ?? null;
+      if (!user) user = await message.client.users.fetch(id).catch(() => null);
+      if (!user) errors.push(`could not find user for \`${name}\``);
+      else users[name] = user;
+    }
   }
 
   if (errors.length > 0) {
@@ -90,6 +109,16 @@ export async function createMessageInteraction(message, command, parsed) {
         const v = values[name] ?? null;
         if (v == null && required) throw new Error(`missing string option ${name}`);
         return v;
+      },
+      getRole: (name, required = false) => {
+        const r = roles[name] ?? null;
+        if (!r && required) throw new Error(`missing role option ${name}`);
+        return r;
+      },
+      getChannel: (name, required = false) => {
+        const c = channels[name] ?? null;
+        if (!c && required) throw new Error(`missing channel option ${name}`);
+        return c;
       },
       getInteger: (name) => (name in values ? values[name] : null),
       getNumber: (name) => (name in values ? values[name] : null),
