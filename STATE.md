@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 11/11 pass as of S1 |
+| Tests green | `npm test` | 15/15 pass as of S5 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'core' ]` |
 | Manuals current | `ls docs/modules/` | `core.md` |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
