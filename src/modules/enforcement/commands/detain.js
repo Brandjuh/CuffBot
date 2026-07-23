@@ -7,6 +7,8 @@ import {
   fetchMember,
   replyHierarchyBlocked,
 } from '../guards.js';
+import { addRecord } from '../../records/lib/api.js';
+import { logger } from '../../../core/logger.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -63,8 +65,22 @@ export default {
 
     const reason = interaction.options.getString('reason');
     await member.timeout(ms, auditReason(reason, interaction.user.username));
+
+    let caseNumber = null;
+    try {
+      caseNumber = addRecord(interaction.guild.id, {
+        type: 'detainment',
+        userId: target.id,
+        officerId: interaction.user.id,
+        reason,
+        meta: { durationMs: ms },
+      }).caseNumber;
+    } catch (error) {
+      logger.warn('Records unavailable — detainment not filed:', error);
+    }
+
     await interaction.reply(
-      `🚔 ${target} detained in the holding cell for **${formatDuration(ms)}** (timeout). Reason: ${reason ?? 'No reason given'}`,
+      `🚔 ${target} detained in the holding cell for **${formatDuration(ms)}** (timeout)${caseNumber ? ` — Case #${caseNumber}` : ''}. Reason: ${reason ?? 'No reason given'}`,
     );
   },
 };

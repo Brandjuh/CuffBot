@@ -7,7 +7,7 @@
 
 ## Purpose
 
-Enforcement is the precinct's arm of the law: it wraps Discord moderation in citation/arrest vocabulary. Citations are formal warnings delivered as **Papers-Please-style ticket images** (generated in pure JS — no native image libraries, so it runs on the Pi); detainment is a timeout, arrest is a ban, release lifts either. Infraction *storage* (the rap sheet) intentionally arrives in M3 — this module acts through Discord itself and leaves a trail in the guild audit log.
+Enforcement is the precinct's arm of the law: it wraps Discord moderation in citation/arrest vocabulary. Citations are formal warnings delivered as **Papers-Please-style ticket images** (generated in pure JS — no native image libraries, so it runs on the Pi); detainment is a timeout, arrest is a ban, release lifts either. Every action is also **filed on the rap sheet** (the records module, M3): the reply shows the case number. Records being unavailable never blocks an enforcement action — the reply just omits the case number and a warning is logged.
 
 Concept credit for the ticket: the `citation` cog in TrustyJAID/Trusty-cogs (originally commissioned by this project's owner), itself crediting gitlab.com/Saphire/citations. This implementation shares no code or assets with either.
 
@@ -65,6 +65,7 @@ None beyond the core module's settings — see `docs/modules/core.md → Configu
 
 1. Commands are thin: parse options → run guards → call the Discord API → reply. Shared guard logic lives in `guards.js` (invoker permission, sensible-target, member fetch, hierarchy reply).
 2. Pure logic lives in `lib/` with no discord.js imports: `duration.js` (parse/format, 28-day cap constant), `audit.js` (officer-embedded audit reasons), and the ticket pipeline — `pixel-font.js` (original 5×7 glyphs) → `citation-card.js` (layout, wrapping, barcode, palette) → `png.js` (zero-dependency PNG encoder over `node:zlib`).
+4. Each command files a record via the records module's `lib/api.js` (`addRecord`) — see `docs/modules/records.md`. The call is wrapped in try/catch so records trouble degrades the reply, never the action.
 3. The ticket renderer takes the date as an input (never reads the clock) so rendering is deterministic and snapshot-testable.
 
 ## Files
