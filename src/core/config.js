@@ -1,7 +1,8 @@
 // Configuration loading with fail-fast validation: a missing token should be
 // diagnosed in seconds at boot, not as a cryptic login error later.
-// Secrets come from the environment (.env via `node --env-file`); non-secret
-// product settings (the home guild) live in config.json and are committed.
+// Secrets come from the environment (.env, loaded in code by core/env.js —
+// callers run loadEnvFile() first); non-secret product settings (the home
+// guild) live in config.json and are committed.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

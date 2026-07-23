@@ -1,6 +1,6 @@
 // CuffBot doctor — verifies credentials against reality instead of guessing.
-// Run with: npm run doctor   (loads .env the same way the bot does, so what
-// the doctor sees is exactly what the bot sees).
+// Run with: npm run doctor   (loads .env through the same in-code loader the
+// bot uses, so what the doctor sees is exactly what the bot sees).
 //
 // Checks, in order:
 //   1. .env raw content: quotes / whitespace / Windows line endings per key
@@ -9,7 +9,10 @@
 //   4. Live: GET /oauth2/applications/@me → which application owns the token,
 //      and does that match CLIENT_ID (the id deploy-commands registers under)?
 import { existsSync, readFileSync } from 'node:fs';
+import { loadEnvFile } from './core/env.js';
 import { analyzeSecret, botIdFromToken, tokenFingerprint } from './core/diagnostics.js';
+
+loadEnvFile();
 
 const API = 'https://discord.com/api/v10';
 let failures = 0;
@@ -42,7 +45,7 @@ if (!existsSync('.env')) {
   }
 }
 
-// 2) what the bot actually sees after --env-file parsing
+// 2) what the bot actually sees after env loading
 console.log('\nParsed values (what the bot sees):');
 const token = process.env.DISCORD_TOKEN ?? '';
 const clientId = process.env.CLIENT_ID ?? '';

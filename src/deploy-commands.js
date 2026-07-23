@@ -2,9 +2,11 @@
 // precinct only. Guild-scoped registration is instant, and a one-precinct bot
 // has no reason to register commands globally.
 import { REST, Routes } from 'discord.js';
+import { loadEnvFile } from './core/env.js';
 import { loadConfig } from './core/config.js';
 import { discoverModules } from './core/loader.js';
 
+loadEnvFile();
 const config = loadConfig();
 const modules = await discoverModules();
 const commands = modules.flatMap((mod) => mod.commands.map((cmd) => cmd.data.toJSON()));

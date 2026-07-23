@@ -1,8 +1,10 @@
 import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+import { loadEnvFile } from './core/env.js';
 import { loadConfig } from './core/config.js';
 import { logger } from './core/logger.js';
 import { loadModules } from './core/loader.js';
 
+loadEnvFile();
 const config = loadConfig();
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });

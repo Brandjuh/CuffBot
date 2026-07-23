@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 5 · 2026-07-23
+**Last updated:** Session 6 · 2026-07-23
 **Phase:** M1 (bot core) complete, Pi deployment script shipped early (part of M8) → next up is M2 (enforcement)
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 15/15 pass as of S5 |
+| Tests green | `npm test` | 20/20 pass as of S6 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'core' ]` |
 | Manuals current | `ls docs/modules/` | `core.md` |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
@@ -48,6 +48,7 @@
 ## Environment facts (verified Session 0–1 · 2026-07-23)
 
 - Node v22.22.2, npm 10.9.7. npm registry reachable through the outbound proxy; `npm install` works (S1: 25 packages in ~8 s).
+- **Owner's Pi runs Node < 20.6** (S6: `--env-file` rejected). The repo therefore loads `.env` in code (`src/core/env.js`) — never reintroduce version-gated runtime flags while `engines` says `>=18`.
 - Python 3.11.15 available (used by skill tooling, not by the bot).
 - Sessions run in an **ephemeral container** — unpushed work is destroyed. Push every session.
 - No `gh` CLI; GitHub operations go through the GitHub MCP tools. PR #1 (M0+M1+Pi script) was merged by the owner on 2026-07-23.

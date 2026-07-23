@@ -50,7 +50,7 @@ client.login(process.env.DISCORD_TOKEN);
 
 | Symptom | Cause |
 |---|---|
-| Login throws `TokenInvalid` | Wrong/rotated token, or `.env` not loaded (import order!) — load env before anything reads it (Node 20+: `node --env-file=.env`, no dotenv dependency needed) |
+| Login throws `TokenInvalid` | Wrong/rotated token, or `.env` not loaded (import order!) — CuffBot loads `.env` in code via `src/core/env.js`, called at the top of every entrypoint. Do NOT use `node --env-file`: it needs Node ≥ 20.6 while this project promises ≥ 18, and the owner's Pi proved that gap (S6: `node: bad option`) |
 | "Used disallowed intents" | Privileged intent in code but not enabled in the portal |
 | Command not appearing | Deploy script not run, wrong guild id, or global registration still propagating |
 | "The application did not respond" | Forgot to reply/defer within 3 s |

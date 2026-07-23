@@ -141,3 +141,23 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** No SKILL.md change. LEARNINGS candidate: owner-operated projects need a `doctor` command early — "verify, never assume" applies to the owner's environment too, and a tool beats instructions after the first "I am 100% sure".
 
 **Handoff:** Owner: `cd ~/CuffBot && git pull && npm run doctor`, fix what it names, re-run the setup script. Next build session: M2 (enforcement). Eval runs still pending.
+
+## Session 6 — 2026-07-23
+
+**Goal:** Owner's doctor run on the Pi failed before reaching any check: `node: bad option: --env-file`. Root-cause and eliminate.
+
+**Done:**
+- Root cause: `--env-file` requires Node ≥ 20.6 while `package.json` promises `>=18`; the owner's Pi runs a Node in that gap. Every npm script relied on the flag — so `deploy-commands` never reached Discord at all.
+- Fix: in-code `.env` loader `src/core/env.js` (quote-stripping, CRLF-tolerant, comments ignored, existing environment wins; missing file is not an error), called at the top of all three entrypoints. All npm scripts and the systemd unit dropped `--env-file`. Any Node ≥ 18 now truly works.
+- Tests 20/20 (5 new for the loader); doctor verified standalone (exit 1 on broken creds); boot guard verified.
+- Skill: `discord-reference.md` pitfalls row rewritten — do not use `--env-file`, with the S6 evidence.
+
+**Decisions:** In-code loading over "require Node ≥ 20.6": removes the whole class of version-cliff failures instead of policing versions on owner hardware.
+
+**Corrections:** Sessions 4–5 theorized about credentials (401 causes, token/application mismatch) while the owner's registration failure had never reached Discord — the shell error above the script's summary line held the truth. The doctor still proved its worth by surfacing the real error verbatim. Lesson recorded.
+
+**Learned:** When a wrapped command fails, quote its own last lines in the failure summary instead of (only) theorizing causes — the owner pastes the summary, not the scroll-back.
+
+**Skill:** discord-reference updated (see Done). LEARNINGS candidates added: (1) never gate runtime behavior on a Node feature newer than `engines` promises — feature-detect or avoid; (2) failure summaries must carry the underlying error text.
+
+**Handoff:** Owner: `cd ~/CuffBot && git pull && npm run doctor` — now it runs on any Node ≥ 18 and names the real state of the credentials. Then `bash ~/CuffBot/scripts/setup-pi.sh`. Next build session: M2 (enforcement). Eval runs still pending.
