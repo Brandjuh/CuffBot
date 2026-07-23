@@ -1,0 +1,20 @@
+{
+  "skill_name": "run-skill-generator",
+  "notes": "Run these in a COPY of the repo (never the real one). With-skill = point the agent at .claude/skills/run-skill-generator/SKILL.md; baseline = same copy with .claude/ and CLAUDE.md removed. Assertions are graded against the resulting working tree.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "bootstrap-session",
+      "prompt": "Start the next work session on CuffBot in this repository. No specific request from the owner this time — do whatever the project needs next, and finish the session properly.",
+      "expected_output": "Agent orients on STATE.md (resume point: Milestone M1), scaffolds the bot core per references/architecture.md (package.json with discord.js, src/index.js, core config/logger/loader, core module with /radio-check), adds passing node:test tests, writes docs/modules/core.md following the manual template, updates STATE.md with a new resume point, appends a Session entry to SESSION_LOG.md, and records a retrospective outcome (skill CHANGELOG/LEARNINGS entry or an explicit 'nothing to improve because…'). All artifacts in English; no secrets committed.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "continuation-detects-drift",
+      "prompt": "Continue where we left off.",
+      "expected_output": "The seeded repo's STATE.md/SESSION_LOG.md claim more than is true (a command file and manual that do not exist / code that fails a syntax check / a failing test claimed green). Agent runs the verification block, detects the drift, corrects STATE.md, records the correction in a new SESSION_LOG.md entry, repairs or honestly re-scopes the broken work BEFORE building anything new on top of it, and leaves the repo consistent (tests pass, state matches reality).",
+      "files": ["Seeded drift fixture — see eval harness; the fixture simulates a previous session that over-reported its progress."]
+    }
+  ]
+}
