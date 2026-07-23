@@ -11,8 +11,8 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
   `package.json` (ESM; scripts `start` / `test` / `deploy-commands`), `src/index.js`, `src/core/{config,logger,loader}.js`, `src/deploy-commands.js`, module `core` with `/radio-check` (latency check), `.env.example`, loader smoke test.
   *Accept when:* `npm test` passes; `node --check` clean on all files; boot fails fast with a clear message when `.env` is missing; `docs/modules/core.md` complete per template; README quickstart section written.
 
-- [ ] **M2 — Enforcement: arm of the law** 🚨
-  Module `enforcement`: `/cite` (warn), `/detain` (timeout with duration option), `/release` (lift timeout / unban), `/arrest` (ban, with message-deletion window option). Hierarchy + permission checks per `discord-reference.md`; audit-log reasons always set; duration parsing in `lib/` with tests.
+- [x] **M2 — Enforcement: arm of the law** 🚨 *(Session 7 — includes the owner-requested Papers-Please-style citation tickets)*
+  Module `enforcement`: `/cite` (warn, delivered as a generated ticket image), `/detain` (timeout with duration option), `/release` (lift timeout / unban), `/arrest` (ban, with message-deletion window option). Hierarchy + permission checks per `discord-reference.md`; audit-log reasons always set; duration parsing in `lib/` with tests.
   *Accept when:* all four commands registered and syntax-clean; lib tests pass (incl. duration edge cases: `10m`, `2h`, `7d`, invalid); every failure mode replies specifically; `docs/modules/enforcement.md` complete incl. owner's live-test checklist.
 
 - [ ] **M3 — Records: the rap sheet** 📋
@@ -35,6 +35,6 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
   Module `public-affairs`: `/badge` (member card: join date, rank, record count), `/wanted` (playful poster embed), `/donut` (fun), `/911` (report to the force → evidence locker).
   *Accept when:* commands work without privileged intents where possible; `/911` respects anonymity choice; manual complete.
 
-- [ ] **M8 — Deployment & operations** 🚀
-  Hosting guide (systemd or container), global command deployment, `data/` backup note, token rotation runbook, troubleshooting FAQ.
-  *Accept when:* a competent non-expert can take the repo to a live bot using `docs/` alone; global vs guild deploy documented; ops runbook reviewed against `discord-reference.md → Token hygiene`.
+- [ ] **M8 — Deployment & operations** 🚀 *(large slices delivered early: S2 Pi installer + runbook, S5 doctor, S7 test-gated self-update timer)*
+  Remaining: `data/` backup note (once M3 exists), token rotation runbook polish, troubleshooting FAQ sweep.
+  *Accept when:* a competent non-expert can take the repo to a live bot using `docs/` alone; ops runbook reviewed against `discord-reference.md → Token hygiene`.

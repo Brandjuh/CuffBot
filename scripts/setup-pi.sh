@@ -9,6 +9,8 @@
 #   5. Ask for DISCORD_TOKEN / CLIENT_ID and write .env (kept if it exists)
 #   6. npm test (sanity), then register the slash commands (guild-scoped)
 #   7. Optional: install + start a systemd service so CuffBot survives reboots
+#   8. Optional: arm a systemd timer that self-updates the bot every 15 min
+#      (fetch → test suite must pass → restart; red tests roll back)
 #
 # Usage (from anywhere on the Pi):
 #   git clone https://github.com/Brandjuh/CuffBot.git ~/CuffBot && bash ~/CuffBot/scripts/setup-pi.sh
@@ -35,11 +37,11 @@ if [ -f "${BASH_SOURCE[0]%/*}/../package.json" ] && grep -q '"name": "cuffbot"' 
   INSTALL_DIR="$(cd "${BASH_SOURCE[0]%/*}/.." && pwd)"
 fi
 
-say "Step 1/7 — base packages (apt)…"
+say "Step 1/8 — base packages (apt)…"
 sudo apt-get update -y
 sudo apt-get install -y git curl ca-certificates
 
-say "Step 2/7 — Node.js…"
+say "Step 2/8 — Node.js…"
 need_node=1
 if command -v node >/dev/null 2>&1; then
   major="$(node -p 'process.versions.node.split(".")[0]')"
@@ -57,7 +59,7 @@ if [ "$need_node" -eq 1 ]; then
 fi
 say "Using Node $(node --version), npm $(npm --version)"
 
-say "Step 3/7 — repository…"
+say "Step 3/8 — repository…"
 if [ -d "$INSTALL_DIR/.git" ]; then
   branch="${CUFFBOT_BRANCH:-$(git -C "$INSTALL_DIR" rev-parse --abbrev-ref HEAD)}"
   say "Updating existing clone at $INSTALL_DIR (branch: $branch)…"
@@ -72,10 +74,10 @@ else
 fi
 cd "$INSTALL_DIR"
 
-say "Step 4/7 — npm dependencies…"
+say "Step 4/8 — npm dependencies…"
 npm install --no-fund --no-audit
 
-say "Step 5/7 — credentials (.env)…"
+say "Step 5/8 — credentials (.env)…"
 if [ -f .env ]; then
   say ".env already present — keeping it."
 else
@@ -94,7 +96,7 @@ else
   say ".env written with mode 600."
 fi
 
-say "Step 6/7 — sanity checks and command registration…"
+say "Step 6/8 — sanity checks and command registration…"
 npm test || fail "Test suite failed — not continuing with a broken checkout."
 
 client_id_now="$(grep -E '^CLIENT_ID=' .env | cut -d= -f2 || true)"
@@ -108,7 +110,7 @@ npm run deploy-commands || fail "Command registration failed — the message abo
    Wrong credentials? Edit them with:  nano $INSTALL_DIR/.env
    Then re-run this script:            bash $INSTALL_DIR/scripts/setup-pi.sh"
 
-say "Step 7/7 — systemd service (start on boot, restart on crash)…"
+say "Step 7/8 — systemd service (start on boot, restart on crash)…"
 if ! command -v systemctl >/dev/null 2>&1; then
   say "No systemd on this system — start manually with: cd $INSTALL_DIR && npm start"
 else
@@ -139,6 +141,50 @@ UNIT
       sleep 2
       sudo systemctl --no-pager status "$SERVICE_NAME" | head -8 || true
       say "Service installed. Live logs: journalctl -u $SERVICE_NAME -f"
+      ;;
+  esac
+fi
+
+say "Step 8/8 — self-update (checks GitHub every 15 minutes, restarts only when tests pass)…"
+if ! command -v systemctl >/dev/null 2>&1; then
+  say "No systemd — update manually by re-running this script."
+else
+  read -rp "Enable automatic self-update? [Y/n] " auto_answer
+  case "$auto_answer" in
+    [Nn]*) say "Skipped. Update manually with: bash $INSTALL_DIR/scripts/update.sh" ;;
+    *)
+      # Unattended fetches need stored credentials for the private repo. The
+      # helper stores them (plain text, chmod 600) on the next authenticated
+      # fetch — do one now so the timer never faces a password prompt.
+      git config credential.helper store
+      say "Doing one authenticated fetch so git can store your credentials…"
+      git fetch origin >/dev/null || fail "fetch failed — auto-update needs working credentials"
+      chmod +x "$INSTALL_DIR/scripts/update.sh"
+      sudo tee /etc/systemd/system/cuffbot-update.service >/dev/null <<UNIT
+[Unit]
+Description=CuffBot self-update (git pull, test-gated restart)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash $INSTALL_DIR/scripts/update.sh $USER $INSTALL_DIR
+UNIT
+      sudo tee /etc/systemd/system/cuffbot-update.timer >/dev/null <<UNIT
+[Unit]
+Description=Run CuffBot self-update every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+RandomizedDelaySec=1min
+
+[Install]
+WantedBy=timers.target
+UNIT
+      sudo systemctl daemon-reload
+      sudo systemctl enable --now cuffbot-update.timer >/dev/null
+      say "Self-update armed. History: journalctl -u cuffbot-update"
       ;;
   esac
 fi

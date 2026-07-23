@@ -161,3 +161,26 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** discord-reference updated (see Done). LEARNINGS candidates added: (1) never gate runtime behavior on a Node feature newer than `engines` promises — feature-detect or avoid; (2) failure summaries must carry the underlying error text.
 
 **Handoff:** Owner: `cd ~/CuffBot && git pull && npm run doctor` — now it runs on any Node ≥ 18 and names the real state of the credentials. Then `bash ~/CuffBot/scripts/setup-pi.sh`. Next build session: M2 (enforcement). Eval runs still pending.
+
+## Session 7 — 2026-07-23
+
+**Goal:** Milestone M2 (enforcement) per the resume point, plus two owner requests that arrived mid-session: citations as Papers-Please-style ticket images (concept from TrustyJAID's citation cog, commissioned by the owner) and a self-updating bot.
+
+**Done:**
+- Module `enforcement`: `/cite` (generated ticket PNG posted publicly + DM copy; penalty option), `/detain` (durations incl. compounds `1h30m`, 28-day cap with /arrest suggestion), `/release` (timeout or ban; unban tier-checked against Ban Members), `/arrest` (member or by-id, wipe choices, already-banned guard). Shared `guards.js`; audit reasons embed the acting officer, capped at Discord's 512.
+- Ticket pipeline, pure JS, zero dependencies: original 5×7 pixel font → citation card layout (wrapping, perforation, barcode from user id) → PNG encoder over `node:zlib` (CRC32, filter-0 scanlines). Rendered sample visually inspected and sent to the owner.
+- Self-update (M8 slice): `scripts/update.sh` — fetch → ff-only → npm install → **test suite gate** → deploy-commands → service restart; red suite = rollback, exit 1. Setup script step 8 arms a 15-min systemd timer and stores git credentials via one interactive fetch. **Proven in a clone-pair simulation**: good update applied; deliberately broken update rolled back; exit codes verified.
+- Tests 46/46 (26 new: duration/audit/wrap edge cases, PNG structural validity incl. CRC + inflate roundtrip, deterministic rendering, command smokes over fake interactions). Manual `docs/modules/enforcement.md`; runbook self-update section; ROADMAP: M2 ticked, M8 slimmed to its remainder.
+
+**Decisions:**
+- Ticket renderer is original code (no code/assets from the cog or the game); credit recorded in the manual. Pure-JS over canvas/sharp: native builds are exactly what breaks on owner hardware (see S6).
+- Self-update via root systemd timer that runs repo git/npm as the owning user (`runuser`) — root-owned files in the checkout would break later manual pulls.
+- Release-of-ban demands invoker Ban Members even though the command's visible default is Moderate Members — lifting a ban is the bigger power.
+
+**Corrections:** S6's log claimed "LEARNINGS candidates added" but `LEARNINGS.md` was never edited that session — the two candidates are now recorded there with a late-entry note. Lesson: the retrospective's own writes belong in the verify-me category like everything else.
+
+**Learned:** Rendered assets need eyes (tests passed; only viewing the PNG confirmed legibility). Unattended mechanisms need their failure path executed once before shipping. Both recorded as LEARNINGS candidates.
+
+**Skill:** 0.2.1 — LEARNINGS backfill + new candidates (see skill CHANGELOG).
+
+**Handoff:** Owner: grant the bot *Moderate Members* + *Ban Members*, position its role above target roles (enforcement manual → Permissions & safety), re-run `bash ~/CuffBot/scripts/setup-pi.sh` once to arm the self-update timer, then walk both live checklists. Next build session: Session 8 → M3 (records) per `STATE.md → Resume point`. Eval runs from S0 still pending.
