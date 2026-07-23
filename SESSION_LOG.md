@@ -104,3 +104,21 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** 0.2.0 (see its CHANGELOG for evidence).
 
 **Handoff:** Pending in-flight: four skill-eval runs (grading → benchmark → possible skill improvements land as a follow-up PR). Next build session: M2 (enforcement) per `STATE.md → Resume point`.
+
+## Session 4 — 2026-07-23
+
+**Goal:** First live Pi run (owner) failed at command registration with a misleading hint ("check DISCORD_TOKEN/CLIENT_ID") — diagnose and make the failure self-explanatory.
+
+**Done:**
+- `src/deploy-commands.js`: catches the three real-world failure modes and prints the fix — 50001 Missing Access → "bot is not in the precinct yet" + invite URL; 401 → wrong token (Bot token, not the OAuth2 Client Secret); 10002 → CLIENT_ID is not an Application ID. Unexpected errors print in full plus the invite hint.
+- `scripts/setup-pi.sh`: before registration it now prints the invite URL (with the actual CLIENT_ID from .env) and waits for confirmation that the bot is a member; the failure text points at the specific message above it, `nano .env`, and the re-run command.
+
+**Decisions:** Diagnosis lives in `deploy-commands.js` (which knows the API error), not in the shell script — the script only routes the reader to it.
+
+**Corrections:** None in repo state. Real-world correction: the S2 failure text implied credentials were the only cause; a not-yet-invited bot produces the same failure. The owner hit exactly that ambiguity.
+
+**Learned:** "Missing Access" (50001) on guild-command registration also means *bot not in guild* — added to the candidate below; first live run is where UX truth surfaces.
+
+**Skill:** No SKILL.md change; LEARNINGS candidate added: error paths must name the most-likely real-world cause first, verified against a live failure, not just the cause the developer thought of.
+
+**Handoff:** Owner: re-run the script after checking the printed cause. Next build session: M2 (enforcement) per `STATE.md → Resume point`. Eval runs still pending.

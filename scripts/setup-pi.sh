@@ -96,7 +96,17 @@ fi
 
 say "Step 6/7 — sanity checks and command registration…"
 npm test || fail "Test suite failed — not continuing with a broken checkout."
-npm run deploy-commands || fail "Command registration failed — check DISCORD_TOKEN/CLIENT_ID in $INSTALL_DIR/.env and re-run this script."
+
+client_id_now="$(grep -E '^CLIENT_ID=' .env | cut -d= -f2 || true)"
+echo
+echo "  Before commands can be registered, the bot must be a MEMBER of the precinct."
+echo "  If you have not invited it yet, open this URL (needs Manage Server there):"
+echo "    https://discord.com/oauth2/authorize?client_id=${client_id_now}&scope=bot%20applications.commands&permissions=2048"
+read -rp "  Press Enter once the bot is in the server… "
+
+npm run deploy-commands || fail "Command registration failed — the message above names the exact cause and fix.
+   Wrong credentials? Edit them with:  nano $INSTALL_DIR/.env
+   Then re-run this script:            bash $INSTALL_DIR/scripts/setup-pi.sh"
 
 say "Step 7/7 — systemd service (start on boot, restart on crash)…"
 if ! command -v systemctl >/dev/null 2>&1; then
