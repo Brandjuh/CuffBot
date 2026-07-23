@@ -126,7 +126,7 @@ Wants=network-online.target
 Type=simple
 User=$USER
 WorkingDirectory=$INSTALL_DIR
-ExecStart=$(command -v node) --env-file=.env src/index.js
+ExecStart=$(command -v node) src/index.js
 Restart=on-failure
 RestartSec=5
 
