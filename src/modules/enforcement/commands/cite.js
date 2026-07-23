@@ -4,7 +4,7 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
-import { renderCitation } from '../lib/citation-card.js';
+import { renderCitationGif } from '../lib/citation-card.js';
 import { ensureInvokerPermission, ensureSensibleTarget } from '../guards.js';
 import { addRecord } from '../../records/lib/api.js';
 import { logger } from '../../../core/logger.js';
@@ -38,7 +38,7 @@ export default {
     const reason = interaction.options.getString('reason', true);
     const penalty = interaction.options.getString('penalty') ?? undefined;
 
-    const { png } = renderCitation({
+    const { gif } = renderCitationGif({
       to: target.displayName ?? target.username,
       reason,
       penalty,
@@ -65,14 +65,14 @@ export default {
 
     await interaction.reply({
       content: `📋 Citation issued to ${target}${caseNumber ? ` (Case #${caseNumber})` : ''}. Reason: ${reason}`,
-      files: [new AttachmentBuilder(png, { name: 'citation.png' })],
+      files: [new AttachmentBuilder(gif, { name: 'citation.gif' })],
     });
 
     // Best-effort DM copy — closed DMs are common and not an error.
     const dmDelivered = await target
       .send({
         content: `📋 You received a citation in **${interaction.guild.name}**.`,
-        files: [new AttachmentBuilder(png, { name: 'citation.png' })],
+        files: [new AttachmentBuilder(gif, { name: 'citation.gif' })],
       })
       .then(() => true)
       .catch(() => false);

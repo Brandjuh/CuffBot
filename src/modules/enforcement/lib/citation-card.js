@@ -4,6 +4,7 @@
 // crediting gitlab.com/Saphire/citations. This file shares no code or assets
 // with either; glyphs, layout, and palette are original.
 import { encodePng } from './png.js';
+import { encodeGif } from './gif.js';
 import { ADVANCE, GLYPH_HEIGHT, eachTextPixel, textWidth } from './pixel-font.js';
 
 // Logical canvas (scaled up at render time for crispness in Discord).
@@ -88,7 +89,7 @@ export function wrapText(text, maxChars, maxLines) {
  *           date: string, badgeSeed?: string }} input
  * @returns {{ png: Buffer, width: number, height: number }}
  */
-export function renderCitation({ to, reason, penalty, officer, date, badgeSeed = '' }) {
+function paintCitationGrid({ to, reason, penalty, officer, date, badgeSeed = '' }) {
   const p = new Painter();
 
   // Perforated top and bottom edges + side rails.
@@ -130,16 +131,92 @@ export function renderCitation({ to, reason, penalty, officer, date, badgeSeed =
     p.rect(bx, 150, width, 14, 1);
   }
 
-  // Expand palette indices to RGB and encode.
-  const rgb = new Uint8Array(W * SCALE * H * SCALE * 3);
-  for (let y = 0; y < H * SCALE; y += 1) {
-    for (let x = 0; x < W * SCALE; x += 1) {
-      const color = PALETTE[p.pixels[Math.floor(y / SCALE) * W + Math.floor(x / SCALE)]];
-      const offset = (y * W * SCALE + x) * 3;
-      rgb[offset] = color[0];
-      rgb[offset + 1] = color[1];
-      rgb[offset + 2] = color[2];
+  return { grid: p.pixels, width: W, height: H };
+}
+
+/** Nearest-neighbor upscale of a logical index grid to a flat index buffer. */
+function upscaleGrid(grid, w, h, scale) {
+  const out = new Uint8Array(w * scale * h * scale);
+  for (let y = 0; y < h * scale; y += 1) {
+    const srcRow = Math.floor(y / scale) * w;
+    const rowOff = y * w * scale;
+    for (let x = 0; x < w * scale; x += 1) {
+      out[rowOff + x] = grid[srcRow + Math.floor(x / scale)];
     }
   }
+  return out;
+}
+
+/**
+ * Render the citation ticket as a static PNG.
+ * @param {{ to, reason, penalty?, officer, date, badgeSeed? }} input
+ * @returns {{ png: Buffer, width: number, height: number }}
+ */
+export function renderCitation(input) {
+  const { grid } = paintCitationGrid(input);
+  const scaled = upscaleGrid(grid, W, H, SCALE);
+  const rgb = new Uint8Array(scaled.length * 3);
+  for (let i = 0; i < scaled.length; i += 1) {
+    const c = PALETTE[scaled[i]];
+    rgb[i * 3] = c[0];
+    rgb[i * 3 + 1] = c[1];
+    rgb[i * 3 + 2] = c[2];
+  }
   return { png: encodePng(rgb, W * SCALE, H * SCALE), width: W * SCALE, height: H * SCALE };
+}
+
+// Printer-animation palette: the ticket's colors plus printer chrome.
+const GIF_SCALE = 2;
+const IDX = { PAPER: 0, ACCENT: 1, INK: 2, TRAY: 3, SLOT: 4, SLOT_LIP: 5 };
+const GIF_PALETTE = [
+  PALETTE[0],
+  PALETTE[1],
+  PALETTE[2],
+  [0x2b, 0x2b, 0x30], // 3 printer body / not-yet-printed
+  [0x14, 0x14, 0x18], // 4 slot (dark)
+  [0x7a, 0x7a, 0x84], // 5 slot lip (highlight)
+];
+
+/**
+ * Render the citation as an animated GIF that prints out of a slot, top-first,
+ * then holds on the finished ticket. Same inputs as renderCitation; the date
+ * is passed in so output stays deterministic and testable.
+ * @param {object} input
+ * @param {{ frames?: number, scale?: number }} [opts]
+ * @returns {{ gif: Buffer, width: number, height: number }}
+ */
+export function renderCitationGif(input, { frames = 16, scale = GIF_SCALE } = {}) {
+  const { grid } = paintCitationGrid(input);
+  const ticket = upscaleGrid(grid, W, H, scale);
+  const ticketW = W * scale;
+  const ticketH = H * scale;
+  const slotH = 8 * scale;
+  const canvasW = ticketW;
+  const canvasH = slotH + ticketH;
+
+  // Reveal the ticket top-first, growing downward out of the slot.
+  const compose = (revealed) => {
+    const buf = new Uint8Array(canvasW * canvasH);
+    buf.fill(IDX.TRAY);
+    const rows = Math.min(revealed, ticketH);
+    for (let s = 0; s < rows; s += 1) {
+      buf.set(ticket.subarray(s * ticketW, (s + 1) * ticketW), (slotH + s) * canvasW);
+    }
+    for (let y = 0; y < slotH; y += 1) {
+      buf.fill(y >= slotH - scale ? IDX.SLOT_LIP : IDX.SLOT, y * canvasW, (y + 1) * canvasW);
+    }
+    return buf;
+  };
+
+  const frameList = [{ indices: compose(0), delay: 30 }];
+  for (let k = 1; k <= frames; k += 1) {
+    frameList.push({ indices: compose(Math.round((k / frames) * ticketH)), delay: 6 });
+  }
+  frameList.push({ indices: compose(ticketH), delay: 500 });
+
+  return {
+    gif: encodeGif({ width: canvasW, height: canvasH, palette: GIF_PALETTE, frames: frameList, loop: 0 }),
+    width: canvasW,
+    height: canvasH,
+  };
 }

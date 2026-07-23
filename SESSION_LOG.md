@@ -232,3 +232,28 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** 0.3.1 — discord-reference gained the privileged-intent fallback pattern (evidence in the skill CHANGELOG).
 
 **Handoff:** Owner: enable the Message Content intent in the portal to unlock `!` commands (bot already runs without it). Next build session: M4 (dispatch / evidence locker) per `STATE.md → Resume point`. A design workflow for M5–M7 is in flight.
+
+## Session 10 — 2026-07-23
+
+**Goal:** Owner requests (mid-session, with a reference gif): make `/cite` an animated GIF that looks like it prints out of a printer, and add a separate for-fun citation command anyone can use.
+
+**Done:**
+- `lib/gif.js`: a zero-dependency animated GIF89a encoder (LZW with integer-keyed dictionary, sub-blocking, NETSCAPE loop, per-frame delays). Pure, tested.
+- `citation-card.js` refactored to expose the logical pixel grid (`paintCitationGrid` + `upscaleGrid`); `renderCitation` (PNG) output unchanged; new `renderCitationGif` composes a printer-feed animation (empty slot → ticket revealed top-first out of the slot → long hold, looping) over an extended palette (paper + printer chrome).
+- `/cite` now attaches the animated `citation.gif` (channel + DM). New public `/fine` (everyone, no permission, no record) issues the same animated ticket for laughs; refuses the bot.
+- Performance: initial LZW used string dict keys (~2.2 s/gif); switched to integer keys → ~87 ms here, Pi-safe. GIF ~72 KB, 560×356, 18 frames.
+- Tests 85/85 (8 new: LZW determinism + clear/end framing, GIF structure + palette bounds, deterministic citation gif + frame count + size bound, cite-attaches-gif, fine public/no-record/bot-refusal). Manual updated; 10 commands total.
+
+**Decisions:**
+- Zero-dependency GIF encoder over a library, same rationale as the PNG encoder (native image libs do not build reliably on the Pi; pure JS runs anywhere).
+- Top-first reveal (a downward wipe out of a slot) over a rigid translate — reads unambiguously as "printing" and keeps the finished frame right-side-up.
+- `/fine` lives in enforcement (shares the renderer) but is clearly the public/no-consequence sibling; a future move to public-affairs (M7) is possible.
+- Could not fetch the owner's reference gif (auth-gated Discord CDN); implemented the printer-feed interpretation and sent a sample for confirmation.
+
+**Corrections:** None — S9 state matched reality (77 tests).
+
+**Learned:** The "render assets and look at them" rule paid off again — the harness image renderer decoded my GIF's first frame, which is real-decoder proof the LZW output is valid. Reinforces the existing LEARNINGS candidate; no skill change needed beyond noting it.
+
+**Skill:** No protocol change. Existing LEARNINGS "rendered assets need eyes" reconfirmed (sample sent to owner). Version unchanged (project code, not skill).
+
+**Handoff:** Owner: confirm the animation look (sample sent). Next build session: M4 (dispatch / evidence locker) per `STATE.md → Resume point`. Design specs for M5 (academy) and M6 (patrol) are in hand from the design workflow; M7 (public-affairs) design will be done inline.

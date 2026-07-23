@@ -15,7 +15,8 @@ Concept credit for the ticket: the `citation` cog in TrustyJAID/Trusty-cogs (ori
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| `/cite` | Issues a citation: posts a generated ticket + DMs a copy | `target`, `reason` (required), `penalty` | Moderate Members | `/cite target:@user reason:spam` |
+| `/cite` | Issues a citation: posts an **animated** ticket (prints out of a slot) + DMs a copy + files a record | `target`, `reason` (required), `penalty` | Moderate Members | `/cite target:@user reason:spam` |
+| `/fine` | The **for-fun** citation anyone can issue — same animated ticket, no permissions, no record, no consequences | `target`, `reason` (required), `penalty` | Everyone | `/fine target:@friend reason:excessive donuts` |
 | `/detain` | Timeout ("holding cell") | `target`, `duration` (required), `reason` | Moderate Members | `/detain target:@user duration:2h` |
 | `/release` | Lifts a timeout, or lifts a ban | `target`, `reason` | Moderate Members (timeout) / Ban Members (ban) | `/release target:@user` |
 | `/arrest` | Ban, with optional message wipe | `target`, `reason`, `wipe` | Ban Members | `/arrest target:@user wipe:Wipe last 24 hours` |
@@ -23,9 +24,15 @@ Concept credit for the ticket: the `citation` cog in TrustyJAID/Trusty-cogs (ori
 ### /cite
 
 - **Options:** `target` (user, required); `reason` (string ≤ 200, required) — printed on the ticket; `penalty` (string ≤ 100, optional, default `OFFICIAL WARNING`).
-- **What happens:** renders the pink pixel-art ticket (header, TO, VIOLATION, PENALTY, OFFICER, DATE, barcode derived from the target's user id) and posts it publicly in the channel; then attempts a DM copy to the target.
-- **Reply:** public, with the PNG attached. If the DM fails (closed DMs), the officer gets an ephemeral note — that is informational, not an error.
-- **Failure modes:** missing permission → ephemeral "not your jurisdiction"; citing yourself or the bot → refused with an in-theme reply. No Discord state is changed by a citation in M2.
+- **What happens:** renders the pink pixel-art ticket (header, TO, VIOLATION, PENALTY, OFFICER, DATE, barcode derived from the target's user id) as an **animated GIF** that prints top-first out of a printer slot and then holds on the finished ticket (looping); posts it publicly, files a rap-sheet record, and attempts a DM copy to the target.
+- **Reply:** public, with the animated `citation.gif` attached. If the DM fails (closed DMs), the officer gets an ephemeral note — that is informational, not an error.
+- **Failure modes:** missing permission → ephemeral "not your jurisdiction"; citing yourself or the bot → refused with an in-theme reply.
+
+### /fine
+
+- **Options:** identical to `/cite` (`target`, `reason` required, optional `penalty` defaulting to `PAY UP IN DONUTS`). **Who:** everyone — no permission gate.
+- **What happens:** renders the same animated ticket purely for laughs. It changes **nothing** — no moderation action, no rap-sheet record — so it is safe to hand to the whole precinct. Refuses only to "fine" the bot.
+- **Why it exists:** the owner wanted a fun, everyone-can-use version of the citation. It shares the one citation renderer with `/cite`.
 
 ### /detain
 
@@ -77,7 +84,8 @@ None beyond the core module's settings — see `docs/modules/core.md → Configu
 | `src/modules/enforcement/guards.js` | Shared Discord-facing checks |
 | `src/modules/enforcement/lib/duration.js` | Pure: duration parse/format + cap |
 | `src/modules/enforcement/lib/audit.js` | Pure: audit-log reason building |
-| `src/modules/enforcement/lib/{pixel-font,citation-card,png}.js` | Pure: ticket rendering pipeline |
+| `src/modules/enforcement/commands/fine.js` | The public for-fun citation |
+| `src/modules/enforcement/lib/{pixel-font,citation-card,png,gif}.js` | Pure: ticket rendering pipeline (PNG still + animated GIF, both zero-dependency) |
 | `test/enforcement-lib.test.js`, `test/citation-card.test.js`, `test/enforcement-commands.test.js` | Coverage |
 
 ## Testing
@@ -107,3 +115,4 @@ None beyond the core module's settings — see `docs/modules/core.md → Configu
 | Session | Change |
 |---|---|
 | S7 | Created: `/cite` (with ticket renderer), `/detain`, `/release`, `/arrest`, guards, pure libs, 26 new tests. |
+| S10 | `/cite` now emits an animated GIF (prints out of a slot) via a new zero-dependency GIF encoder; added the public for-fun `/fine`. |

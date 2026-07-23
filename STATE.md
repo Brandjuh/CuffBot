@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 9 · 2026-07-23
+**Last updated:** Session 10 · 2026-07-23
 **Phase:** M3 (records) + dual-invocation framework (S9) complete → next up is M4 (dispatch / evidence locker)
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 77/77 pass as of S9 |
+| Tests green | `npm test` | 85/85 pass as of S10 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'core', 'enforcement', 'records' ]` |
 | Manuals current | `ls docs/modules/` | `core.md`, `enforcement.md`, `records.md` |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
@@ -31,14 +31,14 @@
 
 - **Build system (M0):** the `run-skill-generator` skill (0.2.1 — SKILL.md, 4 references, CHANGELOG, LEARNINGS, evals with graded expectations) plus `CLAUDE.md`, this file, `SESSION_LOG.md`, `ROADMAP.md`, `docs/README.md`, `.gitignore`, root `README.md`.
 - **Bot core (M1):** entry/config/logger/loader (+ in-code `.env` loading via `src/core/env.js` — see the S6 environment fact), guild-scoped `deploy-commands`, module `core` (`/radio-check`, on-duty sweep, guild lockdown), `npm run doctor` (S5), `config.json → homeGuildId`, manual `core.md`.
-- **Enforcement (M2, S7):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`.
+- **Enforcement (M2, S7; animated S10):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`. **S10:** `/cite` emits an animated GIF (prints out of a slot) via a zero-dependency GIF89a encoder (`lib/gif.js`); added the public for-fun `/fine` (no perms, no records).
 - **Deployment/ops (M8 slices):** `scripts/setup-pi.sh` (8 steps incl. invite gate and self-update arming), `scripts/update.sh` (fetch → ff → npm install → **test gate** → deploy-commands → restart; rollback on red — proven in a clone-pair simulation incl. failure path and exit codes), runbook `docs/operations/raspberry-pi.md`.
 - **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated.
 - **Tests:** 46 via `node:test` — config, env loader, loader integrity, core lib, diagnostics, enforcement lib (duration/audit/wrap), PNG/card structure + determinism, enforcement command smokes with fake interactions.
 
 ## Resume point
 
-**Session 10 → Milestone M4: dispatch / evidence locker.**
+**Session 11 → Milestone M4: dispatch / evidence locker.**
 
 1. Read `architecture.md → Police theme vocabulary` (evidence locker = mod-log channel; dispatch = announcements) and the M4 acceptance criteria in `ROADMAP.md`.
 2. Module `dispatch`: a configurable per-guild log channel (the *evidence locker*) that receives enforcement/records events, plus `/dispatch` for announcements to the force.

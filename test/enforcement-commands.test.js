@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import cite from '../src/modules/enforcement/commands/cite.js';
+import fine from '../src/modules/enforcement/commands/fine.js';
 import detain from '../src/modules/enforcement/commands/detain.js';
 import arrest from '../src/modules/enforcement/commands/arrest.js';
 import release from '../src/modules/enforcement/commands/release.js';
@@ -108,10 +109,30 @@ test('cite: happy path attaches a citation.png and DMs a copy', async () => {
   assert.equal(dm.files.length, 1);
 });
 
+test('cite: attaches an animated citation.gif', async () => {
+  const ix = fakeInteraction({ perms: [MOD], target: fakeUser('412676658991071243', 'perp'), options: { reason: 'x' } });
+  await cite.execute(ix);
+  assert.equal(ix.replies[0].files[0].name, 'citation.gif');
+});
+
 test('cite: refuses to cite the bot itself', async () => {
   const ix = fakeInteraction({ perms: [MOD], target: fakeUser(BOT_ID, 'CuffBot') });
   await cite.execute(ix);
   assert.match(ix.replies[0].content, /can't cuff the police/i);
+});
+
+test('fine: public, no permission needed, no record filed, animated gif', async () => {
+  const ix = fakeInteraction({ perms: [], target: fakeUser('777', 'friend'), options: { reason: 'excessive donut consumption' } });
+  await fine.execute(ix);
+  assert.match(ix.replies[0].content, /good fun/i);
+  assert.equal(ix.replies[0].files[0].name, 'citation.gif');
+  assert.ok(!/Case #/.test(ix.replies[0].content), 'fine files no record');
+});
+
+test('fine: cannot fine the bot', async () => {
+  const ix = fakeInteraction({ perms: [], target: fakeUser(BOT_ID, 'CuffBot'), options: { reason: 'x' } });
+  await fine.execute(ix);
+  assert.match(ix.replies[0].content, /cannot fine the police/i);
 });
 
 test('detain: rejects nonsense durations with guidance', async () => {
