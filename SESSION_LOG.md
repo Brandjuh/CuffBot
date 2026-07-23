@@ -84,3 +84,23 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** No skill changes — the session surfaced no new general lesson beyond the deployment-target fact, which lives in STATE (a LEARNINGS candidate about recording owner platform facts already exists from S1; this is its second data point → eligible for promotion next session if it proves out again).
 
 **Handoff:** Owner: run the one-liner from `docs/operations/raspberry-pi.md` (pin the feature branch until PR #1 merges). Next build session: Session 3 → M2 (enforcement) per `STATE.md → Resume point`.
+
+## Session 3 — 2026-07-23
+
+**Goal:** Encode the owner's new process mandate from chat: PR #1 was merged by the owner this one time; from now on sessions merge their own PRs.
+
+**Done:**
+- SKILL.md 0.2.0: Step 7 now ends with self-merge (open the PR, merge once checks pass, reset the branch onto the updated default); Step 6 gained the promoted rule "owner decisions stated in chat go into the repo the moment they land".
+- LEARNINGS: the S1 candidate about chat-borne owner decisions promoted after three confirmations (S1 single-guild, S2 Pi target, S3 self-merge).
+- STATE: owner process mandate recorded; PR #1 noted as merged by owner.
+- This entry's own PR is the mandate's first application: pushed, opened, and self-merged.
+
+**Decisions:** Applied the mandate immediately rather than bundling with the pending eval-results work — chat is the only place the mandate existed, and chat does not survive sessions (that is exactly the promoted rule).
+
+**Corrections:** None — branch freshly reset onto merged main; tree clean.
+
+**Learned:** Nothing new beyond the mandate itself.
+
+**Skill:** 0.2.0 (see its CHANGELOG for evidence).
+
+**Handoff:** Pending in-flight: four skill-eval runs (grading → benchmark → possible skill improvements land as a follow-up PR). Next build session: M2 (enforcement) per `STATE.md → Resume point`.

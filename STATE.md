@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 2 · 2026-07-23
+**Last updated:** Session 3 · 2026-07-23
 **Phase:** M1 (bot core) complete, Pi deployment script shipped early (part of M8) → next up is M2 (enforcement)
 
 ## Verification block — run this before trusting the rest
@@ -50,7 +50,8 @@
 - Node v22.22.2, npm 10.9.7. npm registry reachable through the outbound proxy; `npm install` works (S1: 25 packages in ~8 s).
 - Python 3.11.15 available (used by skill tooling, not by the bot).
 - Sessions run in an **ephemeral container** — unpushed work is destroyed. Push every session.
-- No `gh` CLI; GitHub operations go through the GitHub MCP tools. PR #1 tracks the feature branch.
+- No `gh` CLI; GitHub operations go through the GitHub MCP tools. PR #1 (M0+M1+Pi script) was merged by the owner on 2026-07-23.
+- **Owner process mandate (S3): sessions merge their own PRs** once checks pass — do not wait for the owner. After merging, reset the working branch onto the updated default branch. (Also encoded in SKILL.md Step 7.)
 - Live Discord testing is impossible from this environment (no token in the repo — by design). Build confidence in layers per `architecture.md → Verification habits`; give the owner a manual test checklist in each module manual.
 
 ## Maintenance notes

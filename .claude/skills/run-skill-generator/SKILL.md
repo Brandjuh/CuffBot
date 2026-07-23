@@ -71,6 +71,7 @@ Read `references/architecture.md` before writing bot code — it fixes the stack
 
 - Update `STATE.md`: phase, verified inventory, environment facts, open problems, and an **exact resume point** (file, next action, first command to run). Keep its Verification block runnable and current.
 - Append — never rewrite — an entry to `SESSION_LOG.md` using the template inside that file: session number, date, goal, what was done (with commit hashes), decisions and why, corrections found in Step 2, handoff notes for the next session.
+- **Owner decisions stated in chat go into the repo the moment they land** (a STATE.md fact plus a log line — config if it is a product setting). Chat does not survive sessions; the repo does. (Promoted from LEARNINGS after S1–S3 confirmations.)
 
 ### 7. Improve — the self-improving part
 
@@ -82,7 +83,7 @@ Run the retrospective in `references/self-improvement.md`. In short:
 - Guardrails: never weaken the iron rules or remove loop steps; prefer explaining why over adding rigid MUSTs; keep this file under ~300 lines by pushing detail into references.
 - Finding nothing to improve is suspicious. If truly nothing, write one line in the session log saying so and why.
 
-Then commit with a clear message, push, and follow the environment's pull request rules. If the skill itself misled you **mid-session**, do not wait for Step 7 — fix it on the spot and note it in the log.
+Then ship: commit with a clear message, push, open the pull request — and **merge it yourself** once its checks (if any) pass. The owner mandated self-merge in Session 3 ("voortaan zelf mergen"); do not leave PRs waiting for them. After merging, reset the working branch onto the updated default branch so the next session starts clean. If the skill itself misled you **mid-session**, do not wait for Step 7 — fix it on the spot and note it in the log.
 
 ## Definition of Done — per module
 
