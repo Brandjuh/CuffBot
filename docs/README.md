@@ -9,6 +9,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | records | [`modules/records.md`](modules/records.md) | stable (S8) |
 | dispatch | [`modules/dispatch.md`](modules/dispatch.md) | stable (S11) |
 | academy | [`modules/academy.md`](modules/academy.md) | stable (S12) |
+| patrol | [`modules/patrol.md`](modules/patrol.md) | stable (S13) |
 
 ## Reading order for newcomers
 

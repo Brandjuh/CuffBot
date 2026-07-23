@@ -27,7 +27,7 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
   Module `academy`: rank ladder (Cadet → Chief) mapped to guild roles via config, `/promote`, `/demote`, `/ranks`. Role-hierarchy safety per `discord-reference.md`.
   *Accept when:* ladder logic lives in `lib/` with tests; misconfigured/missing roles reported clearly; manual complete.
 
-- [ ] **M6 — Patrol: automod** 👮
+- [x] **M6 — Patrol: automod** 👮 *(Session 13)*
   Module `patrol`: message screening (banned terms, invite links, basic spam heuristic) with actions routed through enforcement/records; `/patrol` to view/toggle rules. Needs `MessageContent` privileged intent — document the portal steps in the manual.
   *Accept when:* screening logic in `lib/` with tests; per-guild toggle stored; false-positive story documented; manual complete.
 

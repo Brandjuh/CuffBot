@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 12 · 2026-07-23
-**Phase:** M5 (academy / ranks) complete → next up is M6 (patrol / automod)
+**Last updated:** Session 13 · 2026-07-23
+**Phase:** M6 (patrol / automod) complete → next up is M7 (public affairs)
 
 ## Verification block — run this before trusting the rest
 
@@ -16,16 +16,17 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 116/116 pass as of S12 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'core', 'dispatch', 'enforcement', 'records' ]` |
-| Manuals current | `ls docs/modules/` | `academy.md`, `core.md`, `dispatch.md`, `enforcement.md`, `records.md` |
+| Tests green | `npm test` | 132/132 pass as of S13 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'core', 'dispatch', 'enforcement', 'patrol', 'records' ]` |
+| Manuals current | `ls docs/modules/` | `academy.md`, `core.md`, `dispatch.md`, `enforcement.md`, `patrol.md`, `records.md` |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 12 · 2026-07-23)
+## What exists (verified Session 13 · 2026-07-23)
 
 - **Dual invocation (S9):** every command runs as `/x` AND `!x` (`src/core/prefix/` — parser, adapter, router; ephemeral→DM). `/help` (generated roster) and `/update` (manual, admin-only, test-gated) added to core. Message Content intent enabled with graceful slash-only fallback (`client.messageContentAvailable`); `config.json → prefix`. Text commands + patrol need that intent (portal enablement).
+- **Patrol (M6, S13):** module `patrol` — automod. `lib/screen.js` (pure) screens for banned terms (evasion-aware normalization: leet/spacing/diacritics → substring), invite links, and spam (mention flood / char runs). `MessageCreate` handler gated on `client.messageContentAvailable`, mod-exempt, home-guild only; on a hit deletes + DMs + files a record + logs to the evidence locker (cross-module seams). `/patrol` (on/off/status), `/patrol-rule`, `/patrol-term`. Off by default; config in store `patrolConfig`. False-positive story documented. Needs Message Content intent. Manual `patrol.md`.
 - **Academy (M5, S12):** module `academy` — adopts the **server's own rank roles** (not a fixed police ladder). `lib/ladder.js` (pure) detects ranks from roles under a `[LEVELER]`-style header, highest-first, minus managed/@everyone/excluded, stopping at the next divider; `planPromotion`/`planDemotion` normalize to one rank role. `/promote`, `/demote` (to: role option), `/ranks`, `/rank-setup` (header), `/rank-exclude`. Config in store `academyConfig={headerRoleId,excludedRoleIds}`; ladder recomputed live. `currentRank` exported for /badge (M7). Manual `academy.md`.
 - **Dispatch (M4, S11):** module `dispatch` — the **evidence locker** (`/evidence-locker` set/status/clear, per-guild channel via store) receives a typed embed for every enforcement action; `/dispatch` broadcasts announcements. `lib/format.js` (pure embeds) + `lib/api.js` (`logEnforcement`, best-effort). Enforcement's four commands log to the locker via the cross-module seam, wrapped so it never blocks an action. Animation: `/cite` GIF now prints **bottom-to-top** (owner preference, S11). Manual `dispatch.md`.
 - **Records (M3, S8):** `src/core/store.js` (atomic per-guild JSON, corrupt-file recovery, `CUFFBOT_DATA_DIR` override) + module `records` — case-numbered rap sheet (`lib/api.js`), `/rapsheet` (ephemeral), `/expunge` (Manage Server). Enforcement's four commands file records through `records/lib/api.js`, wrapped so records trouble never blocks an action. `data/` gitignored. Manual `records.md`.
@@ -36,17 +37,16 @@
 - **Enforcement (M2, S7; animated S10):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`. **S10:** `/cite` emits an animated GIF (prints out of a slot) via a zero-dependency GIF89a encoder (`lib/gif.js`); added the public for-fun `/fine` (no perms, no records).
 - **Deployment/ops (M8 slices):** `scripts/setup-pi.sh` (8 steps incl. invite gate and self-update arming), `scripts/update.sh` (fetch → ff → npm install → **test gate** → deploy-commands → restart; rollback on red — proven in a clone-pair simulation incl. failure path and exit codes), runbook `docs/operations/raspberry-pi.md`.
 - **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated.
-- **Tests:** 116 via `node:test` — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution), help, enforcement lib (duration/audit/wrap), PNG + animated GIF structure/determinism, academy ladder + commands, enforcement + records + dispatch command smokes with fake interactions.
+- **Tests:** 132 via `node:test` — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution), help, enforcement lib + GIF, academy ladder + commands, dispatch, patrol screen/event/commands, and command smokes with fake interactions.
 
 ## Resume point
 
-**Session 13 → Milestone M6: patrol / automod.**
+**Session 14 → Milestone M7: public affairs (community).**
 
-1. Design spec exists from the design workflow (patrol) — read it via the workflow journal if needed, or design inline. Read `discord-reference.md → intents` (MessageContent already enabled with graceful fallback, `client.messageContentAvailable`) and `architecture.md → Cross-module calls`.
-2. Pure screening `lib/` (given content + config → violations {type, action}): banned-term matching (evasion-aware), invite-link detection (`discord.gg`/`discord.com/invite`), a simple, testable spam heuristic. Heavily unit-tested.
-3. `MessageCreate` handler gated on `client.messageContentAvailable` (no-op + one warning if the intent is off). Exempt admins/mods. Route actions through enforcement (delete + cite/detain) and records via the cross-module lib seam.
-4. `/patrol` to view/toggle rule categories + manage the banned-term list; per-guild config in the store. Document the false-positive story + the MessageContent portal step in the manual.
-5. Manual `docs/modules/patrol.md`; update `docs/README.md`.
+1. Module `public-affairs`: `/badge` (member card — join date, current rank via academy `currentRank`, record count via records `recordsFor`; degrade gracefully if those error), `/wanted` (playful WANTED poster — reuse the enforcement pixel/GIF renderer approach or an embed; keep logic pure/testable), `/donut` (fun; deterministic-enough selection logic in lib/), `/911` (report a member to the force → evidence locker via dispatch `logEnforcement`/a report embed; MUST respect an anonymity option).
+2. Avoid privileged intents where possible. Cross-module: call academy `currentRank`, records `recordsFor`, dispatch to the evidence locker — all wrapped.
+3. `/911` anonymity: an option to hide the reporter's identity from the locker embed.
+4. Manual `docs/modules/public-affairs.md`; update `docs/README.md`. Then M8 finish + a final audit workflow.
 
 
 ## Open problems / blockers
