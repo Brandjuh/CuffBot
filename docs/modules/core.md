@@ -86,7 +86,7 @@ Boot fails fast with a named-variable error message when required settings are m
 | Boot exits with "homeGuildId must be a Discord guild id" | `config.json` edited/broken | Restore a 17–20 digit guild id in `config.json` |
 | `/radio-check` not in the command picker | Commands never registered, or registered before the bot joined | Run `npm run deploy-commands`; give Discord a few seconds; re-open the client |
 | "The application did not respond" | Bot process not running (registration ≠ being online) | `npm start` and watch for the on-duty log line |
-| Login fails with `TokenInvalid` | Wrong or rotated token | Reset the token in the Developer Portal, update `.env` |
+| Login fails with `TokenInvalid` / registration says Unauthorized | Wrong or rotated token, or token belongs to a different application than `CLIENT_ID` | `npm run doctor` — it checks the token against Discord and names the exact mismatch |
 | Bot leaves a server immediately | That server is not the home precinct — working as designed | Change `config.json → homeGuildId` only if the precinct itself moves |
 
 ## Changelog

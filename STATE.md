@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 4 · 2026-07-23
+**Last updated:** Session 5 · 2026-07-23
 **Phase:** M1 (bot core) complete, Pi deployment script shipped early (part of M8) → next up is M2 (enforcement)
 
 ## Verification block — run this before trusting the rest

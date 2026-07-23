@@ -52,6 +52,7 @@ Overrides: `CUFFBOT_DIR` (install directory), `CUFFBOT_BRANCH` (branch to check 
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| **Anything credential-related** | — | `cd ~/CuffBot && npm run doctor` — verifies your `.env` and token **against Discord itself** and names the exact problem (invalid token, token/application mismatch, quotes/whitespace in `.env`) |
 | `git clone` asks for a password and rejects your GitHub password | Repo is private; git needs a token, not your password | Create the Personal Access Token described above and paste it as the password |
 | Script aborts: "armv6 … no builds" | Pi 1 / Pi Zero | Use a Pi 2 or newer |
 | "Command registration failed" | Token or client id wrong in `.env` | Fix `~/CuffBot/.env`, re-run the script |
