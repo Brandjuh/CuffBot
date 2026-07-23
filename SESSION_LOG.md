@@ -399,3 +399,17 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** 0.4.1 — discord-reference intent facts (event-only features need no MessageContent; GuildVoiceStates non-privileged, cache-only voice presence).
 
 **Handoff:** Adversarial audit of the leveling module was launched this session; its findings and fixes land in this same PR before merge (addendum below if anything was found). Owner live checklist: `docs/modules/leveling.md → Testing` — critically step 2 (a ranked member's `/level` must show seeded XP, not 0). Next session: M9 AI conversation (all decisions now recorded in `STATE.md → Resume point`).
+
+### S16 addendum — adversarial audit of the leveling module (same session, pre-merge)
+
+The independent audit (13 files, math re-derived, discord.js internals verified) returned **10 verified findings: 1 HIGH, 3 MEDIUM, 6 LOW — all fixed in this same PR**, plus a clean bill on threshold math, seeding idempotence, the promote-only invariant, crash paths, intents, and docs-vs-code.
+
+- **HIGH — permanent seed poisoning:** a member first seen while the ladder resolved empty (header deleted/renamed) was seeded 0 forever; worse, the name-heuristic fallback could adopt a decoy role ("Level 100 Club") as the ladder and auto-grant its roles. Fix: **all automation now requires the admin-pinned ladder** (`/rank-setup` → academy `isPinnedLadder`) — heuristic ladders serve humans only; and seeds **self-heal** (`reconcile` raises XP to the held rank's floor on next sight under a pinned ladder). A detection failure can no longer permanently reset anyone.
+- **MEDIUM — duplicate promotion race** (message award + voice sweep crossing a threshold simultaneously → double announce/audit): per-member in-flight guard in `syncMemberRank`.
+- **MEDIUM — text path ignored integer bounds** (`!leaderboard 0/-3/500` nonsense or 4096-char embed crash; `!xp-config` bypassing 1–100/10–600): `min_value`/`max_value` now enforced framework-wide in `parse.js` (bind + tail-claim) + defense-in-depth clamp in `leaderboard()`.
+- **MEDIUM — `/level target:@bot` created permanent XP records for bots:** refused, nothing persisted.
+- **LOW×6:** adapter now enforces `addChannelTypes` (a category as announce channel silently killed announcements); `clear-announce` option (the channel could never be reset); `role.editable` moved inside try (uncached self-member could abort a sweep tick); `setXpConfig` stores sparse overrides (was freezing every default into the store); system messages no longer pay XP; `/level` explains blocked/pending promotions and departed-member leaderboard rows documented.
+- **Follow-through beyond the audit:** `/promote`/`/demote` now **couple XP** to the new rank (raise-to-floor / cap-at-floor via leveling's `coupleXpToRank` seam) — without this, promote-only sync would instantly re-promote anyone a human demoted.
+- Tests 210 → **230** (bounds, channel types, pinned-gates, self-heal, race, coupling, bot-refusal, system messages, sparse config, clamps). Manuals updated (leveling, academy); STATE resume point now flags the owner's one-time `/rank-setup` pin.
+
+**Learned (added to LEARNINGS):** automation needs a stronger trust gate than human-in-the-loop commands — the academy heuristic was safe under `/promote` because a human watched; the moment leveling automated the same ladder it became an attack/failure surface.

@@ -59,7 +59,8 @@ Per-guild, stored via `src/core/store.js` under `academyConfig` = `{ headerRoleI
 2. `lib/ladder.js → buildLadder` finds the header (configured id, else name heuristic), then collects the roles below it as ranks — skipping `@everyone`, managed roles, excluded roles, and stopping at the next section divider (`[...]` or a run of divider glyphs like `▬▬`).
 3. `planPromotion` / `planDemotion` (pure) compute `{from, to, addRoleId, removeRoleIds}` or a specific failure `code`; `service.js → planErrorMessage` turns codes into replies.
 4. `currentRank(memberRoleIds, ladder)` is exported for reuse — `/badge` (M7) reads a member's rank through it.
-5. `service.js → ladderForGuild(guild)` is the interaction-free seam other modules use: **leveling** (S16) resolves the ladder through it to map XP onto ranks and seed existing members' XP from their held rank; `resolveLadder(interaction)` delegates to it.
+5. `service.js → ladderForGuild(guild)` is the interaction-free seam other modules use: **leveling** (S16) resolves the ladder through it to map XP onto ranks and seed existing members' XP from their held rank; `resolveLadder(interaction)` delegates to it. `service.js → isPinnedLadder(guildId, ladder)` tells automation whether the ladder came from the admin-pinned header (`/rank-setup`) rather than the name heuristic — leveling's auto-sync, seeding, and coupling require the pin; academy's own human-driven commands do not.
+6. `/promote` and `/demote` couple the target's **XP** to the new rank via leveling's `coupleXpToRank` (S16, best-effort try/catch): promotion raises XP to the new rank's floor, demotion caps it there — so the XP system never instantly undoes a human demotion.
 
 ## Files
 

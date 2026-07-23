@@ -158,3 +158,33 @@ test('rank-exclude adds a role to the exclusion list', async () => {
   const desc = rk.replies[0].embeds[0].data?.description ?? rk.replies[0].embeds[0].description;
   assert.ok(!/r-rookie/.test(desc), 'excluded role no longer in the ladder');
 });
+
+test('promote couples XP up to the new rank floor (leveling seam, S16)', async () => {
+  await configure();
+  const { setGuildData } = await import('../src/core/store.js');
+  setGuildData(GUILD, 'academyConfig', { headerRoleId: 'lvl-header', excludedRoleIds: [] });
+  const { getUserXp } = await import('../src/modules/leveling/service.js');
+  const { thresholdsFor } = await import('../src/modules/leveling/lib/xp.js');
+  const target = { id: '77', username: 'lift', displayName: 'lift', toString: () => '<@77>' };
+  const ix = fakeInteraction({ perms: [MANAGE_ROLES], target, memberRoleIds: ['r-regular'] });
+  await promote.execute(ix); // Regular → Veteran
+  const t = thresholdsFor(4, {});
+  assert.equal(getUserXp(GUILD, '77'), t[2], 'XP raised to the Veteran floor');
+});
+
+test('demote caps XP at the new rank floor so auto-sync cannot undo it (S16)', async () => {
+  await configure();
+  const { setGuildData } = await import('../src/core/store.js');
+  setGuildData(GUILD, 'academyConfig', { headerRoleId: 'lvl-header', excludedRoleIds: [] });
+  const { getUserXp } = await import('../src/modules/leveling/service.js');
+  const { thresholdsFor } = await import('../src/modules/leveling/lib/xp.js');
+  const target = { id: '78', username: 'bust', displayName: 'bust', toString: () => '<@78>' };
+  // First hand-promote to Veteran (XP coupled to its floor)…
+  const up = fakeInteraction({ perms: [MANAGE_ROLES], target, memberRoleIds: ['r-regular'] });
+  await promote.execute(up);
+  // …then demote back down: XP must drop to the Regular floor.
+  const down = fakeInteraction({ perms: [MANAGE_ROLES], target, memberRoleIds: ['r-veteran'] });
+  await demote.execute(down);
+  const t = thresholdsFor(4, {});
+  assert.equal(getUserXp(GUILD, '78'), t[1], 'XP capped at the Regular floor');
+});

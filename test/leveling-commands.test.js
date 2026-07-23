@@ -110,6 +110,22 @@ test('/level for a rankless member starts at 0', async () => {
   assert.equal(getUserXp(guild.id, 'u2'), 0);
 });
 
+test('/level refuses bots and never creates a record for them (audit #4)', async () => {
+  const guild = fakeGuild(freshGuildId());
+  const bot = { id: 'bot-1', bot: true, username: 'OldLeveler', displayAvatarURL: () => null };
+  const replies = [];
+  await level.execute({
+    guild,
+    user: { id: 'human', bot: false },
+    options: { getUser: () => bot },
+    reply: async (p) => replies.push(p),
+  });
+  assert.match(replies[0].content, /Bots don’t earn XP/);
+  assert.equal(getUserXp(guild.id, 'bot-1'), 0);
+  const { getUsers } = await import('../src/modules/leveling/service.js');
+  assert.equal('bot-1' in getUsers(guild.id), false, 'no record persisted');
+});
+
 test('progressBar clamps and fills proportionally', () => {
   assert.equal(progressBar(0, 100), '▱'.repeat(12));
   assert.equal(progressBar(100, 100), '▰'.repeat(12));
@@ -185,6 +201,23 @@ test('/xp-config patches settings and shows thresholds per rank', async () => {
   assert.match(desc, /r-legend/);
   assert.match(desc, new RegExp(T[3].toLocaleString('en-US')), 'top rank threshold shown');
   assert.match(desc, /seeded with the XP of the rank they already hold/i);
+  assert.match(desc, /\*\*Ladder pinned:\*\* yes/, 'pinned status shown');
+});
+
+test('/xp-config clear-announce resets the announce channel (audit #6)', async () => {
+  const guild = fakeGuild(freshGuildId());
+  await xpConfigCmd.execute(configInteraction(guild, { announce: { id: 'chan-1' } }));
+  assert.equal(getXpConfig(guild.id).announceChannelId, 'chan-1');
+  await xpConfigCmd.execute(configInteraction(guild, { 'clear-announce': true }));
+  assert.equal(getXpConfig(guild.id).announceChannelId, null);
+});
+
+test('/xp-config warns when the ladder is not pinned', async () => {
+  const guild = fakeGuild(freshGuildId());
+  setGuildData(guild.id, 'academyConfig', { headerRoleId: null, excludedRoleIds: [] });
+  const ix = configInteraction(guild);
+  await xpConfigCmd.execute(ix);
+  assert.match(embedDesc(ix.replies[0]), /\*\*Ladder pinned:\*\* ⚠️ no/);
 });
 
 // ---- message XP event ----
@@ -228,6 +261,15 @@ test('message event ignores bots, DMs, foreign guilds, and disabled config', asy
   await messageXpEvent.execute(fakeMessage(guild, member));
 
   assert.equal(getUserXp(guild.id, 'u4'), 0, 'no XP was ever awarded');
+});
+
+test('message event ignores system messages (joins/boosts pay nothing — audit #9)', async () => {
+  const guild = fakeGuild(freshGuildId());
+  const member = fakeMember(guild, 'u4s', []);
+  const message = fakeMessage(guild, member);
+  message.system = true;
+  await messageXpEvent.execute(message);
+  assert.equal(getUserXp(guild.id, 'u4s'), 0);
 });
 
 test('message event survives a broken ladder without throwing', async () => {

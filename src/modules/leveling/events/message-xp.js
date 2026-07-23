@@ -18,6 +18,9 @@ export default {
   async execute(message) {
     const client = message.client;
     if (message.author?.bot || !message.guild || !message.member) return;
+    // System messages (join notices, boosts) are authored by the user but are
+    // not chat — they must not pay XP or trigger seeding.
+    if (message.system) return;
     if (message.guild.id !== client.config.homeGuildId) return;
 
     const config = getXpConfig(message.guild.id);

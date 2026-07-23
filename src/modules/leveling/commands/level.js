@@ -1,5 +1,5 @@
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
-import { ladderForGuild } from '../../academy/service.js';
+import { isPinnedLadder, ladderForGuild } from '../../academy/service.js';
 import { currentRank } from '../../academy/lib/ladder.js';
 import { levelProgress, targetRank } from '../lib/xp.js';
 import { ensureSeeded, getXpConfig } from '../service.js';
@@ -20,6 +20,11 @@ export default {
     ),
   async execute(interaction) {
     const target = interaction.options.getUser('target') ?? interaction.user;
+    if (target.bot) {
+      // Never create an XP record for a bot — K9 units are paid in treats.
+      await interaction.reply({ content: '🚫 Bots don’t earn XP — K9 units are paid in treats.', flags: 64 });
+      return;
+    }
     const member = await interaction.guild.members.fetch(target.id).catch(() => null);
     if (!member) {
       await interaction.reply({ content: `🚫 ${target} is not in the precinct.`, flags: 64 });
@@ -56,10 +61,20 @@ export default {
       );
       lines.push(`\`${progressBar(progress.xpIntoRank, span)}\``);
     }
-    // Surface a rank the XP has earned but the member doesn't hold yet (e.g.
-    // role sync off or blocked) so the state is explainable, not mysterious.
-    if (earnedRank && earnedRank.roleId !== heldRank?.roleId && config.syncRoles === false) {
-      lines.push(`_XP has earned <@&${earnedRank.roleId}>, but automatic rank sync is off._`);
+    // Surface a rank the XP has earned but the member doesn't hold yet — sync
+    // off, sync blocked by hierarchy, or an unpinned ladder — so the state is
+    // explainable, not mysterious.
+    if (earnedRank && earnedRank.roleId !== heldRank?.roleId) {
+      if (!isPinnedLadder(interaction.guild.id, ladder)) {
+        lines.push('_Auto-rank is idle: the ladder is not pinned. An admin can run `/rank-setup`._');
+      } else if (config.syncRoles === false) {
+        lines.push(`_XP has earned <@&${earnedRank.roleId}>, but automatic rank sync is off._`);
+      } else {
+        lines.push(
+          `_XP has earned <@&${earnedRank.roleId}> — it will be applied on their next activity ` +
+            '(if it never applies, check that the CuffBot role sits above the rank roles)._',
+        );
+      }
     }
     if (record.seededFromRank) {
       embed.setFooter({ text: `XP seeded from existing rank: ${record.seededFromRank}` });

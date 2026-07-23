@@ -5,8 +5,8 @@ Every change to this skill (SKILL.md or anything under its directory) gets an en
 ## 0.4.1 — 2026-07-23 (Session 16)
 
 - `discord-reference.md` → Client & intents: two S16 facts — (a) event-only features (message XP) need just `GuildMessages`, never `MessageContent`; design them to survive the privileged-intent fallback; (b) `GuildVoiceStates` is non-privileged and voice presence is cache-only (no REST listing).
-- `LEARNINGS.md`: two new candidates — post-compaction file memory is stale (Read before Edit after a handoff); write-avoidance on SD-card deployments (read-only fast paths + batched tick writes).
-- Evidence: S16 built the leveling module — one Edit failed against remembered-but-stale file text, and the first draft's per-message/per-member store writes were needless Pi flash wear.
+- `LEARNINGS.md`: three new candidates — post-compaction file memory is stale (Read before Edit after a handoff); write-avoidance on SD-card deployments (read-only fast paths + batched tick writes); automation needs a stronger trust gate than human-in-the-loop commands (require an admin-pinned anchor; make automated writes self-healing).
+- Evidence: S16 built the leveling module — one Edit failed against remembered-but-stale file text; the first draft's per-message/per-member store writes were needless Pi flash wear; and the S16 audit's HIGH finding was exactly the reused-heuristic-without-a-pin failure (decoy ladder → auto role grants + permanently poisoned 0-seeds). The audit-before-done rule (0.4.0) caught it pre-merge for the second consecutive time.
 
 ## 0.4.0 — 2026-07-23 (Session 15)
 

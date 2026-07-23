@@ -67,6 +67,7 @@ function buildPlan(ladder, memberRoleIds, curIdx, targetIdx) {
     ok: true,
     from: curIdx < 0 ? null : ladder.ranks[curIdx].name,
     to: target.name,
+    toRoleId: target.roleId, // always set, even when addRoleId is null (role already held)
     addRoleId: memberRoleIds.includes(target.roleId) ? null : target.roleId,
     removeRoleIds,
   };
