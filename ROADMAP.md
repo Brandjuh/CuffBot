@@ -23,7 +23,7 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
   Module `dispatch`: configurable log channel (evidence locker) receiving enforcement/records events; `/dispatch` announcement command for the force.
   *Accept when:* log channel configurable per guild via command + stored in records store; missing-channel and missing-permission cases handled; manual complete.
 
-- [ ] **M5 — Academy: ranks** 🎖️
+- [x] **M5 — Academy: ranks** 🎖️ *(Session 12 — adopts the server’s existing leveler ranks, not a fixed ladder)*
   Module `academy`: rank ladder (Cadet → Chief) mapped to guild roles via config, `/promote`, `/demote`, `/ranks`. Role-hierarchy safety per `discord-reference.md`.
   *Accept when:* ladder logic lives in `lib/` with tests; misconfigured/missing roles reported clearly; manual complete.
 

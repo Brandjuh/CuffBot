@@ -280,3 +280,26 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** No protocol change; the convention documented in S8 proved out again. No version bump.
 
 **Handoff:** Owner: confirm the bottom-up animation; optionally `/evidence-locker action:set` in a log channel to see enforcement embeds. Next build session: M5 (academy / ranks) per `STATE.md → Resume point` — an academy design spec from the design workflow is summarized there.
+
+## Session 12 — 2026-07-23
+
+**Goal:** Milestone M5 (academy / ranks). Mid-build, the owner revealed the server already has leveler-bot ranks under a `[LEVELER]` header (high→low, minus two role ids) — so the academy must adopt those, not impose a fixed Cadet→Chief ladder.
+
+**Done:**
+- Completed the prefix framework: role/channel option resolution in the adapter (`getRole`/`getChannel`), and fixed the greedy-string rule to only apply to a *trailing* string option (so `!rank-link Chief @role` can't let `rank` swallow the role mention) — bug caught by a new adapter test.
+- **Redesigned the academy around the server's own roles:** `lib/ladder.js` (pure) detects the ladder from roles positioned under a `[LEVELER]`-style header (configured id or name heuristic), highest-first, filtering `@everyone`, managed roles, and an exclusion list, and stopping at the next section divider. `planPromotion`/`planDemotion` normalize a member to exactly one rank role and return specific failure codes. `currentRank` exported for `/badge` (M7).
+- Commands: `/promote`, `/demote` (both take a `to` **role** option to jump), `/ranks` (shows the detected ladder), `/rank-setup` (set the header + preview), `/rank-exclude` (manage non-rank roles). Config stored as `academyConfig`; the ladder is recomputed live so it always matches the server.
+- Tests 116/116 (redesigned ladder + command suites; role-resolution adapter test). Manual `academy.md` (with the owner's live-setup checklist); docs index + ROADMAP M5.
+
+**Decisions:**
+- **Adopt the server's structure over a generic model** (first designed Cadet→Chief; scrapped it). The ladder is detected live and owner-verifiable via `/ranks`/`/rank-setup` — the only correct approach since this environment cannot see the live guild.
+- `to` as a role option (not a name string): unambiguous and now resolvable in text commands.
+- Header + exclusions are per-guild config, not hardcoded — the two excluded ids the owner named are applied by them via `/rank-exclude`, kept out of shared code.
+
+**Corrections:** None in repo state; the design pivot was driven by new owner info, recorded here and in LEARNINGS.
+
+**Learned:** Don't model a domain the server already encodes — detect and adopt it. Added as a LEARNINGS candidate (second data point after S1 single-guild: the owner's reality overrides the generic design). The trailing-greedy parser rule is the robust fix for mixed string/entity option orders.
+
+**Skill:** No protocol change yet; LEARNINGS candidate added (promote after a third confirmation). No version bump.
+
+**Handoff:** Owner (live): `/rank-setup header:@[LEVELER]`, then `/rank-exclude` roles `428378130705809408` and `667116908876660778`, then `/ranks` to verify; ensure CuffBot's role sits above the rank roles. Next build session: M6 (patrol / automod) per `STATE.md → Resume point`.
