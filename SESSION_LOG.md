@@ -208,3 +208,27 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** `architecture.md` gained the implemented Storage details and the Cross-module calls convention (evidence: first stateful module + first inter-module dependency this session). No SKILL.md protocol change. Version bump recorded in the skill CHANGELOG (0.3.0).
 
 **Handoff:** Session 9 → M4 (dispatch / evidence locker) per `STATE.md → Resume point`. Owner live-verification of M1/M2/M3 still pending. S0 eval runs still pending.
+
+## Session 9 — 2026-07-23
+
+**Goal:** Owner requests (mid-session): every command must also work as `!command`; add a `!help` menu; add a manual update command.
+
+**Done:**
+- Dual invocation framework in `src/core/prefix/`: `parse.js` (pure tokenizer, command-line split, option mapping — last string greedy), `adapter.js` (message → interaction adapter; ephemeral replies go to DMs; supports withResponse), `router.js` (MessageCreate → same command.execute). Slash and text paths share one error-wrapped runner in `index.js`.
+- `/help` + `!help`: `core/help.js` generates the roster from actually-loaded modules (no hand-maintained list), grouped, showing both invocation forms + usage; `/help` renders an embed.
+- `/update` + `!update`: admin/owner-gated, triggers the test-gated updater (prefers the systemd unit, falls back to a detached script run). `setup-pi.sh` step 8 now also installs a scoped sudoers drop-in so restarts never prompt.
+- Message Content intent (privileged) enabled with **graceful fallback**: `index.js` tries with it, catches disallowed-intents (4014), retries slash-only, warns how to enable — a self-updating bot can never crash-loop on a missing portal toggle. Features gate on `client.messageContentAvailable`. Added `config.json → prefix`.
+- Tests 77/77 (17 new: tokenizer, command-line parsing, option mapping incl. greedy string / choices / booleans, id extraction, adapter routing incl. ephemeral→DM and withResponse, help model + usage + length cap). Docs: core manual (dual invocation, help, update, troubleshooting), runbook (intent + sudoers + /update), README.
+
+**Decisions:**
+- Adapter over rewriting every command: commands stay written against the interaction API; one bridge serves both. Ephemeral→DM preserves the privacy intent in a public channel.
+- Graceful intent fallback over fail-fast: on a restart-on-failure service, fail-fast = crash-loop. Keep the bot up, disable only the intent-gated features, tell the owner how to unlock them.
+- `/update` reuses the existing self-updater (same test gate) rather than a second update path — one safe mechanism.
+
+**Corrections:** None — S8 state matched reality (60 tests, three modules).
+
+**Learned:** A privileged intent added to a self-updating bot is a foot-gun (crash-loop); the graceful-fallback pattern is now in the skill's discord-reference. The last-string-greedy rule makes text commands feel natural (`!cite @user long reason here`).
+
+**Skill:** 0.3.1 — discord-reference gained the privileged-intent fallback pattern (evidence in the skill CHANGELOG).
+
+**Handoff:** Owner: enable the Message Content intent in the portal to unlock `!` commands (bot already runs without it). Next build session: M4 (dispatch / evidence locker) per `STATE.md → Resume point`. A design workflow for M5–M7 is in flight.

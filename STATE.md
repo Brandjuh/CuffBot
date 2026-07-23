@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 8 · 2026-07-23
-**Phase:** M3 (records) complete → next up is M4 (dispatch / evidence locker)
+**Last updated:** Session 9 · 2026-07-23
+**Phase:** M3 (records) + dual-invocation framework (S9) complete → next up is M4 (dispatch / evidence locker)
 
 ## Verification block — run this before trusting the rest
 
@@ -16,15 +16,16 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 60/60 pass as of S8 |
+| Tests green | `npm test` | 77/77 pass as of S9 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'core', 'enforcement', 'records' ]` |
 | Manuals current | `ls docs/modules/` | `core.md`, `enforcement.md`, `records.md` |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 8 · 2026-07-23)
+## What exists (verified Session 9 · 2026-07-23)
 
+- **Dual invocation (S9):** every command runs as `/x` AND `!x` (`src/core/prefix/` — parser, adapter, router; ephemeral→DM). `/help` (generated roster) and `/update` (manual, admin-only, test-gated) added to core. Message Content intent enabled with graceful slash-only fallback (`client.messageContentAvailable`); `config.json → prefix`. Text commands + patrol need that intent (portal enablement).
 - **Records (M3, S8):** `src/core/store.js` (atomic per-guild JSON, corrupt-file recovery, `CUFFBOT_DATA_DIR` override) + module `records` — case-numbered rap sheet (`lib/api.js`), `/rapsheet` (ephemeral), `/expunge` (Manage Server). Enforcement's four commands file records through `records/lib/api.js`, wrapped so records trouble never blocks an action. `data/` gitignored. Manual `records.md`.
 
 
@@ -37,7 +38,7 @@
 
 ## Resume point
 
-**Session 9 → Milestone M4: dispatch / evidence locker.**
+**Session 10 → Milestone M4: dispatch / evidence locker.**
 
 1. Read `architecture.md → Police theme vocabulary` (evidence locker = mod-log channel; dispatch = announcements) and the M4 acceptance criteria in `ROADMAP.md`.
 2. Module `dispatch`: a configurable per-guild log channel (the *evidence locker*) that receives enforcement/records events, plus `/dispatch` for announcements to the force.

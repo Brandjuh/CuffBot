@@ -44,8 +44,14 @@ A systemd timer (`cuffbot-update.timer`) runs `scripts/update.sh` every 15 minut
 | Task | Command |
 |---|---|
 | Update history / last run | `journalctl -u cuffbot-update` |
-| Force an update check now | `sudo systemctl start cuffbot-update.service` |
+| Force an update check now | `sudo systemctl start cuffbot-update.service`, or `/update` in Discord (admins) |
 | Pause / resume auto-update | `sudo systemctl disable --now cuffbot-update.timer` / `… enable --now …` |
+
+Step 8 also installs a scoped `sudoers` drop-in (`/etc/sudoers.d/cuffbot`) allowing exactly `systemctl restart cuffbot` and `systemctl start cuffbot-update.service` without a password, so both the timer and the in-Discord `/update` can restart cleanly.
+
+## Text commands (`!`) and the Message Content intent
+
+Every command also works as `!command` (e.g. `!help`, `!cite @user spam`). This needs the **Message Content intent**, which is privileged: enable it at Developer Portal → your app → Bot → Privileged Gateway Intents → **Message Content Intent**. If it is off, the bot still runs — slash commands work, `!` commands and patrol are disabled, and the startup log says so. Restart after enabling: `sudo systemctl restart cuffbot`.
 
 ## Day-to-day operation
 

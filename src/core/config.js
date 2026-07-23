@@ -45,9 +45,20 @@ export function loadConfig({ env = process.env, settingsFile = settingsPath } = 
     );
   }
 
+  // Prefix for text ("!command") invocation. A single non-space, non-slash
+  // character keeps parsing unambiguous and avoids clashing with slash commands.
+  const prefix = String(settings.prefix ?? '!');
+  if (prefix.length !== 1 || /\s|\//.test(prefix)) {
+    throw new Error(
+      'config.json → prefix must be a single character and not whitespace or "/". ' +
+        `Got ${JSON.stringify(settings.prefix)}.`,
+    );
+  }
+
   return {
     token: env.DISCORD_TOKEN,
     clientId: env.CLIENT_ID,
     homeGuildId: String(settings.homeGuildId),
+    prefix,
   };
 }
