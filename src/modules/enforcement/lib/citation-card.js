@@ -192,18 +192,20 @@ export function renderCitationGif(input, { frames = 16, scale = GIF_SCALE } = {}
   const ticketH = H * scale;
   const slotH = 8 * scale;
   const canvasW = ticketW;
-  const canvasH = slotH + ticketH;
+  const canvasH = ticketH + slotH;
 
-  // Reveal the ticket top-first, growing downward out of the slot.
+  // Print bottom-first, rising upward out of a slot at the bottom: the ticket's
+  // bottom edge emerges first and fills toward the header at the top.
   const compose = (revealed) => {
     const buf = new Uint8Array(canvasW * canvasH);
     buf.fill(IDX.TRAY);
     const rows = Math.min(revealed, ticketH);
-    for (let s = 0; s < rows; s += 1) {
-      buf.set(ticket.subarray(s * ticketW, (s + 1) * ticketW), (slotH + s) * canvasW);
+    for (let s = ticketH - rows; s < ticketH; s += 1) {
+      buf.set(ticket.subarray(s * ticketW, (s + 1) * ticketW), s * canvasW);
     }
-    for (let y = 0; y < slotH; y += 1) {
-      buf.fill(y >= slotH - scale ? IDX.SLOT_LIP : IDX.SLOT, y * canvasW, (y + 1) * canvasW);
+    // Slot bar along the bottom; the highlighted lip is its top edge.
+    for (let y = ticketH; y < canvasH; y += 1) {
+      buf.fill(y < ticketH + scale ? IDX.SLOT_LIP : IDX.SLOT, y * canvasW, (y + 1) * canvasW);
     }
     return buf;
   };

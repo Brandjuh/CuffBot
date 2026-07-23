@@ -2,6 +2,7 @@ import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.
 import { auditReason } from '../lib/audit.js';
 import { ensureInvokerPermission, fetchMember } from '../guards.js';
 import { addRecord } from '../../records/lib/api.js';
+import { logEnforcement } from '../../dispatch/lib/api.js';
 import { logger } from '../../../core/logger.js';
 
 function fileRelease(interaction, target, reason, released) {
@@ -16,6 +17,21 @@ function fileRelease(interaction, target, reason, released) {
   } catch (error) {
     logger.warn('Records unavailable — release not filed:', error);
     return null;
+  }
+}
+
+async function logRelease(interaction, target, reason, released, caseNumber) {
+  try {
+    await logEnforcement(interaction.guild, {
+      type: 'release',
+      subject: `${target}`,
+      officer: `${interaction.user}`,
+      reason,
+      caseNumber,
+      fields: [{ name: 'Released from', value: released, inline: true }],
+    });
+  } catch (error) {
+    logger.warn('Evidence-locker log failed (release):', error);
   }
 }
 
@@ -53,6 +69,7 @@ export default {
         await interaction.reply(
           `🔓 ${target} released from the holding cell (timeout lifted)${caseNumber ? ` — Case #${caseNumber}` : ''}.`,
         );
+        await logRelease(interaction, target, reason, 'timeout', caseNumber);
         return;
       }
     }
@@ -73,6 +90,7 @@ export default {
       await interaction.reply(
         `🔓 ${target} released — ban lifted${caseNumber ? ` (Case #${caseNumber})` : ''}. They may rejoin the precinct.`,
       );
+      await logRelease(interaction, target, reason, 'ban', caseNumber);
       return;
     }
 

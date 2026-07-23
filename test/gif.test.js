@@ -5,10 +5,34 @@ import { renderCitationGif } from '../src/modules/enforcement/lib/citation-card.
 
 const SIG = 'GIF89a';
 
-function countMarker(buf, a, b) {
-  let n = 0;
-  for (let i = 0; i < buf.length - 1; i += 1) if (buf[i] === a && buf[i + 1] === b) n += 1;
-  return n;
+// Walk the GIF block structure to count image frames reliably — scanning raw
+// bytes for markers is wrong because LZW image data can contain any byte.
+function countFrames(buf) {
+  let off = 6; // after signature
+  const packed = buf[10];
+  off += 7; // logical screen descriptor
+  if (packed & 0x80) off += 3 * (1 << ((packed & 0x07) + 1)); // global color table
+  let frames = 0;
+  while (off < buf.length) {
+    const block = buf[off++];
+    if (block === 0x3b) break; // trailer
+    if (block === 0x21) {
+      off += 1; // extension label
+      while (buf[off] !== 0) off += buf[off] + 1; // skip sub-blocks
+      off += 1; // terminator
+    } else if (block === 0x2c) {
+      const imgPacked = buf[off + 8];
+      off += 9; // image descriptor
+      if (imgPacked & 0x80) off += 3 * (1 << ((imgPacked & 0x07) + 1)); // local color table
+      off += 1; // LZW min code size
+      while (buf[off] !== 0) off += buf[off] + 1; // skip image sub-blocks
+      off += 1; // terminator
+      frames += 1;
+    } else {
+      break; // unexpected
+    }
+  }
+  return frames;
 }
 
 test('lzwEncode is deterministic and brackets output with clear/end codes', () => {
@@ -37,7 +61,7 @@ test('encodeGif writes a valid GIF89a structure', () => {
   assert.equal(gif.readUInt16LE(6), 2, 'logical width');
   assert.equal(gif.readUInt16LE(8), 2, 'logical height');
   assert.equal(gif[gif.length - 1], 0x3b, 'trailer byte');
-  assert.equal(countMarker(gif, 0x21, 0xf9), 2, 'one graphic-control-ext per frame');
+  assert.equal(countFrames(gif), 2, 'one graphic-control-ext per frame');
   assert.ok(gif.includes(Buffer.from('NETSCAPE2.0')), 'loop extension present');
 });
 
@@ -62,7 +86,7 @@ test('renderCitationGif is deterministic and well-formed', () => {
   assert.equal(a.gif.subarray(0, 6).toString('latin1'), SIG);
   assert.equal(a.gif[a.gif.length - 1], 0x3b);
   // 1 empty + 16 reveal + 1 hold = 18 frames by default.
-  assert.equal(countMarker(a.gif, 0x21, 0xf9), 18);
+  assert.equal(countFrames(a.gif), 18);
   assert.ok(a.gif.length < 2 * 1024 * 1024, 'GIF well under Discord upload limits');
 });
 

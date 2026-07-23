@@ -7,6 +7,7 @@ import {
   replyHierarchyBlocked,
 } from '../guards.js';
 import { addRecord } from '../../records/lib/api.js';
+import { logEnforcement } from '../../dispatch/lib/api.js';
 import { logger } from '../../../core/logger.js';
 
 // Discord accepts 0..604800 seconds (7 days) of message history deletion.
@@ -78,11 +79,25 @@ export default {
       logger.warn('Records unavailable — arrest not filed:', error);
     }
 
-    const wipeNote = deleteMessageSeconds > 0
-      ? ` Message history wiped: ${WIPE_CHOICES.find((c) => c.value === deleteMessageSeconds)?.name.replace('Wipe last ', 'last ') ?? ''}.`
+    const wipeLabel = deleteMessageSeconds > 0
+      ? WIPE_CHOICES.find((c) => c.value === deleteMessageSeconds)?.name.replace('Wipe last ', 'last ') ?? ''
       : '';
+    const wipeNote = wipeLabel ? ` Message history wiped: ${wipeLabel}.` : '';
     await interaction.reply(
       `🚨 ${target} has been **arrested** (banned)${caseNumber ? ` — Case #${caseNumber}` : ''}. Reason: ${reason ?? 'No reason given'}.${wipeNote}`,
     );
+
+    try {
+      await logEnforcement(interaction.guild, {
+        type: 'arrest',
+        subject: `${target}`,
+        officer: `${interaction.user}`,
+        reason,
+        caseNumber,
+        fields: wipeLabel ? [{ name: 'Message wipe', value: wipeLabel, inline: true }] : [],
+      });
+    } catch (error) {
+      logger.warn('Evidence-locker log failed (arrest):', error);
+    }
   },
 };

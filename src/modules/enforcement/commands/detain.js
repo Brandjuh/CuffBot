@@ -8,6 +8,7 @@ import {
   replyHierarchyBlocked,
 } from '../guards.js';
 import { addRecord } from '../../records/lib/api.js';
+import { logEnforcement } from '../../dispatch/lib/api.js';
 import { logger } from '../../../core/logger.js';
 
 export default {
@@ -82,5 +83,18 @@ export default {
     await interaction.reply(
       `🚔 ${target} detained in the holding cell for **${formatDuration(ms)}** (timeout)${caseNumber ? ` — Case #${caseNumber}` : ''}. Reason: ${reason ?? 'No reason given'}`,
     );
+
+    try {
+      await logEnforcement(interaction.guild, {
+        type: 'detainment',
+        subject: `${target}`,
+        officer: `${interaction.user}`,
+        reason,
+        caseNumber,
+        fields: [{ name: 'Duration', value: formatDuration(ms), inline: true }],
+      });
+    } catch (error) {
+      logger.warn('Evidence-locker log failed (detainment):', error);
+    }
   },
 };
