@@ -38,17 +38,26 @@ export async function resolveLocker(guild) {
 }
 
 /**
+ * Send any embed to the evidence locker (best effort). The seam other modules
+ * use to route a message to the locker (e.g. /911 reports).
+ * @returns {Promise<{ delivered: boolean, reason: string|null }>}
+ */
+export async function sendToEvidenceLocker(guild, embed) {
+  const { channel, reason } = await resolveLocker(guild);
+  if (!channel) return { delivered: false, reason };
+  const ok = await channel
+    .send({ embeds: [embed] })
+    .then(() => true)
+    .catch(() => false);
+  return { delivered: ok, reason: ok ? null : 'send-failed' };
+}
+
+/**
  * Post an enforcement action to the evidence locker (best effort).
  * @param {object} guild
  * @param {{ type, subject, officer, reason?, caseNumber?, fields? }} action
  * @returns {Promise<{ delivered: boolean, reason: string|null }>}
  */
 export async function logEnforcement(guild, action) {
-  const { channel, reason } = await resolveLocker(guild);
-  if (!channel) return { delivered: false, reason };
-  const ok = await channel
-    .send({ embeds: [enforcementEmbed(action)] })
-    .then(() => true)
-    .catch(() => false);
-  return { delivered: ok, reason: ok ? null : 'send-failed' };
+  return sendToEvidenceLocker(guild, enforcementEmbed(action));
 }

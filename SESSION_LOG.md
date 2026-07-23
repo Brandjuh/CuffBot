@@ -326,3 +326,25 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** No protocol change; the cross-module and intent-gate patterns held. No version bump.
 
 **Handoff:** Owner: enable Message Content intent, `/patrol action:on`, add terms with `/patrol-term`, test as a non-mod. Next build session: M7 (public affairs) per `STATE.md → Resume point`, then M8 finish + a final audit workflow.
+
+## Session 14 — 2026-07-23
+
+**Goal:** Milestone M7 (public affairs) — the last feature module.
+
+**Done:**
+- Module `public-affairs`: `/badge` (member card — rank via academy `currentRank`, record count via records `recordsFor`, join date; both cross-module reads wrapped so the badge always renders), `/wanted` (playful poster embed; deterministic crime + donut bounty per target), `/donut` (fun; deterministic variety), `/911` (report a member to the evidence locker via dispatch `sendToEvidenceLocker`; **anonymity option** that omits the reporter from the embed; ephemeral confirm; graceful "no locker configured" path).
+- Added `sendToEvidenceLocker(guild, embed)` to dispatch's lib as the generic locker seam; `logEnforcement` now delegates to it.
+- `lib/cards.js` pure (embed builders + deterministic hash/pickers). No privileged intents.
+- Tests 143/143 (17 new: hashing/pickers, badge fallbacks, wanted range/stability, donut, report anonymity — reporter id never present when anonymous — and command smokes incl. /911 delivery + no-locker). Manual `public-affairs.md`; docs index + ROADMAP M7. **7 modules, 24 commands.**
+
+**Decisions:**
+- Fun commands are pure/deterministic (seeded) so they're testable and stable per target; `/911` output is private-by-construction (ephemeral confirm + mod-only locker), which is why it's safe to leave ungated for everyone.
+- `/badge` reads academy/records read-only and degrades to Unranked / 0 entries — a community command must never break because a backend module hiccups.
+
+**Corrections:** None — S13 state matched reality (132 tests, 6 modules).
+
+**Learned:** The cross-module lib seam now has five consumers and held up cleanly for read-only reuse too (badge→academy/records, 911→dispatch). The pattern is proven; a candidate for promotion into the skill next session.
+
+**Skill:** No change this session; will consolidate LEARNINGS in the M8 retrospective.
+
+**Handoff:** All feature modules M1–M7 done. Next session: M8 finish (backup note, rotation runbook, FAQ sweep) + a final adversarial **audit workflow** across the codebase, then close out. Owner live checklist for M7 is in `public-affairs.md → Testing`.

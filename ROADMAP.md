@@ -31,7 +31,7 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
   Module `patrol`: message screening (banned terms, invite links, basic spam heuristic) with actions routed through enforcement/records; `/patrol` to view/toggle rules. Needs `MessageContent` privileged intent — document the portal steps in the manual.
   *Accept when:* screening logic in `lib/` with tests; per-guild toggle stored; false-positive story documented; manual complete.
 
-- [ ] **M7 — Public Affairs: community** 🍩
+- [x] **M7 — Public Affairs: community** 🍩 *(Session 14)*
   Module `public-affairs`: `/badge` (member card: join date, rank, record count), `/wanted` (playful poster embed), `/donut` (fun), `/911` (report to the force → evidence locker).
   *Accept when:* commands work without privileged intents where possible; `/911` respects anonymity choice; manual complete.
 
