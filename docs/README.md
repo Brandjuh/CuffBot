@@ -12,6 +12,13 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | patrol | [`modules/patrol.md`](modules/patrol.md) | stable (S13) |
 | public-affairs | [`modules/public-affairs.md`](modules/public-affairs.md) | stable (S14) |
 
+## Operations
+
+| Guide | Covers |
+|---|---|
+| [`operations/raspberry-pi.md`](operations/raspberry-pi.md) | Install, run, self-update, the Message Content intent, day-to-day commands |
+| [`operations/backup-and-recovery.md`](operations/backup-and-recovery.md) | Backing up `data/`, restoring, token rotation, moving to a new Pi |
+
 ## Reading order for newcomers
 
 1. Root [`README.md`](../README.md) — what CuffBot is and how to run it.
