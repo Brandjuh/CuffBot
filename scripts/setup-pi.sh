@@ -184,9 +184,27 @@ WantedBy=timers.target
 UNIT
       sudo systemctl daemon-reload
       sudo systemctl enable --now cuffbot-update.timer >/dev/null
-      say "Self-update armed. History: journalctl -u cuffbot-update"
+
+      # Passwordless sudo for exactly the two systemctl calls the updater and
+      # the in-Discord /update command need — so a restart never hangs on a
+      # password prompt. Scoped to these commands only; nothing else.
+      SUDOERS=/etc/sudoers.d/cuffbot
+      sudo tee "$SUDOERS" >/dev/null <<SUDO
+$USER ALL=(root) NOPASSWD: /bin/systemctl restart cuffbot, /bin/systemctl start cuffbot-update.service, /usr/bin/systemctl restart cuffbot, /usr/bin/systemctl start cuffbot-update.service
+SUDO
+      sudo chmod 440 "$SUDOERS"
+      if sudo visudo -cf "$SUDOERS" >/dev/null 2>&1; then
+        say "Self-update armed (+ scoped sudoers for restarts). History: journalctl -u cuffbot-update"
+      else
+        sudo rm -f "$SUDOERS"
+        say "Self-update armed. (sudoers validation failed — /update may prompt for a password.)"
+      fi
       ;;
   esac
 fi
 
-say "Setup complete. Try /radio-check in the precinct. 📻"
+echo
+say "Almost there — enable the Message Content intent for \"!\" text commands:"
+echo "  Developer Portal → your app → Bot → Privileged Gateway Intents → Message Content Intent → ON."
+echo "  Without it, slash commands still work; !commands and patrol do not."
+say "Setup complete. Try /radio-check (or !radio-check) and /help in the precinct. 📻"

@@ -9,11 +9,22 @@
 
 Core is the precinct's front desk: it proves the bot is alive (`/radio-check`) and enforces CuffBot's single-precinct design — the bot serves exactly one guild (the *home precinct*, set in `config.json`) and automatically leaves any other server it is invited to. Every other module builds on the loader/config/logger plumbing this module exercises.
 
+## Dual invocation: `/command` and `!command`
+
+Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or as a **text command** (`!radio-check`). Text invocation is handled centrally (`src/core/prefix/`), so every current and future command gets it for free — nothing per-command to maintain.
+
+- The prefix is `config.json → prefix` (default `!`).
+- Text arguments are positional and the last text option is greedy: `!detain @user 2h being a repeat offender` maps to `target`, `duration`, then `reason`.
+- Replies that are ephemeral as a slash command (rap sheets, refusals) are sent to the user's **DMs** as a text command, so sensitive output never becomes public.
+- **Text commands need the Message Content intent** (privileged). If it is not enabled in the Developer Portal, the bot still boots and runs slash commands; text commands and patrol stay disabled and a startup warning explains how to enable it (Bot → Privileged Gateway Intents → Message Content Intent). See Troubleshooting.
+
 ## Commands
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
 | `/radio-check` | Confirms the bot is on the air and reports round-trip latency | none | Everyone | `/radio-check` |
+| `/help` | Shows every loaded command (grouped by module) and how to use it | none | Everyone | `/help` |
+| `/update` | Checks for a newer version and restarts into it if its tests pass | none | Administrators / guild owner | `/update` |
 
 ### /radio-check
 
@@ -21,6 +32,17 @@ Core is the precinct's front desk: it proves the bot is alive (`/radio-check`) a
 - **What happens:** the bot replies immediately with "📻 Radio check…", measures the round-trip time between your invocation and its own reply message, then edits the reply with a verdict.
 - **Reply:** visible to the channel (not ephemeral). Verdict bands: under 150 ms "Loud and clear", under 400 ms "Reading you with a bit of static", otherwise "Signal is rough out there" — always with the measured milliseconds.
 - **Failure modes:** none specific. If the bot does not respond at all, it is offline or commands were never registered — see Troubleshooting.
+
+### /help
+
+- **Options:** none.
+- **What happens:** generates the command roster from the modules that are actually loaded (never a hand-maintained list), grouped by module, showing both the `/name` and `!name` forms plus a usage hint. Public (everyone benefits from seeing it).
+
+### /update
+
+- **Options:** none. **Who:** Administrators or the guild owner only (checked at runtime, not just by the command's default visibility).
+- **What happens:** triggers the same test-gated self-updater the timer uses (`scripts/update.sh`: fetch → tests must pass → restart), so a manual update is exactly as safe as an automatic one — a red suite rolls back and the running bot is untouched. Prefers the `cuffbot-update` systemd unit (runs outside the bot's own lifecycle); falls back to a detached script run. Reply points at `journalctl -u cuffbot-update`.
+- **Reliability:** wants the systemd update unit + the scoped sudoers drop-in that `setup-pi.sh` step 8 installs. Without them it still attempts a detached run.
 
 ## Events
 
@@ -87,6 +109,8 @@ Boot fails fast with a named-variable error message when required settings are m
 | `/radio-check` not in the command picker | Commands never registered, or registered before the bot joined | Run `npm run deploy-commands`; give Discord a few seconds; re-open the client |
 | "The application did not respond" | Bot process not running (registration ≠ being online) | `npm start` and watch for the on-duty log line |
 | Login fails with `TokenInvalid` / registration says Unauthorized | Wrong or rotated token, or token belongs to a different application than `CLIENT_ID` | `npm run doctor` — it checks the token against Discord and names the exact mismatch |
+| `!commands` do nothing (but `/commands` work) | Message Content intent not enabled | Developer Portal → Bot → Privileged Gateway Intents → Message Content Intent → ON, then restart. The startup log warns when this is the cause. |
+| `/update` replies but nothing happens | Update unit/sudoers not installed, or already up to date | Re-run `setup-pi.sh` step 8; check `journalctl -u cuffbot-update`. "Up to date" is a no-op by design. |
 | Bot leaves a server immediately | That server is not the home precinct — working as designed | Change `config.json → homeGuildId` only if the precinct itself moves |
 
 ## Changelog
@@ -94,3 +118,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | Session | Change |
 |---|---|
 | S1 | Created: `/radio-check`, on-duty sweep, guild lockdown, core plumbing (config/logger/loader), tests. |
+| S9 | Added dual invocation (`/x` + `!x`) via `src/core/prefix/`, `/help` (generated roster), `/update` (manual self-update), Message Content intent with graceful slash-only fallback. |

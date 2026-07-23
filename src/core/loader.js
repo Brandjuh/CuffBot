@@ -43,6 +43,9 @@ export async function discoverModules(dir = modulesDir) {
 export async function loadModules(client) {
   const modules = await discoverModules();
   client.commands = new Collection();
+  // Exposed so /help and !help can generate the roster from what is actually
+  // loaded (never a hand-maintained list that drifts).
+  client.moduleList = modules;
 
   for (const mod of modules) {
     for (const command of mod.commands) {
@@ -53,6 +56,7 @@ export async function loadModules(client) {
       if (client.commands.has(commandName)) {
         throw new Error(`Duplicate command name "/${commandName}" (module "${mod.name}").`);
       }
+      command.module = mod.name; // for help grouping
       client.commands.set(commandName, command);
     }
 

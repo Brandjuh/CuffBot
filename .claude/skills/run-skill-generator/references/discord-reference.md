@@ -11,7 +11,9 @@ client.login(process.env.DISCORD_TOKEN);
 ```
 
 - `Guilds` is the baseline intent; slash commands work with it alone.
-- `GuildMembers`, `MessageContent`, `GuildPresences` are **privileged**: they must also be enabled in the Developer Portal → Bot → Privileged Gateway Intents, or login fails with "Used disallowed intents". Request them only when a feature truly needs them (patrol/automod will need more than core does).
+- `GuildMembers`, `MessageContent`, `GuildPresences` are **privileged**: they must also be enabled in the Developer Portal → Bot → Privileged Gateway Intents, or login fails with "Used disallowed intents" (gateway close code **4014**). Request them only when a feature truly needs them.
+- **Graceful privileged-intent fallback (CuffBot pattern, S9):** on a self-updating bot with `Restart=on-failure`, adding a privileged intent the owner has not enabled turns into a crash-loop. So `src/index.js` tries to log in *with* the privileged intent, catches the 4014/"disallowed intents" error, logs a precise "enable it in the portal" warning, and re-logs-in *without* it — slash commands keep working, the intent-gated features (text commands, patrol) disable themselves. Never let a privileged intent be able to take the whole bot down. Gate the dependent features on a `client.messageContentAvailable` flag.
+- Receiving `MessageCreate` at all needs the non-privileged `GuildMessages` intent; reading `message.content` needs the privileged `MessageContent`. Text ("!command") invocation therefore needs both.
 - Missing intents don't always error — they show up as **empty caches and events that never fire**. If "nothing happens", suspect intents first.
 
 ## Slash command registration
