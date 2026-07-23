@@ -23,9 +23,17 @@ export function guildRolesDesc(guild) {
     .map((r) => ({ id: r.id, name: r.name, managed: r.managed, position: r.position }));
 }
 
-/** Resolve the guild's rank ladder from stored config + live role positions. */
+/**
+ * Resolve the guild's rank ladder from stored config + live role positions.
+ * The interaction-free seam other modules (leveling) call to read the ladder.
+ */
+export function ladderForGuild(guild) {
+  return buildLadder(guildRolesDesc(guild), getAcademyConfig(guild.id));
+}
+
+/** Resolve the guild's rank ladder from an interaction. */
 export function resolveLadder(interaction) {
-  return buildLadder(guildRolesDesc(interaction.guild), getAcademyConfig(interaction.guild.id));
+  return ladderForGuild(interaction.guild);
 }
 
 /** Verify the bot can assign/remove the roles a rank change needs. */

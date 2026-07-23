@@ -68,21 +68,25 @@ function isDisallowedIntents(error) {
   return error?.code === 4014 || /disallowed intents/i.test(String(error?.message ?? ''));
 }
 
-const WITH_MESSAGE_CONTENT = [
+// Non-privileged intents every feature set needs: GuildMessages fires
+// MessageCreate (message XP needs the event, not the content) and
+// GuildVoiceStates shows who is in voice (voice XP). Only MessageContent is
+// privileged, so the fallback keeps everything except reading message text.
+const BASE_INTENTS = [
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildMessages,
-  GatewayIntentBits.MessageContent,
+  GatewayIntentBits.GuildVoiceStates,
 ];
 
 try {
-  await buildAndLogin(WITH_MESSAGE_CONTENT, { messageContent: true });
+  await buildAndLogin([...BASE_INTENTS, GatewayIntentBits.MessageContent], { messageContent: true });
 } catch (error) {
   if (isDisallowedIntents(error)) {
     logger.warn(
-      'Message Content intent is NOT enabled — "!" text commands and patrol are DISABLED (slash commands work normally). ' +
+      'Message Content intent is NOT enabled — "!" text commands and patrol are DISABLED (slash commands and XP work normally). ' +
         'Enable it: Developer Portal → your app → Bot → Privileged Gateway Intents → Message Content Intent, then restart.',
     );
-    await buildAndLogin([GatewayIntentBits.Guilds], { messageContent: false });
+    await buildAndLogin(BASE_INTENTS, { messageContent: false });
   } else {
     throw error;
   }

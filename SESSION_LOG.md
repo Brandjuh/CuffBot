@@ -370,3 +370,32 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** 0.4.0 — see its CHANGELOG.
 
 **Handoff:** The base is complete and audited. Two owner questions are open and recorded in `STATE.md → Resume point`: (1) academy XP/VC-time system, (2) AI provider/cost. The rest of the backlog (M10–M14) is buildable on request. I'll ask the owner about these two before building M9/the XP system.
+
+## Session 16 — 2026-07-23
+
+**Goal:** Build the XP/leveling system (owner priority from S15): message + voice XP, auto-rank via the academy ladder, and the owner's mid-session requirement that existing members' XP is seeded from the rank they already hold.
+
+**Done:**
+- **Module `leveling`** (8th module, commands 25–27): CuffBot's own XP system, replacing the old leveler bot.
+  - `lib/xp.js` pure: message XP with cooldown, voice XP per whole minute, position-based thresholds `round(baseXp·N^1.6)` mapped onto the academy ladder (highest-first), `seedXpForRankIndex` (rank → floor XP), voice eligibility (anti-farm), **promote-only** `planRankSync`, `/level` progress math.
+  - **Seeding (owner, this session): "Ik wil niet dat iedereen op 0 begint"** — first sight of a member with a rank role seeds their XP at that rank's threshold floor (they keep the rank, earn the next one in full); rankless members start at 0; runs at most once per member; `seededFromRank` stored and shown on `/level`. Lazy (first message / voice minute / `/level`) — no migration step.
+  - Events: `MessageCreate` (XP needs only the event — works without Message Content) and a 60 s `ClientReady` voice sweep (no join/leave bookkeeping; restart loses ≤59 s). Anti-farm: no AFK channel, ≥2 humans, self-deafened earns nothing, bots never.
+  - Auto-rank: promote-only sync with audit reasons + no-ping announcements (`/xp-config announce:#channel`, else the channel where it happened; voice promotions without a configured channel stay silent). XP never demotes — `/demote` stays human.
+  - Commands `/level` (card + progress bar), `/leaderboard`, `/xp-config` (admin; live thresholds view). All three work as `!` text commands (positional).
+  - Academy gained the interaction-free `ladderForGuild(guild)` seam; `resolveLadder(interaction)` delegates to it. Intents: base set now `Guilds + GuildMessages + GuildVoiceStates` (all non-privileged), MessageContent still optional on top.
+  - Pi-friendly writes: cooldown hits do no store write at all; a voice tick awards all eligible members in ONE write.
+- **Owner decisions recorded (ROADMAP M9, STATE):** AI provider = free tier; **AI rate limits are GLOBAL** — 1 msg/7 s AND max 62 msgs/hour, shared by all users combined.
+- Tests 210/210 (45 new across lib/service/commands/events incl. seeding paths and anti-farm). Manual `leveling.md`; academy manual, README (8 modules/27 commands), docs index, Pi runbook updated. Skill 0.4.1 (intent facts; two LEARNINGS candidates).
+
+**Decisions:**
+- Seed at the rank's threshold FLOOR (minimum XP consistent with the held rank) — keeps the rank, no instant promotion, and the next rank costs its full span.
+- Voice XP via periodic sweep of current voice state instead of session bookkeeping — restart-safe and mute/move-proof by construction.
+- Promote-only sync so a redeploy or ladder misconfiguration can never mass-demote (demotion stays `/demote`).
+
+**Corrections:** None to prior state — S15's claims held (165 tests, 7 modules verified before building).
+
+**Learned:** Post-compaction file memory is stale (an Edit failed against remembered text — Read before Edit after a handoff); high-frequency events on SD-card deployments need write-avoidance (fast path + batched tick). Both in LEARNINGS as candidates.
+
+**Skill:** 0.4.1 — discord-reference intent facts (event-only features need no MessageContent; GuildVoiceStates non-privileged, cache-only voice presence).
+
+**Handoff:** Adversarial audit of the leveling module was launched this session; its findings and fixes land in this same PR before merge (addendum below if anything was found). Owner live checklist: `docs/modules/leveling.md → Testing` — critically step 2 (a ranked member's `/level` must show seeded XP, not 0). Next session: M9 AI conversation (all decisions now recorded in `STATE.md → Resume point`).

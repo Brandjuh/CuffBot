@@ -51,7 +51,7 @@ Step 8 also installs a scoped `sudoers` drop-in (`/etc/sudoers.d/cuffbot`) allow
 
 ## Text commands (`!`) and the Message Content intent
 
-Every command also works as `!command` (e.g. `!help`, `!cite @user spam`). This needs the **Message Content intent**, which is privileged: enable it at Developer Portal → your app → Bot → Privileged Gateway Intents → **Message Content Intent**. If it is off, the bot still runs — slash commands work, `!` commands and patrol are disabled, and the startup log says so. Restart after enabling: `sudo systemctl restart cuffbot`.
+Every command also works as `!command` (e.g. `!help`, `!cite @user spam`). This needs the **Message Content intent**, which is privileged: enable it at Developer Portal → your app → Bot → Privileged Gateway Intents → **Message Content Intent**. If it is off, the bot still runs — slash commands work, `!` commands and patrol are disabled, and the startup log says so. Restart after enabling: `sudo systemctl restart cuffbot`. XP/leveling is unaffected either way: message XP needs only the message *event* (not its content) and voice XP uses the non-privileged voice-states intent, so both keep working even without Message Content.
 
 ## Day-to-day operation
 
