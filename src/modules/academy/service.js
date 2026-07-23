@@ -23,9 +23,31 @@ export function guildRolesDesc(guild) {
     .map((r) => ({ id: r.id, name: r.name, managed: r.managed, position: r.position }));
 }
 
-/** Resolve the guild's rank ladder from stored config + live role positions. */
+/**
+ * Resolve the guild's rank ladder from stored config + live role positions.
+ * The interaction-free seam other modules (leveling) call to read the ladder.
+ */
+export function ladderForGuild(guild) {
+  return buildLadder(guildRolesDesc(guild), getAcademyConfig(guild.id));
+}
+
+/** Resolve the guild's rank ladder from an interaction. */
 export function resolveLadder(interaction) {
-  return buildLadder(guildRolesDesc(interaction.guild), getAcademyConfig(interaction.guild.id));
+  return ladderForGuild(interaction.guild);
+}
+
+/**
+ * True when this ladder came from the admin-pinned header role (`/rank-setup`),
+ * not the name heuristic. Human-driven commands (/promote, /ranks) may work
+ * from a heuristic ladder — a human sees what they are doing — but AUTOMATED
+ * actors (leveling's rank sync and XP seeding) must require the pin: a decoy
+ * role name like "Level 100 Club" would otherwise silently become a ladder the
+ * bot hands out roles from and seeds XP against.
+ */
+export function isPinnedLadder(guildId, ladder) {
+  if (!ladder?.headerFound || ladder.ranks.length === 0) return false;
+  const pinned = getAcademyConfig(guildId).headerRoleId;
+  return Boolean(pinned && pinned === ladder.headerRoleId);
 }
 
 /** Verify the bot can assign/remove the roles a rank change needs. */

@@ -45,7 +45,7 @@ Theme reference: `.claude/skills/run-skill-generator/references/architecture.md 
 
 Captured from the owner; each becomes its own milestone (build + tests + manual + state) when scheduled. Several are independent and could be reordered.
 
-- [ ] **M9 — AI conversation** 🤖 — let members talk to the bot. **Blocked on a decision:** which AI provider/cost (see the owner question — "free ChatGPT" is not a real production API; realistic options are a paid API, a free-tier API with limits, or none). Design: a `/ask` command and/or replies when mentioned; an API-key config; rate limits; safety. Depends on the provider choice.
+- [ ] **M9 — AI conversation** 🤖 — let members talk to the bot. Provider: a free-tier API (owner chose free tier; Gemini/Groq class — owner supplies the API key via env var). Design: a `/ask` command and/or replies when mentioned; an API-key config; safety. **Rate limits (owner decisions, 2026-07-23): GLOBAL, shared by everyone combined (not per user) — (a) 1 AI message per 7 seconds; (b) at most 62 AI messages per hour. Simultaneous users share the same single budget.**
 - [ ] **M10 — Birthdays** 🎂 — members set their birthday + timezone (`/birthday set`); the bot announces on the day in the configured timezone. Store per-guild; a daily scheduler (the self-update timer pattern, or a `node` interval) checks due birthdays.
 - [ ] **M11 — Police trivia** ❓ — `/trivia` game with a question bank (police-themed), scoring; built so more trivia sets can be added later (data-driven question files).
 - [ ] **M12 — Fallen tracker** 🕯️ — poll RSS feeds and post new entries, tagging a role:

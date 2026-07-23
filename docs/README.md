@@ -11,6 +11,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | academy | [`modules/academy.md`](modules/academy.md) | stable (S12) |
 | patrol | [`modules/patrol.md`](modules/patrol.md) | stable (S13) |
 | public-affairs | [`modules/public-affairs.md`](modules/public-affairs.md) | stable (S14) |
+| leveling | [`modules/leveling.md`](modules/leveling.md) | stable (S16) |
 
 ## Operations
 

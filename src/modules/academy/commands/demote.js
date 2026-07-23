@@ -8,6 +8,7 @@ import {
   resolveLadder,
 } from '../service.js';
 import { ensureInvokerPermission, fetchMember } from '../../enforcement/guards.js';
+import { coupleXpToRank } from '../../leveling/service.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -40,6 +41,14 @@ export default {
     if (!(await ensureManageableRoles(interaction, [plan.addRoleId, ...plan.removeRoleIds]))) return;
 
     await applyRankChange(member, plan, interaction.user.username);
+    // Cross-module seam: cap the member's XP at the demoted-to rank's floor —
+    // otherwise their old XP would earn the higher rank right back on their
+    // next message, making a human demotion meaningless. Best-effort.
+    try {
+      coupleXpToRank(interaction.guild.id, target.id, ladder, plan.toRoleId, 'demote');
+    } catch {
+      // leveling trouble never blocks a demotion that already succeeded
+    }
     await interaction.reply(`📉 ${target} busted down: **${plan.from}** → **${plan.to}**.`);
   },
 };

@@ -60,6 +60,15 @@ function parseBoolean(token) {
   return null;
 }
 
+// Honor the builder's setMinValue/setMaxValue bounds (present in data.toJSON()
+// as min_value/max_value) — the slash UI enforces them, so the text path must
+// too, or "!leaderboard 500" style calls bypass every command's assumptions.
+function inRange(def, n) {
+  if (typeof def.min_value === 'number' && n < def.min_value) return false;
+  if (typeof def.max_value === 'number' && n > def.max_value) return false;
+  return true;
+}
+
 // Does a single token satisfy an option's type? Used to decide whether an
 // OPTIONAL trailing option should claim a tail token or leave it to the greedy
 // free-text field. (An optional STRING never claims a tail token — any word
@@ -74,6 +83,7 @@ function tokenFits(def, token) {
     case OPTION_TYPE.NUMBER: {
       const n = Number(token);
       if (!Number.isFinite(n) || (def.type === OPTION_TYPE.INTEGER && !Number.isInteger(n))) return false;
+      if (!inRange(def, n)) return false;
       return !def.choices?.length || def.choices.some((c) => c.value === n);
     }
     case OPTION_TYPE.BOOLEAN:
@@ -128,6 +138,10 @@ export function assignOptions(optionDefs, parsed, greedyName = null) {
           errors.push(`\`${def.name}\` should be a number, got "${token}"`);
         } else if (def.choices?.length && !def.choices.some((c) => c.value === num)) {
           errors.push(`\`${def.name}\` must be one of: ${def.choices.map((c) => c.value).join(', ')}`);
+        } else if (!inRange(def, num)) {
+          errors.push(
+            `\`${def.name}\` must be between ${def.min_value ?? '-∞'} and ${def.max_value ?? '∞'}, got "${token}"`,
+          );
         } else {
           values[def.name] = num;
         }

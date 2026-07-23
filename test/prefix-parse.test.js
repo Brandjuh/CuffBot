@@ -137,3 +137,34 @@ test('a required option after the greedy still binds from the tail', () => {
   assert.equal(r.values.reason, 'being a repeat offender');
   assert.equal(r.userIds.target, '411157175948541954');
 });
+
+test('assignOptions enforces min_value/max_value on integers (audit S16 #3)', () => {
+  const defs = [{ name: 'size', type: T.INTEGER, required: false, min_value: 1, max_value: 25 }];
+  const ok = assignOptions(defs, parseCommandLine('!leaderboard 15', '!'));
+  assert.deepEqual(ok.errors, []);
+  assert.equal(ok.values.size, 15);
+
+  for (const bad of ['0', '-3', '500']) {
+    const { errors, values } = assignOptions(defs, parseCommandLine(`!leaderboard ${bad}`, '!'));
+    assert.equal(errors.length, 1, `"${bad}" must be rejected`);
+    assert.match(errors[0], /between 1 and 25/);
+    assert.equal('size' in values, false);
+  }
+});
+
+test('optional tail integers outside min/max do not claim the token', () => {
+  // penalty-style option after a greedy reason: an out-of-range number stays
+  // part of the free text instead of binding (and erroring) as the option.
+  const defs = [
+    { name: 'reason', type: T.STRING, required: true },
+    { name: 'points', type: T.INTEGER, required: false, min_value: 1, max_value: 10 },
+  ];
+  const { values, errors } = assignOptions(
+    defs,
+    parseCommandLine('!cite drove at 500', '!'),
+    'reason',
+  );
+  assert.deepEqual(errors, []);
+  assert.equal(values.reason, 'drove at 500', 'out-of-range 500 stays in the reason');
+  assert.equal('points' in values, false);
+});

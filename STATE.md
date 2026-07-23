@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 15 · 2026-07-23
-**Phase:** M1–M8 complete + final audit done. **The base is finished.** Next: owner backlog (M9+), pending two decisions (AI provider; academy XP/VC-time).
+**Last updated:** Session 16 · 2026-07-23
+**Phase:** M1–M8 complete + audited; **leveling (XP) module live** (S16). Next: M9 AI conversation (provider: free tier; rate limits decided — see Resume point).
 
 ## Verification block — run this before trusting the rest
 
@@ -16,15 +16,16 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 165/165 pass as of S15 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'core', 'dispatch', 'enforcement', 'patrol', 'public-affairs', 'records' ]` |
-| Manuals current | `ls docs/modules/` | academy, core, dispatch, enforcement, patrol, public-affairs, records |
+| Tests green | `npm test` | 230/230 pass as of S16 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'core', 'dispatch', 'enforcement', 'leveling', 'patrol', 'public-affairs', 'records' ]` |
+| Manuals current | `ls docs/modules/` | academy, core, dispatch, enforcement, leveling, patrol, public-affairs, records |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 15 · 2026-07-23)
+## What exists (verified Session 16 · 2026-07-23)
 
+- **Leveling (S16):** module `leveling` — CuffBot's own XP system, **replacing the old leveler bot** (owner decision S15/S16). Message XP (cooldown-gated; needs only the MessageCreate *event*, works without Message Content; system messages excluded) + voice XP (60 s sweep, one store write per tick; anti-farm: no AFK channel, ≥2 humans, not self-deafened, no bots; `GuildVoiceStates` intent added to the base set). Thresholds `round(baseXp·N^1.6)` mapped position-based onto the academy ladder; **promote-only** auto rank sync (never demotes; per-member in-flight guard against duplicate promotions) with audit reasons + no-ping announcements. **Seeding (owner requirement S16): first sight of a member with a rank role seeds their XP at that rank's threshold floor — existing members never restart at 0; rankless members start at 0 (`seededFromRank` stored).** **All automation (seeding-from-rank, auto-sync, XP coupling) requires the PINNED ladder** (academy `isPinnedLadder`; `/rank-setup` sets it) — a broken/heuristic ladder can't hand out roles or poison seeds, and under-seeded records **self-heal** (reconcile raises XP to the held rank's floor once the ladder is pinned). `/promote`/`/demote` **couple XP** to the new rank (raise-to-floor / cap-at-floor) so auto-sync never undoes a human demotion. `/level` (bot targets refused), `/leaderboard` (clamped 1–25), `/xp-config` (admin; sparse overrides only; `clear-announce`; shows pinned status). Prefix framework: text path now enforces integer min/max and `addChannelTypes`. Manual `leveling.md`.
 - **Dual invocation (S9):** every command runs as `/x` AND `!x` (`src/core/prefix/` — parser, adapter, router; ephemeral→DM). `/help` (generated roster) and `/update` (manual, admin-only, test-gated) added to core. Message Content intent enabled with graceful slash-only fallback (`client.messageContentAvailable`); `config.json → prefix`. Text commands + patrol need that intent (portal enablement).
 - **Finalization (S15):** real `/wanted` poster image (member avatar composited via a pure-JS PNG **decoder** + poster renderer; graceful NO-PHOTO fallback). Final adversarial audit (workflow, 6 dimensions, each finding verified) → fixed a HIGH-severity prefix-parser bug (multi-word `!cite`/`!fine`/`!arrest`/`!911` reasons; now per-command `textGreedyArg` + tail-binding), mention-injection hardening (allowedMentions on reason-echoing replies), loader event validation, channel-aware prefix permissions, doc corrections. M8 ops docs (backup/rotation). Skill 0.4.0.
 - **Public Affairs (M7, S14):** module `public-affairs` — `/badge` (rank via academy `currentRank`, record count via records `recordsFor`, join date; graceful fallbacks), `/wanted` (playful poster embed, deterministic crime/bounty), `/donut` (fun), `/911` (report to the evidence locker via dispatch `sendToEvidenceLocker`; **anonymity option**, ephemeral confirm). `lib/cards.js` pure. No privileged intents. Manual `public-affairs.md`.
@@ -38,17 +39,18 @@
 - **Bot core (M1):** entry/config/logger/loader (+ in-code `.env` loading via `src/core/env.js` — see the S6 environment fact), guild-scoped `deploy-commands`, module `core` (`/radio-check`, on-duty sweep, guild lockdown), `npm run doctor` (S5), `config.json → homeGuildId`, manual `core.md`.
 - **Enforcement (M2, S7; animated S10):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`. **S10:** `/cite` emits an animated GIF (prints out of a slot) via a zero-dependency GIF89a encoder (`lib/gif.js`); added the public for-fun `/fine` (no perms, no records).
 - **Deployment/ops (M8 slices):** `scripts/setup-pi.sh` (8 steps incl. invite gate and self-update arming), `scripts/update.sh` (fetch → ff → npm install → **test gate** → deploy-commands → restart; rollback on red — proven in a clone-pair simulation incl. failure path and exit codes), runbook `docs/operations/raspberry-pi.md`.
-- **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated.
-- **Tests:** 165 via `node:test` — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution), help, enforcement lib + GIF, academy ladder + commands, dispatch, patrol screen/event/commands, and command smokes with fake interactions.
+- **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated; **CuffBot's XP replaces the old leveler bot** and **existing members' XP is seeded from their current rank role** (S16); AI (M9) uses a free-tier provider with a GLOBAL rate limit — 1 msg / 7 s AND max 62 msgs / hour, shared across all users (S16).
+- **Tests:** 230 via `node:test` — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), and command smokes with fake interactions.
 
 ## Resume point
 
-**The base (M1–M8) is complete: 7 modules, 24 commands, 165 tests, dual invocation, self-update, audited.** Next work is the owner's backlog in `ROADMAP.md` → "Backlog", which needs two decisions before building:
+**The base (M1–M8) plus leveling is complete: 8 modules, 27 commands, 230 tests, dual invocation, self-update, audited (leveling audit: 10 findings, all fixed same-session).** ⚠️ Owner action for leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and seeding stay idle until then. Next: **M9 — AI conversation**, now unblocked by owner decisions (S16, recorded in ROADMAP M9):
 
-1. **Academy XP / VC-time (owner asked S15):** CuffBot currently does NOT compute rank progression — it adopts the existing leveler bot's roles and only does manual `/promote`/`/demote`. The owner wants an XP system where **voice-channel time counts** toward automatic ranking. This is a new milestone (message XP + voice XP → thresholds → auto-assign rank roles). Decide with the owner: replace or run alongside the existing leveler? XP rates (per message, per VC-minute)? Thresholds per rank? Needs `GuildVoiceStates` intent + a voice-session tracker + a scheduler.
-2. **AI conversation (owner asked S15):** "free ChatGPT" is not a real production API — decide provider/cost (paid API, free-tier API with limits, or skip). Blocks M9 and the AI variant of M15 (chat starter).
+- Provider: **free-tier** API (Gemini/Groq class); owner supplies the API key via an env var. Make the provider configurable.
+- **Rate limits are GLOBAL** (shared by everyone combined, not per user): 1 AI message per 7 seconds AND max 62 AI messages per hour. Simultaneous users share the same single budget.
+- Design: `/ask` + reply-when-mentioned, safety, graceful "budget spent" replies.
 
-Everything else in the backlog (birthdays, trivia, fallen tracker with the given RSS feeds + role ids, starboard, goal tracker) is buildable without external decisions when scheduled.
+After M9, the rest of the backlog (birthdays, trivia, fallen tracker with the given RSS feeds + role ids, starboard, goal tracker, chat starter) is buildable without external decisions when scheduled.
 
 
 ## Open problems / blockers
@@ -65,7 +67,7 @@ Everything else in the backlog (birthdays, trivia, fallen tracker with the given
 - **Self-update chain (since S7):** merged PR → Pi timer picks it up within ~15 min → tests gate the restart. A broken merge cannot take the live bot down (rollback), but it silently stalls updates — check `journalctl -u cuffbot-update` when the owner reports staleness.
 - Live Discord testing impossible here (no token, and this container's egress proxy intercepts discord.com — S5). Owner checklists in the manuals are the live layer.
 - This container's outbound proxy returns 403 for discord.com API calls — never interpret that as a Discord-side verdict (S5).
-- **Owner's rank roles (S12):** the home guild already has leveler-bot ranks under a `[LEVELER]` header, high→low, EXCEPT roles `428378130705809408` and `667116908876660778` (non-ranks). Academy adopts them live; owner must run `/rank-setup header:@[LEVELER]` then `/rank-exclude` those two ids. Cannot be verified from here (no live guild).
+- **Owner's rank roles (S12):** the home guild already has leveler-bot ranks under a `[LEVELER]` header, high→low, EXCEPT roles `428378130705809408` and `667116908876660778` (non-ranks). Academy adopts them live; owner must run `/rank-setup header:@[LEVELER]` then `/rank-exclude` those two ids. Cannot be verified from here (no live guild). **Leveling (S16) builds on this same ladder** — rank thresholds and XP seeding both derive from it, so `/rank-setup` must be correct before the XP system promotes anyone.
 
 ## Maintenance notes
 

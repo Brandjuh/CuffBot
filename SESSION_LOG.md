@@ -370,3 +370,46 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** 0.4.0 — see its CHANGELOG.
 
 **Handoff:** The base is complete and audited. Two owner questions are open and recorded in `STATE.md → Resume point`: (1) academy XP/VC-time system, (2) AI provider/cost. The rest of the backlog (M10–M14) is buildable on request. I'll ask the owner about these two before building M9/the XP system.
+
+## Session 16 — 2026-07-23
+
+**Goal:** Build the XP/leveling system (owner priority from S15): message + voice XP, auto-rank via the academy ladder, and the owner's mid-session requirement that existing members' XP is seeded from the rank they already hold.
+
+**Done:**
+- **Module `leveling`** (8th module, commands 25–27): CuffBot's own XP system, replacing the old leveler bot.
+  - `lib/xp.js` pure: message XP with cooldown, voice XP per whole minute, position-based thresholds `round(baseXp·N^1.6)` mapped onto the academy ladder (highest-first), `seedXpForRankIndex` (rank → floor XP), voice eligibility (anti-farm), **promote-only** `planRankSync`, `/level` progress math.
+  - **Seeding (owner, this session): "Ik wil niet dat iedereen op 0 begint"** — first sight of a member with a rank role seeds their XP at that rank's threshold floor (they keep the rank, earn the next one in full); rankless members start at 0; runs at most once per member; `seededFromRank` stored and shown on `/level`. Lazy (first message / voice minute / `/level`) — no migration step.
+  - Events: `MessageCreate` (XP needs only the event — works without Message Content) and a 60 s `ClientReady` voice sweep (no join/leave bookkeeping; restart loses ≤59 s). Anti-farm: no AFK channel, ≥2 humans, self-deafened earns nothing, bots never.
+  - Auto-rank: promote-only sync with audit reasons + no-ping announcements (`/xp-config announce:#channel`, else the channel where it happened; voice promotions without a configured channel stay silent). XP never demotes — `/demote` stays human.
+  - Commands `/level` (card + progress bar), `/leaderboard`, `/xp-config` (admin; live thresholds view). All three work as `!` text commands (positional).
+  - Academy gained the interaction-free `ladderForGuild(guild)` seam; `resolveLadder(interaction)` delegates to it. Intents: base set now `Guilds + GuildMessages + GuildVoiceStates` (all non-privileged), MessageContent still optional on top.
+  - Pi-friendly writes: cooldown hits do no store write at all; a voice tick awards all eligible members in ONE write.
+- **Owner decisions recorded (ROADMAP M9, STATE):** AI provider = free tier; **AI rate limits are GLOBAL** — 1 msg/7 s AND max 62 msgs/hour, shared by all users combined.
+- Tests 210/210 (45 new across lib/service/commands/events incl. seeding paths and anti-farm). Manual `leveling.md`; academy manual, README (8 modules/27 commands), docs index, Pi runbook updated. Skill 0.4.1 (intent facts; two LEARNINGS candidates).
+
+**Decisions:**
+- Seed at the rank's threshold FLOOR (minimum XP consistent with the held rank) — keeps the rank, no instant promotion, and the next rank costs its full span.
+- Voice XP via periodic sweep of current voice state instead of session bookkeeping — restart-safe and mute/move-proof by construction.
+- Promote-only sync so a redeploy or ladder misconfiguration can never mass-demote (demotion stays `/demote`).
+
+**Corrections:** None to prior state — S15's claims held (165 tests, 7 modules verified before building).
+
+**Learned:** Post-compaction file memory is stale (an Edit failed against remembered text — Read before Edit after a handoff); high-frequency events on SD-card deployments need write-avoidance (fast path + batched tick). Both in LEARNINGS as candidates.
+
+**Skill:** 0.4.1 — discord-reference intent facts (event-only features need no MessageContent; GuildVoiceStates non-privileged, cache-only voice presence).
+
+**Handoff:** Adversarial audit of the leveling module was launched this session; its findings and fixes land in this same PR before merge (addendum below if anything was found). Owner live checklist: `docs/modules/leveling.md → Testing` — critically step 2 (a ranked member's `/level` must show seeded XP, not 0). Next session: M9 AI conversation (all decisions now recorded in `STATE.md → Resume point`).
+
+### S16 addendum — adversarial audit of the leveling module (same session, pre-merge)
+
+The independent audit (13 files, math re-derived, discord.js internals verified) returned **10 verified findings: 1 HIGH, 3 MEDIUM, 6 LOW — all fixed in this same PR**, plus a clean bill on threshold math, seeding idempotence, the promote-only invariant, crash paths, intents, and docs-vs-code.
+
+- **HIGH — permanent seed poisoning:** a member first seen while the ladder resolved empty (header deleted/renamed) was seeded 0 forever; worse, the name-heuristic fallback could adopt a decoy role ("Level 100 Club") as the ladder and auto-grant its roles. Fix: **all automation now requires the admin-pinned ladder** (`/rank-setup` → academy `isPinnedLadder`) — heuristic ladders serve humans only; and seeds **self-heal** (`reconcile` raises XP to the held rank's floor on next sight under a pinned ladder). A detection failure can no longer permanently reset anyone.
+- **MEDIUM — duplicate promotion race** (message award + voice sweep crossing a threshold simultaneously → double announce/audit): per-member in-flight guard in `syncMemberRank`.
+- **MEDIUM — text path ignored integer bounds** (`!leaderboard 0/-3/500` nonsense or 4096-char embed crash; `!xp-config` bypassing 1–100/10–600): `min_value`/`max_value` now enforced framework-wide in `parse.js` (bind + tail-claim) + defense-in-depth clamp in `leaderboard()`.
+- **MEDIUM — `/level target:@bot` created permanent XP records for bots:** refused, nothing persisted.
+- **LOW×6:** adapter now enforces `addChannelTypes` (a category as announce channel silently killed announcements); `clear-announce` option (the channel could never be reset); `role.editable` moved inside try (uncached self-member could abort a sweep tick); `setXpConfig` stores sparse overrides (was freezing every default into the store); system messages no longer pay XP; `/level` explains blocked/pending promotions and departed-member leaderboard rows documented.
+- **Follow-through beyond the audit:** `/promote`/`/demote` now **couple XP** to the new rank (raise-to-floor / cap-at-floor via leveling's `coupleXpToRank` seam) — without this, promote-only sync would instantly re-promote anyone a human demoted.
+- Tests 210 → **230** (bounds, channel types, pinned-gates, self-heal, race, coupling, bot-refusal, system messages, sparse config, clamps). Manuals updated (leveling, academy); STATE resume point now flags the owner's one-time `/rank-setup` pin.
+
+**Learned (added to LEARNINGS):** automation needs a stronger trust gate than human-in-the-loop commands — the academy heuristic was safe under `/promote` because a human watched; the moment leveling automated the same ladder it became an attack/failure surface.

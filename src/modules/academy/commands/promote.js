@@ -8,6 +8,7 @@ import {
   resolveLadder,
 } from '../service.js';
 import { ensureInvokerPermission, fetchMember } from '../../enforcement/guards.js';
+import { coupleXpToRank } from '../../leveling/service.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -40,6 +41,13 @@ export default {
     if (!(await ensureManageableRoles(interaction, [plan.addRoleId, ...plan.removeRoleIds]))) return;
 
     await applyRankChange(member, plan, interaction.user.username);
+    // Cross-module seam: couple the member's XP to their new rank (raise to
+    // its floor) so the XP system agrees with the human decision. Best-effort.
+    try {
+      coupleXpToRank(interaction.guild.id, target.id, ladder, plan.toRoleId, 'promote');
+    } catch {
+      // leveling trouble never blocks a promotion that already succeeded
+    }
     await interaction.reply(
       plan.from === null
         ? `🎖️ ${target} inducted at **${plan.to}**.`

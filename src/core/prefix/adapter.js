@@ -37,6 +37,7 @@ export async function createMessageInteraction(message, command, parsed) {
   const optionDefs = command.data.toJSON().options ?? [];
   const { values, userIds: refIds, errors } = assignOptions(optionDefs, parsed, command.textGreedyArg ?? null);
   const typeByName = Object.fromEntries(optionDefs.map((o) => [o.name, o.type]));
+  const defByName = Object.fromEntries(optionDefs.map((o) => [o.name, o]));
 
   // Resolve user/role/channel ids to objects (async), by option type, preferring
   // cached mentions/entities.
@@ -54,7 +55,17 @@ export async function createMessageInteraction(message, command, parsed) {
       let channel = message.guild?.channels?.cache?.get(id) ?? null;
       if (!channel) channel = await message.guild?.channels?.fetch(id).catch(() => null);
       if (!channel) errors.push(`could not find channel for \`${name}\``);
-      else channels[name] = channel;
+      else {
+        // Honor the builder's addChannelTypes restriction, like the slash UI
+        // does — otherwise a category/forum id would be stored where the
+        // command expects a text channel and features fail silently later.
+        const allowed = defByName[name]?.channel_types;
+        if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(channel.type)) {
+          errors.push(`\`${name}\` must be a text channel`);
+        } else {
+          channels[name] = channel;
+        }
+      }
     } else {
       let user = message.mentions?.users?.get(id) ?? null;
       if (!user) user = await message.client.users.fetch(id).catch(() => null);
