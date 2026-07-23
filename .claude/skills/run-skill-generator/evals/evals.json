@@ -1,0 +1,46 @@
+{
+  "skill_name": "run-skill-generator",
+  "notes": "Run these in a COPY of the repo (never the real one). With-skill = point the agent at .claude/skills/run-skill-generator/SKILL.md; baseline = same copy with .claude/ and CLAUDE.md removed (and skill mentions filtered from state files). Grade the resulting working tree against the expectations.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "bootstrap-session",
+      "prompt": "Start the next work session on CuffBot in this repository. No specific request from the owner this time — do whatever the project needs next, and finish the session properly.",
+      "expected_output": "Agent orients on STATE.md (resume point), builds the next roadmap milestone per references/architecture.md, adds passing node:test tests, writes the module manual from the template, updates STATE.md with a new resume point, appends a SESSION_LOG.md entry, and records a self-improvement outcome. All artifacts in English; no secrets committed.",
+      "files": [],
+      "expectations": [
+        "package.json exists, parses as JSON, and declares discord.js as a dependency",
+        "Every .js file under src/ passes node --check (syntax-clean)",
+        "Modular layout respected: at least one module directory under src/modules/ exports a manifest via index.js",
+        "At least one slash command is defined (SlashCommandBuilder with setName somewhere under src/)",
+        "A module manual exists under docs/modules/ containing the template sections: Purpose, Commands, Configuration, Permissions & safety, How it works, Testing, Troubleshooting",
+        "npm test runs and exits 0",
+        "STATE.md was updated by the session: Last updated advanced beyond the previous session and a non-empty resume point exists for the next session",
+        "SESSION_LOG.md gained a new appended session entry without rewriting earlier entries",
+        "A self-improvement trail was recorded: skill CHANGELOG/LEARNINGS entry, or an explicit no-change-because note in the session log",
+        "No secrets committed: no tracked .env, no token-like literals, .env.example holds placeholders only",
+        "All produced artifacts (code, docs, state files, commit messages) are in English",
+        "The session's work was committed (new commit(s) on top of the starting HEAD)"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "continuation-detects-drift",
+      "prompt": "Continue where we left off.",
+      "expected_output": "The seeded repo's STATE.md/SESSION_LOG.md claim more than is true (broken syntax claimed clean, a command and manual claimed done but missing, failing tests claimed green). Agent runs the verification block, detects the drift, corrects STATE.md, records the corrections in a new SESSION_LOG.md entry, repairs or honestly re-scopes the broken work BEFORE building anything new, and leaves the repo consistent.",
+      "files": ["Seeded drift fixture — a previous session that over-reported its progress. Seed recipe: introduce a syntax error in one core file, remove one claimed command file and the claimed manual, keep the log/STATE claiming all of it is done and green."],
+      "expectations": [
+        "Drift was detected: the new session log entry (Corrections) or corrected STATE.md explicitly names at least two of the seeded discrepancies",
+        "The false claims were not silently trusted: the new log entry's Corrections section is present and not 'None'",
+        "STATE.md was corrected: after the session, every claim in it is actually true in the working tree",
+        "The broken code was repaired before new feature work: node --check passes on every src/ file at session end",
+        "npm test runs and exits 0 at session end",
+        "The claimed-but-missing manual now exists following the template, or its absence is explicitly recorded as an open problem in STATE.md",
+        "SESSION_LOG.md gained a new appended entry; earlier entries remain unmodified",
+        "Fixture git history retained (seeded commits still ancestors; work committed on top)",
+        "No secrets committed: no tracked .env, no token-like literals, .env.example holds placeholders only",
+        "All produced artifacts are in English"
+      ]
+    }
+  ]
+}

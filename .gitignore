@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit tokens; keep .env.example current instead
+.env
+.env.*
+!.env.example
+
+# Runtime storage (per-guild JSON)
+data/
+
+# Logs & junk
+*.log
+npm-debug.log*
+.DS_Store

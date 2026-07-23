@@ -1,0 +1,20 @@
+{
+  "name": "cuffbot",
+  "version": "0.1.0",
+  "description": "CuffBot — police-themed Discord bot for one precinct",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file=.env src/index.js",
+    "deploy-commands": "node --env-file=.env src/deploy-commands.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "discord.js": "^14.27.0"
+  }
+}
