@@ -303,3 +303,26 @@ Append-only journal of work sessions, oldest first — **never rewrite or delete
 **Skill:** No protocol change yet; LEARNINGS candidate added (promote after a third confirmation). No version bump.
 
 **Handoff:** Owner (live): `/rank-setup header:@[LEVELER]`, then `/rank-exclude` roles `428378130705809408` and `667116908876660778`, then `/ranks` to verify; ensure CuffBot's role sits above the rank roles. Next build session: M6 (patrol / automod) per `STATE.md → Resume point`.
+
+## Session 13 — 2026-07-23
+
+**Goal:** Milestone M6 (patrol / automod) per the resume point.
+
+**Done:**
+- `lib/screen.js` (pure): evasion-aware normalization (lowercase, diacritics, leetspeak fold, strip non-alphanumerics → substring match), `detectBannedTerms`, `detectInvites` (known hosts, spacing-tolerant), `detectSpam` (mention flood / char runs), `screenMessage` honoring rule toggles, `summarizeViolations`.
+- `events/patrol.js`: MessageCreate handler gated on `client.messageContentAvailable`, skips bots/DMs/foreign guilds/moderators; on a violation deletes the message, DMs the author, files a rap-sheet record (officer = CuffBot), and logs to the evidence locker — every step best-effort, never throwing into the gateway.
+- Commands `/patrol` (status/on/off + intent warning), `/patrol-rule` (toggle category), `/patrol-term` (add/remove, ephemeral, never echoes the term). Off by default; config in store `patrolConfig`.
+- Tests 132/132 (16 new: normalization/evasion, each detector, screenMessage toggles, event handler happy + all no-op paths, command smokes). Manual `patrol.md` with an explicit false-positive story; docs index + ROADMAP M6. 6 modules, 20 commands.
+
+**Decisions:**
+- Aggressive substring matching on normalized text (beats evasion) with the false-positive risk documented and mitigated by mod-exemption + full auditability + specific-term guidance — rather than brittle word-boundary matching that spacing tricks defeat.
+- Patrol off by default: automod is high-consequence; the owner opts in and tunes.
+- Officer on patrol records/logs = the bot itself, clearly marked "(patrol)".
+
+**Corrections:** None — S12 state matched reality (116 tests, 5 modules).
+
+**Learned:** The graceful-intent flag (`client.messageContentAvailable`) paid off a second time — patrol reuses the exact gate the prefix router uses, so the privileged-intent story is uniform across features.
+
+**Skill:** No protocol change; the cross-module and intent-gate patterns held. No version bump.
+
+**Handoff:** Owner: enable Message Content intent, `/patrol action:on`, add terms with `/patrol-term`, test as a non-mod. Next build session: M7 (public affairs) per `STATE.md → Resume point`, then M8 finish + a final audit workflow.
