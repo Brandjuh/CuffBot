@@ -4,6 +4,7 @@
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
 import { dueBirthdays } from './lib/birthday.js';
+import { grantBirthdayBonus } from '../economy/service.js';
 
 export const BIRTHDAY_CONFIG_KEY = 'birthdayConfig';
 export const BIRTHDAY_USERS_KEY = 'birthdayUsers';
@@ -78,9 +79,21 @@ export async function sweepBirthdays(guild, now = Date.now()) {
         users[userId] ? { ...users, [userId]: { ...users[userId], lastAnnouncedYear: localYear } } : users,
       {},
     );
+    // Cross-module seam (S38): birthday members get a donut gift, mentioned
+    // right in the announcement. Wrapped: a broken economy must never silence
+    // the birthday itself.
+    let bonus = null;
+    try {
+      bonus = grantBirthdayBonus(guild.id, userId);
+    } catch (error) {
+      logger.warn('Birthdays: donut bonus failed:', error);
+    }
+    const bonusLine = bonus
+      ? ` The precinct chipped in **${bonus.toLocaleString('en-US')} donuts** 🍩 as a birthday gift!`
+      : '';
     try {
       await channel.send({
-        content: `🎂 **Attention all units!** Today is <@${userId}>'s birthday — report to the break room for cake and donuts. 🎉🍩`,
+        content: `🎂 **Attention all units!** Today is <@${userId}>'s birthday — report to the break room for cake and donuts. 🎉🍩${bonusLine}`,
         allowedMentions: { users: [userId] },
       });
       announced += 1;

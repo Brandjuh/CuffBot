@@ -44,6 +44,7 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 - **The sweep** (`events/birthday-sweep.js`): every 10 minutes (plus once at boot) `sweepBirthdays` finds members whose birthday has started in their own timezone and announces each in the configured channel. There is **no midnight job to miss** — a Pi that reboots overnight simply announces on the next tick.
 - **Once per year, guaranteed:** each announcement stamps `lastAnnouncedYear` (the member's local year) **before** sending — a failed send skips that year instead of retry-spamming every 10 minutes, and overlapping ticks can never double-announce.
 - The announcement pings **only** the birthday member (`allowedMentions: { users: [id] }`).
+- **Donut gift (S38):** the announcement grants the birthday member **50,000 donuts** via the economy module (cross-module seam, try/catch — a broken economy never silences the birthday) and says so in the message. If the economy is disabled, both the gift and the line are skipped.
 
 ## Testing
 
@@ -73,3 +74,4 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 | S19 | Created: set/remove/list/config, per-member timezones, 10-min idempotent sweep, Feb 29 rule, no birth year stored. |
 | S31 | Default announcement channel committed: `411609312037961729` (owner decision). |
 | S32 | Default timezone → `America/New_York` (owner decision: US-based community; Eastern is the most-populated US zone). |
+| S38 | Birthday members receive 50,000 donuts (economy seam), announced inside the birthday message. |

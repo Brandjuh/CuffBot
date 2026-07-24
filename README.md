@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 17 modules, 44 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 18 modules, 47 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -25,6 +25,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Starboard** ⭐ | `/starboard-config` — ⭐-reactions repost highlights to the board | [starboard](docs/modules/starboard.md) |
 | **Chat starter** 💬 | `/chat-starter-config` — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |
 | **Channel list** 🗂️ | `/channel-list` — self-updating directory of all categories & channels | [channellist](docs/modules/channellist.md) |
+| **Economy** 💰 | `/donuts` — donut balances, activity pay, and the STOP POLICE crook hunt | [economy](docs/modules/economy.md) |
 | **Logbook** 📔 | `/logbook` — log everything: messages, members, moderation, voice, server, invites | [logbook](docs/modules/logbook.md) |
 | **Welcome** 👋 | `/welcome-config` — greet every newcomer in the lobby | [welcome](docs/modules/welcome.md) |
 

@@ -25,6 +25,7 @@ const MODULE_BADGES = {
   logbook: '📔',
   welcome: '👋',
   channellist: '🗂️',
+  economy: '💰',
 };
 
 /**
