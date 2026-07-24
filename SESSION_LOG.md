@@ -654,3 +654,11 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - **`test` option** on `/chat-starter-config`: arms ONE real starter ~30 s later in the configured channel (idle window + monologue guard bypassed; the shot counts as a real starter afterwards, so the guard arms normally). Refuses cleanly when no channel is set.
 - Refactor: `postStarter(guild, config)` extracted to the service — the sweep and the test shot share one posting path.
 - Tests 339 → **343**: the committed defaults, history seeding (human-last → armed, bot-last → disarmed, unreadable → fallback), postStarter direct behavior, the test-option arming + no-channel refusal; the old "disabled by default" assertions updated for the new defaults.
+
+---
+
+## Session 31 — 2026-07-24
+
+**Goal:** owner question + decision: birthday announcements had no default channel (silent until configured); they must land in `411609312037961729`.
+
+**Done:** `DEFAULT_BIRTHDAY_CONFIG.channelId = '411609312037961729'` — committed as product config (S30/memorial pattern; store overrides via `/birthday-config channel:` still win). Works immediately after update, zero setup. Tests 343 → **344** (defaults assertion; the unconfigured-sweep label updated). Manual + STATE updated.

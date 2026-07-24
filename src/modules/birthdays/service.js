@@ -7,7 +7,10 @@ import { dueBirthdays } from './lib/birthday.js';
 
 export const BIRTHDAY_CONFIG_KEY = 'birthdayConfig';
 export const BIRTHDAY_USERS_KEY = 'birthdayUsers';
-export const DEFAULT_BIRTHDAY_CONFIG = { enabled: true, channelId: null };
+// Owner decision 2026-07-24 (S31): birthday announcements land in this channel
+// by default — committed as product config (same pattern as the chat starter
+// and the memorial feeds). /birthday-config overrides still win.
+export const DEFAULT_BIRTHDAY_CONFIG = { enabled: true, channelId: '411609312037961729' };
 
 export function getBirthdayConfig(guildId) {
   return { ...DEFAULT_BIRTHDAY_CONFIG, ...getGuildData(guildId, BIRTHDAY_CONFIG_KEY, {}) };

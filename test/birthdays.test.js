@@ -172,7 +172,7 @@ test('sweep does nothing when disabled or unconfigured, and survives send failur
   const guildId = freshGuildId();
   setBirthday(guildId, 'u3', { day: 24, month: 7, timeZone: 'Europe/Amsterdam' });
 
-  // No channel configured → silent no-op.
+  // Default channel (the owner's) is absent in this fake guild → silent no-op.
   assert.equal(await sweepBirthdays(fakeGuild(guildId), T_2026_07_24_0030Z), 0);
 
   // Configured but disabled → silent no-op.
@@ -192,4 +192,10 @@ test('config is sparse and defaults stay live', async () => {
   const { getGuildData } = await import('../src/core/store.js');
   assert.deepEqual(Object.keys(getGuildData(guildId, 'birthdayConfig', {})), ['channelId']);
   assert.equal(getBirthdayConfig(guildId).enabled, true);
+});
+
+test('defaults encode the owner decision: announcements in their channel (S31)', async () => {
+  const { DEFAULT_BIRTHDAY_CONFIG } = await import('../src/modules/birthdays/service.js');
+  assert.equal(DEFAULT_BIRTHDAY_CONFIG.enabled, true);
+  assert.equal(DEFAULT_BIRTHDAY_CONFIG.channelId, '411609312037961729');
 });

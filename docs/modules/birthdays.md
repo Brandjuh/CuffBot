@@ -10,6 +10,7 @@
 | **Commands** | `/birthday-set`, `/birthday-remove`, `/birthdays` (everyone), `/birthday-config` (admin) — all also as `!command` |
 | **Events** | `ClientReady` — starts a 10-minute announcement sweep (idempotent) |
 | **Data** | `birthdayUsers` (day, month, timeZone, lastAnnouncedYear per user) + `birthdayConfig` (enabled, channelId) in the guild store |
+| **Default channel** | `411609312037961729` (S31, owner decision — committed as product config; `/birthday-config` overrides win) |
 | **Privacy** | No birth **year** is ever asked or stored — only day + month + timezone |
 | **Intents** | None beyond the base set |
 
@@ -34,7 +35,7 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 ### /birthday-config (admin — Manage Server)
 
 - **Options:** `enabled` (bool), `channel` (text channel). None given = view.
-- Announcements stay **off until a channel is set** (the embed warns about this).
+- Since S31 announcements default to the owner's channel `411609312037961729`; setting `channel:` repoints them, and the ⚠️ warning only appears if the configured channel is missing.
 
 ## How it works
 
@@ -70,3 +71,4 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 | Session | Change |
 |---|---|
 | S19 | Created: set/remove/list/config, per-member timezones, 10-min idempotent sweep, Feb 29 rule, no birth year stored. |
+| S31 | Default announcement channel committed: `411609312037961729` (owner decision). |
