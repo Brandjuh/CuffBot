@@ -65,3 +65,22 @@ export function mergeSeen(previous, newIds, keep = 200) {
   const merged = [...(previous ?? []), ...newIds];
   return merged.slice(-keep);
 }
+
+/**
+ * Per-feed item filter (S61). Some sources have no memorial-only feed —
+ * firehero.org's feeds carry ALL site news (owner finding) — so a feed can
+ * declare match rules and only matching items are honored. An item passes
+ * when ANY rule group hits (link needle OR title needle); no rules = pass.
+ * @param {{linkIncludes?:string[], titleIncludes?:string[]}|undefined} match
+ */
+export function itemMatchesFeed(match, item) {
+  const linkNeedles = match?.linkIncludes ?? [];
+  const titleNeedles = match?.titleIncludes ?? [];
+  if (linkNeedles.length === 0 && titleNeedles.length === 0) return true;
+  const link = String(item?.link ?? '').toLowerCase();
+  const title = String(item?.title ?? '').toLowerCase();
+  return (
+    linkNeedles.some((needle) => link.includes(String(needle).toLowerCase())) ||
+    titleNeedles.some((needle) => title.includes(String(needle).toLowerCase()))
+  );
+}

@@ -5,7 +5,7 @@
 import { EmbedBuilder } from 'discord.js';
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
-import { mergeSeen, parseFeed, unseenItems } from './lib/rss.js';
+import { itemMatchesFeed, mergeSeen, parseFeed, unseenItems } from './lib/rss.js';
 import { resolveSendableChannel } from '../../core/channels.js';
 
 export const MEMORIAL_CONFIG_KEY = 'memorialConfig';
@@ -16,7 +16,7 @@ export const MEMORIAL_SEEN_KEY = 'memorialSeen';
 export const DEFAULT_MEMORIAL_CONFIG = {
   enabled: true,
   channelId: null,
-  odmpChannelId: null,
+  odmpChannelId: '451095508560379934', // S61 owner decision: officers channel
   fireheroChannelId: null,
 };
 
@@ -34,13 +34,20 @@ export const FEEDS = [
     emoji: '🚒',
     url: 'https://www.firehero.org/feed/',
     roleId: '627943529544417300',
+    // S61 owner finding: firehero.org has NO memorial-only feed — its feeds
+    // carry all site news. Only hero-profile items pass (their pages live
+    // under /fallen-firefighter/); plain news is filtered out, never posted.
+    match: { linkIncludes: ['/fallen-firefighter'] },
   },
   {
     id: 'odmp',
     title: 'Fallen Officers',
     emoji: '🚓',
     url: 'https://www.odmp.org/feed',
-    roleId: '451095508560379934',
+    // S61 owner correction: the previously committed role id
+    // (451095508560379934) is actually the owner's officers CHANNEL — it now
+    // lives in DEFAULT_MEMORIAL_CONFIG.odmpChannelId; this is the real role.
+    roleId: '627946543273738240',
   },
 ];
 
@@ -58,7 +65,11 @@ export function getSeen(guildId) {
   return getGuildData(guildId, MEMORIAL_SEEN_KEY, {});
 }
 
-/** Fetch + parse one feed. Returns [] on any failure (logged, never thrown). */
+/**
+ * Fetch + parse one feed. Returns the item list on success (possibly empty),
+ * or **null on any failure** (logged, never thrown) — S61: callers must be
+ * able to tell "reachable but nothing matches" from "unreachable".
+ */
 export async function fetchFeedItems(feed, fetchImpl = fetch) {
   try {
     const res = await fetchImpl(feed.url, {
@@ -67,12 +78,37 @@ export async function fetchFeedItems(feed, fetchImpl = fetch) {
     });
     if (!res.ok) {
       logger.warn(`Memorial: ${feed.id} feed returned HTTP ${res.status}`);
-      return [];
+      return null;
     }
     return parseFeed(await res.text());
   } catch (error) {
     logger.warn(`Memorial: ${feed.id} feed unreachable (${error.message})`);
-    return [];
+    return null;
+  }
+}
+
+/**
+ * Live-check ANY candidate feed URL (S61): the owner is hunting for a real
+ * fallen-firefighters source, and the Pi is the only place with open
+ * internet — `/memorial-config probe:<url>` runs this there and shows what
+ * the feed actually contains before anything is committed.
+ */
+export async function probeFeed(url, { fetchImpl = fetch } = {}) {
+  if (!/^https?:\/\//i.test(String(url ?? ''))) return { ok: false, code: 'bad-url' };
+  try {
+    const res = await fetchImpl(url, {
+      headers: { 'User-Agent': 'CuffBot memorial (Discord bot; respectful RSS polling)' },
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return { ok: false, code: 'http', status: res.status };
+    const items = parseFeed(await res.text());
+    return {
+      ok: true,
+      total: items.length,
+      sample: items.slice(0, 3).map(({ title, link }) => ({ title, link })),
+    };
+  } catch (error) {
+    return { ok: false, code: 'unreachable', message: error?.message ?? String(error) };
   }
 }
 
@@ -109,22 +145,26 @@ export async function sweepMemorial(guild, { fetchImpl = fetch } = {}) {
     if (!channel) continue;
 
     const items = await fetchFeedItems(feed, fetchImpl);
-    if (items.length === 0) continue;
+    if (items === null) continue; // unreachable — retry next sweep, no baseline
+    // S61: only items matching the feed's rules are honored (general-news
+    // feeds post nothing but memorial entries).
+    const matching = items.filter((item) => itemMatchesFeed(feed.match, item));
 
     const seenIds = getSeen(guild.id)[feed.id];
     if (!Array.isArray(seenIds)) {
-      // Baseline: never seen this feed before — record, don't post.
+      // Baseline on the first successful fetch — even with zero matching
+      // items (a filtered feed may be all-news today): record, don't post.
       updateGuildData(
         guild.id,
         MEMORIAL_SEEN_KEY,
-        (seen) => ({ ...seen, [feed.id]: mergeSeen([], items.map((i) => i.id)) }),
+        (seen) => ({ ...seen, [feed.id]: mergeSeen([], matching.map((i) => i.id)) }),
         {},
       );
-      logger.info(`Memorial: baselined ${feed.id} with ${items.length} existing item(s).`);
+      logger.info(`Memorial: baselined ${feed.id} with ${matching.length} matching item(s) (${items.length} total).`);
       continue;
     }
 
-    const fresh = unseenItems(items, seenIds);
+    const fresh = unseenItems(matching, seenIds);
     for (const item of fresh) {
       try {
         await channel.send({

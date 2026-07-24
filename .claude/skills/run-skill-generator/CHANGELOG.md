@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.14 — 2026-07-24 (Session 61)
+
+- `LEARNINGS.md`: new candidate — unverifiable external resources get a probe surface in the bot, not a committed guess (session containers have no open internet; the bot host does).
+- Evidence: S61 — the gateway 403'd every candidate fallen-firefighters feed; `/memorial-config probe:` moves verification to the Pi and keeps iron rule 2 intact.
+
 ## 0.5.13 — 2026-07-24 (Session 59)
 
 - `discord-reference.md`: new section — self-updating posted messages (tracked message id + edit-else-repost, per-guild refresh lock, debounced change events, gated boot catch-up, always render from live state).
