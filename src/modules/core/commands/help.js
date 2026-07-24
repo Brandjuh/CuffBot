@@ -1,25 +1,40 @@
-import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
-import { buildHelp, paginateHelp } from '../../../core/help.js';
+import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { RUNTIME_ADMIN_COMMANDS, buildCategorizedHelp, paginateHelp } from '../../../core/help.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('Show every CuffBot command and how to use it (only you see the reply).'),
+    .setDescription('Show the commands YOU can use, sorted by category (only you see the reply).'),
   async execute(interaction) {
     const prefix = interaction.client.config?.prefix ?? '!';
-    const modules = (interaction.client.moduleList ?? []).map((mod) => ({
-      name: mod.name,
-      description: mod.description,
-      commands: mod.commands.map((cmd) => {
+    const commands = (interaction.client.moduleList ?? []).flatMap((mod) =>
+      mod.commands.map((cmd) => {
         const json = cmd.data.toJSON();
-        return { name: json.name, description: json.description, options: json.options ?? [] };
+        return {
+          name: json.name,
+          description: json.description,
+          defaultMemberPermissions: json.default_member_permissions ?? null,
+        };
       }),
-    }));
+    );
 
-    // The full roster no longer fits one embed (Discord's 6000-char TOTAL cap
-    // per embed — S39: 18 modules broke exactly there). Send ephemeral pages
-    // so only the asker sees them; the "!help" text path DMs them instead.
-    const pages = paginateHelp(buildHelp(modules, prefix));
+    // Only show what this viewer can actually run (S43): commands declaring
+    // default permissions the member lacks are hidden, as are the two
+    // runtime-gated admin commands.
+    const perms = interaction.memberPermissions;
+    const isAdmin = perms?.has?.(PermissionFlagsBits.ManageGuild) ?? false;
+    const isVisible = (cmd) => {
+      if (RUNTIME_ADMIN_COMMANDS.has(cmd.name)) return isAdmin;
+      if (!cmd.defaultMemberPermissions) return true;
+      try {
+        return perms?.has?.(BigInt(cmd.defaultMemberPermissions)) ?? false;
+      } catch {
+        return true; // an unparsable bitfield must never hide the whole menu
+      }
+    };
+
+    // Ephemeral pages (S39): the roster exceeds one embed's 6000-char total.
+    const pages = paginateHelp(buildCategorizedHelp(commands, prefix, { isVisible }));
     for (const [index, page] of pages.entries()) {
       const embed = new EmbedBuilder().setColor(0x8a5a6a).setTitle(page.title).addFields(page.fields);
       if (page.description) embed.setDescription(page.description);

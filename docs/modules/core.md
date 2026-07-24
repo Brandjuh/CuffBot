@@ -38,7 +38,8 @@ Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or
 
 - **Options:** none.
 - **What happens:** generates the command roster from the modules that are actually loaded (never a hand-maintained list), grouped by module, showing both the `/name` and `!name` forms plus a usage hint.
-- **Paged & private (S39):** the roster no longer fits one embed — Discord caps an embed at **6000 characters in total** (title+description+fields combined), which 18 modules exceed. The roster now splits into numbered embed pages (each ≤25 fields, oversized groups continue in "(continued)" fields), sent **ephemerally** so only the asker sees them; the `!help` text path delivers the pages by DM instead (channel messages can't be ephemeral).
+- **Paged & private (S39):** the roster no longer fits one embed — Discord caps an embed at **6000 characters in total** (title+description+fields combined). The menu splits into numbered embed pages (each ≤25 fields), sent **ephemerally** so only the asker sees them; the `!help` text path delivers the pages by DM instead (channel messages can't be ephemeral).
+- **Categorized & viewer-filtered (S43):** commands are grouped by PURPOSE — 🛡️ Moderation, 🎮 Games & Economy, 🎉 Fun, 📈 Ranks & XP, 🎂 Community, 📻 Info, ⚙️ Setup & Admin — not by module, one clear line per command. The menu only lists what the viewer can actually use: commands declaring `default_member_permissions` the member lacks are hidden, as are the runtime-gated admin commands (`/update`, `/restart`). The category map lives in `core/help.js` (`COMMAND_CATEGORIES`); a loader-walking test fails the build when a new command is left uncategorized.
 
 ### /update
 
@@ -139,3 +140,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S27 | `/update`'s "already up to date" is now verified against origin: an updater that never STARTED is reported as such (with the fix), instead of masquerading as up-to-date. |
 | S28 | `/restart` added (reload `.env` from Discord, with a post-boot "Restart complete" report via the shared marker, `kind: 'restart'`). |
 | S39 | `/help` fixed for the 18-module roster: Discord's 6000-char TOTAL embed cap broke it — now paginated into numbered ephemeral embeds (DM pages via `!help`), only visible to the asker. |
+| S43 | `/help` rebuilt: grouped by purpose categories (Moderation/Games/Fun/Ranks/Community/Info/Admin), one line per command, and viewer-filtered — members only see commands they can actually use. |

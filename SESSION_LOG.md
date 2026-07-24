@@ -823,3 +823,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Done:** `/xp-ladder` (leveling, everyone): lists every rank lowest-first with its exact XP floor — the same `thresholdsFor` numbers the promote-only sync acts on, so the list can never disagree with actual promotions. Includes a "⬅️ you (N XP)" marker on the tier the invoker's XP has EARNED (a hand-given higher rank simply sits above the marker), a "0 XP — no rank yet" opening row, role mentions in an embed (render colored, never ping), the XP-earning rules in the footer, and the unpinned-ladder warning when `/rank-setup` hasn't run. Pure `ladderTable(ladder, config)` in `lib/xp.js`. Tests 409 → **411** (lowest-first order, floors ≡ thresholds, strict increase, empty ladder). Manual leveling.md; README 50 commands.
 
 **Improve:** no skill change — pure pattern application (pure fn + thin command); nothing slowed the session.
+
+---
+
+## Session 43 — 2026-07-24
+
+**Goal:** owner request: the help menu must (1) only show commands the viewer can actually use, (2) be clearer, (3) group by purpose categories (Moderation / gaming / fun / etc) instead of modules.
+
+**Done:**
+- **Purpose categories** (`HELP_CATEGORIES` + `COMMAND_CATEGORIES` in `core/help.js`): 🛡️ Moderation, 🎮 Games & Economy, 🎉 Fun, 📈 Ranks & XP, 🎂 Community, 📻 Info, ⚙️ Setup & Admin — all 50 commands hand-mapped. A **loader-walking test** fails the build when a future command is left uncategorized (an uncategorized command would land visibly in a "📦 Other" bucket, and the test forbids that bucket from ever existing in reality).
+- **Viewer filtering:** the command flattens every registered command with its `default_member_permissions`; entries the member lacks permissions for are hidden, plus `/update` and `/restart` (runtime-gated admin, `RUNTIME_ADMIN_COMMANDS`) require Manage Server to appear. An unparsable bitfield never hides the menu (fail-open per command).
+- **Clearer:** one line per command (`**/name** — description`) instead of the old two-line invocation/usage block — roughly halves the size; the intro explains the `/`-picker and the `!name` text form once. Kept from S39: ephemeral pages under the 6000-char embed cap (text path: DM).
+- Tests 411 → **415** (category ordering, member-vs-admin filtering incl. runtime-gated pair, Other-bucket behavior, the real-loader completeness sweep; the old roster smoke rewritten to assert both viewer perspectives + ephemerality). Manual core.md.
+
+**Improve:** the completeness test IS the improvement — category drift is now impossible to ship silently (same family as the S24 packaging test: assert the invariant, not the intention).

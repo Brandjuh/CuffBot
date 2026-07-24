@@ -60,6 +60,120 @@ export function buildHelp(modules, prefix) {
   };
 }
 
+// ── categories (S43) ─────────────────────────────────────────────────────────
+// The menu groups by what a command is FOR, not by which module ships it
+// (owner request: "Moderation / gaming / fun / etc"). Order = display order.
+
+export const HELP_CATEGORIES = [
+  { key: 'moderation', title: '🛡️ Moderation' },
+  { key: 'games', title: '🎮 Games & Economy' },
+  { key: 'fun', title: '🎉 Fun' },
+  { key: 'ranks', title: '📈 Ranks & XP' },
+  { key: 'community', title: '🎂 Community' },
+  { key: 'info', title: '📻 Info' },
+  { key: 'admin', title: '⚙️ Setup & Admin' },
+];
+
+// Every command must appear here — test/help.test.js walks the real loader
+// output and fails the build when a new command is left uncategorized.
+export const COMMAND_CATEGORIES = {
+  cite: 'moderation',
+  detain: 'moderation',
+  release: 'moderation',
+  arrest: 'moderation',
+  rapsheet: 'moderation',
+  expunge: 'moderation',
+  promote: 'moderation',
+  demote: 'moderation',
+  trivia: 'games',
+  'trivia-scores': 'games',
+  'trivia-sets': 'games',
+  donuts: 'games',
+  'donut-board': 'games',
+  steal: 'games',
+  pot: 'games',
+  fine: 'fun',
+  wanted: 'fun',
+  donut: 'fun',
+  ask: 'fun',
+  level: 'ranks',
+  leaderboard: 'ranks',
+  'xp-ladder': 'ranks',
+  ranks: 'ranks',
+  badge: 'ranks',
+  'birthday-set': 'community',
+  'birthday-remove': 'community',
+  birthdays: 'community',
+  911: 'community',
+  'radio-check': 'info',
+  help: 'info',
+  update: 'admin',
+  restart: 'admin',
+  dispatch: 'admin',
+  'evidence-locker': 'admin',
+  'rank-setup': 'admin',
+  'rank-exclude': 'admin',
+  patrol: 'admin',
+  'patrol-rule': 'admin',
+  'patrol-term': 'admin',
+  'xp-config': 'admin',
+  'ai-config': 'admin',
+  'birthday-config': 'admin',
+  'memorial-config': 'admin',
+  'starboard-config': 'admin',
+  'chat-starter-config': 'admin',
+  'channel-list': 'admin',
+  'channel-list-config': 'admin',
+  logbook: 'admin',
+  'welcome-config': 'admin',
+  'economy-config': 'admin',
+};
+
+// Admin commands whose gate lives in execute() instead of
+// default_member_permissions — hide these from non-admins too.
+export const RUNTIME_ADMIN_COMMANDS = new Set(['update', 'restart']);
+
+/**
+ * The category-grouped, viewer-filtered help model (S43). `commands` are
+ * flattened `{name, description, defaultMemberPermissions}`; `isVisible`
+ * decides per viewer (permission filtering happens in the command, keeping
+ * this file free of discord.js). Same model shape as buildHelp, but entries
+ * carry a prerendered one-per-command `line` — clearer than the old
+ * two-line invocation/usage format.
+ */
+export function buildCategorizedHelp(commands, prefix, { isVisible = () => true } = {}) {
+  const buckets = new Map(HELP_CATEGORIES.map((c) => [c.key, []]));
+  const uncategorized = [];
+  for (const cmd of commands) {
+    if (!isVisible(cmd)) continue;
+    const bucket = buckets.get(COMMAND_CATEGORIES[cmd.name]);
+    if (bucket) bucket.push(cmd);
+    else uncategorized.push(cmd);
+  }
+  const groups = [];
+  const render = (title, list) =>
+    groups.push({
+      title,
+      entries: list
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((cmd) => ({ line: `**/${cmd.name}** — ${cmd.description}` })),
+    });
+  for (const category of HELP_CATEGORIES) {
+    const list = buckets.get(category.key);
+    if (list.length) render(category.title, list);
+  }
+  if (uncategorized.length) render('📦 Other', uncategorized); // tests keep this empty
+  const total = groups.reduce((n, g) => n + g.entries.length, 0);
+  return {
+    title: '🚔 CuffBot — Command Menu',
+    description:
+      `The ${total} commands **you** can use here, sorted by purpose. ` +
+      `Type \`/\` + a name to see its options; every command also works as a text command (\`${prefix}name …\`).`,
+    groups,
+  };
+}
+
 export const EMBED_FIELD_LIMIT = 1_024; // Discord: max chars per field value
 export const EMBED_PAGE_BUDGET = 5_000; // stay under Discord's 6000-char TOTAL per embed
 export const EMBED_MAX_FIELDS = 25; // Discord: max fields per embed
@@ -72,7 +186,7 @@ export function renderGroupChunks(group, limit = EMBED_FIELD_LIMIT) {
   const chunks = [];
   let current = '';
   for (const entry of group.entries) {
-    const line = `${entry.invocations} — ${entry.description}\n usage: ${entry.usage}`;
+    const line = entry.line ?? `${entry.invocations} — ${entry.description}\n usage: ${entry.usage}`;
     const clipped = line.length > limit ? `${line.slice(0, limit - 1)}…` : line;
     const candidate = current ? `${current}\n${clipped}` : clipped;
     if (current && candidate.length > limit) {
