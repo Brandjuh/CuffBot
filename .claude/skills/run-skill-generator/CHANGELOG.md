@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.8 — 2026-07-24 (Session 50)
+
+- `discord-reference.md` → interaction lifecycle: ephemeral has two intents — privacy vs noise-reduction; the text path must route them differently (DM vs in-channel no-ping reply, `textInChannel` marker).
+- Evidence: S50 — the owner's `!daily` claims landed in DM ("I only want important things in DM, not fluff"); one conflated concept, two behaviors.
+
 ## 0.5.7 — 2026-07-24 (Session 47)
 
 - `discord-reference.md`: new section — component wizards (ephemeral update-in-place steps, showModal-as-response, prefix-filtered module-owned interaction pump, RAM draft + TTL, save-only-at-the-end).

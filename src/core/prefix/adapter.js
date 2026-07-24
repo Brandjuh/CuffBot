@@ -25,6 +25,7 @@ function forChannel(payload) {
   const p = typeof payload === 'string' ? { content: payload } : { ...payload };
   delete p.flags; // channel messages cannot be ephemeral
   delete p.withResponse;
+  delete p.textInChannel; // adapter-only routing marker, never sent to Discord
   return p;
 }
 
@@ -84,6 +85,16 @@ export async function createMessageInteraction(message, command, parsed) {
 
   async function deliver(payload, { asNew = false } = {}) {
     if (isEphemeral(payload)) {
+      // S50: ephemeral-for-NOISE (game claims, cooldown notices) is not
+      // ephemeral-for-PRIVACY. Commands mark the former with textInChannel —
+      // on the text path it answers right in the channel (reply, no ping);
+      // only genuinely private output (rap sheets) still goes to DM.
+      if (payload?.textInChannel) {
+        const p = forChannel(payload);
+        if (!p.allowedMentions) p.allowedMentions = { repliedUser: false };
+        if (typeof message.reply === 'function') return message.reply(p);
+        return message.channel.send(p);
+      }
       try {
         return await author.send(forChannel(payload));
       } catch (error) {

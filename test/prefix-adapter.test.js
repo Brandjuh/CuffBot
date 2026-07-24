@@ -155,3 +155,25 @@ test('any other DM failure is reported as the bot’s problem — never "your DM
   assert.match(channelSends[0].content, /failed on my end/);
   assert.ok(!/DMs are closed|Privacy Settings/.test(channelSends[0].content), 'no false blame');
 });
+
+test('noise-only ephemerals (textInChannel) answer in the channel, not by DM (S50)', async () => {
+  const { message, channelSends, dmSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
+  const parsed = parseCommandLine(message.content, '!');
+  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  await interaction.reply({ content: '🍩 Daily ration collected!', flags: MessageFlags.Ephemeral, textInChannel: true });
+  assert.equal(dmSends.length, 0, 'game fluff never DMs');
+  assert.equal(channelSends.length, 1);
+  assert.equal(channelSends[0].content, '🍩 Daily ration collected!');
+  assert.ok(!channelSends[0].flags, 'ephemeral flag stripped');
+  assert.ok(!('textInChannel' in channelSends[0]), 'routing marker never reaches Discord');
+  assert.deepEqual(channelSends[0].allowedMentions, { repliedUser: false }, 'reply without pinging');
+});
+
+test('unmarked ephemerals still go to DM — privacy stays the default (S50)', async () => {
+  const { message, channelSends, dmSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
+  const parsed = parseCommandLine(message.content, '!');
+  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  await interaction.reply({ content: 'rap sheet contents', flags: MessageFlags.Ephemeral });
+  assert.equal(dmSends.length, 1);
+  assert.equal(channelSends.length, 0);
+});

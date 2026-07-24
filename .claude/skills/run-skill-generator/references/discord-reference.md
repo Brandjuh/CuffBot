@@ -43,6 +43,7 @@ client.login(process.env.DISCORD_TOKEN);
 - Anything that might be slow (storage, fetches): `await interaction.deferReply()` first, then `editReply()` when done.
 - One initial response per interaction. A second `reply()` throws `InteractionAlreadyReplied` — use `followUp()` for extra messages.
 - Ephemeral replies: `interaction.reply({ content, flags: MessageFlags.Ephemeral })`. The older `ephemeral: true` option is deprecated in current v14 — prefer flags.
+- **Ephemeral has two intents (S50):** privacy (rap sheets) vs noise-reduction (game claims, cooldown notices). CuffBot's text-command adapter DMs the former and answers the latter in-channel (no-ping reply) via a `textInChannel` payload marker — an owner complaint proved that routing fluff to DMs reads as spam, not discretion.
 - In newer v14, `fetchReply: true` is deprecated in favor of `withResponse: true` (the reply then lives at `response.resource.message`).
 
 ## Moderation APIs (enforcement module)
