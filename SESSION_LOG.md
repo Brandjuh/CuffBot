@@ -552,3 +552,9 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 **Decisions:** off by default (a bot that starts posting into channels uninvited after an update would be a nasty surprise); the AI call bypasses the /ask rate budget (one question per hours; keeps member budget intact) but reuses the provider layer end-to-end.
 
 **Marathon complete:** every buildable backlog item (M9–M13, M15) is now built, tested, documented, and merged. M14 (goal tracker) deliberately not built — scope must come from the owner.
+
+---
+
+## Session 23 wrap — marathon retrospective (2026-07-24)
+
+Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials fact (S22, load-bearing for starboard); LEARNINGS gains two candidates (module-finish boilerplate wants a script; session = work unit, not conversation). Full retro answers recorded in the changelog entry. Marathon totals: 6 PRs (#17–#22) built, tested, merged, branch reset each time; suite 254 → 313; modules 9 → 14. All owner-backlog items buildable without owner input are DONE; M14 (goal tracker) queued as an owner question. Live-Pi diagnosis (the owner's morning report of a dead AI/missing /ai-config/erroring /help) is measurable with doctor v2 — the owner report asks for its output.

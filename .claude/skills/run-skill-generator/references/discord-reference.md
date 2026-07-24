@@ -16,6 +16,7 @@ client.login(process.env.DISCORD_TOKEN);
 - Receiving `MessageCreate` at all needs the non-privileged `GuildMessages` intent; reading `message.content` needs the privileged `MessageContent`. Text ("!command") invocation therefore needs both. **Corollary (S16):** features that only need the *fact* of a message — XP per message, activity tracking — work on `GuildMessages` alone; design them so they never read `content` and they survive the MessageContent fallback.
 - `GuildVoiceStates` (who is in which voice channel, mute/deaf flags — populates `channel.members` for voice channels) is **not privileged**; add it freely when a feature needs voice presence (S16: voice XP). Voice *state* is cache-driven: to know "who is in voice right now", read the cache — there is no REST endpoint to list a channel's connected members.
 - Missing intents don't always error — they show up as **empty caches and events that never fire**. If "nothing happens", suspect intents first.
+- **Reactions & partials (S22):** `MessageReactionAdd` needs the non-privileged `GuildMessageReactions` intent — but that alone only fires for messages **cached since this boot**. To also get events for older messages, construct the Client with `partials: [Partials.Message, Partials.Reaction, Partials.Channel]` and have the handler `await reaction.fetch()` / `message.fetch()` when `.partial` is true. Without partials, a reaction feature silently ignores everything sent before the last restart — which on a self-updating bot is most of the server's history.
 
 ## Slash command registration
 
