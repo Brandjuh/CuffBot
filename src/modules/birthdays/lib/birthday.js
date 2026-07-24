@@ -5,7 +5,9 @@
 
 export const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-export const DEFAULT_TIMEZONE = 'Europe/Amsterdam';
+// Owner decision 2026-07-24 (S32): the community is US-based — default to the
+// most-populated US timezone, Eastern Time. Members elsewhere pass timezone:.
+export const DEFAULT_TIMEZONE = 'America/New_York';
 
 /** A calendar-valid day/month pair (Feb 29 is allowed — see feb29Rule). */
 export function isValidBirthday(day, month) {

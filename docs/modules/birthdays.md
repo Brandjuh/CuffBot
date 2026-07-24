@@ -18,10 +18,10 @@
 
 ### /birthday-set
 
-- **Options:** `day` (1–31, required), `month` (1–12, required), `timezone` (IANA name, optional — default `Europe/Amsterdam`).
+- **Options:** `day` (1–31, required), `month` (1–12, required), `timezone` (IANA name, optional — default `America/New_York`, S32 owner decision: Eastern Time is the most-populated US zone).
 - **What happens:** validates the calendar date (Apr 31 refused, **Feb 29 allowed**) and the timezone (`Intl` lookup), then stores the record. Setting again overwrites.
 - **Reply:** ephemeral confirmation with the parsed date + timezone.
-- **Failure modes:** impossible date → themed refusal; unknown timezone → refusal listing valid examples (`Europe/Amsterdam`, `America/New_York`, …).
+- **Failure modes:** impossible date → themed refusal; unknown timezone → refusal listing valid examples (`America/New_York`, `America/Chicago`, …).
 
 ### /birthday-remove
 
@@ -72,3 +72,4 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 |---|---|
 | S19 | Created: set/remove/list/config, per-member timezones, 10-min idempotent sweep, Feb 29 rule, no birth year stored. |
 | S31 | Default announcement channel committed: `411609312037961729` (owner decision). |
+| S32 | Default timezone → `America/New_York` (owner decision: US-based community; Eastern is the most-populated US zone). |

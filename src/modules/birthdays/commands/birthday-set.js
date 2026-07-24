@@ -15,7 +15,7 @@ export default {
     .addStringOption((o) =>
       o
         .setName('timezone')
-        .setDescription(`IANA timezone, e.g. Europe/Amsterdam or America/New_York (default: ${DEFAULT_TIMEZONE})`),
+        .setDescription(`IANA timezone, e.g. America/Chicago or Europe/Amsterdam (default: ${DEFAULT_TIMEZONE})`),
     ),
   async execute(interaction) {
     const day = interaction.options.getInteger('day', true);
@@ -33,7 +33,7 @@ export default {
       await interaction.reply({
         content:
           `🚫 \`${timeZone}\` is not a timezone I know. Use an IANA name like ` +
-          '`Europe/Amsterdam`, `Europe/London`, `America/New_York`, `America/Los_Angeles`, `Asia/Tokyo`.',
+          '`America/New_York`, `America/Chicago`, `America/Los_Angeles`, `Europe/Amsterdam`, `Asia/Tokyo`.',
         flags: MessageFlags.Ephemeral,
       });
       return;
