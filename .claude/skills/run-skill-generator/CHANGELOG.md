@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.10 — 2026-07-24 (Session 54)
+
+- `discord-reference.md` → the S50 "ephemeral has two intents" note rewritten as "Ephemeral on the text path (S50→S54)": the owner banned reply-DMs outright, so every ephemeral now answers in-channel as a no-ping reply; the general lesson is that unsolicited DMs read as spam — never pick DM as the "private" fallback without an owner mandate (deliberate moderation DMs stay a separate, legitimate category).
+- Evidence: S54 — owner: "Stop met het versturen van DM's na gebruik van een ! command. Doe dit niet!" — the third DM complaint (S46 false blame, S50 fluff-in-DM, S54 ban); the escalation shows the S9 DM default was wrong for this guild from the start.
+
 ## 0.5.9 — 2026-07-24 (Session 53)
 
 - `discord-reference.md` → new "Mentions & pings" section + pitfalls row: mentions are two layers (content renders, `allowedMentions` delivers); deliberate pings scope the allow-list to exactly the target, no-ping renders use `parse: []` / `repliedUser: false`; any message interpolating external text sets `allowedMentions` explicitly.

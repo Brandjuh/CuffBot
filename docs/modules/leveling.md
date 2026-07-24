@@ -38,7 +38,7 @@ All three also work as text commands: `!level @user`, `!leaderboard 15`, `!xp-co
 
 - **Options (all optional; none given = view current settings):** `enabled` (bool) — master switch; `sync-roles` (bool) — auto-assign rank roles; `message-xp` (1–100) — XP per message; `voice-xp` (1–100) — XP per voice minute; `cooldown` (10–600 s) — message XP cooldown; `announce` (text channel) — where promotions are announced; `clear-announce` (bool) — reset announcements back to "the channel where it happened".
 - **What happens:** patches only the options given (only overrides are stored — future default rebalances still apply), persists, then shows the full config, whether the ladder is **pinned**, and the computed XP threshold for every rank.
-- **Reply:** ephemeral embed (DM for `!xp-config`).
+- **Reply:** ephemeral embed (in-channel no-ping reply for `!xp-config` — S54).
 - **Failure modes:** missing Manage Server → refusal; no ladder → thresholds section says to run `/rank-setup`; unpinned ladder → a ⚠️ line explains auto-rank and seeding stay idle until `/rank-setup` is run.
 
 ## Events

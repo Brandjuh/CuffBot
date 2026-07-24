@@ -43,7 +43,7 @@ client.login(process.env.DISCORD_TOKEN);
 - Anything that might be slow (storage, fetches): `await interaction.deferReply()` first, then `editReply()` when done.
 - One initial response per interaction. A second `reply()` throws `InteractionAlreadyReplied` — use `followUp()` for extra messages.
 - Ephemeral replies: `interaction.reply({ content, flags: MessageFlags.Ephemeral })`. The older `ephemeral: true` option is deprecated in current v14 — prefer flags.
-- **Ephemeral has two intents (S50):** privacy (rap sheets) vs noise-reduction (game claims, cooldown notices). CuffBot's text-command adapter DMs the former and answers the latter in-channel (no-ping reply) via a `textInChannel` payload marker — an owner complaint proved that routing fluff to DMs reads as spam, not discretion.
+- **Ephemeral on the text path (S50→S54):** channel messages cannot be ephemeral, so a `!command` adapter must pick a stand-in. S50 split by intent (privacy → DM, noise → in-channel); S54 the owner banned reply-DMs outright — now EVERY ephemeral answers in-channel as a no-ping reply (`allowedMentions: { repliedUser: false }`), and true privacy means using the slash form. Lesson: unsolicited DMs read as spam, not discretion — don't reach for DM as the "private" fallback without an owner mandate. Deliberate feature DMs (moderation notices) are a separate category and still fine.
 - In newer v14, `fetchReply: true` is deprecated in favor of `withResponse: true` (the reply then lives at `response.resource.message`).
 
 ## Moderation APIs (enforcement module)
@@ -69,7 +69,7 @@ client.login(process.env.DISCORD_TOKEN);
 Mentions are **two layers**: the `<@id>`/`<@&id>` text in `content` only *renders* a mention; whether anyone is *notified* is decided by `allowedMentions`. Control both, always explicitly:
 
 - **Deliberate ping** → scope the allow-list to exactly the intended target: `allowedMentions: { roles: [roleId] }` (S53 upload announcements). Never rely on default parsing — a creator/video/user-supplied string in the same message could smuggle extra mentions.
-- **Render without pinging** → mention in content + `allowedMentions: { parse: [] }` (S35 no-ping welcome) or `{ repliedUser: false }` for no-ping replies (S50 `textInChannel`).
+- **Render without pinging** → mention in content + `allowedMentions: { parse: [] }` (S35 no-ping welcome) or `{ repliedUser: false }` for no-ping replies (S50/S54 text-path ephemerals).
 - Rule of thumb: every outbound bot message that interpolates any external text sets `allowedMentions` explicitly.
 
 ## Common pitfalls

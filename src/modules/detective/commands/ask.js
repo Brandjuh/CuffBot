@@ -19,7 +19,6 @@ export default {
       await interaction.reply({
         content: `🕵️ The detective only takes questions at his desk: <#${config.channelId}>. Ask me there!`,
         flags: 64,
-        textInChannel: true,
       });
       return;
     }

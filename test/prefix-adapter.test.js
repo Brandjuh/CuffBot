@@ -20,6 +20,11 @@ function fakeMessage(content) {
     guild: { id: 'g1', name: 'Precinct' },
     guildId: 'g1',
     createdTimestamp: 1000,
+    reply: async (p) => {
+      const msg = { ...(typeof p === 'string' ? { content: p } : p), repliedTo: true, edit: async () => msg };
+      channelSends.push(msg);
+      return msg;
+    },
     channel: {
       sends: channelSends,
       send: async (p) => {
@@ -65,25 +70,26 @@ test('adapter routes a normal reply to the channel', async () => {
   assert.equal(interaction.replied, true);
 });
 
-test('adapter routes an ephemeral reply to the author DM', async () => {
+test('an ephemeral reply answers in the channel as a no-ping reply — never a DM (S54)', async () => {
   const { message, channelSends, dmSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
   const parsed = parseCommandLine(message.content, '!');
   const { interaction } = await createMessageInteraction(message, detain, parsed);
-  await interaction.reply({ content: 'secret', flags: MessageFlags.Ephemeral });
-  assert.equal(dmSends.length, 1);
-  assert.equal(dmSends[0].content, 'secret');
-  assert.equal(channelSends.length, 0, 'ephemeral output must not hit the channel');
+  await interaction.reply({ content: '🍩 Daily ration collected!', flags: MessageFlags.Ephemeral });
+  assert.equal(dmSends.length, 0, 'owner rule: a !command never DMs');
+  assert.equal(channelSends.length, 1);
+  assert.equal(channelSends[0].content, '🍩 Daily ration collected!');
+  assert.equal(channelSends[0].repliedTo, true, 'delivered as a reply to the invoking message');
+  assert.ok(!channelSends[0].flags, 'ephemeral flag stripped');
+  assert.deepEqual(channelSends[0].allowedMentions, { repliedUser: false }, 'reply without pinging');
 });
 
-test('adapter falls back to the channel (with a note) when the author DM is closed', async () => {
-  const { message, channelSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
-  message.author.send = async () => { throw new Error('Cannot send messages to this user'); };
+test('ephemeral embeds arrive in-channel intact (S54)', async () => {
+  const { message, channelSends, dmSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
   const parsed = parseCommandLine(message.content, '!');
   const { interaction } = await createMessageInteraction(message, detain, parsed);
-  await interaction.reply({ content: 'private note', flags: MessageFlags.Ephemeral });
-  assert.equal(channelSends.length, 1, 'DM failure falls back to the channel');
-  assert.match(channelSends[0].content, /private note/);
-  assert.ok(!channelSends[0].flags, 'the ephemeral flag is stripped for the channel message');
+  await interaction.reply({ embeds: [{ description: 'roster page' }], flags: MessageFlags.Ephemeral });
+  assert.equal(dmSends.length, 0);
+  assert.equal(channelSends[0].embeds[0].description, 'roster page');
 });
 
 test('adapter reply supports withResponse (for /radio-check style latency)', async () => {
@@ -130,50 +136,15 @@ test('adapter accepts a text channel where addChannelTypes allows it', async () 
   assert.equal(interaction.options.getChannel('announce').id, CHAN);
 });
 
-test('a genuine Discord 50007 refusal names the per-server privacy setting (S46)', async () => {
+test('the adapter never even attempts author.send — reply, followUp, ephemeral or not (S54)', async () => {
   const { message, channelSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
-  const refusal = new Error('Cannot send messages to this user');
-  refusal.code = 50007;
-  message.author.send = async () => { throw refusal; };
-  const parsed = parseCommandLine(message.content, '!');
-  const { interaction } = await createMessageInteraction(message, detain, parsed);
-  await interaction.reply({ embeds: [{ description: 'secret embed' }], flags: MessageFlags.Ephemeral });
-  assert.equal(channelSends.length, 1);
-  assert.match(channelSends[0].content, /Privacy Settings/);
-  assert.equal(channelSends[0].embeds[0].description, 'secret embed', 'the private payload still arrives');
-});
-
-test('any other DM failure is reported as the bot’s problem — never "your DMs are closed" (S46)', async () => {
-  const { message, channelSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
-  const apiError = new Error('Invalid Form Body');
-  apiError.code = 50035;
-  message.author.send = async () => { throw apiError; };
-  const parsed = parseCommandLine(message.content, '!');
-  const { interaction } = await createMessageInteraction(message, detain, parsed);
-  await interaction.reply({ embeds: [{ description: 'roster page' }], flags: MessageFlags.Ephemeral });
-  assert.equal(channelSends.length, 1);
-  assert.match(channelSends[0].content, /failed on my end/);
-  assert.ok(!/DMs are closed|Privacy Settings/.test(channelSends[0].content), 'no false blame');
-});
-
-test('noise-only ephemerals (textInChannel) answer in the channel, not by DM (S50)', async () => {
-  const { message, channelSends, dmSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
-  const parsed = parseCommandLine(message.content, '!');
-  const { interaction } = await createMessageInteraction(message, detain, parsed);
-  await interaction.reply({ content: '🍩 Daily ration collected!', flags: MessageFlags.Ephemeral, textInChannel: true });
-  assert.equal(dmSends.length, 0, 'game fluff never DMs');
-  assert.equal(channelSends.length, 1);
-  assert.equal(channelSends[0].content, '🍩 Daily ration collected!');
-  assert.ok(!channelSends[0].flags, 'ephemeral flag stripped');
-  assert.ok(!('textInChannel' in channelSends[0]), 'routing marker never reaches Discord');
-  assert.deepEqual(channelSends[0].allowedMentions, { repliedUser: false }, 'reply without pinging');
-});
-
-test('unmarked ephemerals still go to DM — privacy stays the default (S50)', async () => {
-  const { message, channelSends, dmSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
+  message.author.send = async () => {
+    throw new Error('author.send must never be called after S54');
+  };
   const parsed = parseCommandLine(message.content, '!');
   const { interaction } = await createMessageInteraction(message, detain, parsed);
   await interaction.reply({ content: 'rap sheet contents', flags: MessageFlags.Ephemeral });
-  assert.equal(dmSends.length, 1);
-  assert.equal(channelSends.length, 0);
+  await interaction.followUp({ content: 'page two', flags: MessageFlags.Ephemeral });
+  await interaction.followUp('plain channel note');
+  assert.equal(channelSends.length, 3, 'every delivery lands in the channel');
 });
