@@ -71,15 +71,19 @@ test('askDetective without any API key explains configuration, spends no budget'
   assert.match(result.message, /GROQ_API_KEY|GEMINI_API_KEY/);
 });
 
-test('askDetective enforces the shared cooldown with an in-theme refusal', async () => {
+test('askDetective parks a cooldown-refused question on the desk pile (S29)', async () => {
+  const { clearQueue } = await import('../src/modules/detective/service.js');
+  clearQueue();
   const guildId = freshGuildId();
   const now = freshNow();
   const env = { GROQ_API_KEY: 'k' };
   const fetchImpl = async () => GROQ_OK;
   assert.equal((await askDetective({ guildId, channelId: 'c3', askerName: 'A', question: 'q1', now, env, fetchImpl })).ok, true);
-  const refused = await askDetective({ guildId, channelId: 'c3', askerName: 'B', question: 'q2', now: now + 2_000, env, fetchImpl });
+  const refused = await askDetective({ guildId, channelId: 'c3', askerName: 'B', question: 'q2', userId: 'u-c3', now: now + 2_000, env, fetchImpl });
   assert.equal(refused.ok, false);
-  assert.match(refused.message, /7 seconds/);
+  assert.equal(refused.queued, true, 'cooldown refusals are parked, not lost');
+  assert.match(refused.message, /desk pile/);
+  clearQueue();
 });
 
 test('askDetective maps provider failures to a friendly message, never throws', async () => {
@@ -213,7 +217,8 @@ test('mention event leaves prefix commands to the prefix router', async () => {
 
 test('askDetective enforces the provider daily cap with a specific refusal (S27)', async () => {
   const guildId = freshGuildId();
-  const base = freshNow();
+  clock += 30 * 3_600_000; // clean rolling-24h window: no stamps from earlier tests
+  const base = clock;
   const env = { GEMINI_API_KEY: 'k' };
   const GEMINI_OK = {
     ok: true, status: 200,
@@ -238,4 +243,110 @@ test('a provider HTTP 429 gets the quota message, not the generic one (S27)', as
   });
   assert.equal(result.ok, false);
   assert.match(result.message, /free-tier quota/);
+});
+
+// ── S29: the desk pile (rate-limited questions answered automatically) ───────
+
+test('queue rules: replace-per-user, cap, shouldQueue, story format (S29)', async () => {
+  const { enqueueQuestion, shouldQueue, waitStory, QUEUE_CAP } = await import('../src/modules/detective/lib/queue.js');
+  let q = [];
+  const item = (userId, question) => ({ userId, channelId: 'c', askerName: 'A', question, queuedAt: 1 });
+  const first = enqueueQuestion(q, item('u1', 'q1'));
+  assert.equal(first.status, 'queued');
+  assert.equal(first.position, 1);
+  q = first.queue;
+  const replaced = enqueueQuestion(q, item('u1', 'q2'));
+  assert.equal(replaced.status, 'replaced');
+  assert.equal(replaced.queue.length, 1);
+  assert.equal(replaced.queue[0].question, 'q2', 'latest question wins');
+  q = replaced.queue;
+  for (let i = 2; i <= QUEUE_CAP; i += 1) q = enqueueQuestion(q, item(`u${i}`, 'x')).queue;
+  assert.equal(enqueueQuestion(q, item('u-new', 'x')).status, 'full');
+  assert.equal(shouldQueue('cooldown', 5_000), true);
+  assert.equal(shouldQueue('hourly', 30 * 60_000), true);
+  assert.equal(shouldQueue('daily', 5_000), false, 'daily never queues');
+  assert.equal(shouldQueue('hourly', 2 * 3_600_000), false, 'too-long waits never queue');
+  assert.match(waitStory(3, 2, '8s'), /#2 on the desk pile/);
+  assert.match(waitStory(3, 2, '8s'), /~8s/);
+});
+
+test('a cooldown-refused question is parked with a story, then answered automatically (S29)', async () => {
+  const { clearQueue, pendingCount, flushQueue } = await import('../src/modules/detective/service.js');
+  clearQueue();
+  const guildId = freshGuildId();
+  const base = freshNow();
+  const env = { GROQ_API_KEY: 'k' };
+  const fetchImpl = async () => GROQ_OK;
+
+  assert.equal((await askDetective({ guildId, channelId: 'park-chan', askerName: 'A', question: 'first', userId: 'u-a', now: base, env, fetchImpl })).ok, true);
+  const parked = await askDetective({ guildId, channelId: 'park-chan', askerName: 'B', question: 'What is a 10-4?', userId: 'u-b', now: base + 2_000, env, fetchImpl });
+  assert.equal(parked.ok, false);
+  assert.equal(parked.queued, true);
+  assert.match(parked.message, /desk pile/);
+  assert.equal(pendingCount(), 1);
+
+  // Too soon: the flusher stays quiet.
+  const sends = [];
+  const client = { channels: { cache: new Map([['park-chan', { id: 'park-chan', send: async (p) => (sends.push(p), p) }]]) } };
+  assert.equal(await flushQueue(client, { now: base + 3_000, env, fetchImpl }), 0);
+  assert.equal(pendingCount(), 1);
+
+  // Past the cooldown: the parked question is answered in its channel, pinging the asker.
+  assert.equal(await flushQueue(client, { now: base + 8_000, env, fetchImpl }), 1);
+  assert.equal(pendingCount(), 0);
+  assert.equal(sends.length, 1);
+  assert.match(sends[0].content, /<@u-b>/);
+  assert.match(sends[0].content, /What is a 10-4\?/, 'original question echoed');
+  assert.match(sends[0].content, /Copy that, officer\./, 'the actual answer');
+  assert.deepEqual(sends[0].allowedMentions, { users: ['u-b'] });
+  clearQueue();
+});
+
+test('flushQueue survives a dead channel and drops disabled-guild items (S29)', async () => {
+  const { clearQueue, pendingCount, flushQueue } = await import('../src/modules/detective/service.js');
+  clearQueue();
+  const guildId = freshGuildId();
+  const base = freshNow();
+  const env = { GROQ_API_KEY: 'k' };
+  const fetchImpl = async () => GROQ_OK;
+  assert.equal((await askDetective({ guildId, channelId: 'gone-chan', askerName: 'A', question: 'q1', userId: 'u-a', now: base, env, fetchImpl })).ok, true);
+  const parked = await askDetective({ guildId, channelId: 'gone-chan', askerName: 'B', question: 'q2', userId: 'u-b', now: base + 2_000, env, fetchImpl });
+  assert.equal(parked.queued, true);
+
+  // Channel vanished: the slot is spent but nothing crashes.
+  const client = { channels: { cache: new Map() } };
+  assert.equal(await flushQueue(client, { now: base + 10_000, env, fetchImpl }), 0);
+  assert.equal(pendingCount(), 0, 'item consumed, no retry loop');
+
+  // Disabled guild: parked items are dropped without an AI call.
+  const g2 = freshGuildId();
+  const t2 = freshNow();
+  assert.equal((await askDetective({ guildId: g2, channelId: 'c', askerName: 'A', question: 'q1', userId: 'u-a', now: t2, env, fetchImpl })).ok, true);
+  assert.equal((await askDetective({ guildId: g2, channelId: 'c', askerName: 'B', question: 'q2', userId: 'u-b', now: t2 + 2_000, env, fetchImpl })).queued, true);
+  setAiConfig(g2, { enabled: false });
+  assert.equal(await flushQueue(client, { now: t2 + 10_000, env, fetchImpl }), 0);
+  assert.equal(pendingCount(), 0, 'disabled-guild item dropped');
+  setAiConfig(g2, { enabled: true });
+  clearQueue();
+});
+
+test('daily refusals do NOT park and say so (S29)', async () => {
+  const { clearQueue, pendingCount } = await import('../src/modules/detective/service.js');
+  clearQueue();
+  const guildId = freshGuildId();
+  clock += 30 * 3_600_000; // clean rolling-24h window: no stamps from earlier tests
+  const base = clock;
+  const env = { GEMINI_API_KEY: 'k', CUFFBOT_AI_DAILY_LIMIT: '1' };
+  const GEMINI_OK = {
+    ok: true, status: 200,
+    json: async () => ({ candidates: [{ content: { parts: [{ text: 'Copy.' }] } }] }),
+    text: async () => '',
+  };
+  assert.equal((await askDetective({ guildId, channelId: 'c', askerName: 'A', question: 'q1', userId: 'u1', now: base, env, fetchImpl: async () => GEMINI_OK })).ok, true);
+  const refused = await askDetective({ guildId, channelId: 'c', askerName: 'B', question: 'q2', userId: 'u2', now: base + 8_000, env, fetchImpl: async () => GEMINI_OK });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.queued, undefined, 'not parked');
+  assert.match(refused.message, /Come back tomorrow/);
+  assert.equal(pendingCount(), 0);
+  clearQueue();
 });

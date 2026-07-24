@@ -1,6 +1,6 @@
 import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { ensureInvokerPermission } from '../../enforcement/guards.js';
-import { getAiConfig, setAiConfig, detectiveStatus } from '../service.js';
+import { getAiConfig, setAiConfig, detectiveStatus, pendingCount } from '../service.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -25,6 +25,7 @@ export default {
           `**Provider:** ${s.provider ? `${s.provider} (model \`${s.model}\`)` : '⚠️ none — add `GROQ_API_KEY` or `GEMINI_API_KEY` to `.env` and restart'}`,
           `**Rate limit (server-wide, everyone combined):** 1 question / 7 s · max 62 / hour${s.maxPerDay ? ` · max ${s.maxPerDay} / day (free ${s.provider} tier)` : ''}`,
           `**Used this hour:** ${s.usedThisHour} / ${s.maxPerHour}${s.maxPerDay ? ` · **today:** ${s.usedToday} / ${s.maxPerDay}` : ''}`,
+          `**Desk pile (parked questions):** ${pendingCount()}`,
           `**Conversation memory:** last ${s.historyLimits.maxHistoryEntries} exchanges per channel, ${Math.round(s.historyLimits.historyTtlMs / 60000)} min`,
           '',
           'Talk to the detective with `/ask`, `!ask …`, or by mentioning the bot in a message.',

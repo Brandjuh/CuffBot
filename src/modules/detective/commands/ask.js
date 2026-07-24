@@ -19,6 +19,7 @@ export default {
       channelId: interaction.channel?.id ?? 'dm',
       askerName: interaction.member?.displayName ?? interaction.user.username,
       question,
+      userId: interaction.user.id,
     });
     await interaction.editReply({
       content: result.ok ? `🕵️ ${result.reply}` : result.message,
