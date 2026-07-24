@@ -24,7 +24,17 @@ export const DEFAULT_ECONOMY_CONFIG = {
   heistCooldownMs: 3 * 60 * 60_000, // lay-low time per thief (S48 owner decision: 3 hours)
   potDailyTopUp: 500, // the pot grows by this every day (owner: S41)
   potWinChance: 0.005, // odds that a daily /pot try empties it (owner: 0.5%)
+  dailyAmount: 25, // the /daily ration (S49 owner decision)
+  dailyCooldownMs: 24 * 60 * 60_000, // one claim per rolling 24 hours
 };
+
+/** "2 h 45 min" / "12 min" — shared by every cooldown refusal. */
+export function formatWaitMs(ms) {
+  const totalMinutes = Math.ceil(ms / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
+}
 
 /** Donuts to award for a message given the last-earn time. 0 within cooldown. */
 export function earnGain(config, lastEarnAt, now) {

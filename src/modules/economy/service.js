@@ -97,6 +97,34 @@ export function awardActivity(guildId, userId, now) {
 }
 
 /**
+ * The /daily ration (S49): 25 donuts, once per rolling 24 hours per member.
+ * Stamp + award land in one store write; a too-early claim reports exactly
+ * how long is left.
+ * @returns {{code:'disabled'|'cooldown'|'claimed', amount?:number, balance?:number, waitMs?:number}}
+ */
+export function claimDaily(guildId, userId, { now = Date.now() } = {}) {
+  const config = getEconomyConfig(guildId);
+  if (!config.enabled) return { code: 'disabled' };
+  const last = getAccounts(guildId)[userId]?.lastDailyAt ?? null;
+  if (last && now - last < config.dailyCooldownMs) {
+    return { code: 'cooldown', waitMs: config.dailyCooldownMs - (now - last) };
+  }
+  let out;
+  updateGuildData(
+    guildId,
+    ECONOMY_USERS_KEY,
+    (accounts) => {
+      const rec = accounts[userId] ?? { balance: config.startingBalance, lastEarnAt: null };
+      const balance = rec.balance + config.dailyAmount;
+      out = { code: 'claimed', amount: config.dailyAmount, balance };
+      return { ...accounts, [userId]: { ...rec, balance, lastDailyAt: now } };
+    },
+    {},
+  );
+  return out;
+}
+
+/**
  * Birthday seam (called by the birthdays module, wrapped there): gift the
  * birthday member their donuts. Returns the amount granted, or null when the
  * economy is disabled (so the announcement can skip the donut line honestly).
