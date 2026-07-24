@@ -85,7 +85,7 @@ test('xp config: defaults are on, and patches persist', () => {
   const next = getXpConfig(guild);
   assert.equal(next.messageXp, 20);
   assert.equal(next.enabled, false);
-  assert.equal(next.voiceXpPerMin, 10, 'unpatched keys keep defaults');
+  assert.equal(next.voiceXpPerMin, 1, 'unpatched keys keep defaults (S45: voice pays 1/min)');
 });
 
 test('setXpConfig stores only overrides, never frozen defaults (audit #8)', async () => {

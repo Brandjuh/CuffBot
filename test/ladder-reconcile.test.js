@@ -26,7 +26,7 @@ after(() => {
 let seq = 0;
 const freshGuildId = () => `30000000000000${String((seq += 1)).padStart(4, '0')}`;
 
-// Default thresholds for a 3-rank ladder: [100, 303, 580] (base 100, exp 1.6).
+// Default thresholds for a 3-rank ladder: [1000, 3482, 7225] (S45: base 1000, exp 1.8).
 
 function fakeMember(guild, id, roleIds) {
   const member = {
@@ -83,7 +83,7 @@ test('baseline: first pinned sight snapshots the ladder and seeds rank holders',
   assert.equal(result.reason, 'baseline');
   assert.equal(result.seeded, 1, 'the rank holder got an XP record, the bystander did not');
   assert.deepEqual(getLadderSnapshot(guildId).roleIds, ['chief', 'officer', 'rookie']);
-  assert.equal(getUsers(guildId).officerHolder.xp, 303, 'seeded at the held rank floor');
+  assert.equal(getUsers(guildId).officerHolder.xp, 3_482, 'seeded at the held rank floor');
   assert.equal(getUsers(guildId).bystander, undefined);
 
   assert.equal((await noteLadderMaybeChanged(guild)).reason, 'unchanged', 'stable ladder = no-op');
@@ -101,7 +101,7 @@ test('renaming a rank role is not a structure change', async () => {
 test('deleting a rank: ex-holders quietly get the rank their XP earns under the new ladder', async () => {
   const guildId = freshGuildId();
   const guild = fakePrecinct(guildId, { members: { exOfficer: ['officer'] } });
-  await noteLadderMaybeChanged(guild); // baseline seeds exOfficer at 303
+  await noteLadderMaybeChanged(guild); // baseline seeds exOfficer at 3482
 
   // Discord deletes the role everywhere: from the guild AND from members.
   guild.roles.cache.delete('officer');
@@ -111,8 +111,8 @@ test('deleting a rank: ex-holders quietly get the rank their XP earns under the 
   assert.equal(result.swept, true);
   assert.equal(result.roleChanges, 1);
   const member = guild.members.cache.get('exOfficer');
-  // New 2-rank ladder thresholds: [100, 303] — 303 XP now earns the top rank.
-  assert.ok(member.roles.cache.has('chief'), 'reassigned to what 303 XP earns now');
+  // New 2-rank ladder thresholds: [1000, 3482] — 3482 XP now earns the top rank.
+  assert.ok(member.roles.cache.has('chief'), 'reassigned to what 3482 XP earns now');
   assert.match(member.roleLog.at(-1).reason, /ladder-change reconciliation/);
   assert.deepEqual(getLadderSnapshot(guildId).roleIds, ['chief', 'rookie'], 'snapshot updated');
 });
@@ -120,7 +120,7 @@ test('deleting a rank: ex-holders quietly get the rank their XP earns under the 
 test('reordering: held ranks stay, XP heals up to the new floor (never down)', async () => {
   const guildId = freshGuildId();
   const guild = fakePrecinct(guildId, { members: { rookieHolder: ['rookie'] } });
-  await noteLadderMaybeChanged(guild); // rookieHolder seeded at 100
+  await noteLadderMaybeChanged(guild); // rookieHolder seeded at 1000
 
   // Owner drags Rookie to the top: Rookie > Chief > Officer.
   guild.roles.cache.get('rookie').position = 9.5;
@@ -130,7 +130,7 @@ test('reordering: held ranks stay, XP heals up to the new floor (never down)', a
   const result = await noteLadderMaybeChanged(guild, { sweepDelayMs: 0 });
   assert.equal(result.swept, true);
   assert.equal(result.healed, 1, 'XP raised to the held rank’s new floor');
-  assert.equal(getUsers(guildId).rookieHolder.xp, 580, 'Rookie is now the top rank (floor 580)');
+  assert.equal(getUsers(guildId).rookieHolder.xp, 7_225, 'Rookie is now the top rank (floor 7225)');
   assert.ok(guild.members.cache.get('rookieHolder').roles.cache.has('rookie'), 'role untouched');
   assert.equal(result.roleChanges, 0, 'no role writes for a pure reorder heal');
 });
@@ -138,15 +138,15 @@ test('reordering: held ranks stay, XP heals up to the new floor (never down)', a
 test('adding a rank: nobody changes role immediately; higher floors heal XP', async () => {
   const guildId = freshGuildId();
   const guild = fakePrecinct(guildId, { members: { chiefHolder: ['chief'] } });
-  await noteLadderMaybeChanged(guild); // chiefHolder seeded at 580
+  await noteLadderMaybeChanged(guild); // chiefHolder seeded at 7225
 
   guild.roles.cache.set('captain', { id: 'captain', name: 'Captain', position: 8.5, managed: false });
 
   const result = await noteLadderMaybeChanged(guild, { sweepDelayMs: 0 });
   assert.equal(result.swept, true);
   assert.equal(result.roleChanges, 0, 'promote-only: held rank at/above target = keep it');
-  // 4-rank thresholds: [100, 303, 580, 919] — Chief (top) now needs 919.
-  assert.equal(getUsers(guildId).chiefHolder.xp, 919, 'healed to the held rank’s new floor');
+  // 4-rank thresholds: [1000, 3482, 7225, 12126] — Chief (top) now needs 12126.
+  assert.equal(getUsers(guildId).chiefHolder.xp, 12_126, 'healed to the held rank’s new floor');
   assert.ok(guild.members.cache.get('chiefHolder').roles.cache.has('chief'));
 });
 
@@ -154,8 +154,8 @@ test('a human demotion survives reconciliation (XP was capped at the demoted flo
   const guildId = freshGuildId();
   const guild = fakePrecinct(guildId, { members: { demoted: ['rookie'] } });
   await noteLadderMaybeChanged(guild);
-  // /demote coupled their XP down to Rookie's floor (100) earlier.
-  setGuildData(guildId, 'xpUsers', { demoted: { xp: 100, lastMessageAt: null, seededFromRank: null } });
+  // /demote coupled their XP down to Rookie's floor (1000) earlier.
+  setGuildData(guildId, 'xpUsers', { demoted: { xp: 1_000, lastMessageAt: null, seededFromRank: null } });
 
   // Unrelated structure change: delete an empty rank (nobody held Officer).
   guild.roles.cache.delete('officer');
@@ -164,7 +164,7 @@ test('a human demotion survives reconciliation (XP was capped at the demoted flo
   const member = guild.members.cache.get('demoted');
   assert.ok(member.roles.cache.has('rookie'), 'still Rookie');
   assert.ok(!member.roles.cache.has('chief'), 'never re-promoted past the human demotion');
-  assert.equal(getUsers(guildId).demoted.xp, 100, 'capped XP stays authoritative');
+  assert.equal(getUsers(guildId).demoted.xp, 1_000, 'capped XP stays authoritative');
 });
 
 test('reconciliation refuses to act on an unpinned ladder or when sync is off', async () => {

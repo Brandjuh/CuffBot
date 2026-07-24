@@ -7,9 +7,9 @@
 export const DEFAULT_XP_CONFIG = {
   messageXp: 15, // XP per message (past the cooldown)
   messageCooldownMs: 60_000, // ignore messages within this window (anti-spam)
-  voiceXpPerMin: 10, // XP per full minute in an eligible voice channel
-  baseXp: 100, // XP for the lowest rank
-  exponent: 1.6, // higher ranks cost progressively more
+  voiceXpPerMin: 1, // S45 owner decision: "10 per voice minute is a lot — make it 1"
+  baseXp: 1_000, // S45 owner decision: ranks must be a real challenge — the first one takes days, not minutes
+  exponent: 1.8, // S45: steeper curve — the top ranks are a long-haul goal
 };
 
 /** XP to award for a message given the last-awarded time. 0 within cooldown. */
