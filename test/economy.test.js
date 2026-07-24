@@ -16,17 +16,20 @@ import {
 } from '../src/modules/economy/lib/bank.js';
 import {
   activeHunt,
+  addToPot,
   adjustBalance,
   attemptHeist,
   awardActivity,
   balanceOf,
   getAccounts,
+  getPot,
   grantBirthdayBonus,
   resetHuntState,
   resolveCatch,
   setEconomyConfig,
   spawnHunt,
   topBalances,
+  tryPot,
 } from '../src/modules/economy/service.js';
 import economyWatch from '../src/modules/economy/events/economy-watch.js';
 import { sweepBirthdays, setBirthday } from '../src/modules/birthdays/service.js';
@@ -155,16 +158,17 @@ test('heist success (30% roll): 500 donuts move victim → thief', () => {
   assert.equal(balanceOf(guildId, 'victim'), 9_500);
 });
 
-test('heist failure (roll ≥ 0.3): the thief’s 500 go to the server owner', () => {
+test('heist failure (roll ≥ 0.3): the thief’s 500 land in the donut pot (S41)', () => {
   const guildId = freshGuildId();
   const guild = { id: guildId, ownerId: 'brandjuh' };
   const result = attemptHeist(guild, 'thief', 'victim', { random: () => 0.3, now: 1_000_000 });
   assert.equal(result.code, 'failure');
   assert.equal(result.amount, 500);
-  assert.equal(result.chiefId, 'brandjuh');
+  assert.equal(result.potBalance, 1_000, "today's 500 top-up + the confiscated 500");
   assert.equal(balanceOf(guildId, 'thief'), 9_500);
-  assert.equal(balanceOf(guildId, 'brandjuh'), 10_500, 'the chief collects the confiscated loot');
+  assert.equal(getPot(guildId, 1_000_000).balance, 1_000);
   assert.equal(balanceOf(guildId, 'victim'), 10_000, 'the target loses nothing on a failed attempt');
+  assert.equal(balanceOf(guildId, 'brandjuh'), 10_000, 'S41: the chief no longer collects — the pot does');
 });
 
 test('heist amounts are honest when the payer is nearly broke', () => {
@@ -195,6 +199,48 @@ test('heist guards: self-theft and disabled economy refuse without stamping', ()
   setEconomyConfig(guildId, { enabled: false });
   assert.equal(attemptHeist(guild, 'me', 'other', { now: 1_000_000 }).code, 'disabled');
   assert.equal(getAccounts(guildId).me, undefined, 'refusals write nothing');
+});
+
+// ── the donut pot ────────────────────────────────────────────────────────────
+
+const DAY = 86_400_000;
+
+test('the pot seeds with the daily 500 and tops up per elapsed day (lazy)', () => {
+  const guildId = freshGuildId();
+  assert.equal(getPot(guildId, 0).balance, 500, 'first sight = today’s contribution');
+  assert.equal(getPot(guildId, 1_000).balance, 500, 'same day: no double top-up');
+  assert.equal(getPot(guildId, DAY).balance, 1_000, 'next day adds 500');
+  assert.equal(getPot(guildId, 4 * DAY).balance, 2_500, 'missed days catch up');
+});
+
+test('games feed the pot via addToPot', () => {
+  const guildId = freshGuildId();
+  assert.equal(addToPot(guildId, 250, 0), 750, '500 daily + 250 game loss');
+});
+
+test('tryPot: one attempt per member per day, 0.5% odds, winner takes all', () => {
+  const guildId = freshGuildId();
+  addToPot(guildId, 1_500, 0); // pot = 2000
+
+  const lose = tryPot(guildId, 'alice', { random: () => 0.005, now: 0 });
+  assert.equal(lose.code, 'lose', '0.005 is NOT below the 0.5% threshold');
+  assert.equal(lose.balance, 2_000, 'the pot keeps everything on a miss');
+
+  assert.equal(tryPot(guildId, 'alice', { random: () => 0, now: 1_000 }).code, 'already');
+  assert.equal(tryPot(guildId, 'bob', { random: () => 0.9, now: 0 }).code, 'lose', 'per-member, not global');
+
+  const win = tryPot(guildId, 'alice', { random: () => 0.0049, now: DAY });
+  assert.equal(win.code, 'win');
+  assert.equal(win.amount, 2_500, 'yesterday’s 2000 + the new day’s 500');
+  assert.equal(balanceOf(guildId, 'alice'), 12_500);
+  assert.equal(getPot(guildId, DAY).balance, 0, 'the pot resets after a jackpot');
+  assert.equal(getPot(guildId, 2 * DAY).balance, 500, 'and reseeds the next day');
+});
+
+test('tryPot refuses when the economy is disabled', () => {
+  const guildId = freshGuildId();
+  setEconomyConfig(guildId, { enabled: false });
+  assert.equal(tryPot(guildId, 'x', { now: 0 }).code, 'disabled');
 });
 
 // ── the hunt, end to end ─────────────────────────────────────────────────────
@@ -275,6 +321,8 @@ test('expiry: the crook steals from a random member and says so (never pings)', 
   assert.match(last.content, /name-victim/);
   assert.deepEqual(last.allowedMentions, { parse: [] });
   assert.equal(balanceOf(guildId, 'victim'), 9_950, 'stolen from the starting 10k');
+  assert.equal(getPot(guildId).balance, 550, 'the crook stashes the loot in the pot (500 daily + 50)');
+  assert.match(last.content, /donut pot/);
 });
 
 test('expiry with nobody around: the crook gets away empty-handed', async () => {

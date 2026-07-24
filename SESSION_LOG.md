@@ -799,3 +799,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 400 → **405** (success transfer, failure→owner with untouched target, honest broke-victim cap, cooldown incl. both-outcome stamping and exact wait math, self/disabled guards writing nothing). Manual economy.md; README 48 commands.
 
 **Decision:** "the donuts go to me, Brandjuh" is implemented as **the server owner** (`guild.ownerId`) — no hardcoded personal id; it survives account changes and is correct in any test guild. Success STEALS (victim pays) rather than mints: the command is called steal, and minting would inflate the economy.
+
+---
+
+## Session 41 — 2026-07-24
+
+**Goal:** owner request (revising S40 minutes after it shipped): a **donut pot** — every failed/lost donut pools up in one pot (busted /steal no longer pays the owner; lost game donuts too), +500/day, and once a day each member may try to empty it at 0.5% odds — winner takes all. (The owner also mentioned an earlier message that never reached this session — asked them to resend.)
+
+**Done:**
+- **The pot (`economyPot` store record):** balance + lastTopUpDay + per-member attempt days, all persisted (restarts change nothing). **Lazy daily top-up:** +500 per elapsed UTC day, missed days catch up — no timer needed; first sight seeds with today's 500.
+- **Every loss flows in:** busted `/steal` (revised from S40's to-owner rule; the S40 "structural person reference" code became one `addToPot` call — the candidate lesson held up), the escaping crook's pickpocketed loot (previously deducted-and-vanished; the escape message now names the pot), and future games via `addToPot(guildId, amount)`.
+- **`/pot`:** without options an ephemeral status (balance + rules); `try:True` = the daily attempt — **0.5%** strictly-below roll; win pays the ENTIRE pot to the member and resets it to 0 (next day's 500 reseeds); lose keeps everything; the attempt is spent on both outcomes; per-member per-UTC-day.
+- Tests 405 → **409** (lazy top-up incl. multi-day catch-up and same-day idempotence; addToPot; the win/lose/already/per-member matrix with exact threshold checks — 0.005 loses, 0.0049 wins; pot reset + reseed after a jackpot; disabled refusal; the revised heist-failure test proving the owner no longer collects; hunt-expiry test proving the crook's loot lands in the pot). Manual economy.md; README 49 commands.
+
+**Improve:** no new skill lesson — S41 was pattern application; notably the S40 LEARNINGS candidate (structural person references) proved its worth immediately: replacing "pay the owner" with "feed the pot" was a one-function edit because the money-flow endpoint sat behind one call.

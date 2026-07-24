@@ -20,8 +20,10 @@ export const DEFAULT_ECONOMY_CONFIG = {
   stealMin: 50,
   stealMax: 250,
   heistChance: 0.3, // /steal success odds (owner: 30%)
-  heistAmount: 500, // what a successful /steal moves victim → thief; a failed one moves thief → chief
+  heistAmount: 500, // what a successful /steal moves victim → thief; a failed one feeds the pot
   heistCooldownMs: 5 * 60_000, // lay-low time between attempts per thief
+  potDailyTopUp: 500, // the pot grows by this every day (owner: S41)
+  potWinChance: 0.005, // odds that a daily /pot try empties it (owner: 0.5%)
 };
 
 /** Donuts to award for a message given the last-earn time. 0 within cooldown. */
@@ -119,4 +121,22 @@ export function pickVictim(candidateIds, random = Math.random) {
 /** One /steal roll: strictly-below keeps the odds exactly at heistChance. */
 export function heistSucceeds(config, random = Math.random) {
   return random() < (config.heistChance ?? DEFAULT_ECONOMY_CONFIG.heistChance);
+}
+
+/** One /pot try: 0.5% by default, strictly-below keeps the odds exact. */
+export function potTryWins(config, random = Math.random) {
+  return random() < (config.potWinChance ?? DEFAULT_ECONOMY_CONFIG.potWinChance);
+}
+
+/** The pot's "day" — a UTC date string; rollover at midnight UTC. */
+export function dayString(now) {
+  return new Date(now).toISOString().slice(0, 10);
+}
+
+/** Whole days between two dayString values (0 for the same day, never negative). */
+export function daysBetween(fromDay, toDay) {
+  const from = Date.parse(`${fromDay}T00:00:00Z`);
+  const to = Date.parse(`${toDay}T00:00:00Z`);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
+  return Math.max(0, Math.round((to - from) / 86_400_000));
 }
