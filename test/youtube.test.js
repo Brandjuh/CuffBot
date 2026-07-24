@@ -216,6 +216,27 @@ test('sweep announces only NEW uploads, retries after a failed send, never pings
   setYouTubeConfig(guildId, { pingRoleId: '625326875442675763' });
 });
 
+test('sweep still posts when the channel is missing from the cache but fetchable (S55)', async () => {
+  const guildId = freshGuildId();
+  setYouTubeConfig(guildId, { channelId: 'news-chan' });
+  const backCatalog = feedXml([{ id: 'old00000009', title: 'Old', published: '2026-07-19T10:00:00+00:00' }]);
+  await addCreator(guildId, UC, { fetchImpl: async () => okResponse(backCatalog) });
+
+  const sends = [];
+  const newsChannel = { id: 'news-chan', send: async (p) => (sends.push(p), p) };
+  const guild = {
+    id: guildId,
+    channels: { cache: new Map(), fetch: async (id) => (id === 'news-chan' ? newsChannel : null) },
+  };
+  const withNew = feedXml([
+    { id: 'new00000009', title: 'Announcement-channel upload', published: '2026-07-24T10:00:00+00:00' },
+    { id: 'old00000009', title: 'Old', published: '2026-07-19T10:00:00+00:00' },
+  ]);
+  const result = await sweepYouTube(guild, { fetchImpl: async () => okResponse(withNew), log: false });
+  assert.equal(result.posted, 1, 'cache miss resolved via the API, not a silent no-op');
+  assert.match(sends[0].content, /Announcement-channel upload/);
+});
+
 test('sweep is a no-op when disabled, unconfigured, or the roster is empty', async () => {
   const emptyGuildId = freshGuildId();
   const guild = fakeAnnounceGuild(emptyGuildId);

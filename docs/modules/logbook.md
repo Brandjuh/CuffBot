@@ -69,3 +69,4 @@
 |---|---|
 | S34 | Created: six-category server logging with per-category toggles, honest partials, no-recursion guard, intent-aware status. |
 | S35 | Owner's four log channels committed as per-category defaults (voice→Member logs, invites→Server logs); per-category `…-channel` overrides + single-channel override; recursion guard covers every log channel. |
+| S55 | Log-channel pickers accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

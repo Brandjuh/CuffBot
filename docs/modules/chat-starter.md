@@ -17,7 +17,7 @@
 
 ### /chat-starter-config (admin — Manage Server)
 
-- **Options:** `enabled` (bool), `channel` (text channel), `idle-minutes` (15–1440, default 720 = 12 h), `use-ai` (bool), `preview` (bool — shows a sample question ephemerally, posts nothing), `test` (bool, S30 — arms **one real starter ~30 seconds from now** in the configured channel, bypassing the idle window and monologue guard, so you can see the real thing without waiting 12 hours).
+- **Options:** `enabled` (bool), `channel` (text or announcement channel), `idle-minutes` (15–1440, default 720 = 12 h), `use-ai` (bool), `preview` (bool — shows a sample question ephemerally, posts nothing), `test` (bool, S30 — arms **one real starter ~30 seconds from now** in the configured channel, bypassing the idle window and monologue guard, so you can see the real thing without waiting 12 hours).
 - The status embed shows the question source: the list (with count), or AI with list fallback — including a ⚠️ when `use-ai` is on but no provider key exists.
 
 ## How it works
@@ -56,3 +56,4 @@ Edit `src/modules/chat-starter/data/questions.json` — a plain array of strings
 |---|---|
 | S23 | Created: idle-watch + 5-min sweep, never-monologue guard, 40-question bank with no-repeat ring, optional AI generation with list fallback, opt-in by default. |
 | S30 | Owner defaults committed (channel 411609312037961729, 12 h, enabled); boot seeds the idle clock from real channel history; `test` option posts a real starter in ~30 s. |
+| S55 | Channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

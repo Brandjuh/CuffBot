@@ -121,7 +121,7 @@ test('adapter rejects a channel of the wrong type per addChannelTypes (audit S16
   const parsed = parseCommandLine(message.content, '!');
   const { errors, interaction } = await createMessageInteraction(message, xpConfig, parsed);
   assert.equal(interaction, null);
-  assert.ok(errors.some((e) => /must be a text channel/.test(e)), `got: ${errors}`);
+  assert.ok(errors.some((e) => /must be a text or announcement channel/.test(e)), `got: ${errors}`);
 });
 
 test('adapter accepts a text channel where addChannelTypes allows it', async () => {
@@ -130,6 +130,18 @@ test('adapter accepts a text channel where addChannelTypes allows it', async () 
   const { message } = fakeMessage(`!xp-config true true 15 10 60 <#${CHAN}>`);
   const text = { id: CHAN, type: 0, name: 'announcements' }; // GuildText
   message.guild.channels = { cache: new Map([[CHAN, text]]), fetch: async () => text };
+  const parsed = parseCommandLine(message.content, '!');
+  const { errors, interaction } = await createMessageInteraction(message, xpConfig, parsed);
+  assert.deepEqual(errors, []);
+  assert.equal(interaction.options.getChannel('announce').id, CHAN);
+});
+
+test('adapter accepts an Announcement (news) channel as a post target (S55)', async () => {
+  const { default: xpConfig } = await import('../src/modules/leveling/commands/xp-config.js');
+  const CHAN = '411629357082345472'; // the owner's channel that started S55
+  const { message } = fakeMessage(`!xp-config true true 15 10 60 <#${CHAN}>`);
+  const news = { id: CHAN, type: 5, name: 'server-news' }; // GuildAnnouncement
+  message.guild.channels = { cache: new Map([[CHAN, news]]), fetch: async () => news };
   const parsed = parseCommandLine(message.content, '!');
   const { errors, interaction } = await createMessageInteraction(message, xpConfig, parsed);
   assert.deepEqual(errors, []);

@@ -36,7 +36,7 @@ All three also work as text commands: `!level @user`, `!leaderboard 15`, `!xp-co
 
 ### /xp-config
 
-- **Options (all optional; none given = view current settings):** `enabled` (bool) — master switch; `sync-roles` (bool) — auto-assign rank roles; `message-xp` (1–100) — XP per message; `voice-xp` (1–100) — XP per voice minute; `cooldown` (10–600 s) — message XP cooldown; `announce` (text channel) — where promotions are announced; `clear-announce` (bool) — reset announcements back to "the channel where it happened".
+- **Options (all optional; none given = view current settings):** `enabled` (bool) — master switch; `sync-roles` (bool) — auto-assign rank roles; `message-xp` (1–100) — XP per message; `voice-xp` (1–100) — XP per voice minute; `cooldown` (10–600 s) — message XP cooldown; `announce` (text or announcement channel) — where promotions are announced; `clear-announce` (bool) — reset announcements back to "the channel where it happened".
 - **What happens:** patches only the options given (only overrides are stored — future default rebalances still apply), persists, then shows the full config, whether the ladder is **pinned**, and the computed XP threshold for every rank.
 - **Reply:** ephemeral embed (in-channel no-ping reply for `!xp-config` — S54).
 - **Failure modes:** missing Manage Server → refusal; no ladder → thresholds section says to run `/rank-setup`; unpinned ladder → a ⚠️ line explains auto-rank and seeding stay idle until `/rank-setup` is run.
@@ -143,3 +143,4 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 | S16 | Created: message + voice XP, seeding from existing rank roles, promote-only auto-rank, `/level`, `/leaderboard`, `/xp-config`. |
 | S16 (audit) | Pinned-ladder gate for all automation + self-healing seeds (HIGH fix); `/promote`/`/demote` now couple XP; duplicate-promotion guard; bot `/level` refusal; system messages excluded; `clear-announce`; sparse config storage; text-path min/max + channel-type enforcement (framework-wide). |
 | S37 | Ladder-change reconciliation: rename/reorder/delete/add rank roles safely — snapshot-based detection (events + boot + config commands), quiet spaced role writes, XP heals, baseline seeding of all rank holders. |
+| S55 | `announce` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

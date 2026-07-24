@@ -62,7 +62,7 @@ export async function createMessageInteraction(message, command, parsed) {
         // command expects a text channel and features fail silently later.
         const allowed = defByName[name]?.channel_types;
         if (Array.isArray(allowed) && allowed.length > 0 && !allowed.includes(channel.type)) {
-          errors.push(`\`${name}\` must be a text channel`);
+          errors.push(`\`${name}\` must be a text or announcement channel`);
         } else {
           channels[name] = channel;
         }

@@ -3,6 +3,7 @@
 // as the chat starter and birthdays).
 import { getGuildData, setGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 
 export const WELCOME_CONFIG_KEY = 'welcomeConfig';
 export const DEFAULT_WELCOME_CONFIG = {
@@ -39,8 +40,8 @@ export function renderWelcome(template, { userMention, serverName }) {
 export async function postWelcome(guild, userId, { displayName } = {}) {
   const config = getWelcomeConfig(guild.id);
   if (!config.enabled || !config.channelId) return false;
-  const channel = guild.channels.cache.get(config.channelId);
-  if (!channel?.send) return false;
+  const channel = await resolveSendableChannel(guild, config.channelId);
+  if (!channel) return false;
   try {
     await channel.send({
       content: renderWelcome(config.message, {

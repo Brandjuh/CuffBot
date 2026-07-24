@@ -22,7 +22,7 @@ function buildData() {
       o
         .setName('channel')
         .setDescription('ONE channel for every category (overrides the per-category defaults)')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     );
   for (const category of CATEGORIES) {
     builder.addBooleanOption((o) => o.setName(category).setDescription(`Log ${CATEGORY_HELP[category]}`));
@@ -32,7 +32,7 @@ function buildData() {
       o
         .setName(`${category}-channel`)
         .setDescription(`Channel for ${category} logs only`)
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     );
   }
   return builder;

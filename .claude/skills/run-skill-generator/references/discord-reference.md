@@ -85,6 +85,7 @@ Mentions are **two layers**: the `<@id>`/`<@&id>` text in `content` only *render
 | Empty `guild.members.cache` | Missing `GuildMembers` intent; use `guild.members.fetch(id)` for one-offs |
 | `Missing Permissions` (50013) | Role hierarchy or channel overrides — check `moderatable`/`bannable` first |
 | A mention shows but nobody gets notified (or vice versa) | `allowedMentions` disagrees with `content` — the text renders the mention, the allow-list decides delivery (see Mentions & pings) |
+| "Bot has all rights but can't post in channel X" | Usually not permissions: the config picker's `addChannelTypes` excluded that channel's TYPE (e.g. Announcement/news, type 5), so it was never selectable — the failure presents as a rights problem. Post-target pickers should take `GuildText, GuildAnnouncement`; resolve targets with a cache→`fetch` fallback and surface unpostable configured channels in the status view (S55) |
 
 ## Testing without a live bot
 

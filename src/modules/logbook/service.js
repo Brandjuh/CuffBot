@@ -6,6 +6,7 @@ import { EmbedBuilder } from 'discord.js';
 import { getGuildData, setGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
 import { CATEGORIES } from './lib/logformat.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 
 export const LOGBOOK_CONFIG_KEY = 'logbookConfig';
 
@@ -74,8 +75,8 @@ export async function postLog(guild, model, { sourceChannelId = null } = {}) {
     const channelId = resolveLogChannelId(guild.id, model.category);
     if (!channelId) return false;
     if (sourceChannelId && resolvedLogChannelIds(guild.id).has(sourceChannelId)) return false;
-    const channel = guild.channels.cache.get(channelId);
-    if (!channel?.send) return false;
+    const channel = await resolveSendableChannel(guild, channelId);
+    if (!channel) return false;
 
     const embed = new EmbedBuilder()
       .setColor(model.color)

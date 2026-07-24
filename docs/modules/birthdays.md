@@ -34,7 +34,7 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 
 ### /birthday-config (admin — Manage Server)
 
-- **Options:** `enabled` (bool), `channel` (text channel). None given = view.
+- **Options:** `enabled` (bool), `channel` (text or announcement channel). None given = view.
 - Since S31 announcements default to the owner's channel `411609312037961729`; setting `channel:` repoints them, and the ⚠️ warning only appears if the configured channel is missing.
 
 ## How it works
@@ -76,3 +76,4 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 | S32 | Default timezone → `America/New_York` (owner decision: US-based community; Eastern is the most-populated US zone). |
 | S38 | Birthday members receive 50,000 donuts (economy seam), announced inside the birthday message. |
 | S44 | `/birthday-set` input is now a single **YYYY/MM/DD** date (year validated 1900–now, real leap-year checking; stored but never announced) and the timezone option is a **typed picker** (autocomplete over the full IANA list, US zones first). |
+| S55 | Channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

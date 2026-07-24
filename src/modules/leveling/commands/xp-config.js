@@ -34,7 +34,7 @@ export default {
       o
         .setName('announce')
         .setDescription('Channel for promotion announcements (default: where it happened)')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     )
     .addBooleanOption((o) =>
       o

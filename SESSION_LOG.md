@@ -974,3 +974,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 447 → **444** (five DM-behavior tests removed with the behavior; new: ephemeral → in-channel no-ping reply asserting the reply path, embeds arrive intact, and a hard "author.send is never called" guard). Manuals core.md (routing rule, !help note, changelog row), detective.md + leveling.md (reply lines); skill 0.5.10 (discord-reference S50 note rewritten S50→S54: never pick DM as the private fallback without owner mandate).
 
 **Decision of record:** third DM complaint (S46 false blame → S50 fluff → S54 ban) — the S9 "DM as ephemeral stand-in" default was wrong for this guild from the start; the skill note now warns future sessions off that default.
+
+---
+
+## Session 55 — 2026-07-24
+
+**Goal:** owner report: the bot has admin rights yet cannot post in channel `411629357082345472` — "it has all rights".
+
+**Diagnosis:** almost certainly not permissions. Every post-target channel picker in the tree (12 commands: welcome, logbook ×2, starboard, chat-starter, memorial, birthdays, channellist ×2, xp announce, ai-config, economy-config, youtube) restricted to `ChannelType.GuildText` — an Announcement (news) channel (type 5) was **unselectable in the picker**, which presents to the owner exactly like a rights problem. On top of that, every sender resolved its channel with `guild.channels.cache.get(id)` — a cache miss was a silent no-op with zero diagnostics.
+
+**Done:**
+- **All 12 pickers** now accept `GuildText, GuildAnnouncement`; the text-path adapter's type error says "must be a text or announcement channel".
+- **`core/channels.js` — `resolveSendableChannel(guild, id)`:** cache → API fetch fallback, returns the channel only if it has a working `.send`. Wired into every posting path (youtube sweep, welcome, logbook, starboard, chat-starter sweep+post, birthdays, memorial, channellist refresh, leveling announce, update-report). Chat-starter's read-only history peek deliberately stays cache-only (no send requirement).
+- **Diagnosis surface:** `/youtube` status now live-probes the configured channel and prints "⚠️ I can't post there (deleted, wrong type, or hidden from me)" instead of leaving a silent sweep no-op.
+- `scripts/update.sh` already re-runs `deploy-commands` on every self-update, so the widened pickers register on the Pi automatically.
+- Tests 444 → **450** (resolver unit tests: cache hit / fetch fallback / non-postable / no-fetch-method; adapter accepts a type-5 channel — using the owner's channel id; sweep posts on a cache miss via the API). Manuals: changelog rows in all touched modules, youtube.md options/troubleshooting, core.md; skill 0.5.11 (pitfalls row: "all rights but can't post" = type restriction, not permissions).
+
+**Handoff note:** if the owner reports the channel STILL refuses after re-picking it in the widened picker, the next suspect is a genuine per-channel overwrite on the bot's integration role — `/youtube` status (the live probe) plus `channel.permissionsFor(guild.members.me)` will show it; extend the probe to name the missing permission in that case.

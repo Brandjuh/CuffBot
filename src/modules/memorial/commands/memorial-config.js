@@ -12,7 +12,7 @@ export default {
       o
         .setName('channel')
         .setDescription('Channel where new entries are honored')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     )
     .addBooleanOption((o) =>
       o.setName('preview').setDescription('Fetch each feed now and show its latest entry (nothing is posted)'),

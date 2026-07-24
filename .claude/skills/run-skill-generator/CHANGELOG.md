@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.11 — 2026-07-24 (Session 55)
+
+- `discord-reference.md` → pitfalls row: "bot has all rights but can't post in channel X" is usually not permissions — an `addChannelTypes` restriction made the channel's TYPE unselectable (Announcement/news channels vs GuildText-only pickers), which presents exactly like a rights problem. Post-target pickers take `GuildText, GuildAnnouncement`; resolve targets cache→fetch; surface unpostable configured channels in status views.
+- Evidence: S55 — owner: "the bot has admin rights but cannot post in 411629357082345472, it has all rights"; every one of the 12 post-target pickers in the tree was GuildText-only, so no session ever saw the failure — the class was invisible until a live channel of the excluded type existed.
+
 ## 0.5.10 — 2026-07-24 (Session 54)
 
 - `discord-reference.md` → the S50 "ephemeral has two intents" note rewritten as "Ephemeral on the text path (S50→S54)": the owner banned reply-DMs outright, so every ephemeral now answers in-channel as a no-ping reply; the general lesson is that unsolicited DMs read as spam — never pick DM as the "private" fallback without an owner mandate (deliberate moderation DMs stay a separate, legitimate category).

@@ -5,6 +5,7 @@
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { shouldPost } from '../lib/starter.js';
+import { resolveSendableChannel } from '../../../core/channels.js';
 import {
   activityFor,
   getStarterConfig,
@@ -17,8 +18,8 @@ export const SWEEP_INTERVAL_MS = 5 * 60_000;
 export async function sweepStarter(guild, now = Date.now()) {
   const config = getStarterConfig(guild.id);
   if (!config.enabled || !config.channelId) return false;
-  const channel = guild.channels.cache.get(config.channelId);
-  if (!channel?.send) return false;
+  const channel = await resolveSendableChannel(guild, config.channelId);
+  if (!channel) return false;
 
   const entry = activityFor(config.channelId, now);
   const verdict = shouldPost({
