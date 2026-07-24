@@ -1016,3 +1016,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Done:** administrative session, no code. STATE.md's pending-actions block now records the resolution as an owner confirmation (Message Content + Server Members live → text commands, patrol, both hunt modes, welcome, and member logs fully armed) **plus the standing instruction to never repeat intent reminders in owner reports** — future sessions read STATE, so the instruction lives there, not in chat. The Server Members pending item (S34) is cleared; remaining pending items renumbered. Portal state itself is unverifiable from a session container (no bot token here) — recorded explicitly as the owner's confirmation, which is the authoritative source for their own portal.
 
 **Retrospective:** no skill change — pure application of the promoted "owner decisions land in the repo immediately" rule; the general fix (the do-not-remind instruction) belongs in STATE.md where every session reads it, and now sits there.
+
+---
+
+## Session 58 — 2026-07-24
+
+**Goal:** owner request: "Birthday: Geef de jarige de gehele dag de 701577807070756946 rol" — celebrants wear that role for their whole birthday.
+
+**Done:**
+- **`birthdayCelebrants` (pure, lib):** everyone whose birthday it is RIGHT NOW in their own timezone — deliberately ignoring the announce stamp, because the ROLE must last the whole local day while the ANNOUNCEMENT fires once. Feb 29 → Mar 1 rule inherited from `isBirthdayOn`.
+- **`syncBirthdayRole` (service):** runs at the START of every 10-minute sweep tick (role on before the announcement lands). Celebrants get role `701577807070756946` (**committed owner default**, `birthdayRoleId`) with an idempotent add (skipped when already worn — no API spam per tick); once their local day ends the role comes off. **Only bot-granted roles are ever removed** — the `birthdayRoleHolders` store map tracks what we handed out, so a manually assigned role is never stripped. Failed removals are logged and retried every tick; departed members drop off silently; role writes carry audit reasons. Role sync and announcements each have their own catch — one failing never silences the other.
+- **`/birthday-config`** gained `birthday-role:` (retarget) + `no-birthday-role:True` (stop handing out a role), appended LAST (S44 rule); status embed shows the current role.
+- Tests 454 → **459** (committed default; celebrants-ignore-stamp; full day cycle worn→idempotent→removed→quiet; blocked removal retried + manual role untouched; no-role/departed-member no-ops). Manual birthdays.md (at-a-glance, options, how-it-works, troubleshooting, changelog).
+
+**Retrospective:** no skill change — the build is pattern application (committed owner default 0.5.0, S37 self-heal loop shape, S53-style clear knob). The one design decision worth naming is in the manual: "only remove what you granted" (holder map) — recorded there rather than as a skill rule until a second module needs it.

@@ -13,6 +13,13 @@ export default {
         .setName('channel')
         .setDescription('Channel where birthdays are announced')
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+    )
+    // S58 options appended LAST (S44 rule: text-path args are positional).
+    .addRoleOption((o) =>
+      o.setName('birthday-role').setDescription('Role celebrants wear for their whole birthday'),
+    )
+    .addBooleanOption((o) =>
+      o.setName('no-birthday-role').setDescription('Stop handing out a birthday role'),
     ),
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
@@ -22,6 +29,9 @@ export default {
     const channel = interaction.options.getChannel('channel');
     if (enabled !== null) patch.enabled = enabled;
     if (channel) patch.channelId = channel.id;
+    const birthdayRole = interaction.options.getRole('birthday-role');
+    if (birthdayRole) patch.birthdayRoleId = birthdayRole.id;
+    else if (interaction.options.getBoolean('no-birthday-role') === true) patch.birthdayRoleId = null;
     const config = Object.keys(patch).length
       ? setBirthdayConfig(interaction.guild.id, patch)
       : getBirthdayConfig(interaction.guild.id);
@@ -33,6 +43,7 @@ export default {
         [
           `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
           `**Channel:** ${config.channelId ? `<#${config.channelId}>` : '⚠️ not set — nothing is announced until an admin picks one'}`,
+          `**Birthday role:** ${config.birthdayRoleId ? `<@&${config.birthdayRoleId}> — worn for the celebrant's whole (local) birthday` : 'none'}`,
           '',
           'Members register with `/birthday-set` (own timezone supported); the sweep checks every ~10 minutes, announces on the member’s own calendar day, once per year.',
         ].join('\n'),

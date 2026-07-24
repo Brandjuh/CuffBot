@@ -126,6 +126,22 @@ export function dueBirthdays(users, now) {
 }
 
 /**
+ * Everyone whose birthday it is RIGHT NOW in their own timezone (S58). Unlike
+ * dueBirthdays this ignores the announce stamp — the birthday ROLE must be
+ * held for the whole local day, not just at announcement time.
+ * @returns {string[]} user ids
+ */
+export function birthdayCelebrants(users, now) {
+  const out = [];
+  for (const [userId, record] of Object.entries(users ?? {})) {
+    if (!isValidBirthday(record.day, record.month)) continue;
+    const tz = isValidTimeZone(record.timeZone) ? record.timeZone : DEFAULT_TIMEZONE;
+    if (isBirthdayOn(record, localDateParts(now, tz))) out.push(userId);
+  }
+  return out;
+}
+
+/**
  * Days until the next occurrence of this birthday, measured in the member's
  * own timezone (0 = today). Calendar-day arithmetic on the local date — DST
  * shifts can't skew it.

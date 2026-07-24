@@ -8,9 +8,10 @@
 |---|---|
 | **Purpose** | Owner request (M10): birthday announcements with per-member timezone support |
 | **Commands** | `/birthday-set`, `/birthday-remove`, `/birthdays` (everyone), `/birthday-config` (admin) — all also as `!command` |
-| **Events** | `ClientReady` — starts a 10-minute announcement sweep (idempotent) |
+| **Events** | `ClientReady` — starts a 10-minute sweep: birthday-role sync (S58) + announcements (idempotent) |
 | **Data** | `birthdayUsers` (day, month, timeZone, lastAnnouncedYear per user) + `birthdayConfig` (enabled, channelId) in the guild store |
 | **Default channel** | `411609312037961729` (S31, owner decision — committed as product config; `/birthday-config` overrides win) |
+| **Birthday role** | `701577807070756946` (S58, owner decision) — worn for the celebrant's whole LOCAL birthday, added/removed by the sweep |
 | **Privacy** | No birth **year** is ever asked or stored — only day + month + timezone |
 | **Intents** | None beyond the base set |
 
@@ -34,7 +35,7 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 
 ### /birthday-config (admin — Manage Server)
 
-- **Options:** `enabled` (bool), `channel` (text or announcement channel). None given = view.
+- **Options:** `enabled` (bool), `channel` (text or announcement channel), `birthday-role` (role celebrants wear all day, S58), `no-birthday-role` (bool — stop handing out a role). None given = view (shows the current role).
 - Since S31 announcements default to the owner's channel `411609312037961729`; setting `channel:` repoints them, and the ⚠️ warning only appears if the configured channel is missing.
 
 ## How it works
@@ -44,6 +45,7 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 - **The sweep** (`events/birthday-sweep.js`): every 10 minutes (plus once at boot) `sweepBirthdays` finds members whose birthday has started in their own timezone and announces each in the configured channel. There is **no midnight job to miss** — a Pi that reboots overnight simply announces on the next tick.
 - **Once per year, guaranteed:** each announcement stamps `lastAnnouncedYear` (the member's local year) **before** sending — a failed send skips that year instead of retry-spamming every 10 minutes, and overlapping ticks can never double-announce.
 - The announcement pings **only** the birthday member (`allowedMentions: { users: [id] }`).
+- **The birthday role (S58):** every sweep tick, `syncBirthdayRole` gives role `701577807070756946` to everyone whose LOCAL birthday it currently is (independent of the announce stamp — the role must last the whole day, not just the announcement moment) and takes it back once their day ends. The add is idempotent (skipped when already worn — no API spam); a failed removal is logged and retried next tick; **only roles the bot granted are ever removed** (`birthdayRoleHolders` store map) — a manually assigned role is never stripped; a member who left simply drops off the list. Role writes carry audit reasons. Runs BEFORE the announcement, so the celebrant already wears the role when the message lands. Needs Manage Roles with CuffBot's role above the birthday role.
 - **Donut gift (S38):** the announcement grants the birthday member **50,000 donuts** via the economy module (cross-module seam, try/catch — a broken economy never silences the birthday) and says so in the message. If the economy is disabled, both the gift and the line are skipped.
 
 ## Testing
@@ -63,6 +65,8 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | No announcement on the day | No channel configured, or announcements disabled | `/birthday-config` — the embed shows both switches |
+| The birthday role never appears | No role configured, missing Manage Roles, or CuffBot's role sits below it | `/birthday-config` shows the role; check the role hierarchy |
+| The role stays after the birthday | Removal is failing (hierarchy/permissions) — it retries every 10 min | Fix the hierarchy; the sweep removes it on the next tick |
 | Announcement came "a day early/late" | The member's timezone differs from yours | By design: their day, their timezone. Check with `/birthdays` |
 | Announcement missing after a reboot | Sweep only marks *after* it announces — it catches up on the next tick | Wait ≤10 min after boot; check `journalctl -u cuffbot` for "Birthdays: announcement failed" (missing send permission) |
 | Member left but still listed | Records are not pruned automatically | `/birthday-remove` can only be run by the member; hand-edit `data/<guild>.json → birthdayUsers` if needed |
@@ -77,3 +81,4 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 | S38 | Birthday members receive 50,000 donuts (economy seam), announced inside the birthday message. |
 | S44 | `/birthday-set` input is now a single **YYYY/MM/DD** date (year validated 1900–now, real leap-year checking; stored but never announced) and the timezone option is a **typed picker** (autocomplete over the full IANA list, US zones first). |
 | S55 | Channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
+| S58 | Celebrants wear role `701577807070756946` (committed owner default) for their whole local birthday — sweep-synced add/remove with retry, idempotent adds, never strips manually granted roles; `/birthday-config birthday-role:`/`no-birthday-role:` knobs. |
