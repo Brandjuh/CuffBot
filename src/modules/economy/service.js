@@ -5,6 +5,7 @@
 // (cross-module seam, always wrapped in try/catch by the caller).
 import { getGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 import {
   DEFAULT_ECONOMY_CONFIG,
   catchReward,
@@ -311,6 +312,27 @@ export async function noteActivityAndMaybeSpawn(message, { random = Math.random,
     return false;
   }
   return spawnHunt(message.channel, { random, now });
+}
+
+/**
+ * One timed-hunt tick (S56 owner request): spawn a crook in the configured
+ * hunt channel regardless of chat activity — the random schedule replaces the
+ * activity roll; everything else (flee window, bounty, escape-steal) is the
+ * same live primitive. Guards mirror the activity path: never a second hunt
+ * in the channel, never a spawn without Message Content (the shout would be
+ * inaudible → unwinnable), S55 channel resolution.
+ * @returns {Promise<'spawned'|'off'|'no-intent'|'busy'|'no-channel'|'failed'>}
+ */
+export async function runTimedHuntTick(guild, { random = Math.random, now = Date.now() } = {}) {
+  const config = getEconomyConfig(guild.id);
+  if (!config.enabled || !config.huntEnabled || !config.huntTimerEnabled || !config.huntTimerChannelId) {
+    return 'off';
+  }
+  if (!guild.client?.messageContentAvailable) return 'no-intent';
+  if (activeHunts.has(config.huntTimerChannelId)) return 'busy';
+  const channel = await resolveSendableChannel(guild, config.huntTimerChannelId);
+  if (!channel) return 'no-channel';
+  return (await spawnHunt(channel, { random, now })) ? 'spawned' : 'failed';
 }
 
 /** Post the crook and arm the 5–20 s flee timer. */

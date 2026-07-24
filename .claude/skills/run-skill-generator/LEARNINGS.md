@@ -36,3 +36,4 @@ Lessons land here first, messy and speculative. Promote a lesson into `SKILL.md`
 ## Rejected
 
 *(none yet)*
+- **2026-07-24 · S55/S56 · Scripted bulk edits must anchor on exact text, not line heuristics.** An S55 batch script inserted `import` lines after "the last line starting with `import `" — which is the OPENING line of a multi-line `import { … }` block, so four files got the new import spliced inside the braces (caught immediately by `node --check`). Rule shape: when a script edits many files, match on exact unique strings (like the Edit tool does) and `node --check` every touched file in the same command. Status: candidate.

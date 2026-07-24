@@ -10,6 +10,7 @@ import {
   formatWaitMs,
   huntDurationMs,
   isCatchPhrase,
+  nextHuntTimerDelay,
   pickVictim,
   randomInt,
   shouldSpawnHunt,
@@ -28,6 +29,7 @@ import {
   grantBirthdayBonus,
   resetHuntState,
   resolveCatch,
+  runTimedHuntTick,
   setEconomyConfig,
   spawnHunt,
   topBalances,
@@ -404,4 +406,60 @@ test('birthday sweep announces the 50k gift in the message', async () => {
   assert.match(sent.content, /birthday/);
   assert.match(sent.content, /50,000 donuts/);
   assert.equal(balanceOf(guildId, 'jarige'), 60_000, '10k start + 50k gift');
+});
+
+// ── timed hunts (S56) ────────────────────────────────────────────────────────
+
+test('the owner hunt channel and timer defaults are committed (S56)', () => {
+  assert.equal(DEFAULT_ECONOMY_CONFIG.huntTimerChannelId, '412354971170897921');
+  assert.equal(DEFAULT_ECONOMY_CONFIG.huntTimerEnabled, true);
+});
+
+test('nextHuntTimerDelay stays inside [min, max] and survives config typos', () => {
+  const config = { huntTimerMinGapMs: 60_000, huntTimerMaxGapMs: 120_000 };
+  assert.equal(nextHuntTimerDelay(config, () => 0), 60_000);
+  assert.equal(nextHuntTimerDelay(config, () => 1), 120_000);
+  assert.equal(
+    nextHuntTimerDelay({ huntTimerMinGapMs: 5, huntTimerMaxGapMs: 120_000 }, () => 0),
+    60_000,
+    'floor: never below one minute (no zero-delay spawn loop)',
+  );
+  assert.equal(
+    nextHuntTimerDelay({ huntTimerMinGapMs: 300_000, huntTimerMaxGapMs: 10 }, () => 1),
+    300_000,
+    'max below min degrades to min',
+  );
+});
+
+test('runTimedHuntTick spawns the crook in the configured hunt channel (S56)', async () => {
+  const guildId = freshGuildId();
+  const guild = fakeEconomyGuild(guildId);
+  const desk = fakeChannel(guild, '412354971170897921'); // the committed owner default
+
+  const result = await runTimedHuntTick(guild, { random: () => 0, now: 1000 });
+  assert.equal(result, 'spawned');
+  assert.match(desk.sends[0].content, /crook is sprinting/i);
+  assert.ok(activeHunt('412354971170897921'), 'the hunt is open in the hunt channel');
+
+  // While the crook is still there, a second tick must not double-spawn.
+  assert.equal(await runTimedHuntTick(guild, { random: () => 0, now: 2000 }), 'busy');
+
+  // And the crook is caught exactly like an activity-spawned one.
+  const reward = await resolveCatch(fakeMessage(guild, desk, 'officer1', 'STOP POLICE'), { now: 1500 });
+  assert.equal(reward, 100, 'random () => 0 pins the bounty at the minimum');
+});
+
+test('runTimedHuntTick honors its gates: off, no intent, unpostable channel (S56)', async () => {
+  const noIntent = fakeEconomyGuild(freshGuildId(), { messageContent: false });
+  fakeChannel(noIntent, '412354971170897921');
+  assert.equal(await runTimedHuntTick(noIntent), 'no-intent', 'inaudible shout = unwinnable = no spawn');
+
+  const bare = fakeEconomyGuild(freshGuildId());
+  assert.equal(await runTimedHuntTick(bare), 'no-channel', 'configured channel not reachable');
+
+  const offGuildId = freshGuildId();
+  const offGuild = fakeEconomyGuild(offGuildId);
+  fakeChannel(offGuild, '412354971170897921');
+  setEconomyConfig(offGuildId, { huntTimerEnabled: false });
+  assert.equal(await runTimedHuntTick(offGuild), 'off');
 });

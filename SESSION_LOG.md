@@ -991,3 +991,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 444 → **450** (resolver unit tests: cache hit / fetch fallback / non-postable / no-fetch-method; adapter accepts a type-5 channel — using the owner's channel id; sweep posts on a cache miss via the API). Manuals: changelog rows in all touched modules, youtube.md options/troubleshooting, core.md; skill 0.5.11 (pitfalls row: "all rights but can't post" = type restriction, not permissions).
 
 **Handoff note:** if the owner reports the channel STILL refuses after re-picking it in the widened picker, the next suspect is a genuine per-channel overwrite on the bot's integration role — `/youtube` status (the live probe) plus `channel.permissionsFor(guild.members.me)` will show it; extend the probe to name the missing permission in that case.
+
+---
+
+## Session 56 — 2026-07-24
+
+**Goal:** owner request: "Hunting: post a hunting event at random times in `412354971170897921`."
+
+**Done:**
+- **Timed hunts**, layered on the S38 game as a thin scheduler around the existing primitives (S37 rule — no second spawn policy): `runTimedHuntTick(guild)` spawns via the same `spawnHunt` (same flee window, bounty, escape-steal, one-open-hunt guard), targeting the **committed owner-default channel `412354971170897921`** (`huntTimerChannelId`), resolved via `resolveSendableChannel` (S55).
+- **Random schedule:** `nextHuntTimerDelay` — uniform 60–300 min (`huntTimerMinGapMs`/`huntTimerMaxGapMs`), re-rolled after every tick with a fresh config read (changes apply without restart); floored at 1 min and min>max-typo-proofed so a bad config can never arm a zero-delay spawn loop. `ClientReady` event `hunt-timer.js` runs the self-rescheduling chain (unref'ed).
+- **Gates mirror the activity path:** economy/hunt/timer enabled → Message Content available (unwinnable otherwise — S38 rule; one boot log line says why) → no open hunt in the channel → channel postable ('no-channel' logged per skip).
+- `/economy-config` gained `hunt-timer:` + `hunt-channel:` (appended LAST, S44 rule; announcement channels allowed, S55); status embed shows the timed-hunt line.
+- Tests 450 → **454** (committed defaults; delay bounds + typo guards; tick matrix: spawned-in-channel + busy on double-tick + catch pays identically, no-intent/off/no-channel). Manual economy.md (rules, options, troubleshooting, testing, changelog).
+
+**Retrospective:** pure pattern application — S37 (reuse live primitives), S38 (intent gate), S44 (options last), S55 (resolver), promoted owner-value rule — nothing new to teach the skill from the build itself. One workflow lesson from S55 recorded in LEARNINGS (import insertion by line heuristic broke on multi-line imports; anchor scripted edits on exact text instead) — skill 0.5.12.
