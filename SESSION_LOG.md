@@ -558,3 +558,19 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 ## Session 23 wrap — marathon retrospective (2026-07-24)
 
 Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials fact (S22, load-bearing for starboard); LEARNINGS gains two candidates (module-finish boilerplate wants a script; session = work unit, not conversation). Full retro answers recorded in the changelog entry. Marathon totals: 6 PRs (#17–#22) built, tested, merged, branch reset each time; suite 254 → 313; modules 9 → 14. All owner-backlog items buildable without owner input are DONE; M14 (goal tracker) queued as an owner question. Live-Pi diagnosis (the owner's morning report of a dead AI/missing /ai-config/erroring /help) is measurable with doctor v2 — the owner report asks for its output.
+
+---
+
+## Session 24 — 2026-07-24 · CORRECTION: the marathon shipped modules whose data files never left this machine
+
+**Trigger:** the owner ran the update on the Pi; the test gate refused the checkout — trivia and chat-starter tests failed with empty question banks ("expected 30+ questions, got 0").
+
+**Root cause (verified with `git check-ignore -v`):** `.gitignore` line `data/` — written in S8 for the RUNTIME store at the repo root — matches every directory named `data` at any depth, so `src/modules/trivia/data/*.json` and `src/modules/chat-starter/data/questions.json` were silently excluded from every commit (`git add -A` skips ignored files without a word; `git status` showed clean for the same reason). Local suites passed because the files exist on this machine's disk. S23's claims of "complete" were wrong for any fresh clone. **The S7 test-gated updater did exactly its job: the live bot was never broken — it rolled back and kept serving.**
+
+**Fix:**
+- `.gitignore`: `data/` → `/data/` (root-anchored, with a comment explaining why the slash is load-bearing). Root runtime store stays ignored (verified).
+- The three question-bank files are now actually tracked and committed.
+- New `test/packaging.test.js`: walks every module's on-disk `data/` dir and asserts each file is tracked by git (with the offending ignore rule named in the failure), plus a guard that root `data/` STAYS ignored. Skips gracefully outside a git checkout. This makes the whole "works locally, missing in production" class fail loudly on every `npm test` — including inside the Pi's own update gate.
+- Tests 313 → **315**.
+
+**Lesson (LEARNINGS candidate):** local tests validate the disk; production receives the commit — when code loads files at runtime, a test must prove those files are in the commit. Blind spots can live in `.gitignore`, where no unit test looks.

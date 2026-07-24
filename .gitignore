@@ -6,8 +6,11 @@ node_modules/
 .env.*
 !.env.example
 
-# Runtime storage (per-guild JSON)
-data/
+# Runtime storage (per-guild JSON) — ROOT data/ only. The leading slash is
+# load-bearing: a bare "data/" also swallows src/modules/*/data/ (module
+# question banks etc.), which silently kept those files out of every commit
+# while local tests stayed green (S24 incident — see the packaging test).
+/data/
 
 # Logs & junk
 *.log
