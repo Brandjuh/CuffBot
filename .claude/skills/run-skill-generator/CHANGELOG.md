@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.1 — 2026-07-24 (Session 36)
+
+- `LEARNINGS.md`: new candidate — for "like X" requests, get X's source into the session (add_repo) and port behavior faithfully instead of reinventing from the description; record the source repo + path in STATE.md because workspace clones are ephemeral.
+- Evidence: S36 ported the FRA channellist cog 1:1 (the owner's link resolved what no amount of guessing could have); the port's decision rules dropped straight into pure functions with 13 tests.
+
 ## 0.5.0 — 2026-07-24 (Session 35)
 
 - `architecture.md` → Module conventions: promoted **"owner decisions become committed defaults"** — an owner-named id/value from chat is committed as the module's code default (session-tagged comment), sparse store overrides win, features work immediately after self-update.

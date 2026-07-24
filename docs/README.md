@@ -17,6 +17,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | trivia | [`modules/trivia.md`](modules/trivia.md) | stable (S20) |
 | memorial | [`modules/memorial.md`](modules/memorial.md) | stable (S21) |
 | starboard | [`modules/starboard.md`](modules/starboard.md) | stable (S22) |
+| channellist | [`modules/channellist.md`](modules/channellist.md) | stable (S36) |
 | chat-starter | [`modules/chat-starter.md`](modules/chat-starter.md) | stable (S23) |
 | logbook | [`modules/logbook.md`](modules/logbook.md) | stable (S35) |
 | welcome | [`modules/welcome.md`](modules/welcome.md) | stable (S35) |

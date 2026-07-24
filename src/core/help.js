@@ -24,6 +24,7 @@ const MODULE_BADGES = {
   'chat-starter': '💬',
   logbook: '📔',
   welcome: '👋',
+  channellist: '🗂️',
 };
 
 /**

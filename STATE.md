@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 35 · 2026-07-24
+**Last updated:** Session 36 · 2026-07-24
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,14 +16,16 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 360/360 pass as of S35 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'chat-starter', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'logbook', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia', 'welcome' ]` |
-| Manuals current | `ls docs/modules/` | academy, birthdays, chat-starter, core, detective, dispatch, enforcement, leveling, logbook, memorial, patrol, public-affairs, records, starboard, trivia, welcome |
+| Tests green | `npm test` | 373/373 pass as of S36 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'logbook', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia', 'welcome' ]` |
+| Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, core, detective, dispatch, enforcement, leveling, logbook, memorial, patrol, public-affairs, records, starboard, trivia, welcome |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 34 · 2026-07-24)
+## What exists (verified Session 36 · 2026-07-24)
+
+- **Channel list (S36):** module `channellist` — full port of the owner's FRA bot cog (`FireAndRescueAcademyCogs/channellist`): a posted directory of every category + channel (topic as description, Discord-UI order, uncategorized first, voice under text), packed into ≤4000-char embeds where a category header is never stranded at a chunk boundary. Sync engine per render: identical → skip; same message count → **edit in place**; grew or a stored message died → repost (ids persisted, so restarts keep editing the same messages). Auto-update debounced 10 s on channel create/delete/rename/move/topic/permission changes, role permission changes, and list-message deletion; boot catch-up; per-guild refresh lock. Visibility role (list shows what THAT role can see; default @everyone), header/emoji/color options, ignore channel-or-category, include-voice toggle. `/channel-list` (post/update/remove) + `/channel-list-config`. **No default list channel — owner must post once** (`/channel-list action:post channel:#…`). Manual `channellist.md`.
 
 - **Logbook + Welcome (S34–S35):** module `logbook` — "log everything" (owner request): 19 event handlers across six toggleable categories (messages / members / moderation / voice / server / invites), **all ON by default**, delivering to the owner's live log channels which are **committed per-category defaults (S35)**: messages→`494216579794337802`, members→`494216579136094217`, moderation→`494216581216337931`, server→`494216580545380372`, voice shares Member logs, invites share Server logs — works with zero setup after update. Channel precedence: explicit `/logbook <category>-channel:` → explicit `/logbook channel:` (single-channel override) → committed default (`resolveLogChannelId`). One delivery path (`postLog`): master switch → category toggle → **no event from ANY log channel is ever logged** → no-ping embed; a failing write never breaks the event; CuffBot's own messages are skipped; partials reported honestly ("not in my cache"). Pure models in `lib/logformat.js`. Module `welcome` — greets every human newcomer in lobby `411609312037961729` (committed owner default) with a `{user}`/`{server}` template; **names the newcomer but NEVER pings (S35 owner decision — `allowedMentions: { parse: [] }`)**; `/welcome-config` (enabled/channel/message/test). **Both need the privileged Server Members Intent** — login is a 4-attempt cascade over (Message Content × Server Members) so a portal misconfiguration can never crash-loop the bot; `client.memberEventsAvailable` surfaces the state in `/radio-check`, `/welcome-config`, and `/logbook`. Base intents grew: GuildModeration, GuildInvites, GuildEmojisAndStickers; partials + GuildMember. Manuals `logbook.md`, `welcome.md`.
 
@@ -57,7 +59,7 @@
 
 ## Resume point
 
-**M1–M13 + M15 complete plus S34–S35's logbook + welcome: 16 modules, 42 commands, 360 tests, dual invocation, self-update, audited.** Queued next: **S36 — channellist module** ported from the owner's FRA cog (repo `brandjuh/fireandrescueacademycogs`, path `channellist/`; added to the S35 session via add_repo — future sessions must re-add it the same way if they need the source again) and **S37 — ladder resilience** (rename/move/delete/add rank roles without breaking XP/ranks; reassign holders quietly, respect rate limits). M14 (goal tracker) still awaits owner scope. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
+**M1–M13 + M15 complete plus S34–S36 (logbook, welcome, channellist): 17 modules, 44 commands, 373 tests, dual invocation, self-update, audited.** Queued next: **S37 — ladder resilience** (rename/move/delete/add rank roles without breaking XP/ranks; reassign holders quietly, respect rate limits — builds on academy ladder + leveling thresholds/seeding). M14 (goal tracker) still awaits owner scope. The FRA cog source used for S36 lives in repo `brandjuh/fireandrescueacademycogs` (`channellist/`) — re-add via add_repo if a future session needs it again. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
 
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.

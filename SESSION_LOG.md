@@ -721,3 +721,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Also this session (queued as work units):** owner supplied the FRA channellist source — repo `brandjuh/fireandrescueacademycogs`, `channellist/` cog — added to this session via add_repo and cloned at /workspace (ephemeral; re-add in future sessions) → **S36**. Owner requested ladder resilience (rename/move/delete/add rank roles without breaking ranks/XP, quiet reassignment, rate-limit aware) → **S37**.
 
 **Decision:** voice and invites share Member/Server logs respectively rather than getting invented fifth/sixth channels — the owner named exactly four; inventing more channels would contradict them, and per-category overrides make any other split one command away.
+
+---
+
+## Session 36 — 2026-07-24
+
+**Goal:** owner request 3 from S34, unblocked mid-S35 when they linked the source: "the same channel list as the FRA bot" — port `FireAndRescueAcademyCogs/channellist` (Red-DiscordBot cog, Python) to a CuffBot module. The cogs repo was added to this session via add_repo and cloned for study.
+
+**Done:**
+- **Module `channellist`** — faithful port, behavior preserved deliberately (same header default, same `**[Category]**` markup, same 4000-char chunk limit, same skip/edit/repost decision rules, same 10 s debounce):
+  - **Rendering** (`lib/list.js`, pure): channels in Discord-UI order — uncategorized first (headerless), categories by position, text channels above voice per group; each line `#mention - topic` (topic collapsed to one line); visibility judged for a configurable role (default @everyone). Chunk packing never strands a category header at the bottom of an embed.
+  - **Sync engine** (`service.js`): per render — identical → skip (zero writes); same message count → edit in place; grew or any stored message gone → delete + repost. Message ids persisted (restarts keep editing the same posts). Per-guild lock serializes manual and automatic refreshes.
+  - **Auto-update** (`events/watch.js`): channel create/delete/update (name/position/parent/topic/overwrites), role permission changes, role deletion, and (bulk) deletion of a posted list message → debounced 10 s into one refresh; ClientReady catch-up for offline changes; auto-update arms only once a list is posted.
+  - **Commands:** `/channel-list` (action post/update/remove + channel) with honest result messages; `/channel-list-config` (channel, role, everyone-reset, header greedy w/ `default` restore, emoji w/ `none`, hex color w/ `default`, include-voice, auto-update, ignore/unignore channel-or-category, unignore-id for deleted channels) + settings embed.
+  - **No default list channel invented** — the owner named none (deliberate non-application of the S35-promoted pattern; the pattern promotes owner-NAMED values only).
+- Tests 360 → **373**: formatting, UI-order grouping (hidden/ignored/orphan channels, ignored category hides children), includeVoice, chunk packing + never-strand rule, decision matrix, color/emoji normalizers, descriptor/render integration, refresh end-to-end (post → skip → edit → repost-after-deletion → force repost), removeList, debounce burst → one edit, defaults. Manual `channellist.md`; README 17 modules / 44 commands; help badge 🗂️.
+
+**Decision:** port faithfully rather than redesign — the owner asked for "the same list as the FRA bot"; where CuffBot conventions differ (flat commands with options instead of Red's subcommand groups, sparse store config), the surface changed but every behavior rule carried over.
