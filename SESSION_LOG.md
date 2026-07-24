@@ -936,3 +936,16 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - **`/ai-config`** gained `channel:` (move the desk) and `everywhere:True` (store channelId null — lift the restriction); the status embed shows the current desk. Sparse store semantics: an explicit null overrides the committed default.
 - Desk-pile unaffected by construction: questions can only ENTER the pile from the desk, so flushed answers always land there.
 - Tests 433 → **436** (redirect without defer/provider-call + textInChannel assertion; mention pointer with no-ping reply; everywhere-null lifts the lock; existing pipeline tests moved onto the desk channel; ai-config fake gained getChannel). Manual detective.md.
+
+---
+
+## Session 52 — 2026-07-24
+
+**Goal:** owner request: when one or more YouTube creators upload, post the video link in a specific channel.
+
+**Done:**
+- **Module `youtube`** — upload announcements without an API key: YouTube publishes a public Atom feed per channel (`/feeds/videos.xml?channel_id=UC…`); same zero-dependency approach as the memorial RSS work (S21), adapted for Atom's `<entry>` shape (CDATA/entity handling, garbage → empty).
+- **`/youtube`** (admin): `channel:` (announcement channel — none invented, the owner named no id), `add:` (accepts a `UC…` id, a `/channel/` URL, or an `@handle` — handles resolve via one page fetch), `remove:` (by name or id), `enabled`, `preview:` (live latest-video view, posts nothing). Roster cap 25.
+- **Add = validate + baseline:** the feed is fetched once, the channel NAME is learned from it, and the whole back catalog is marked seen — adding a creator never floods the channel; only uploads from that moment on announce.
+- **Sweep:** every 10 min + one tick ~15 s after boot; new videos post **oldest-first**, cap 3/creator/sweep; announcement = `📺 **Creator** just uploaded: **Title**` + the plain link (Discord renders the playable card; owner explicitly wanted the link in the channel); never pings. Failed fetch → creator skipped one tick; failed send → video stays unseen and retries next sweep. Seen-ring 50 ids/creator.
+- Tests 436 → **446** (parser incl. entities/CDATA/garbage, input matrix, oldest-first cap, seen-ring, announcement format, @handle resolution, add semantics incl. dupe/fetch-fail, sweep end-to-end incl. failed-send retry, no-op guards, remove by name/id). Manual `youtube.md`; README 19 modules / 53 commands; badge 📺.

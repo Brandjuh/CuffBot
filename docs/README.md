@@ -22,6 +22,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | logbook | [`modules/logbook.md`](modules/logbook.md) | stable (S35) |
 | welcome | [`modules/welcome.md`](modules/welcome.md) | stable (S35) |
 | economy | [`modules/economy.md`](modules/economy.md) | stable (S38) |
+| youtube | [`modules/youtube.md`](modules/youtube.md) | stable (S52) |
 
 ## Operations
 

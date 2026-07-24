@@ -26,6 +26,7 @@ const MODULE_BADGES = {
   welcome: '👋',
   channellist: '🗂️',
   economy: '💰',
+  youtube: '📺',
 };
 
 /**
@@ -129,6 +130,7 @@ export const COMMAND_CATEGORIES = {
   logbook: 'admin',
   'welcome-config': 'admin',
   'economy-config': 'admin',
+  youtube: 'admin',
 };
 
 // Admin commands whose gate lives in execute() instead of
