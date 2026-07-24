@@ -22,7 +22,7 @@
 ## Behavior
 
 - Default message: `🚔 **Welcome to the precinct, {user}!** Report to the front desk, grab a coffee ☕ and a donut 🍩 — and enjoy your stay at **{server}**.`
-- Pings exactly the newcomer (`allowedMentions: { users: [id] }`), nobody else.
+- **Never pings** (S35 owner decision): the `{user}` mention renders as a highlighted name, but `allowedMentions: { parse: [] }` suppresses every notification.
 - Bots get no welcome ("bots get cuffs, not coffee").
 - A missing/unsendable channel is a silent no-op (logged to the journal) — joining must never error.
 - The logbook's 📥 member-join entry is separate: that one records, this one greets.
@@ -33,11 +33,11 @@ The join event only fires with the **Server Members Intent**: Developer Portal �
 
 ## Testing
 
-- Covered in `test/logbook-welcome.test.js`: default lobby + placeholder rendering, join → greeting with scoped ping, bot-join silence, disabled silence, unsendable-channel tolerance.
+- Covered in `test/logbook-welcome.test.js`: default lobby + placeholder rendering, join → greeting with zero notifications, bot-join silence, disabled silence, unsendable-channel tolerance.
 - **Manual (live server) checklist:**
   1. Enable the Server Members Intent (above), `/restart`.
   2. `/welcome-config test:True` → the welcome appears in the lobby with you as the newcomer.
-  3. Have a test account join → greeting within a second, pinging only them.
+  3. Have a test account join → greeting within a second, no notification for anyone.
   4. `/welcome-config message:Welkom {user} bij {server}! 🎉 test:True` → custom text preview + post.
 
 ## Troubleshooting
@@ -53,3 +53,4 @@ The join event only fires with the **Server Members Intent**: Developer Portal �
 | Session | Change |
 |---|---|
 | S34 | Created: lobby greeting with `{user}`/`{server}` templates, test shot, intent-aware status. |
+| S35 | Newcomers are named but never pinged (owner decision) — mentions render, notifications suppressed. |

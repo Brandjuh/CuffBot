@@ -32,8 +32,9 @@ export function renderWelcome(template, { userMention, serverName }) {
 }
 
 /**
- * Post the welcome for a member. Pings exactly the newcomer. Returns whether
- * a message was sent (silent no-op when disabled/unconfigured/unsendable).
+ * Post the welcome for a member. Never pings: the {user} mention renders as a
+ * highlighted name but sends NO notification (S35 owner decision). Returns
+ * whether a message was sent (silent no-op when disabled/unconfigured/unsendable).
  */
 export async function postWelcome(guild, userId, { displayName } = {}) {
   const config = getWelcomeConfig(guild.id);
@@ -46,7 +47,7 @@ export async function postWelcome(guild, userId, { displayName } = {}) {
         userMention: `<@${userId}>`,
         serverName: guild.name ?? 'the precinct',
       }),
-      allowedMentions: { users: [userId] },
+      allowedMentions: { parse: [] },
     });
     return true;
   } catch (error) {

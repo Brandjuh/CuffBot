@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.0 — 2026-07-24 (Session 35)
+
+- `architecture.md` → Module conventions: promoted **"owner decisions become committed defaults"** — an owner-named id/value from chat is committed as the module's code default (session-tagged comment), sparse store overrides win, features work immediately after self-update.
+- `LEARNINGS.md`: first entry in the Promoted section (the pattern had been re-derived from session-log precedent five times without ever being written as a rule — S21 memorial feeds, S30 chat-starter channel, S31 birthday channel, S34 welcome lobby, S35 logbook channels).
+- Evidence: S35 — the owner supplied four log-channel ids and "no ping for newcomers"; the implementation was pure pattern-application, confirming the rule is stable enough to promote.
+
 ## 0.4.3 — 2026-07-24 (Session 34)
 
 - `discord-reference.md` → Client & intents: generalized the S9 graceful-fallback pattern to MULTIPLE privileged intents — an ordered attempt cascade over the intent combinations (most capable first), one per-feature availability flag per intent, each surfaced inside Discord (status/config commands naming the exact portal switch).

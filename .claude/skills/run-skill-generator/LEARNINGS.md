@@ -25,7 +25,7 @@ Lessons land here first, messy and speculative. Promote a lesson into `SKILL.md`
 
 ## Promoted
 
-*(none yet)*
+- **2026-07-24 · S35 · Owner-named ids become committed code defaults.** Five sessions independently landed on the same shape (memorial feeds S21, chat-starter channel S30, birthday channel S31, welcome lobby S34, logbook channels S35): the owner names a channel/role/value in chat → it becomes the module's code default (with a session-tagged comment), sparse store overrides win, and the feature works right after self-update with zero setup. Written down only at the fifth confirmation — it had been re-derived from session-log precedent each time, which is exactly the drift LEARNINGS exists to prevent. Status: **promoted → architecture.md** (Module conventions).
 
 ## Rejected
 
