@@ -8,6 +8,7 @@ import {
   getMemorialConfig,
   getSeen,
   probeFeed,
+  roleIdForFeed,
   setMemorialConfig,
 } from '../service.js';
 
@@ -43,6 +44,14 @@ export default {
     // session container does not; probe ANY feed URL live from Discord.
     .addStringOption((o) =>
       o.setName('probe').setDescription('Try ANY feed URL live and show what it contains (posts nothing)'),
+    )
+    // S62: per-feed ping roles adjustable from Discord (the committed
+    // firehero role turned out deleted on the live server).
+    .addRoleOption((o) =>
+      o.setName('officers-role').setDescription('Role pinged for Fallen Officers entries'),
+    )
+    .addRoleOption((o) =>
+      o.setName('firefighters-role').setDescription('Role pinged for Fallen Firefighters entries'),
     ),
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
@@ -56,6 +65,10 @@ export default {
     if (officersChannel) patch.odmpChannelId = officersChannel.id;
     const firefightersChannel = interaction.options.getChannel('firefighters-channel');
     if (firefightersChannel) patch.fireheroChannelId = firefightersChannel.id;
+    const officersRole = interaction.options.getRole('officers-role');
+    if (officersRole) patch.odmpRoleId = officersRole.id;
+    const firefightersRole = interaction.options.getRole('firefighters-role');
+    if (firefightersRole) patch.fireheroRoleId = firefightersRole.id;
     const config = Object.keys(patch).length
       ? setMemorialConfig(interaction.guild.id, patch)
       : getMemorialConfig(interaction.guild.id);
@@ -104,7 +117,15 @@ export default {
       const where = target
         ? `<#${target}>${config[`${feed.id}ChannelId`] ? '' : ' (shared)'}`
         : '⚠️ no channel';
-      feedLines.push(`${feed.emoji} **${feed.title}** → <@&${feed.roleId}> in ${where} (${baselined})${latest}`);
+      // S62: a deleted role renders as @unknown-role — say so out loud, with
+      // the exact option that fixes it.
+      const pingRoleId = roleIdForFeed(config, feed);
+      const roleLabel = !pingRoleId
+        ? 'no ping'
+        : interaction.guild.roles.cache.has(pingRoleId)
+          ? `<@&${pingRoleId}>`
+          : `⚠️ role \`${pingRoleId}\` no longer exists — set a new one with \`${feed.id === 'odmp' ? 'officers-role:' : 'firefighters-role:'}\``;
+      feedLines.push(`${feed.emoji} **${feed.title}** → ${roleLabel} in ${where} (${baselined})${latest}`);
     }
 
     const embed = new EmbedBuilder()

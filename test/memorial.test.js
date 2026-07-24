@@ -356,3 +356,33 @@ test('probeFeed reports totals, samples, and honest failures (S61)', async () =>
   });
   assert.equal(dead.code, 'unreachable');
 });
+
+// ── S62: per-feed role overrides ─────────────────────────────────────────────
+
+test('roleIdForFeed: override wins, committed default falls back (S62)', async () => {
+  const { DEFAULT_MEMORIAL_CONFIG, roleIdForFeed } = await import('../src/modules/memorial/service.js');
+  assert.equal(DEFAULT_MEMORIAL_CONFIG.odmpRoleId, null);
+  assert.equal(DEFAULT_MEMORIAL_CONFIG.fireheroRoleId, null);
+  const odmp = FEEDS.find((f) => f.id === 'odmp');
+  assert.equal(roleIdForFeed({}, odmp), '627946543273738240', 'committed owner default');
+  assert.equal(roleIdForFeed({ odmpRoleId: 'new-role' }, odmp), 'new-role', 'override wins');
+});
+
+test('the sweep pings the OVERRIDDEN role, scoped (S62)', async () => {
+  const guildId = freshGuildId();
+  const guild = twoChannelGuild(guildId);
+  setMemorialConfig(guildId, {
+    odmpChannelId: 'officers-chan',
+    odmpRoleId: '999000000000000999', // owner re-picked the role from Discord
+  });
+  const base = { [FEEDS[0].url]: RSS([]), [FEEDS[1].url]: RSS([{ title: 'Base', guid: 'rb1' }]) };
+  await sweepMemorial(guild, { fetchImpl: fetchFor(base) }); // baseline
+  const withNew = {
+    [FEEDS[0].url]: RSS([]),
+    [FEEDS[1].url]: RSS([{ title: 'New Officer Entry', guid: 'rb2' }, { title: 'Base', guid: 'rb1' }]),
+  };
+  assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(withNew) }), 1);
+  const sent = guild.officers.sends[0];
+  assert.equal(sent.content, '<@&999000000000000999>');
+  assert.deepEqual(sent.allowedMentions, { roles: ['999000000000000999'] }, 'scoped to the override');
+});
