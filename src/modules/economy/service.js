@@ -9,10 +9,13 @@ import {
   DEFAULT_ECONOMY_CONFIG,
   catchReward,
   channelIsActive,
+  dayString,
+  daysBetween,
   earnGain,
   heistSucceeds,
   huntDurationMs,
   pickVictim,
+  potTryWins,
   shouldSpawnHunt,
   stealAmount,
   trackActivity,
@@ -105,14 +108,100 @@ export function grantBirthdayBonus(guildId, userId) {
   return BIRTHDAY_BONUS;
 }
 
+// ── the donut pot (S41) ──────────────────────────────────────────────────────
+// Every donut the games take away lands in ONE pot: a busted /steal, the
+// escaping crook's loot, and any future game's losses (call addToPot). The
+// pot also grows 500/day on its own. Once a day each member may try to crack
+// it (0.5%) — the winner takes everything. Day rollover: midnight UTC.
+
+export const ECONOMY_POT_KEY = 'economyPot';
+
+const freshPot = (config, today) => ({
+  balance: config.potDailyTopUp,
+  lastTopUpDay: today,
+  attempts: {},
+});
+
+/** Read the pot, lazily applying the daily top-ups (500 per elapsed day). */
+export function getPot(guildId, now = Date.now()) {
+  const config = getEconomyConfig(guildId);
+  const today = dayString(now);
+  let pot;
+  updateGuildData(
+    guildId,
+    ECONOMY_POT_KEY,
+    (stored) => {
+      if (!stored?.lastTopUpDay) return (pot = freshPot(config, today));
+      const missedDays = daysBetween(stored.lastTopUpDay, today);
+      if (missedDays === 0) return (pot = stored);
+      return (pot = {
+        ...stored,
+        balance: stored.balance + missedDays * config.potDailyTopUp,
+        lastTopUpDay: today,
+      });
+    },
+    null,
+  );
+  return pot;
+}
+
+/** Drop donuts into the pot (games call this with their losses). */
+export function addToPot(guildId, amount, now = Date.now()) {
+  getPot(guildId, now); // ensure today's top-up landed first
+  let balance;
+  updateGuildData(
+    guildId,
+    ECONOMY_POT_KEY,
+    (stored) => {
+      const next = { ...stored, balance: stored.balance + Math.max(0, amount) };
+      balance = next.balance;
+      return next;
+    },
+    null,
+  );
+  return balance;
+}
+
 /**
- * One /steal attempt (S40 owner spec): 30% success moves the loot from the
- * target to the thief; a failed attempt moves it from the thief to the
- * precinct chief — the SERVER OWNER (guild.ownerId resolves to Brandjuh
- * without hardcoding a personal id). Amounts are capped by what the payer
- * actually has (balances floor at 0), reported honestly via `amount`.
+ * One daily attempt to crack the pot open. Win (0.5%): the whole pot moves to
+ * the member and it resets to 0 (tomorrow's 500 keeps it seeded). Lose: the
+ * pot keeps everything. Either way the member's attempt for today is spent.
+ * @returns {{code:'disabled'|'already'|'win'|'lose', amount?:number, balance?:number}}
+ */
+export function tryPot(guildId, userId, { random = Math.random, now = Date.now() } = {}) {
+  const config = getEconomyConfig(guildId);
+  if (!config.enabled) return { code: 'disabled' };
+  const today = dayString(now);
+  const pot = getPot(guildId, now);
+  if (pot.attempts?.[userId] === today) return { code: 'already' };
+
+  const win = potTryWins(config, random);
+  let amount = 0;
+  updateGuildData(
+    guildId,
+    ECONOMY_POT_KEY,
+    (stored) => {
+      const attempts = { ...stored.attempts, [userId]: today };
+      if (!win) return { ...stored, attempts };
+      amount = stored.balance;
+      return { ...stored, balance: 0, attempts };
+    },
+    null,
+  );
+  if (win) {
+    if (amount > 0) adjustBalance(guildId, userId, amount);
+    return { code: 'win', amount };
+  }
+  return { code: 'lose', balance: pot.balance };
+}
+
+/**
+ * One /steal attempt (S40, revised S41): 30% success moves the loot from the
+ * target to the thief; a busted attempt drops the thief's donuts INTO THE
+ * DONUT POT. Amounts are capped by what the payer actually has (balances
+ * floor at 0), reported honestly via `amount`.
  * @returns {{code:'disabled'|'self'|'cooldown'|'success'|'failure',
- *            amount?:number, waitMs?:number, chiefId?:string}}
+ *            amount?:number, waitMs?:number, potBalance?:number}}
  */
 export function attemptHeist(guild, thiefId, targetId, { random = Math.random, now = Date.now() } = {}) {
   const guildId = guild.id;
@@ -141,11 +230,10 @@ export function attemptHeist(guild, thiefId, targetId, { random = Math.random, n
     if (loot > 0) adjustBalance(guildId, thiefId, loot);
     return { code: 'success', amount: loot };
   }
-  const chiefId = guild.ownerId ?? null;
   const { applied } = adjustBalance(guildId, thiefId, -config.heistAmount);
   const seized = Math.abs(applied);
-  if (seized > 0 && chiefId) adjustBalance(guildId, chiefId, seized);
-  return { code: 'failure', amount: seized, chiefId };
+  const potBalance = seized > 0 ? addToPot(guildId, seized, now) : getPot(guildId, now).balance;
+  return { code: 'failure', amount: seized, potBalance };
 }
 
 /** Top balances: [{userId, balance}], richest first. */
@@ -277,11 +365,13 @@ export async function expireHunt(channel, { random = Math.random } = {}) {
   const wanted = stealAmount(config, random);
   const { applied } = adjustBalance(guild.id, victimId, -wanted);
   const stolen = Math.abs(applied);
+  // Lost donuts never vanish — the crook stashes them in the donut pot (S41).
+  const potBalance = stolen > 0 ? addToPot(guild.id, stolen) : null;
   const victimName =
     guild.members?.cache?.get(victimId)?.displayName ?? `<@${victimId}>`;
   const line =
     stolen > 0
-      ? `💨 **The crook got away…** and pickpocketed **${stolen.toLocaleString('en-US')} donuts** 🍩 from **${victimName}**. Next time, shout STOP POLICE!`
+      ? `💨 **The crook got away…** and pickpocketed **${stolen.toLocaleString('en-US')} donuts** 🍩 from **${victimName}** — stashed in the donut pot (now **${potBalance.toLocaleString('en-US')}** 🍩, try \`/pot\`). Next time, shout STOP POLICE!`
       : `💨 **The crook got away…** they tried to rob **${victimName}**, but found only crumbs.`;
   await channel.send({ content: line, allowedMentions: { parse: [] } }).catch(() => {});
   return { victimId, stolen };

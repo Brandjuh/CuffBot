@@ -53,11 +53,10 @@ export default {
       }
       case 'failure':
       default: {
-        const chief = result.chiefId ? `<@${result.chiefId}>` : 'the precinct chief';
         const line =
           result.amount > 0
-            ? `🚨 **BUSTED!** ${thief} got caught red-handed robbing ${victim} — ${donuts(result.amount)} confiscated by precinct chief ${chief}.`
-            : `🚨 **BUSTED!** ${thief} got caught robbing ${victim}, but their own pockets were already empty. The chief sighs.`;
+            ? `🚨 **BUSTED!** ${thief} got caught red-handed robbing ${victim} — ${donuts(result.amount)} confiscated into the **donut pot** 🍯 (now holding ${donuts(result.potBalance)}; crack it with \`/pot\`).`
+            : `🚨 **BUSTED!** ${thief} got caught robbing ${victim}, but their own pockets were already empty. The pot sighs.`;
         await interaction.reply({ content: line, ...noPing });
       }
     }
