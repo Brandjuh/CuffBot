@@ -738,3 +738,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 360 → **373**: formatting, UI-order grouping (hidden/ignored/orphan channels, ignored category hides children), includeVoice, chunk packing + never-strand rule, decision matrix, color/emoji normalizers, descriptor/render integration, refresh end-to-end (post → skip → edit → repost-after-deletion → force repost), removeList, debounce burst → one edit, defaults. Manual `channellist.md`; README 17 modules / 44 commands; help badge 🗂️.
 
 **Decision:** port faithfully rather than redesign — the owner asked for "the same list as the FRA bot"; where CuffBot conventions differ (flat commands with options instead of Red's subcommand groups, sparse store config), the surface changed but every behavior rule carried over.
+
+---
+
+## Session 37 — 2026-07-24
+
+**Goal:** owner request: "make sure we can rename, move, delete, and add ranks without problems — account for ranks and XP; if necessary give people a different role. Don't announce it massively and respect rate limits."
+
+**Done:**
+- **Snapshot-based change detection:** `ladderSnapshot` (ordered rank-id list) in the guild store. Compared on role position/create/delete events (debounced 15 s — a UI drag-reorder fires one event per shifted role), after `/rank-setup`/`/rank-exclude` (cross-module seam academy→leveling; config changes fire no role events), and at boot (catches changes made while the bot was offline). Renames never count — role IDS anchor the whole system.
+- **Quiet reconciliation sweep** (`reconcileLadderChange`): per member (skip bots/bystanders) — heal XP UP to the held rank's new floor (existing S16 self-heal, never lowers), then promote-only role sync to what the XP earns under the NEW thresholds. The sweep re-applies exactly the rules the live system already enforces, so the sweep and a member's next message can never disagree (no flapping). Semantics per edit: **rename** free; **reorder** roles stay + XP heals; **delete** ex-holders quietly get the rank their XP now earns; **add** heal only (promote-only keeps held ranks). Human demotions survive: `/demote` capped XP at the demoted floor, so the reconciliation target IS the demoted rank.
+- **Baseline seeding:** the first pinned snapshot seeds an XP record for EVERY current rank holder — after a role deletion the held-role trace is gone, so only a pre-existing record can restore ex-holders. Boot triggers this baseline right after this update deploys.
+- **Owner constraints honored:** zero announcements (only audit-log reasons: "ladder-change reconciliation"); role writes spaced 400 ms apart; 300-write cap as a runaway brake (rest heals on activity). Full-guild fetch only when the Server Members intent is on; cache fallback otherwise.
+- `syncMemberRank` gained an optional `reasonLabel` (events unchanged).
+- Tests 373 → **381** (`test/ladder-reconcile.test.js`: baseline+seeding, rename no-op, delete → quiet reassignment with audit reason, reorder → XP heal without role writes, add → heal only, human-demotion survival, unpinned/disabled refusals, debounce burst → one sweep). Manuals leveling.md (+ ladder-change section, checklist item 10) and academy.md (§7 + changelog).
+
+**Decision:** reconcile TO the XP mapping rather than "nearest remaining rank by position" — any other target would be undone by the very next message's promote-only sync (flapping). Threshold shifts on structural edits are inherent to position-based thresholds (an S16 decision); the sweep just applies them all at once, quietly.

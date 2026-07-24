@@ -61,6 +61,7 @@ Per-guild, stored via `src/core/store.js` under `academyConfig` = `{ headerRoleI
 4. `currentRank(memberRoleIds, ladder)` is exported for reuse — `/badge` (M7) reads a member's rank through it.
 5. `service.js → ladderForGuild(guild)` is the interaction-free seam other modules use: **leveling** (S16) resolves the ladder through it to map XP onto ranks and seed existing members' XP from their held rank; `resolveLadder(interaction)` delegates to it. `service.js → isPinnedLadder(guildId, ladder)` tells automation whether the ladder came from the admin-pinned header (`/rank-setup`) rather than the name heuristic — leveling's auto-sync, seeding, and coupling require the pin; academy's own human-driven commands do not.
 6. `/promote` and `/demote` couple the target's **XP** to the new rank via leveling's `coupleXpToRank` (S16, best-effort try/catch): promotion raises XP to the new rank's floor, demotion caps it there — so the XP system never instantly undoes a human demotion.
+7. **Editing the ladder is safe (S37):** renaming rank roles is free (ids anchor everything); reordering, deleting, and adding ranks trigger leveling's quiet reconciliation sweep (see `leveling.md` → Ladder-change reconciliation). `/rank-setup` and `/rank-exclude` schedule the same sweep (best-effort seam), since they change the ladder without any role event firing.
 
 ## Files
 
@@ -96,3 +97,4 @@ Per-guild, stored via `src/core/store.js` under `academyConfig` = `{ headerRoleI
 | Session | Change |
 |---|---|
 | S12 | Created: server-role rank ladder (detected under a `[LEVELER]`-style header), `/promote`, `/demote`, `/ranks`, `/rank-setup`, `/rank-exclude`. Adopts the server's existing ranks rather than a fixed police ladder. |
+| S37 | Ladder edits are safe: rename free; reorder/delete/add reconcile quietly via leveling; `/rank-setup` and `/rank-exclude` schedule the sweep (config changes fire no role events). |

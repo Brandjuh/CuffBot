@@ -84,7 +84,13 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 - **Seeding (owner requirement):** the first time any code path touches a member with no XP record (`readOrSeed`), their current rank is read from their live roles via academy's `currentRankIndex`, and their XP starts at that rank's threshold **floor** — the minimum XP consistent with the rank they hold. They keep their rank and still have to earn the next one in full. Members with no rank role seed at 0. `seededFromRank` is stored for transparency and shown on `/level`. Seeding happens lazily (on first message, first voice minute, or first `/level`) — no bulk migration step is needed, and members who never show up are simply never seeded. Rank-based seeding requires the **pinned** ladder; under an unpinned/broken ladder members seed at 0 and `reconcile()` heals them (raises XP to the held rank's floor) as soon as a pinned ladder is back — a temporary detection failure can never permanently reset anyone.
 - **Rank ↔ XP coupling:** thresholds are position-based, derived from the ladder length — `thresholds[i] = round(baseXp · (i+1)^exponent)`, lowest rank first. If the owner later inserts or removes rank roles, thresholds shift automatically with the ladder; XP itself never changes.
 - **Voice XP by sweep, not by session bookkeeping:** every 60 s the sweep pays one minute to everyone eligible *right now*. No join/leave timestamps to corrupt across restarts, mutes, or channel moves; a restart loses at most 59 seconds of credit.
-- The academy module owns the ladder; leveling calls `ladderForGuild(guild)` (interaction-free seam added for this module) and academy's pure `currentRankIndex`. Cross-module calls follow the seam convention (direct `lib/`/service import, try/catch at the event boundary).
+- **Ladder-change reconciliation (S37):** the owner can rename, reorder, delete, and add rank roles freely. A stored snapshot (the ordered rank-id list, `ladderSnapshot`) detects structural change — on role position/create/delete events (debounced 15 s; a UI drag fires one event per shifted role), after `/rank-setup`/`/rank-exclude`, and at boot (offline changes). The sweep then quietly re-applies the exact rules the live system already enforces, so the sweep and a member's next message can never disagree:
+  - **Rename** → free; role ids anchor everything, nothing runs.
+  - **Reorder** → held ranks stay put; XP heals UP to the held rank's new floor (never down). A member whose XP now earns a higher position than they hold is promoted to it.
+  - **Delete** → Discord strips the role from holders; the sweep gives each ex-holder the rank their XP earns under the new thresholds ("desnoods een andere rol"). The first pinned baseline seeds every rank holder precisely so later deletions still have XP records to restore people from.
+  - **Add** → nobody changes role immediately (promote-only keeps held ranks at/above target); higher floors heal holders' XP; the new rank gets earned normally.
+  - **Quiet by design:** no announcements — only audit-log reasons ("ladder-change reconciliation"); role writes are spaced 400 ms apart for rate limits, with a 300-write cap as a runaway brake (the rest heals on activity). Human demotions survive: `/demote` capped the member's XP, so their reconciliation target IS the demoted rank.
+- The academy module owns the ladder; leveling calls `ladderForGuild(guild)` (interaction-free seam added for this module) and academy's pure `currentRankIndex`. Cross-module calls follow the seam convention (direct `lib/`/service import, try/catch at the event boundary); since S37 academy's `/rank-setup` and `/rank-exclude` call back into `scheduleLadderReconcile` the same way.
 
 ## Files
 
@@ -98,10 +104,11 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 | `src/modules/leveling/commands/xp-config.js` | `/xp-config` admin settings |
 | `src/modules/leveling/events/message-xp.js` | Message XP + promotion announce |
 | `src/modules/leveling/events/voice-sweep.js` | 60-second voice XP sweep |
+| `src/modules/leveling/events/ladder-watch.js` | Ladder-change detection (role events + boot) → quiet reconciliation |
 
 ## Testing
 
-- **Automated:** `test/leveling-xp.test.js` (pure math: cooldown, thresholds, seeding floors, no-instant-promotion invariant, voice eligibility, promote-only sync), `test/leveling-service.test.js` (store: seed-once semantics, cooldown persistence, leaderboard, sync execution/blocked), `test/leveling-commands.test.js` (commands + both events end-to-end against fake guilds, incl. the seeding paths and anti-farm sweeps). Run with `npm test`.
+- **Automated:** `test/leveling-xp.test.js` (pure math: cooldown, thresholds, seeding floors, no-instant-promotion invariant, voice eligibility, promote-only sync), `test/leveling-service.test.js` (store: seed-once semantics, cooldown persistence, leaderboard, sync execution/blocked), `test/leveling-commands.test.js` (commands + both events end-to-end against fake guilds, incl. the seeding paths and anti-farm sweeps), `test/ladder-reconcile.test.js` (baseline seeding, rename = no-op, delete → quiet reassignment, reorder → XP heal without role writes, add → heal only, human-demotion survival, unpinned/disabled refusals, debounce burst → one sweep). Run with `npm test`.
 - **Manual (live server) checklist:**
   0. **Pin the ladder first:** `/rank-setup header:@[LEVELER]` (and `/rank-exclude` the two non-rank roles). `/xp-config` must show **Ladder pinned: yes** — auto-rank and rank seeding stay idle until it does.
   1. `/xp-config` → confirm the ladder thresholds match your `[LEVELER]` ranks, highest rank = highest XP.
@@ -113,6 +120,7 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
   7. Manually `/promote` someone above their XP → `/level` shows their XP raised to the new rank's floor; their higher rank **stays** on later messages (promote-only).
   8. Manually `/demote` someone → `/level` shows XP capped at the lower rank's floor; their next message must **not** re-promote them.
   9. `/xp-config sync-roles:False`, cross a threshold → no role change; `/level` notes sync is off. Re-enable with `sync-roles:True`.
+  10. **Ladder change (S37):** rename a rank role → nothing happens (expected). Then delete a test rank someone holds → within ~15 s they quietly receive the rank their XP earns (audit log shows "ladder-change reconciliation", no announcement anywhere).
 
 ## Troubleshooting
 
@@ -132,3 +140,4 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 |---|---|
 | S16 | Created: message + voice XP, seeding from existing rank roles, promote-only auto-rank, `/level`, `/leaderboard`, `/xp-config`. |
 | S16 (audit) | Pinned-ladder gate for all automation + self-healing seeds (HIGH fix); `/promote`/`/demote` now couple XP; duplicate-promotion guard; bot `/level` refusal; system messages excluded; `clear-announce`; sparse config storage; text-path min/max + channel-type enforcement (framework-wide). |
+| S37 | Ladder-change reconciliation: rename/reorder/delete/add rank roles safely — snapshot-based detection (events + boot + config commands), quiet spaced role writes, XP heals, baseline seeding of all rank holders. |

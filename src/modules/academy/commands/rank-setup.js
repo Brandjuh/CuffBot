@@ -2,6 +2,7 @@ import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.
 import { setGuildData } from '../../../core/store.js';
 import { ACADEMY_CONFIG_KEY, getAcademyConfig, resolveLadder } from '../service.js';
 import { ensureInvokerPermission } from '../../enforcement/guards.js';
+import { scheduleLadderReconcile } from '../../leveling/service.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -20,6 +21,13 @@ export default {
       const config = getAcademyConfig(interaction.guild.id);
       config.headerRoleId = header.id;
       setGuildData(interaction.guild.id, ACADEMY_CONFIG_KEY, config);
+      // Cross-module seam: the pin (re)defines the ladder — let leveling
+      // baseline or reconcile. Wrapped: rank setup must never fail on it.
+      try {
+        scheduleLadderReconcile(interaction.guild, { delayMs: 2_000 });
+      } catch {
+        /* reconciliation is best-effort */
+      }
     }
 
     const ladder = resolveLadder(interaction);
