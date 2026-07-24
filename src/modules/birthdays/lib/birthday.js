@@ -16,6 +16,57 @@ export function isValidBirthday(day, month) {
   return day >= 1 && day <= DAYS_IN_MONTH[month - 1];
 }
 
+/**
+ * Parse the S44 owner-mandated input format `YYYY/MM/DD` (also tolerating
+ * `-` and `.` separators). Fully validated against the REAL calendar — with
+ * the year known, Feb 29 is only accepted in actual leap years. Years are
+ * bounded to [1900, currentYear].
+ * @returns {{year:number, month:number, day:number}|null}
+ */
+export function parseBirthdayDate(input, { currentYear = new Date().getUTCFullYear() } = {}) {
+  const match = String(input ?? '')
+    .trim()
+    .match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1900 || year > currentYear) return null;
+  if (month < 1 || month > 12) return null;
+  const maxDay = month === 2 && !isLeapYear(year) ? 28 : DAYS_IN_MONTH[month - 1];
+  if (day < 1 || day > maxDay) return null;
+  return { year, month, day };
+}
+
+// Shown first in the timezone picker when nothing is typed yet — the
+// community is US-based (S32), Amsterdam covers the owner.
+const PRIORITY_TIMEZONES = [
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Phoenix',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'Europe/Amsterdam',
+  'Europe/London',
+  'Europe/Berlin',
+];
+
+/**
+ * Timezone suggestions for the autocomplete picker (S44): empty query shows
+ * the common zones, anything typed substring-filters the FULL IANA list
+ * (prioritized zones first). Discord shows at most 25 suggestions.
+ */
+export function suggestTimeZones(query, limit = 25) {
+  const all = Intl.supportedValuesOf?.('timeZone') ?? [];
+  const q = String(query ?? '').trim().toLowerCase();
+  if (!q) return PRIORITY_TIMEZONES.filter((z) => all.includes(z)).slice(0, limit);
+  const priority = PRIORITY_TIMEZONES.filter((z) => all.includes(z) && z.toLowerCase().includes(q));
+  const rest = all.filter((z) => z.toLowerCase().includes(q) && !priority.includes(z));
+  return [...priority, ...rest].slice(0, limit);
+}
+
 /** Does Intl know this IANA timezone name? */
 export function isValidTimeZone(tz) {
   if (typeof tz !== 'string' || tz.trim() === '') return false;

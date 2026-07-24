@@ -20,6 +20,10 @@ client.login(process.env.DISCORD_TOKEN);
 - Missing intents don't always error — they show up as **empty caches and events that never fire**. If "nothing happens", suspect intents first.
 - **Reactions & partials (S22):** `MessageReactionAdd` needs the non-privileged `GuildMessageReactions` intent — but that alone only fires for messages **cached since this boot**. To also get events for older messages, construct the Client with `partials: [Partials.Message, Partials.Reaction, Partials.Channel]` and have the handler `await reaction.fetch()` / `message.fetch()` when `.partial` is true. Without partials, a reaction feature silently ignores everything sent before the last restart — which on a self-updating bot is most of the server's history.
 
+## Select menus vs autocomplete (S44)
+
+- String select menus cap at **25 options**. For large choice sets (all ~400 IANA timezones), use **option autocomplete** instead: `.setAutocomplete(true)` on the option, plus an `autocomplete(interaction)` export on the command — the central router (src/index.js) calls it on `interaction.isAutocomplete()` and answers `[]` on errors so a broken suggester never blocks typing. Suggestions are advisory: ALWAYS re-validate the submitted value in execute().
+
 ## Slash command registration
 
 - Commands are *defined* in code but must be *registered* with Discord via REST (`deploy-commands.js`). Code changes to `execute` apply on restart; changes to `data` (name/options) require re-running deploy.
