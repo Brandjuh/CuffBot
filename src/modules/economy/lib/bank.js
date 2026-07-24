@@ -26,6 +26,10 @@ export const DEFAULT_ECONOMY_CONFIG = {
   potWinChance: 0.005, // odds that a daily /pot try empties it (owner: 0.5%)
   dailyAmount: 25, // the /daily ration (S49 owner decision)
   dailyCooldownMs: 24 * 60 * 60_000, // one claim per rolling 24 hours
+  huntTimerEnabled: true, // timed random hunts (S56 owner request)
+  huntTimerChannelId: '412354971170897921', // S56 owner decision: timed hunts land here
+  huntTimerMinGapMs: 60 * 60_000, // random gap between timed hunts: 1–5 h
+  huntTimerMaxGapMs: 5 * 60 * 60_000,
 };
 
 /** "2 h 45 min" / "12 min" — shared by every cooldown refusal. */
@@ -120,6 +124,20 @@ export function isCatchPhrase(content) {
     .toUpperCase()
     .replace(/[^A-Z]/g, '');
   return letters.startsWith('STOPPOLICE');
+}
+
+/**
+ * Random delay until the next timed hunt (S56): uniform in [min, max], never
+ * below one minute. A max below min degrades to min (config typos must not
+ * arm a zero-delay spawn loop).
+ */
+export function nextHuntTimerDelay(config, random = Math.random) {
+  const min = Math.max(
+    60_000,
+    config?.huntTimerMinGapMs ?? DEFAULT_ECONOMY_CONFIG.huntTimerMinGapMs,
+  );
+  const max = Math.max(min, config?.huntTimerMaxGapMs ?? DEFAULT_ECONOMY_CONFIG.huntTimerMaxGapMs);
+  return Math.round(min + random() * (max - min));
 }
 
 /** Pick the crook's victim from candidate ids (never the catcher/nobody). */

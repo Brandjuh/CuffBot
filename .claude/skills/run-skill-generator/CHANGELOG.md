@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.12 — 2026-07-24 (Session 56)
+
+- `LEARNINGS.md`: new candidate — scripted bulk edits must anchor on exact text, not line heuristics (an S55 batch script spliced imports inside multi-line `import { … }` blocks; `node --check` caught it).
+- Evidence: S55 (four broken files from one heuristic) recorded during the S56 retrospective; S56 itself was pure pattern application (S37/S38/S44/S55 rules) with nothing new to generalize.
+
 ## 0.5.11 — 2026-07-24 (Session 55)
 
 - `discord-reference.md` → pitfalls row: "bot has all rights but can't post in channel X" is usually not permissions — an `addChannelTypes` restriction made the channel's TYPE unselectable (Announcement/news channels vs GuildText-only pickers), which presents exactly like a rights problem. Post-target pickers take `GuildText, GuildAnnouncement`; resolve targets cache→fetch; surface unpostable configured channels in status views.

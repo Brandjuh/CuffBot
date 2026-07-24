@@ -8,7 +8,7 @@
 |---|---|
 | **Purpose** | Owner request (S38): an economy with donuts — earn by being active, win/lose via games; first game: the crook hunt |
 | **Commands** | `/donuts`, `/donut-board`, `/steal`, `/pot` (everyone), `/economy-config` (admin) — also as `!` commands |
-| **Events** | One `MessageCreate` watcher (earnings + hunt spawn/catch); expiry via timer |
+| **Events** | One `MessageCreate` watcher (earnings + hunt spawn/catch); expiry via timer; `ClientReady` random-gap timer for timed hunts (S56) |
 | **Data** | `economyUsers` (balance, lastEarnAt per member), `economyConfig` (sparse overrides) |
 | **Intents** | Earnings work event-only; **the hunt needs the Message Content intent** (it must hear "STOP POLICE") — without it hunts don't spawn at all |
 
@@ -26,6 +26,7 @@
 3. First member to shout **STOP POLICE** in time (leading the message; case/punctuation don't matter — "stop police!!!" works, "please stop police" does not) cuffs them and earns **100–300 🍩**.
 4. Nobody in time? **The crook escapes and pickpockets 50–250 🍩 from a random member** — announced in the channel (name shown, never pinged).
 5. Admins can test instantly: `/economy-config test-hunt:#channel` spawns one crook right there.
+6. **Timed hunts (S56, owner request):** independent of chat activity, a crook also appears in the hunt channel — owner default `412354971170897921` — at a **random moment every 60–300 minutes** (the gap is re-rolled after every spawn, so times never form a pattern). Same flee window, bounty, and escape-steal; the same "one open hunt per channel" guard applies, and without the Message Content intent timed hunts stay off too (with one boot log line saying why). `/economy-config hunt-timer:False` turns them off, `hunt-channel:#…` moves them.
 
 A restart forfeits any open hunt (RAM only) — the next busy conversation simply spawns a new one.
 
@@ -57,7 +58,7 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 - **/donut-board `[top]`** — richest officers, top 1–25 (default 10).
 - **/steal `target`** — the heist above.
 - **/pot `[try]`** — the donut pot above.
-- **/economy-config** (admin — Manage Server): `enabled` (master switch), `hunt` (hunts on/off), `earn` (donuts per message 0–100), `test-hunt` (channel — spawn a crook now). Status shows every number plus the Message Content intent state.
+- **/economy-config** (admin — Manage Server): `enabled` (master switch), `hunt` (hunts on/off), `earn` (donuts per message 0–100), `test-hunt` (channel — spawn a crook now), `hunt-timer` (timed hunts on/off, S56), `hunt-channel` (where timed hunts appear — text or announcement channel). Status shows every number, the timed-hunt line, plus the Message Content intent state.
 
 ## Design notes
 
@@ -69,7 +70,7 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 
 ## Testing
 
-- `test/economy.test.js`: cooldown pay, inclusive random ranges, activity-window rules (monologue ≠ active, aging out), spawn-roll matrix, STOP-POLICE matcher (leading-phrase rule), victim pick, starting-balance semantics (read ≠ write), zero floor with honest `applied`, leaderboard, birthday bonus (+ disabled refusal), spawn→catch end-to-end (reward paid, hunt closed, second shout dead), expiry steal (victim named, never pinged, balance dips), empty-server escape, the watcher intent gate (no spawn without Message Content; earnings still flow), and the birthday sweep announcing the 50k line.
+- `test/economy.test.js`: cooldown pay, inclusive random ranges, activity-window rules (monologue ≠ active, aging out), spawn-roll matrix, STOP-POLICE matcher (leading-phrase rule), victim pick, starting-balance semantics (read ≠ write), zero floor with honest `applied`, leaderboard, birthday bonus (+ disabled refusal), spawn→catch end-to-end (reward paid, hunt closed, second shout dead), expiry steal (victim named, never pinged, balance dips), empty-server escape, the watcher intent gate (no spawn without Message Content; earnings still flow), and the birthday sweep announcing the 50k line. S56: committed hunt-channel/timer defaults, delay bounds incl. typo guards, and the timed-tick matrix (spawn in the configured channel, busy/no-intent/off/no-channel gates, catch works identically).
 - **Manual (live server) checklist:**
   1. `/donuts` → 10,000 🍩 before you ever chat.
   2. Send a message, `/donuts` again → +5.
@@ -83,6 +84,7 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Crooks never appear | Message Content intent off (hunts disabled by design), hunts off, or the channel isn't active enough | `/economy-config` shows the intent state and the activity rules |
+| Timed hunts never appear | Timer off, hunt channel unpostable, or Message Content intent off | `/economy-config` shows the timed-hunt line; the boot log names the intent case |
 | STOP POLICE does nothing | No open hunt (it fled already), or the shout didn't lead the message | Shout faster, shout first |
 | No activity pay | Economy disabled, or you're inside the 60 s cooldown | `/economy-config` |
 | Birthday came without donuts | Economy disabled at sweep time | `/economy-config enabled:True` |
@@ -98,3 +100,4 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | S49 | `/daily`: +25 🍩 per rolling 24 h with an exact-wait refusal; `formatWaitMs` shared with /steal. |
 | S50 | Game replies/refusals no longer DM on the `!` text path (owner rule: only important things in DM) — they answer in the channel as a no-ping reply; slash stays ephemeral. |
 | S55 | `/economy-config` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
+| S56 | Timed hunts: a crook also spawns in the owner's hunt channel (`412354971170897921`, committed default) at a random moment every 60–300 min, re-rolled per spawn; `/economy-config hunt-timer:`/`hunt-channel:` knobs; same primitives and Message Content gate as activity hunts. |

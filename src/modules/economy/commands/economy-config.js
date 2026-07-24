@@ -21,6 +21,16 @@ export default {
         .setName('test-hunt')
         .setDescription('Spawn one crook RIGHT NOW in this channel (test)')
         .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+    )
+    // S56 options appended LAST (S44 rule: text-path args are positional).
+    .addBooleanOption((o) =>
+      o.setName('hunt-timer').setDescription('Timed random hunts in the hunt channel on/off'),
+    )
+    .addChannelOption((o) =>
+      o
+        .setName('hunt-channel')
+        .setDescription('Channel where timed hunts appear')
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     ),
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
@@ -32,6 +42,10 @@ export default {
     if (enabled !== null) patch.enabled = enabled;
     if (hunt !== null) patch.huntEnabled = hunt;
     if (earn !== null) patch.earnPerMessage = earn;
+    const huntTimer = interaction.options.getBoolean('hunt-timer');
+    if (huntTimer !== null) patch.huntTimerEnabled = huntTimer;
+    const huntChannel = interaction.options.getChannel('hunt-channel');
+    if (huntChannel) patch.huntTimerChannelId = huntChannel.id;
     const config = Object.keys(patch).length
       ? setEconomyConfig(interaction.guild.id, patch)
       : getEconomyConfig(interaction.guild.id);
@@ -63,6 +77,7 @@ export default {
           `**Birthday gift:** ${BIRTHDAY_BONUS.toLocaleString('en-US')} 🍩 (announced with the birthday message)`,
           '',
           `**Crook hunts:** ${config.huntEnabled ? 'on' : 'off'} — spawn chance ${(config.huntChance * 100).toFixed(1)}% per message in an active channel, every ${Math.round(config.huntCooldownMs / 60_000)} min per channel at most`,
+          `**Timed hunts (S56):** ${config.huntTimerEnabled && config.huntTimerChannelId ? `on — a crook appears in <#${config.huntTimerChannelId}> at a random moment every ${Math.round(config.huntTimerMinGapMs / 60_000)}–${Math.round(config.huntTimerMaxGapMs / 60_000)} min` : 'off'}`,
           `**The crook flees after:** ${config.huntMinDurationMs / 1000}–${config.huntMaxDurationMs / 1000} s`,
           `**Catch bounty:** ${config.catchRewardMin}–${config.catchRewardMax} 🍩 · **Steal on escape:** ${config.stealMin}–${config.stealMax} 🍩`,
           '',

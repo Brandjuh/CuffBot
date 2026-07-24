@@ -5,11 +5,12 @@ import steal from './commands/steal.js';
 import pot from './commands/pot.js';
 import daily from './commands/daily.js';
 import economyWatch from './events/economy-watch.js';
+import huntTimer from './events/hunt-timer.js';
 
 export default {
   name: 'economy',
   description:
-    'The donut economy: everyone starts with 10k donuts, /daily pays a ration, activity pays, crooks appear in busy channels (shout STOP POLICE), /steal risks a heist, and every lost donut lands in the daily-growing /pot.',
+    'The donut economy: everyone starts with 10k donuts, /daily pays a ration, activity pays, crooks appear in busy channels AND on a random timer in the hunt channel (shout STOP POLICE), /steal risks a heist, and every lost donut lands in the daily-growing /pot.',
   commands: [donuts, donutBoard, economyConfig, steal, pot, daily],
-  events: [economyWatch],
+  events: [economyWatch, huntTimer],
 };
