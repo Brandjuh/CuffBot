@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.4 — 2026-07-24 (Session 39)
+
+- `discord-reference.md` → pitfalls table: the embed TOTAL cap (6000 chars across title/description/fields) — clamping each field to 1024 is not enough; ≤25 fields per embed, ≤10 embeds per message; paginate grown rosters.
+- Evidence: S39 — `/help` worked for months of sessions and broke silently at 18 modules; the per-field clamp masked the real limit until the total crossed 6000.
+
 ## 0.5.3 — 2026-07-24 (Session 38)
 
 - `discord-reference.md` → Client & intents: the degrade-vs-disable rule — a feature that a missing intent makes UNWINNABLE (not merely poorer) must disable itself with an explanation in its config command, while its harmless parts keep running for an instant start once the intent lands.

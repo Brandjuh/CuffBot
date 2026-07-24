@@ -60,6 +60,71 @@ export function buildHelp(modules, prefix) {
   };
 }
 
+export const EMBED_FIELD_LIMIT = 1_024; // Discord: max chars per field value
+export const EMBED_PAGE_BUDGET = 5_000; // stay under Discord's 6000-char TOTAL per embed
+export const EMBED_MAX_FIELDS = 25; // Discord: max fields per embed
+
+/**
+ * Render one group's entries into field-sized chunks, split at entry
+ * boundaries so no command line is ever cut mid-sentence.
+ */
+export function renderGroupChunks(group, limit = EMBED_FIELD_LIMIT) {
+  const chunks = [];
+  let current = '';
+  for (const entry of group.entries) {
+    const line = `${entry.invocations} — ${entry.description}\n usage: ${entry.usage}`;
+    const clipped = line.length > limit ? `${line.slice(0, limit - 1)}…` : line;
+    const candidate = current ? `${current}\n${clipped}` : clipped;
+    if (current && candidate.length > limit) {
+      chunks.push(current);
+      current = clipped;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+/**
+ * Split the help model into embed-sized pages. One embed can hold at most
+ * 6000 characters ACROSS title+description+fields (the per-field 1024 cap is
+ * not enough on its own — S39: 18 modules broke /help exactly this way) and
+ * at most 25 fields. Groups stay whole per field; oversized groups continue
+ * in "(continued)" fields.
+ * @returns {Array<{title:string, description:string|null, fields:Array<{name,value}>}>}
+ */
+export function paginateHelp(
+  model,
+  { pageBudget = EMBED_PAGE_BUDGET, fieldLimit = EMBED_FIELD_LIMIT, maxFields = EMBED_MAX_FIELDS } = {},
+) {
+  const rawPages = [];
+  let fields = [];
+  let cost = model.title.length + model.description.length;
+  const flush = () => {
+    if (fields.length) rawPages.push(fields);
+    fields = [];
+  };
+  for (const group of model.groups) {
+    renderGroupChunks(group, fieldLimit).forEach((value, index) => {
+      const name = index === 0 ? group.title : `${group.title} (continued)`;
+      const size = name.length + value.length;
+      if (fields.length > 0 && (cost + size > pageBudget || fields.length >= maxFields)) {
+        flush();
+        cost = model.title.length + 8; // later pages carry only the title + page marker
+      }
+      fields.push({ name, value });
+      cost += size;
+    });
+  }
+  flush();
+  return rawPages.map((pageFields, index) => ({
+    title: rawPages.length > 1 ? `${model.title} (${index + 1}/${rawPages.length})` : model.title,
+    description: index === 0 ? model.description : null,
+    fields: pageFields,
+  }));
+}
+
 /**
  * Render the help model to plain text (used by the text-command path and by
  * tests). Kept under Discord's 2000-char message limit by truncating with a note.

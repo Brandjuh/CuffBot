@@ -58,6 +58,7 @@ client.login(process.env.DISCORD_TOKEN);
 |---|---|
 | Login throws `TokenInvalid` | Wrong/rotated token, or `.env` not loaded (import order!) — CuffBot loads `.env` in code via `src/core/env.js`, called at the top of every entrypoint. Do NOT use `node --env-file`: it needs Node ≥ 20.6 while this project promises ≥ 18, and the owner's Pi proved that gap (S6: `node: bad option`) |
 | "Used disallowed intents" | Privileged intent in code but not enabled in the portal |
+| Invalid Form Body on a big embed | An embed caps at **6000 chars TOTAL** (title+description+all fields combined) — per-field 1024 clamps alone don't save you; also ≤25 fields/embed, ≤10 embeds/message. Paginate (S39: /help broke at 18 modules) |
 | Command not appearing | Deploy script not run, wrong guild id, or global registration still propagating |
 | "The application did not respond" | Forgot to reply/defer within 3 s |
 | `InteractionAlreadyReplied` | Double `reply()` — use `followUp()`/`editReply()` |
