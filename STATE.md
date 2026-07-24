@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 37 · 2026-07-24
+**Last updated:** Session 38 · 2026-07-24
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,14 +16,16 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 381/381 pass as of S37 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'logbook', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia', 'welcome' ]` |
-| Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, core, detective, dispatch, enforcement, leveling, logbook, memorial, patrol, public-affairs, records, starboard, trivia, welcome |
+| Tests green | `npm test` | 397/397 pass as of S38 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'leveling', 'logbook', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia', 'welcome' ]` |
+| Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, core, detective, dispatch, economy, enforcement, leveling, logbook, memorial, patrol, public-affairs, records, starboard, trivia, welcome |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 37 · 2026-07-24)
+## What exists (verified Session 38 · 2026-07-24)
+
+- **Economy (S38):** module `economy` — the donut economy. **Everyone starts with 10,000 🍩** (implicit account; store record materializes on first write). Activity pays 5 🍩/message (60 s cooldown, read-only fast path). **Crook hunt:** an active channel (≥4 msgs from ≥2 humans in 3 min) rolls 3%/message (10-min per-channel cooldown) to spawn a 🦹 that lingers **5–20 s**; first message leading with **STOP POLICE** (case/punctuation-forgiving) earns 100–300 🍩; on escape the crook steals 50–250 🍩 from a random member (named, never pinged; balances floor at 0). **Hunts gated on the Message Content intent** (unwinnable otherwise; activity tracking still runs). **Birthday gift: 50,000 🍩** granted by the birthday sweep via seam and announced inside the birthday message (skipped when economy disabled). `/donuts [member]`, `/donut-board [top]`, `/economy-config` (enabled/hunt/earn/**test-hunt** channel). RAM hunt state — a restart forfeits an open hunt. Manual `economy.md`.
 
 - **Ladder-change resilience (S37, in leveling+academy):** the owner can rename, reorder, delete, and add rank roles safely. Snapshot (`ladderSnapshot`, ordered rank-id list) detects structural change on role position/create/delete events (debounced 15 s), after `/rank-setup`/`/rank-exclude` (seam — config changes fire no role events), and at boot (offline changes). The sweep re-applies the live system's own rules — XP heals UP to the held rank's new floor, promote-only sync to what XP earns under the new thresholds — so sweep and next-message behavior can never disagree. Rename = free (ids anchor); reorder = roles stay, XP heals; delete = ex-holders quietly get the rank their XP earns (first pinned baseline seeds ALL rank holders so later deletions are recoverable); add = heal only. **No announcements** (audit reason "ladder-change reconciliation"); role writes spaced 400 ms, 300-write cap. Human demotions survive (XP was capped at the demoted floor). Full-guild sweeps use members.fetch only when the Server Members intent is on; otherwise cache.
 
@@ -61,7 +63,7 @@
 
 ## Resume point
 
-**M1–M13 + M15 complete plus S34–S37 (logbook, welcome, channellist, ladder resilience): 17 modules, 44 commands, 381 tests, dual invocation, self-update, audited. The entire owner backlog is built except M14 (goal tracker — still awaits owner scope).** The FRA cog source used for S36 lives in repo `brandjuh/fireandrescueacademycogs` (`channellist/`) — re-add via add_repo if a future session needs it again. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
+**M1–M13 + M15 complete plus S34–S38 (logbook, welcome, channellist, ladder resilience, economy): 18 modules, 47 commands, 397 tests, dual invocation, self-update, audited. The entire owner backlog is built except M14 (goal tracker — still awaits owner scope). The economy is designed for more games to plug into (`adjustBalance` seam).** The FRA cog source used for S36 lives in repo `brandjuh/fireandrescueacademycogs` (`channellist/`) — re-add via add_repo if a future session needs it again. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
 
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.

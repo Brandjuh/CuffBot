@@ -754,3 +754,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 373 → **381** (`test/ladder-reconcile.test.js`: baseline+seeding, rename no-op, delete → quiet reassignment with audit reason, reorder → XP heal without role writes, add → heal only, human-demotion survival, unpinned/disabled refusals, debounce burst → one sweep). Manuals leveling.md (+ ladder-change section, checklist item 10) and academy.md (§7 + changelog).
 
 **Decision:** reconcile TO the XP mapping rather than "nearest remaining rank by position" — any other target would be undone by the very next message's promote-only sync (flapping). Threshold shifts on structural edits are inherent to position-based thresholds (an S16 decision); the sweep just applies them all at once, quietly.
+
+---
+
+## Session 38 — 2026-07-24
+
+**Goal:** owner request: a donut economy — everyone starts with 10k, activity pays, win/lose via games. First game: the crook hunt (active channel → random crook icon for 5–20 s; "STOP POLICE" in time catches it for donuts; otherwise the crook steals donuts from a random member, announced). Mid-build addition: birthday members get 50k donuts, mentioned in the birthday announcement.
+
+**Done:**
+- **Module `economy`:** balances in `economyUsers` with an **implicit 10,000 🍩 start** — reads never write; the record materializes on the first write (earn/steal/gift), so checking a balance can't bloat the store. Activity pay 5 🍩/message behind a 60 s cooldown (read-only fast path, message-XP pattern). Balances floor at 0 with honest `applied` (the crook can only steal what exists).
+- **The crook hunt:** pure rules in `lib/bank.js` (activity window ≥4 msgs/≥2 humans/3 min; 3% spawn roll per message, 10-min per-channel cooldown; 5–20 s linger; 100–300 catch bounty; 50–250 steal; STOP-POLICE matcher that forgives case/punctuation but requires the shout to LEAD the message; injectable random everywhere). One watcher event orders earn → catch → spawn so a shout never doubles as spawn-activity. Expiry picks a victim from the member cache (accounts fallback), names them without pinging. **Spawning is gated on the Message Content intent** — without it the shout is inaudible and the game unwinnable; tracking still runs so enabling the intent starts the game instantly (`/economy-config` explains). RAM hunt state; restart forfeits an open hunt.
+- **Birthday gift:** `grantBirthdayBonus` (50,000 🍩; null when economy disabled) called by the birthday sweep via seam, the announcement gaining "The precinct chipped in **50,000 donuts** 🍩" only when actually granted.
+- **Commands:** `/donuts [member]` (bots run on electricity), `/donut-board [top 1–25]`, `/economy-config` (enabled/hunt/earn/test-hunt — spawns one crook NOW in a chosen channel).
+- Tests 381 → **397** (pure rules incl. the leading-phrase matcher and inclusive random ranges; balance semantics; spawn→catch→closed; expiry steal with named-never-pinged victim; empty-server escape; watcher intent gate; birthday sweep announcing the 50k line). One bug caught by the suite pre-ship: the intent gate sat BEFORE activity tracking, so pre-intent chatter didn't count — reordered (track always, spawn gated). Manuals `economy.md` + birthdays.md; README 18 modules / 47 commands; badge 💰.
+
+**Decision:** hunts refuse to spawn without the Message Content intent rather than spawning uncatchable crooks — a game nobody can win is a bug, not a feature. Victim pool prefers the live member cache (any member can be robbed — matching "een random persoon in de server"), falling back to existing accounts.

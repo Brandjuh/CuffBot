@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.3 — 2026-07-24 (Session 38)
+
+- `discord-reference.md` → Client & intents: the degrade-vs-disable rule — a feature that a missing intent makes UNWINNABLE (not merely poorer) must disable itself with an explanation in its config command, while its harmless parts keep running for an instant start once the intent lands.
+- Evidence: S38's crook hunt — spawning crooks nobody can catch (the bot can't read "STOP POLICE" without Message Content) is a bug wearing a feature's clothes; the suite also caught the gate sitting before activity tracking, which would have made the game start sluggishly after enabling the intent.
+
 ## 0.5.2 — 2026-07-24 (Session 37)
 
 - `LEARNINGS.md`: new candidate — a reconciliation/repair sweep must be a loop over the live path's own primitives, never a parallel policy (two policies = flapping between the sweep and the next event).
