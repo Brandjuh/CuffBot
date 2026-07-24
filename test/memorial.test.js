@@ -177,3 +177,77 @@ test('memorialEmbed renders title, link, and date', () => {
   assert.match(embed.description, /not forgotten/);
   assert.match(embed.description, /24 Jul 2026/);
 });
+
+// ── per-feed channels (S60) ──────────────────────────────────────────────────
+
+test('per-feed channel defaults are null and the fallback rule holds (S60)', async () => {
+  const { DEFAULT_MEMORIAL_CONFIG, channelIdForFeed } = await import('../src/modules/memorial/service.js');
+  assert.equal(DEFAULT_MEMORIAL_CONFIG.odmpChannelId, null);
+  assert.equal(DEFAULT_MEMORIAL_CONFIG.fireheroChannelId, null);
+  assert.equal(channelIdForFeed({ channelId: 'shared' }, 'odmp'), 'shared', 'shared fallback');
+  assert.equal(
+    channelIdForFeed({ channelId: 'shared', odmpChannelId: 'own' }, 'odmp'),
+    'own',
+    'a feed’s own channel wins',
+  );
+  assert.equal(channelIdForFeed({}, 'firehero'), null);
+});
+
+function twoChannelGuild(guildId) {
+  const officers = { id: 'officers-chan', sends: [], send: async (p) => (officers.sends.push(p), p) };
+  const firefighters = { id: 'fire-chan', sends: [], send: async (p) => (firefighters.sends.push(p), p) };
+  return {
+    id: guildId,
+    channels: {
+      cache: new Map([
+        ['officers-chan', officers],
+        ['fire-chan', firefighters],
+      ]),
+    },
+    officers,
+    firefighters,
+  };
+}
+
+test('each feed posts to its OWN channel (S60 owner request)', async () => {
+  const guildId = freshGuildId();
+  const guild = twoChannelGuild(guildId);
+  setMemorialConfig(guildId, { odmpChannelId: 'officers-chan', fireheroChannelId: 'fire-chan' });
+
+  const base = {
+    [FEEDS[0].url]: RSS([{ title: 'Fire base', guid: 'fb1' }]),
+    [FEEDS[1].url]: RSS([{ title: 'Officer base', guid: 'ob1' }]),
+  };
+  assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(base) }), 0, 'baseline, no shared channel needed');
+
+  const withNew = {
+    [FEEDS[0].url]: RSS([{ title: 'New Firefighter Entry', guid: 'fb2' }, { title: 'Fire base', guid: 'fb1' }]),
+    [FEEDS[1].url]: RSS([{ title: 'New Officer Entry', guid: 'ob2' }, { title: 'Officer base', guid: 'ob1' }]),
+  };
+  assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(withNew) }), 2);
+  assert.equal(guild.firefighters.sends.length, 1);
+  assert.match(guild.firefighters.sends[0].embeds[0].toJSON().title, /New Firefighter Entry/);
+  assert.equal(guild.officers.sends.length, 1);
+  assert.match(guild.officers.sends[0].embeds[0].toJSON().title, /New Officer Entry/);
+});
+
+test('a feed without any channel is skipped while the other still posts (S60)', async () => {
+  const guildId = freshGuildId();
+  const guild = twoChannelGuild(guildId);
+  setMemorialConfig(guildId, { odmpChannelId: 'officers-chan' }); // firefighters: nothing
+
+  const base = {
+    [FEEDS[0].url]: RSS([{ title: 'Fire base', guid: 'fx1' }]),
+    [FEEDS[1].url]: RSS([{ title: 'Officer base', guid: 'ox1' }]),
+  };
+  await sweepMemorial(guild, { fetchImpl: fetchFor(base) });
+  const withNew = {
+    [FEEDS[0].url]: RSS([{ title: 'Fire new', guid: 'fx2' }, { title: 'Fire base', guid: 'fx1' }]),
+    [FEEDS[1].url]: RSS([{ title: 'Officer new', guid: 'ox2' }, { title: 'Officer base', guid: 'ox1' }]),
+  };
+  assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(withNew) }), 1, 'only the configured feed posts');
+  assert.equal(guild.officers.sends.length, 1);
+  assert.equal(guild.firefighters.sends.length, 0);
+  const { getSeen: seenOf } = await import('../src/modules/memorial/service.js');
+  assert.ok(!Array.isArray(seenOf(guildId).firehero), 'unconfigured feed is not even baselined');
+});

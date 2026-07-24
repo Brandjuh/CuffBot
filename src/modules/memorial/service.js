@@ -10,7 +10,20 @@ import { resolveSendableChannel } from '../../core/channels.js';
 
 export const MEMORIAL_CONFIG_KEY = 'memorialConfig';
 export const MEMORIAL_SEEN_KEY = 'memorialSeen';
-export const DEFAULT_MEMORIAL_CONFIG = { enabled: true, channelId: null };
+// S60 (owner request): each feed can have its OWN channel — `<feedId>ChannelId`
+// wins over the shared `channelId` fallback. No ids invented: the owner sets
+// them via /memorial-config officers-channel: / firefighters-channel:.
+export const DEFAULT_MEMORIAL_CONFIG = {
+  enabled: true,
+  channelId: null,
+  odmpChannelId: null,
+  fireheroChannelId: null,
+};
+
+/** The channel a feed posts to: its own override, else the shared channel. */
+export function channelIdForFeed(config, feedId) {
+  return config[`${feedId}ChannelId`] ?? config.channelId ?? null;
+}
 
 // Owner-specified sources (S16 backlog): feed → role to tag. Committed here as
 // product config, like homeGuildId — these ids are the owner's own guild roles.
@@ -84,12 +97,17 @@ export function memorialEmbed(feed, item) {
  */
 export async function sweepMemorial(guild, { fetchImpl = fetch } = {}) {
   const config = getMemorialConfig(guild.id);
-  if (!config.enabled || !config.channelId) return 0;
-  const channel = await resolveSendableChannel(guild, config.channelId);
-  if (!channel) return 0;
+  if (!config.enabled) return 0;
 
   let posted = 0;
   for (const feed of FEEDS) {
+    // S60: each feed posts to its own channel (shared channelId as fallback);
+    // a feed without a usable channel skips this tick — the others still run.
+    const channelId = channelIdForFeed(config, feed.id);
+    if (!channelId) continue;
+    const channel = await resolveSendableChannel(guild, channelId);
+    if (!channel) continue;
+
     const items = await fetchFeedItems(feed, fetchImpl);
     if (items.length === 0) continue;
 

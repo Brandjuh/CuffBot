@@ -1045,3 +1045,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 459 → **471** (header matching, section rules incl. divider stop/skip reasons/cap, rendering, committed default, post→edit→repost cycle, refresh codes, toggle both directions + refusals + blocked-write honesty, info round-trip, button-row limits). Manual `selfroles.md`; docs index; README 20 modules / 54 commands; help badge 🎭 + admin category (completeness test green).
 
 **Deferred:** custom per-role emoji validation is lenient (invalid emoji falls back to label-only); revisit only if the owner hits it.
+
+---
+
+## Session 60 — 2026-07-24
+
+**Goal:** owner request: separate channels for the Fallen Officers and Fallen Firefighters memorial feeds ("voor beide een aparte kanaal kunnen invoeren").
+
+**Done:**
+- `channelIdForFeed(config, feedId)`: a feed's own `<feedId>ChannelId` wins over the shared `channelId` fallback — the original single-channel setup keeps working unchanged. No ids invented (the owner named none): `DEFAULT_MEMORIAL_CONFIG` gains `odmpChannelId`/`fireheroChannelId`, both null.
+- Sweep now resolves the channel **per feed** (S55 resolver): a feed without a usable channel is skipped — and deliberately NOT baselined, so its history is honored correctly once a channel arrives later — while the other feed keeps posting. The `!config.channelId` early-return is gone (per-feed-only setups are valid).
+- `/memorial-config` gained `officers-channel:` + `firefighters-channel:` (appended LAST, S44 rule; text+announcement per S55); the status embed shows each feed's own target ("(shared)" marks the fallback) and the shared channel line reads as the fallback it now is.
+- Tests 471 → **474** (defaults + fallback rule; two-channel routing end-to-end incl. baseline-without-shared-channel; one-feed-unconfigured skip incl. the not-baselined assertion). Manual memorial.md.
+
+**Retrospective:** no skill change — direct application of the per-target-override pattern (S35 logbook per-category channels) plus existing rules; the logbook precedent made this a small session.
