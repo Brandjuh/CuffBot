@@ -26,7 +26,7 @@
 3. `sudo systemctl restart cuffbot`
 4. `/ai-config` must show the provider and model. Done.
 
-Without a key everything else keeps working; AI commands reply "not configured". Optional env overrides: `CUFFBOT_AI_PROVIDER` (`groq`/`gemini`, when both keys exist), `CUFFBOT_AI_MODEL` (defaults: `llama-3.1-8b-instant` / **`gemini-2.5-flash-lite`** — owner decision S27), and `CUFFBOT_AI_DAILY_LIMIT` (bot-side daily cap protecting the provider's RPD quota; defaults gemini 20, groq uncapped).
+Without a key everything else keeps working; AI commands reply "not configured". Optional env overrides: `CUFFBOT_AI_PROVIDER` (`groq`/`gemini`, when both keys exist), `CUFFBOT_AI_MODEL` (defaults: `llama-3.1-8b-instant` / **`gemini-2.5-flash-lite`** — owner decision S27), and `CUFFBOT_AI_DAILY_LIMIT` (bot-side daily cap protecting the provider's RPD quota; defaults gemini 20, groq 14 400 — its free-tier RPD, recorded S28; the 7 s cooldown already keeps RPM far under both providers' limits).
 
 ## Commands
 

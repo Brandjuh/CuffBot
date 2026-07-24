@@ -22,7 +22,12 @@ async function safeText(res) {
 export const groqProvider = {
   name: 'groq',
   keyEnv: 'GROQ_API_KEY',
-  dailyLimit: null, // Groq's free tier is thousands/day — no bot-side day cap
+  // Groq free tier for llama-3.1-8b-instant (documented dev tier): RPM 30,
+  // RPD 14,400. Our 7 s cooldown keeps RPM ≤ ~8.6, and the owner's 62/hour
+  // cap tops out at 1,488/day — both far inside the tier, but the RPD is
+  // recorded and enforced anyway so a future limit change has one honest
+  // knob (CUFFBOT_AI_DAILY_LIMIT overrides if your dashboard differs).
+  dailyLimit: 14_400,
   model: (env) => env.CUFFBOT_AI_MODEL || GROQ_DEFAULT_MODEL,
   configured: (env) => Boolean(env.GROQ_API_KEY),
   async complete({ system, messages, env, fetchImpl = fetch, timeoutMs = 20_000 }) {

@@ -59,3 +59,20 @@ test('/radio-check reports the text-command channel state (S26)', async () => {
   assert.match(off, /❌ Text commands are OFF/);
   assert.match(off, /Message Content Intent/);
 });
+
+test('/restart refuses non-admins without writing a marker (S28)', async () => {
+  const { default: restart } = await import('../src/modules/core/commands/restart.js');
+  const { getGuildData } = await import('../src/core/store.js');
+  const assert = (await import('node:assert/strict')).default;
+  const replies = [];
+  await restart.execute({
+    guild: { id: '111222333444555666', ownerId: 'someone-else' },
+    user: { id: 'not-admin', username: 'x' },
+    memberPermissions: { has: () => false },
+    reply: async (p) => replies.push(p),
+  });
+  assert.match(replies[0].content, /Only administrators/);
+  assert.equal(getGuildData('111222333444555666', 'updateReport', null), null, 'no marker written');
+});
+// NOTE: the allowed path is deliberately untested — it would trigger a real
+// restart/process.exit (same precedent as /update's owner path, S10).

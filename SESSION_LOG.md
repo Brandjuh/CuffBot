@@ -617,3 +617,14 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 328 → **333** (daily-cap grant/refuse/free-after-24h, usage shape, provider defaults + env override matrix incl. 0-disables, the 21st-question refusal end-to-end, the 429 message). Manuals detective/chat-starter/core updated.
 
 **Decisions:** the RPD cap lives bot-side as a POLITE refusal before Google's hard 429 (better UX than opaque provider errors); limits are per-provider defaults + env override rather than store config (they describe the provider's tier, not a server preference).
+
+---
+
+## Session 28 — 2026-07-24
+
+**Goal:** two owner requests: (1) a `/restart` command for after `.env` edits; (2) record/enforce Groq's free-tier rate limits like Gemini's.
+
+**Done:**
+- **`/restart`** (core, admin/owner-gated): replies, stores the order (shared update-marker, new `kind: 'restart'`), then `sudo -n systemctl restart cuffbot` — the EXACT sudoers-allowed command (arguments are part of the rule; no flags may be added). Once systemd accepts the job it survives the process death. Fallback without sudoers: exit(1) — the unit runs `Restart=on-failure` + `RestartSec=5`, so systemd revives it either way. After boot the `update-report` event posts "🔄 Restart complete — configuration reloaded, back on duty 🚔" in the invoking channel, pinging the requester (the reporter now branches on marker kind).
+- **Groq free-tier limits recorded + enforced:** `dailyLimit: 14_400` (documented dev-tier RPD for llama-3.1-8b-instant) instead of uncapped — never binding under the owner's 62/hour (max 1,488/day) but an honest knob that `CUFFBOT_AI_DAILY_LIMIT` can override if the owner's dashboard differs. RPM needs nothing: the 7 s cooldown caps at ~8.6/min, under both Groq's 30 and Gemini's 10.
+- Tests 333 → **335** (restart-kind reporter branch; /restart deny-path writes no marker — the allowed path is deliberately untested, same dangerous-in-tests precedent as /update's S10 owner path). Manuals core.md (+ /restart section) and detective.md; README 40 commands.

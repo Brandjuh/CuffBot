@@ -206,12 +206,12 @@ test('limiter usage reports daily numbers alongside hourly (S27)', () => {
   assert.equal(use.maxPerDay, 20);
 });
 
-test('provider defaults: gemini-2.5-flash-lite + 20/day; groq uncapped (S27, owner spec)', () => {
+test('provider defaults: gemini-2.5-flash-lite + 20/day; groq free-tier RPD (S27/S28, owner spec)', () => {
   assert.equal(geminiProvider.model({}), 'gemini-2.5-flash-lite');
   assert.equal(geminiProvider.dailyLimit, 20);
-  assert.equal(groqProvider.dailyLimit, null);
+  assert.equal(groqProvider.dailyLimit, 14_400, 'groq free-tier RPD recorded');
   assert.equal(dailyLimitFor(geminiProvider, {}), 20);
-  assert.equal(dailyLimitFor(groqProvider, {}), null);
+  assert.equal(dailyLimitFor(groqProvider, {}), 14_400);
   assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: '50' }), 50, 'env override wins');
   assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: '0' }), null, '0 disables the cap');
   assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: 'junk' }), 20, 'junk falls back');
