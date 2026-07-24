@@ -1,7 +1,7 @@
 import { ChannelType, EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { ensureInvokerPermission } from '../../enforcement/guards.js';
 import { CATEGORIES } from '../lib/logformat.js';
-import { getLogbookConfig, setLogbookConfig } from '../service.js';
+import { channelKey, getLogbookConfig, resolveLogChannelId, setLogbookConfig } from '../service.js';
 
 const CATEGORY_HELP = {
   messages: 'deleted/edited/purged messages',
@@ -21,11 +21,19 @@ function buildData() {
     .addChannelOption((o) =>
       o
         .setName('channel')
-        .setDescription('Channel that receives the log entries')
+        .setDescription('ONE channel for every category (overrides the per-category defaults)')
         .addChannelTypes(ChannelType.GuildText),
     );
   for (const category of CATEGORIES) {
     builder.addBooleanOption((o) => o.setName(category).setDescription(`Log ${CATEGORY_HELP[category]}`));
+  }
+  for (const category of CATEGORIES) {
+    builder.addChannelOption((o) =>
+      o
+        .setName(`${category}-channel`)
+        .setDescription(`Channel for ${category} logs only`)
+        .addChannelTypes(ChannelType.GuildText),
+    );
   }
   return builder;
 }
@@ -43,14 +51,17 @@ export default {
     for (const category of CATEGORIES) {
       const value = interaction.options.getBoolean(category);
       if (value !== null) patch[category] = value;
+      const categoryChannel = interaction.options.getChannel(`${category}-channel`);
+      if (categoryChannel) patch[channelKey(category)] = categoryChannel.id;
     }
     const config = Object.keys(patch).length
       ? setLogbookConfig(interaction.guild.id, patch)
       : getLogbookConfig(interaction.guild.id);
 
-    const categoryLines = CATEGORIES.map(
-      (c) => `${config[c] ? '✅' : '❌'} **${c}** — ${CATEGORY_HELP[c]}`,
-    );
+    const categoryLines = CATEGORIES.map((c) => {
+      const target = resolveLogChannelId(interaction.guild.id, c);
+      return `${config[c] ? '✅' : '❌'} **${c}** → ${target ? `<#${target}>` : '⚠️ no channel'} — ${CATEGORY_HELP[c]}`;
+    });
     // Member events silently need the privileged intent — say so right here.
     const intentLine = interaction.client.memberEventsAvailable
       ? '✅ Server Members Intent active (joins/leaves/role changes visible).'
@@ -62,7 +73,6 @@ export default {
       .setDescription(
         [
           `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
-          `**Channel:** ${config.channelId ? `<#${config.channelId}>` : '⚠️ not set — nothing is logged until an admin picks one'}`,
           '',
           ...categoryLines,
           '',

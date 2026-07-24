@@ -703,3 +703,21 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Owner action required:** enable the **Server Members Intent** (Developer Portal → Bot → Privileged Gateway Intents) + `/restart`, else joins stay invisible to both modules; then `/logbook channel:#…` to start the log.
 
 **Decision:** logbook defaults to everything-on but channel-unset — "log everything" was the request, yet where those logs land must be a deliberate admin choice.
+
+---
+
+## Session 35 — 2026-07-24
+
+**Goal:** owner follow-up on S34, minutes after PR #34 merged: (1) commit their four live log channels as defaults — Member logs `494216579136094217`, Message log `494216579794337802`, Server logs `494216580545380372`, Mod logs `494216581216337931`; (2) newcomers must NOT be pinged by the welcome.
+
+**Done:**
+- **Per-category log channels with committed owner defaults** (the now-promoted owner-default pattern): each category resolves its own channel — messages→Message log, members→Member logs, moderation→Mod logs, server→Server logs; **voice→Member logs** (voice is member activity), **invites→Server logs** (server management) — both shared mappings are session decisions the owner can override per category. The logbook now works with ZERO setup after update.
+- **Channel precedence** (`resolveLogChannelId`): explicit `/logbook <category>-channel:` → explicit `/logbook channel:` (single-channel override, kept for "everything in one place" and for any S34-stored config) → committed default. Six new `<category>-channel` options on `/logbook`; status view shows where every category lands.
+- **Recursion guard generalized:** with multiple log channels, events originating in ANY of them are never logged (deleting old log entries in one log channel must not write entries to another).
+- **Welcome never pings** (`allowedMentions: { parse: [] }`): the `{user}` mention still renders highlighted, but nobody gets a notification.
+- Tests 358 → **360** (committed-defaults mapping incl. the two shared channels; out-of-the-box routing per category; override-precedence matrix; any-log-channel recursion; welcome no-ping assertion). Manuals logbook.md + welcome.md updated.
+- Skill **0.5.0**: promoted "owner decisions become committed defaults" to `architecture.md` (fifth confirmation: S21 memorial feeds, S30 chat-starter, S31 birthdays, S34 welcome lobby, S35 log channels) — first entry in LEARNINGS' Promoted section.
+
+**Also this session (queued as work units):** owner supplied the FRA channellist source — repo `brandjuh/fireandrescueacademycogs`, `channellist/` cog — added to this session via add_repo and cloned at /workspace (ephemeral; re-add in future sessions) → **S36**. Owner requested ladder resilience (rename/move/delete/add rank roles without breaking ranks/XP, quiet reassignment, rate-limit aware) → **S37**.
+
+**Decision:** voice and invites share Member/Server logs respectively rather than getting invented fifth/sixth channels — the owner named exactly four; inventing more channels would contradict them, and per-category overrides make any other split one command away.

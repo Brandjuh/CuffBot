@@ -5,6 +5,8 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   CATEGORIES,
+  inviteChanged,
+  memberBanned,
   memberJoined,
   memberLeft,
   messageDeleted,
@@ -12,7 +14,12 @@ import {
   rolesChanged,
   voiceChanged,
 } from '../src/modules/logbook/lib/logformat.js';
-import { getLogbookConfig, postLog, setLogbookConfig } from '../src/modules/logbook/service.js';
+import {
+  DEFAULT_LOGBOOK_CONFIG,
+  getLogbookConfig,
+  postLog,
+  setLogbookConfig,
+} from '../src/modules/logbook/service.js';
 import { onMessageDelete, onMessageUpdate } from '../src/modules/logbook/events/messages.js';
 import { onMemberAdd, onBanAdd } from '../src/modules/logbook/events/members.js';
 import { onVoiceState } from '../src/modules/logbook/events/server.js';
@@ -34,16 +41,27 @@ after(() => {
 let seq = 0;
 const freshGuildId = () => `10000000000000${String((seq += 1)).padStart(4, '0')}`;
 
-function fakeGuild(guildId) {
+// The owner's live log channels, committed as per-category defaults in S35.
+const OWNER_LOG = {
+  messages: '494216579794337802',
+  members: '494216579136094217',
+  moderation: '494216581216337931',
+  server: '494216580545380372',
+};
+
+function fakeGuild(guildId, extraChannelIds = []) {
   const sends = [];
-  const channel = { id: 'log-chan', send: async (p) => (sends.push(p), p) };
-  const lobby = { id: '411609312037961729', send: async (p) => (sends.push(p), p) };
-  return {
-    id: guildId,
-    name: 'Precinct',
-    channels: { cache: new Map([['log-chan', channel], ['411609312037961729', lobby]]) },
-    sends,
-  };
+  const sentTo = [];
+  const cache = new Map();
+  for (const id of ['log-chan', '411609312037961729', ...Object.values(OWNER_LOG), ...extraChannelIds]) {
+    if (!cache.has(id)) {
+      cache.set(id, {
+        id,
+        send: async (p) => (sends.push(p), sentTo.push({ channelId: id, payload: p }), p),
+      });
+    }
+  }
+  return { id: guildId, name: 'Precinct', channels: { cache }, sends, sentTo };
 }
 
 // ── logbook models + gating ──────────────────────────────────────────────────
@@ -74,22 +92,54 @@ test('log models render the essentials per category', () => {
   assert.match(voiceChanged({ userTag: 'v', userId: 'u5', fromChannelId: 'vc1', toChannelId: 'vc2' }).title, /moved/);
 });
 
-test('postLog honors master switch, channel, category toggles, and never logs the log channel', async () => {
+test('the owner log channels are committed defaults (voice→members, invites→server)', () => {
+  assert.equal(DEFAULT_LOGBOOK_CONFIG.messagesChannelId, OWNER_LOG.messages);
+  assert.equal(DEFAULT_LOGBOOK_CONFIG.membersChannelId, OWNER_LOG.members);
+  assert.equal(DEFAULT_LOGBOOK_CONFIG.moderationChannelId, OWNER_LOG.moderation);
+  assert.equal(DEFAULT_LOGBOOK_CONFIG.serverChannelId, OWNER_LOG.server);
+  assert.equal(DEFAULT_LOGBOOK_CONFIG.voiceChannelId, OWNER_LOG.members, 'voice is member activity');
+  assert.equal(DEFAULT_LOGBOOK_CONFIG.invitesChannelId, OWNER_LOG.server, 'invites are server management');
+  assert.equal(DEFAULT_LOGBOOK_CONFIG.channelId, null, 'no single-channel override by default');
+});
+
+test('postLog routes each category to its own default channel out of the box', async () => {
   const guildId = freshGuildId();
   const guild = fakeGuild(guildId);
-  const model = messageDeleted({ authorTag: 'x', authorId: 'u', channelId: 'c1', content: 'hi', attachmentCount: 0, partial: false });
+  const del = messageDeleted({ authorTag: 'x', authorId: 'u', channelId: 'c1', content: 'hi', attachmentCount: 0, partial: false });
 
-  assert.equal(await postLog(guild, model), false, 'no channel configured yet');
-  setLogbookConfig(guildId, { channelId: 'log-chan' });
-  assert.equal(await postLog(guild, model), true, 'defaults log everything once a channel is set');
-  assert.deepEqual(guild.sends[0].allowedMentions, { parse: [] });
+  assert.equal(await postLog(guild, del), true, 'works with zero configuration');
+  assert.equal(guild.sentTo[0].channelId, OWNER_LOG.messages);
+  assert.deepEqual(guild.sentTo[0].payload.allowedMentions, { parse: [] });
+
+  await postLog(guild, memberJoined({ userTag: 'n#1', userId: 'u2', accountAgeDays: 1 }));
+  assert.equal(guild.sentTo[1].channelId, OWNER_LOG.members);
+  await postLog(guild, voiceChanged({ userTag: 'v', userId: 'u5', fromChannelId: null, toChannelId: 'vc1' }));
+  assert.equal(guild.sentTo[2].channelId, OWNER_LOG.members, 'voice shares the member-logs channel');
+  await postLog(guild, memberBanned({ userTag: 'b#2', userId: 'u9', reason: 'spam' }));
+  assert.equal(guild.sentTo[3].channelId, OWNER_LOG.moderation);
+  await postLog(guild, inviteChanged({ action: 'create', code: 'abc', channelId: 'c1', inviterTag: 'i#1' }));
+  assert.equal(guild.sentTo[4].channelId, OWNER_LOG.server, 'invites share the server-logs channel');
+});
+
+test('postLog honors switches, channel overrides, and never logs any log channel', async () => {
+  const guildId = freshGuildId();
+  const guild = fakeGuild(guildId, ['override-chan']);
+  const model = messageDeleted({ authorTag: 'x', authorId: 'u', channelId: 'c1', content: 'hi', attachmentCount: 0, partial: false });
 
   setLogbookConfig(guildId, { messages: false });
   assert.equal(await postLog(guild, model), false, 'category toggle respected');
   setLogbookConfig(guildId, { messages: true, enabled: false });
   assert.equal(await postLog(guild, model), false, 'master switch respected');
-  setLogbookConfig(guildId, { enabled: true });
-  assert.equal(await postLog(guild, model, { sourceChannelId: 'log-chan' }), false, 'the log channel never logs itself');
+
+  setLogbookConfig(guildId, { enabled: true, channelId: 'log-chan' });
+  assert.equal(await postLog(guild, model), true);
+  assert.equal(guild.sentTo.at(-1).channelId, 'log-chan', 'single-channel override beats the defaults');
+
+  setLogbookConfig(guildId, { messagesChannelId: 'override-chan' });
+  assert.equal(await postLog(guild, model), true);
+  assert.equal(guild.sentTo.at(-1).channelId, 'override-chan', 'per-category override beats the single channel');
+
+  assert.equal(await postLog(guild, model, { sourceChannelId: 'log-chan' }), false, 'events in ANY log channel are never logged');
 });
 
 test('all categories default ON (the owner asked to log everything)', () => {
@@ -192,7 +242,7 @@ test('the join event welcomes humans in the lobby, skips bots, respects the swit
   await welcomeJoin.execute({ client, guild, id: 'u1', user: { bot: false }, displayName: 'Newbie' });
   assert.equal(guild.sends.length, 1);
   assert.match(guild.sends[0].content, /Welcome to the precinct, <@u1>!/);
-  assert.deepEqual(guild.sends[0].allowedMentions, { users: ['u1'] });
+  assert.deepEqual(guild.sends[0].allowedMentions, { parse: [] }, 'newcomers are named, never pinged (S35)');
 
   await welcomeJoin.execute({ client, guild, id: 'b1', user: { bot: true }, displayName: 'SomeBot' });
   assert.equal(guild.sends.length, 1, 'bots get no welcome');

@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 34 · 2026-07-24
+**Last updated:** Session 35 · 2026-07-24
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 358/358 pass as of S34 |
+| Tests green | `npm test` | 360/360 pass as of S35 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'chat-starter', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'logbook', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia', 'welcome' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, chat-starter, core, detective, dispatch, enforcement, leveling, logbook, memorial, patrol, public-affairs, records, starboard, trivia, welcome |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
@@ -25,7 +25,7 @@
 
 ## What exists (verified Session 34 · 2026-07-24)
 
-- **Logbook + Welcome (S34):** module `logbook` — "log everything" (owner request): 19 event handlers across six toggleable categories (messages / members / moderation / voice / server / invites), **all ON by default**, but nothing posts until an admin picks a channel with `/logbook channel:` (logs are sensitive; that choice stays deliberate). One delivery path (`postLog`): master switch → category toggle → the log channel never logs itself → no-ping embed; a failing write never breaks the event; CuffBot's own messages are skipped; partials reported honestly ("not in my cache"). Pure models in `lib/logformat.js`. Module `welcome` — greets every human newcomer in lobby `411609312037961729` (committed owner default, S30 pattern) with a `{user}`/`{server}` template; pings exactly the newcomer; `/welcome-config` (enabled/channel/message/test). **Both need the privileged Server Members Intent** — login is now a 4-attempt cascade over (Message Content × Server Members) so a portal misconfiguration can never crash-loop the bot; `client.memberEventsAvailable` surfaces the state in `/radio-check`, `/welcome-config`, and `/logbook`. Base intents grew: GuildModeration, GuildInvites, GuildEmojisAndStickers; partials + GuildMember. Manuals `logbook.md`, `welcome.md`.
+- **Logbook + Welcome (S34–S35):** module `logbook` — "log everything" (owner request): 19 event handlers across six toggleable categories (messages / members / moderation / voice / server / invites), **all ON by default**, delivering to the owner's live log channels which are **committed per-category defaults (S35)**: messages→`494216579794337802`, members→`494216579136094217`, moderation→`494216581216337931`, server→`494216580545380372`, voice shares Member logs, invites share Server logs — works with zero setup after update. Channel precedence: explicit `/logbook <category>-channel:` → explicit `/logbook channel:` (single-channel override) → committed default (`resolveLogChannelId`). One delivery path (`postLog`): master switch → category toggle → **no event from ANY log channel is ever logged** → no-ping embed; a failing write never breaks the event; CuffBot's own messages are skipped; partials reported honestly ("not in my cache"). Pure models in `lib/logformat.js`. Module `welcome` — greets every human newcomer in lobby `411609312037961729` (committed owner default) with a `{user}`/`{server}` template; **names the newcomer but NEVER pings (S35 owner decision — `allowedMentions: { parse: [] }`)**; `/welcome-config` (enabled/channel/message/test). **Both need the privileged Server Members Intent** — login is a 4-attempt cascade over (Message Content × Server Members) so a portal misconfiguration can never crash-loop the bot; `client.memberEventsAvailable` surfaces the state in `/radio-check`, `/welcome-config`, and `/logbook`. Base intents grew: GuildModeration, GuildInvites, GuildEmojisAndStickers; partials + GuildMember. Manuals `logbook.md`, `welcome.md`.
 
 - **Chat starter (M15, S23):** module `chat-starter` — after `idleMinutes` (default 180) of silence in the configured channel, posts an open-ended question. 40-question bank (`data/questions.json`, validated; no-repeat ring of 10 persisted) + optional AI generation via the detective provider (own 15 s call outside the /ask budget; junk output rejected; list fallback). **Never monologues:** a human message must land between starters; the bot's own posts don't count as conversation; other bots reset only the idle clock. **S30: enabled by default for the owner's channel 411609312037961729 with a 12 h window (owner decision, committed like the memorial feeds); boot seeds the idle clock from real channel history; `test` option fires one real starter in ~30 s.** RAM activity tracking; 5-min sweep. `/chat-starter-config` (admin: enabled/channel/idle-minutes 15–1440/use-ai/preview). Manual `chat-starter.md`.
 
@@ -57,15 +57,14 @@
 
 ## Resume point
 
-**M1–M13 + M15 complete plus S34's logbook + welcome: 16 modules, 42 commands, 358 tests, dual invocation, self-update, audited. The entire owner backlog is built except M14 (goal tracker — needs owner scope) and the FRA-bot-style channel list (S34 request 3 — that repo is not visible from these sessions; question queued with the owner).** S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
+**M1–M13 + M15 complete plus S34–S35's logbook + welcome: 16 modules, 42 commands, 360 tests, dual invocation, self-update, audited.** Queued next: **S36 — channellist module** ported from the owner's FRA cog (repo `brandjuh/fireandrescueacademycogs`, path `channellist/`; added to the S35 session via add_repo — future sessions must re-add it the same way if they need the source again) and **S37 — ladder resilience** (rename/move/delete/add rank roles without breaking XP/ranks; reassign holders quietly, respect rate limits). M14 (goal tracker) still awaits owner scope. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
 
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.
 2. Detective: put `GROQ_API_KEY` (or `GEMINI_API_KEY`) in the Pi's `.env` and restart — AI replies "not configured" until then (`docs/modules/detective.md` § Owner setup).
-3. Welcome + logbook member events (S34): enable the **Server Members Intent** (Developer Portal → Bot → Privileged Gateway Intents), then `/restart` — until then no welcome messages and no join/leave/nickname/role logs (`/radio-check` shows the state). Same page as the Message Content intent that text commands need.
-4. Logbook: pick a log channel once — `/logbook channel:#your-log-channel` (all six categories are already ON; nothing posts until a channel is chosen).
+3. Welcome + logbook member events (S34): enable the **Server Members Intent** (Developer Portal → Bot → Privileged Gateway Intents), then `/restart` — until then no welcome messages and no join/leave/nickname/role logs (`/radio-check` shows the state). Same page as the Message Content intent that text commands need. (The logbook itself needs NO setup since S35 — the owner's four log channels are committed defaults.)
 
-5. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
+4. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
 
 Next: **M14 — goal tracker** once the owner defines its scope (question queued in the owner report); otherwise: owner live-verification of the marathon modules (each manual has a checklist), then polish/ideas. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
 
