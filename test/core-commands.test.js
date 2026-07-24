@@ -20,25 +20,52 @@ test('update refuses a non-admin, non-owner (no updater spawned)', async () => {
   assert.equal(replies[0].flags, MessageFlags.Ephemeral);
 });
 
-test('help builds a roster embed from the loaded modules', async () => {
-  const replies = [];
-  const ix = {
-    client: {
-      config: { prefix: '!' },
-      moduleList: [
+test('help builds the categorized menu, hiding what the viewer cannot use (S43)', async () => {
+  const moduleList = [
+    {
+      name: 'core',
+      description: 'core',
+      commands: [
+        { data: { toJSON: () => ({ name: 'radio-check', description: 'ping', options: [] }) } },
+        { data: { toJSON: () => ({ name: 'update', description: 'self-update', options: [] }) } },
+      ],
+    },
+    {
+      name: 'enforcement',
+      description: 'enf',
+      commands: [
         {
-          name: 'core',
-          description: 'core',
-          commands: [{ data: { toJSON: () => ({ name: 'radio-check', description: 'ping', options: [] }) } }],
+          data: {
+            toJSON: () => ({ name: 'cite', description: 'ticket', options: [], default_member_permissions: '8192' }),
+          },
         },
       ],
     },
-    reply: async (p) => replies.push(p),
+  ];
+  const run = async (hasPerms) => {
+    const replies = [];
+    await help.execute({
+      client: { config: { prefix: '!' }, moduleList },
+      memberPermissions: { has: () => hasPerms },
+      reply: async (p) => replies.push(p),
+      followUp: async (p) => replies.push(p),
+    });
+    return replies;
   };
-  await help.execute(ix);
-  const embed = replies[0].embeds[0];
-  const title = embed.data?.title ?? embed.title;
-  assert.match(title, /Command Roster/);
+
+  const memberView = await run(false);
+  const memberEmbed = memberView[0].embeds[0];
+  assert.match(memberEmbed.data?.title ?? memberEmbed.title, /Command Menu/);
+  assert.equal(memberView[0].flags, 64, 'help is ephemeral (S39/S43)');
+  const memberText = JSON.stringify(memberView.map((r) => r.embeds[0].toJSON?.() ?? r.embeds[0]));
+  assert.ok(memberText.includes('/radio-check'), 'public command visible');
+  assert.ok(!memberText.includes('/cite'), 'moderation hidden from regular members');
+  assert.ok(!memberText.includes('/update'), 'runtime-gated admin command hidden');
+
+  const adminText = JSON.stringify((await run(true)).map((r) => r.embeds[0].toJSON?.() ?? r.embeds[0]));
+  assert.ok(adminText.includes('/cite'), 'admins see moderation');
+  assert.ok(adminText.includes('/update'), 'admins see runtime-gated commands');
+  assert.ok(adminText.includes('Setup & Admin'), 'admin category present');
 });
 
 test('/radio-check reports the text-command channel state (S26)', async () => {
