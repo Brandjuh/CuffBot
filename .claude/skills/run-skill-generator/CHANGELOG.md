@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.2 — 2026-07-24 (Session 37)
+
+- `LEARNINGS.md`: new candidate — a reconciliation/repair sweep must be a loop over the live path's own primitives, never a parallel policy (two policies = flapping between the sweep and the next event).
+- Evidence: S37's ladder-change sweep; the tempting "nearest remaining rank" rule for deleted-rank holders would have fought the promote-only XP sync on every subsequent message.
+
 ## 0.5.1 — 2026-07-24 (Session 36)
 
 - `LEARNINGS.md`: new candidate — for "like X" requests, get X's source into the session (add_repo) and port behavior faithfully instead of reinventing from the description; record the source repo + path in STATE.md because workspace clones are ephemeral.

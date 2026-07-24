@@ -2,6 +2,7 @@ import { PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { setGuildData } from '../../../core/store.js';
 import { ACADEMY_CONFIG_KEY, getAcademyConfig, replyEphemeral } from '../service.js';
 import { ensureInvokerPermission } from '../../enforcement/guards.js';
+import { scheduleLadderReconcile } from '../../leveling/service.js';
 
 // Some roles sit under the header but are not ranks (dividers, cosmetic roles).
 // Exclude them so /promote and /demote skip them.
@@ -36,6 +37,13 @@ export default {
     }
     config.excludedRoleIds = [...set];
     setGuildData(interaction.guild.id, ACADEMY_CONFIG_KEY, config);
+    // Cross-module seam: excluding/re-including changes the ladder structure
+    // without any role event firing — let leveling reconcile quietly.
+    try {
+      scheduleLadderReconcile(interaction.guild, { delayMs: 2_000 });
+    } catch {
+      /* reconciliation is best-effort */
+    }
     await replyEphemeral(
       interaction,
       action === 'remove'

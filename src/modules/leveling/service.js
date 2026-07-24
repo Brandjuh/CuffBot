@@ -13,7 +13,7 @@ import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js
 import { logger } from '../../core/logger.js';
 import { auditReason } from '../enforcement/lib/audit.js';
 import { currentRankIndex } from '../academy/lib/ladder.js';
-import { isPinnedLadder } from '../academy/service.js';
+import { isPinnedLadder, ladderForGuild } from '../academy/service.js';
 import {
   DEFAULT_XP_CONFIG,
   messageXpGain,
@@ -246,7 +246,7 @@ const syncInFlight = new Set();
  * on a PINNED ladder, and on the bot actually managing the target role.
  * @returns {Promise<{changed:boolean, from?:string|null, to?:string, blocked?:boolean}>}
  */
-export async function syncMemberRank(member, ladder, xp, config) {
+export async function syncMemberRank(member, ladder, xp, config, { reasonLabel = 'XP promotion' } = {}) {
   if (!config.syncRoles) return { changed: false };
   const guildId = member.guild.id;
   if (!isPinnedLadder(guildId, ladder)) {
@@ -267,7 +267,7 @@ export async function syncMemberRank(member, ladder, xp, config) {
   try {
     const targetRole = member.guild.roles.cache.get(plan.addRoleId);
     if (targetRole && targetRole.editable === false) return { changed: false, blocked: true };
-    const reason = auditReason(`XP promotion to ${plan.toName}`, 'CuffBot XP');
+    const reason = auditReason(`${reasonLabel} to ${plan.toName}`, 'CuffBot XP');
     if (plan.removeRoleIds.length > 0) await member.roles.remove(plan.removeRoleIds, reason);
     await member.roles.add(plan.addRoleId, reason);
     return { changed: true, from: plan.fromName, to: plan.toName };
@@ -277,6 +277,155 @@ export async function syncMemberRank(member, ladder, xp, config) {
   } finally {
     syncInFlight.delete(key);
   }
+}
+
+// ── ladder-change reconciliation (S37) ───────────────────────────────────────
+// The owner must be able to rename, reorder, delete, and add rank roles
+// without breaking ranks/XP. Renames are free (role IDS anchor everything).
+// Structural changes (the ordered id list differs) trigger a QUIET sweep that
+// re-applies the exact same rules the live system already enforces — XP heals
+// up to the held rank's floor, promote-only role sync to what XP earns under
+// the NEW thresholds — so the sweep and the next message can never disagree.
+// No announcements, and role writes are spaced out for rate limits.
+
+export const LADDER_SNAPSHOT_KEY = 'ladderSnapshot';
+
+/** The pinned ladder structure at the last reconciliation (role ids, highest first). */
+export function getLadderSnapshot(guildId) {
+  return getGuildData(guildId, LADDER_SNAPSHOT_KEY, null);
+}
+
+export function saveLadderSnapshot(guildId, ladder) {
+  setGuildData(guildId, LADDER_SNAPSHOT_KEY, { roleIds: ladder.ranks.map((r) => r.roleId) });
+}
+
+/** Structure = the ordered rank-id list; renames never count as change. */
+export function ladderStructureChanged(guildId, ladder) {
+  const snapshot = getLadderSnapshot(guildId);
+  if (!snapshot?.roleIds) return false; // first sight is a baseline, not a change
+  const now = ladder.ranks.map((r) => r.roleId);
+  return snapshot.roleIds.length !== now.length || snapshot.roleIds.some((id, i) => id !== now[i]);
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function allMembers(guild) {
+  if (guild.client?.memberEventsAvailable && guild.members?.fetch) {
+    try {
+      const fetched = await guild.members.fetch();
+      return [...fetched.values()];
+    } catch {
+      /* fall back to cache */
+    }
+  }
+  return [...(guild.members?.cache?.values() ?? [])];
+}
+
+/**
+ * Seed an XP record for every member currently holding a rank role. Runs once
+ * when a pinned ladder is first snapshotted, so a LATER role deletion still
+ * has records to restore ex-holders from (after deletion the held-role trace
+ * is gone — only a pre-existing record can bring those members back).
+ */
+export async function seedAllRankHolders(guild, ladder) {
+  const config = getXpConfig(guild.id);
+  let seeded = 0;
+  for (const member of await allMembers(guild)) {
+    if (member.user?.bot) continue;
+    const roleIds = [...member.roles.cache.keys()];
+    if (!ladder.ranks.some((r) => roleIds.includes(r.roleId))) continue;
+    const existed = Boolean(getUsers(guild.id)[member.id]);
+    ensureSeeded(guild.id, member, ladder, config);
+    if (!existed) seeded += 1;
+  }
+  return seeded;
+}
+
+/**
+ * Quietly bring every member back in line after a structural ladder change.
+ * Per member: heal XP up to the held rank's floor (never down), then
+ * promote-only role sync to what the XP earns under the new thresholds.
+ * NO announcements; role writes spaced by `delayMs` (Discord rate limits);
+ * hard cap as a runaway brake.
+ */
+export async function reconcileLadderChange(guild, ladder, { delayMs = 400, maxRoleWrites = 300 } = {}) {
+  const guildId = guild.id;
+  const config = getXpConfig(guildId);
+  if (!config.enabled || !config.syncRoles) return { swept: false, reason: 'disabled' };
+  if (!isPinnedLadder(guildId, ladder)) return { swept: false, reason: 'unpinned' };
+
+  let healed = 0;
+  let roleChanges = 0;
+  let capped = false;
+  for (const member of await allMembers(guild)) {
+    if (member.user?.bot) continue;
+    const roleIds = [...member.roles.cache.keys()];
+    const holdsRank = ladder.ranks.some((r) => roleIds.includes(r.roleId));
+    const hadRecord = Boolean(getUsers(guildId)[member.id]);
+    if (!hadRecord && !holdsRank) continue; // bystander: nothing to reconcile
+    const before = hadRecord ? getUsers(guildId)[member.id].xp : null;
+    const rec = ensureSeeded(guildId, member, ladder, config);
+    if (before !== null && rec.xp > before) healed += 1;
+    const sync = await syncMemberRank(member, ladder, rec.xp, config, {
+      reasonLabel: 'ladder-change reconciliation',
+    });
+    if (sync.changed) {
+      roleChanges += 1;
+      if (roleChanges >= maxRoleWrites) {
+        capped = true;
+        logger.warn(
+          `Leveling: reconciliation hit the ${maxRoleWrites} role-write cap — the rest heals on activity or the next sweep.`,
+        );
+        break;
+      }
+      if (delayMs > 0) await sleep(delayMs);
+    }
+  }
+  saveLadderSnapshot(guildId, ladder);
+  return { swept: true, healed, roleChanges, capped };
+}
+
+/**
+ * Compare the live ladder to the stored snapshot: baseline on first pinned
+ * sight (and seed all rank holders so future deletions are recoverable),
+ * sweep when the structure changed, no-op otherwise.
+ */
+export async function noteLadderMaybeChanged(guild, { sweepDelayMs = 400 } = {}) {
+  const ladder = ladderForGuild(guild);
+  if (!isPinnedLadder(guild.id, ladder)) return { swept: false, reason: 'unpinned' };
+  if (!getLadderSnapshot(guild.id)?.roleIds) {
+    const seeded = await seedAllRankHolders(guild, ladder);
+    saveLadderSnapshot(guild.id, ladder);
+    logger.info(`Leveling: ladder baseline snapshotted (${seeded} rank holder(s) seeded).`);
+    return { swept: false, reason: 'baseline', seeded };
+  }
+  if (!ladderStructureChanged(guild.id, ladder)) return { swept: false, reason: 'unchanged' };
+  const result = await reconcileLadderChange(guild, ladder, { delayMs: sweepDelayMs });
+  if (result.swept) {
+    logger.info(
+      `Leveling: ladder change reconciled — ${result.roleChanges} quiet role change(s), ${result.healed} XP heal(s).`,
+    );
+  }
+  return result;
+}
+
+// Debounce: a drag-reorder in the Discord UI fires one GuildRoleUpdate per
+// shifted role — collapse the burst into one reconciliation.
+const reconcilePending = new Map();
+
+export function scheduleLadderReconcile(guild, { delayMs = 15_000, sweepDelayMs = 400 } = {}) {
+  if (!guild) return false;
+  const existing = reconcilePending.get(guild.id);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    reconcilePending.delete(guild.id);
+    noteLadderMaybeChanged(guild, { sweepDelayMs }).catch((error) =>
+      logger.warn('Leveling: ladder reconciliation failed:', error),
+    );
+  }, delayMs);
+  timer.unref?.();
+  reconcilePending.set(guild.id, timer);
+  return true;
 }
 
 /** Announce a promotion to the configured channel, or a fallback if given. */
