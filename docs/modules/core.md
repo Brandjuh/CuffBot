@@ -24,7 +24,7 @@ Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or
 |---|---|---|---|---|
 | `/radio-check` | Confirms the bot is on the air and reports round-trip latency | none | Everyone | `/radio-check` |
 | `/help` | Shows every loaded command (grouped by module) and how to use it | none | Everyone | `/help` |
-| `/update` | Checks for a newer version and restarts into it if its tests pass | none | Administrators / guild owner | `/update` |
+| `/update` | Updates the bot from GitHub with live status in Discord; restarts only when the tests pass | none | Administrators / guild owner | `/update` |
 
 ### /radio-check
 
@@ -41,8 +41,9 @@ Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or
 ### /update
 
 - **Options:** none. **Who:** Administrators or the guild owner only (checked at runtime, not just by the command's default visibility).
-- **What happens:** triggers the same test-gated self-updater the timer uses (`scripts/update.sh`: fetch → tests must pass → restart), so a manual update is exactly as safe as an automatic one — a red suite rolls back and the running bot is untouched. Prefers the `cuffbot-update` systemd unit (runs outside the bot's own lifecycle); falls back to a detached script run. Reply points at `journalctl -u cuffbot-update`.
-- **Reliability:** wants the systemd update unit + the scoped sudoers drop-in that `setup-pi.sh` step 8 installs. Without them it still attempts a detached run.
+- **What happens:** triggers the same test-gated self-updater the timer uses (`scripts/update.sh`: fetch → tests must pass → deploy-commands → restart), so a manual update is exactly as safe as an automatic one — a red suite rolls back and the running bot is untouched. Prefers the `cuffbot-update` systemd unit (runs outside the bot's own lifecycle); falls back to a detached script run.
+- **Live status in Discord (S25):** the reply updates as the update progresses — `✅ Already up to date` when nothing is new; `🔄 New version fetched (old → new), tests running…` when something arrived; `🚨 FAILED its tests and was rolled back` when the gate refused it. When the update succeeds, the restart kills the bot mid-command — the order is remembered in the store, and right after boot the bot posts **"✅ Update complete: `old` → `new` — back on duty"** in the channel where `/update` was typed, pinging the admin who ordered it (core's `update-report` boot event; stale orders >30 min are dropped silently).
+- **Reliability:** wants the systemd update unit + the scoped sudoers drop-in that `setup-pi.sh` step 8 installs. Without them it still attempts a detached run. One update order at a time — a second `/update` while one runs is refused.
 
 ## Events
 
@@ -123,3 +124,4 @@ Boot fails fast with a named-variable error message when required settings are m
 |---|---|
 | S1 | Created: `/radio-check`, on-duty sweep, guild lockdown, core plumbing (config/logger/loader), tests. |
 | S9 | Added dual invocation (`/x` + `!x`) via `src/core/prefix/`, `/help` (generated roster), `/update` (manual self-update), Message Content intent with graceful slash-only fallback. |
+| S25 | `/update` got a feedback loop: live status edits (up-to-date / fetched+testing / rolled-back) and a post-restart "back on duty" report in the invoking channel via the `update-report` boot event + a store marker. |
