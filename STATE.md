@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 20 · 2026-07-24
-**Phase:** M1–M11 complete; ops chain diagnosable (S18). Autonomous marathon running: M12 fallen tracker → M13 starboard → M15 chat starter (M14 awaits owner scope).
+**Last updated:** Session 21 · 2026-07-24
+**Phase:** M1–M12 complete; ops chain diagnosable (S18). Autonomous marathon running: M13 starboard → M15 chat starter (M14 awaits owner scope).
 
 ## Verification block — run this before trusting the rest
 
@@ -16,14 +16,16 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 283/283 pass as of S20 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'patrol', 'public-affairs', 'records', 'trivia' ]` |
-| Manuals current | `ls docs/modules/` | academy, birthdays, core, detective, dispatch, enforcement, leveling, patrol, public-affairs, records, trivia |
+| Tests green | `npm test` | 292/292 pass as of S21 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'memorial', 'patrol', 'public-affairs', 'records', 'trivia' ]` |
+| Manuals current | `ls docs/modules/` | academy, birthdays, core, detective, dispatch, enforcement, leveling, memorial, patrol, public-affairs, records, trivia |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 20 · 2026-07-24)
+## What exists (verified Session 21 · 2026-07-24)
+
+- **Memorial (M12, S21):** module `memorial` — fallen-heroes tracker. Polls the owner-specified feeds every 30 min (`FEEDS` in service.js: firehero→role 6279…, odmp→role 4510…), zero-dep RSS parser (`lib/rss.js`: CDATA/entities/link-as-guid, garbage→[]). **First sweep baselines a feed (marks seen, posts nothing)** — no history flood; afterwards new entries post oldest-first (cap 5/feed/sweep), embed + role tag with allowedMentions scoped to that role (the bot's one deliberate ping). Failed sends stay unseen → retried next sweep. `/memorial-config` (admin: enabled/channel/preview — preview fetches live without posting). Manual `memorial.md`.
 
 - **Trivia (M11, S20):** module `trivia` — `/trivia [set]` posts a buttoned question (A–E) in the channel: first correct press wins a point, ONE guess per member, 20 s timeout reveals the answer (+fact). One active round per channel (in-RAM; restart forfeits the round, never the scores). `/trivia-scores` (store-backed leaderboard), `/trivia-sets`. Question banks are data-driven JSON files in `src/modules/trivia/data/` (validateSet at load, bad files skipped loudly) — ships with police-codes + world-police. Buttons handled by a module-owned InteractionCreate handler filtering the `trivia:` customId prefix (stale/foreign presses politely refused). Manual `trivia.md`.
 
@@ -49,7 +51,7 @@
 
 ## Resume point
 
-**M1–M11 complete: 11 modules, 36 commands, 283 tests, dual invocation, self-update, audited.**
+**M1–M12 complete: 12 modules, 37 commands, 292 tests, dual invocation, self-update, audited.**
 
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.
@@ -57,7 +59,7 @@
 
 3. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
 
-Next: **M12 — fallen tracker** (autonomous marathon, owner mandate 2026-07-24); then M13 starboard, M15 chat starter. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
+Next: **M13 — starboard** (autonomous marathon); then M15 chat starter. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
 
 
 ## Open problems / blockers

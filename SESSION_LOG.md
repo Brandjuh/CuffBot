@@ -498,3 +498,21 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 **Decisions:** buttons over typed answers (works without the Message Content intent and prevents answer-editing); single-question rounds (repeat /trivia for more) over multi-question sessions — simpler state, and scores accumulate across rounds anyway; RAM-only rounds (a forfeited round on restart is harmless; persistent scores are what matter).
 
 **State for next session:** M12 fallen tracker is next in the marathon.
+
+---
+
+## Session 21 — 2026-07-24
+
+**Goal:** M12 — fallen tracker (autonomous marathon).
+
+**Done:**
+- Module `memorial`: polls the two owner-specified feeds — 🚒 firehero.org/feed/ → role 627943529544417300, 🚓 odmp.org/feed → role 451095508560379934 — every 30 minutes (plus at boot), with an honest User-Agent.
+- `lib/rss.js`: zero-dependency, pure RSS extractor (guid/link/title/pubDate) that survives CDATA, entities (named/decimal/hex), attribute-bearing tags; garbage yields [] instead of throwing; items without guid AND link are dropped (nothing to dedupe on).
+- **Baseline-first-sweep:** first sight of a feed marks all current items seen WITHOUT posting — a fresh install honors the fallen going forward, never floods years of history. After baseline: new items post oldest-first, capped 5/feed/sweep, embed + role tag with allowedMentions scoped to exactly that role. Failed sends are NOT marked seen → automatic retry next sweep; no entry silently dropped.
+- `/memorial-config` (admin): enabled/channel/`preview` (fetches each feed live and shows the latest entry ephemerally — proves reachability from the Pi without posting or marking seen).
+- Tests 283 → **292** (all network-free: fixture feeds + fake fetch): parsing edge cases, entity decoding, oldest-first + caps + seen bounding (200), baseline→post→idempotence, disabled/unconfigured/unreachable no-ops, failed-send retry, embed rendering.
+- Manual `memorial.md`; README (12 modules, 37 commands), docs index, ROADMAP M12 ✅, STATE, help badge 🕯️.
+
+**Decisions:** module named `memorial` (respectful over "fallen-tracker"); feeds+roles committed as product constants (owner-given, like homeGuildId); 30-min polling (feeds update rarely; politeness toward memorial organizations); baseline-first-sweep over "post everything on install".
+
+**State for next session:** M13 starboard is next.

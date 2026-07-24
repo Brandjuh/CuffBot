@@ -15,6 +15,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | detective | [`modules/detective.md`](modules/detective.md) | stable (S17) |
 | birthdays | [`modules/birthdays.md`](modules/birthdays.md) | stable (S19) |
 | trivia | [`modules/trivia.md`](modules/trivia.md) | stable (S20) |
+| memorial | [`modules/memorial.md`](modules/memorial.md) | stable (S21) |
 
 ## Operations
 
