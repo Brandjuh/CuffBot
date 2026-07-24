@@ -11,7 +11,7 @@
 | **Events** | `MessageCreate` — replies when the bot is @mentioned (needs Message Content intent) |
 | **Provider** | Groq (`GROQ_API_KEY`) or Google Gemini (`GEMINI_API_KEY`) — free tiers; picked automatically by which key exists |
 | **Rate limit** | **Server-wide, everyone combined:** 1 question / 7 s **and** 62 / rolling hour (owner spec) **and** the provider's free-tier daily cap — Gemini: **20 / rolling 24 h** (owner's dashboard, S27). Override: `CUFFBOT_AI_DAILY_LIMIT` (0 = off) |
-| **Data** | `aiConfig` (enabled flag) in the guild store; conversation memory is in-RAM only, never on disk |
+| **Data** | `aiConfig` (enabled flag) in the guild store; conversation memory AND the desk pile (parked questions) are in-RAM only, never on disk |
 | **Dependencies** | none beyond `fetch` (built into Node ≥18) — zero new packages |
 
 ## Owner setup (one-time)
@@ -34,13 +34,13 @@ Without a key everything else keeps working; AI commands reply "not configured".
 
 - **Options:** `question` (string, required; greedy in text form — `!ask how do sirens work` takes the whole line).
 - **What happens:** defers the reply (providers take seconds), runs the shared pipeline: enabled? → provider configured? → question non-empty (≤1000 chars, longer is cut)? → **global rate limit incl. the daily cap** → provider call (20 s timeout) → reply clamped to 1900 chars, `@everyone`/`@here` neutered, no mentions ping.
-- **Reply:** public `🕵️ <answer>`; refusals are specific and in-theme (cooldown: "one question per 7 seconds for the whole precinct, try again in Xs"; budget: "hourly detective budget (62 questions) is spent, new slot in ~Xm"; daily: "DAILY detective budget (20 questions on the free gemini tier) is spent"; no key: points the owner at this manual). A provider-side HTTP 429 gets its own "free-tier quota tapped out" message.
+- **Reply:** public `🕵️ <answer>`. **Rate-limited questions are not lost (S29, owner request):** a cooldown- or hourly-refused question is **parked on the desk pile** — the reply tells a little story ("The detective is mid-interrogation — two suspects, one donut…") plus your case number and ETA, and the answer arrives **automatically** in the same channel (pinging you, echoing your question) as soon as budget frees up. Nobody retypes anything. Pile rules: max 5 parked cases, one per member (a newer question replaces your parked one), waits ≤ 1 h only. **Daily**-budget refusals don't park (an answer half a day later helps nobody): "Come back tomorrow, officer." A provider-side HTTP 429 gets its own "free-tier quota tapped out" message.
 - **Failure modes:** provider/network error → "phone line dropped" message (logged with the real error in `journalctl`); never a crash, never a hanging "thinking…".
 
 ### /ai-config (admin — Manage Server)
 
 - **Options:** `enabled` (bool, optional; omit to view).
-- **Reply (ephemeral / DM for `!ai-config`):** enabled, detected provider + model (⚠️ warning when keyless), the rate limit, questions used this hour, and the conversation-memory settings.
+- **Reply (ephemeral / DM for `!ai-config`):** enabled, detected provider + model (⚠️ warning when keyless), the rate limit (hour + day), questions used this hour/today, the desk-pile size, and the conversation-memory settings.
 
 ## Mention replies
 
@@ -93,3 +93,4 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 |---|---|
 | S17 | Created: `/ask`, `/ai-config`, mention replies, Groq+Gemini free-tier providers, server-wide 1/7s + 62/h budget, per-channel conversation memory. |
 | S27 | Gemini default model → `gemini-2.5-flash-lite` (owner decision; dashboard limits RPM 10 / TPM 250K / RPD 20); bot-side DAILY cap (gemini 20/day, `CUFFBOT_AI_DAILY_LIMIT` override); specific 429 message; chat-starter AI shares this budget. |
+| S29 | The desk pile: cooldown/hourly-refused questions are parked with a story and answered automatically when budget frees (10 s flusher, one per tick; cap 5, one per member, ≤1 h waits; RAM-only). Daily refusals don't park. |

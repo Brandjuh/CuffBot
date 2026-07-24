@@ -14,6 +14,7 @@ import {
   pruneHistory,
 } from './lib/prompt.js';
 import { dailyLimitFor, pickProvider } from './lib/providers.js';
+import { enqueueQuestion, shouldQueue, waitStory } from './lib/queue.js';
 
 export const AI_CONFIG_KEY = 'aiConfig';
 export const DEFAULT_AI_CONFIG = { enabled: true };
@@ -47,13 +48,55 @@ export function forgetAllConversations() {
   histories.clear();
 }
 
+// The desk pile: questions parked by the rate limiter, answered automatically
+// by the flusher once a slot frees up. RAM-only — a restart clears the pile
+// (documented), which only ever means someone re-asks.
+let pendingQueue = [];
+let storyCounter = 0;
+
+export function pendingCount() {
+  return pendingQueue.length;
+}
+
+/** Test seam. */
+export function clearQueue() {
+  pendingQueue = [];
+}
+
+/** Provider call + memory, WITHOUT limiter checks — callers hold a slot. */
+async function completeQuestion({ guildId, channelId, askerName, question, now, env, fetchImpl }) {
+  const provider = pickProvider(env);
+  if (!provider) {
+    return { ok: false, message: '🕵️ No AI provider is configured anymore — the owner should check `.env`.' };
+  }
+  const messages = buildMessages(histories.get(channelId), askerName, question, now);
+  try {
+    const raw = await provider.complete({ system: PERSONA, messages, env, fetchImpl });
+    const reply = normalizeReply(raw);
+    rememberExchange(channelId, askerName, question, reply, now);
+    return { ok: true, reply };
+  } catch (error) {
+    logger.warn(`Detective: ${provider.name} call failed:`, error);
+    if (/HTTP 429/.test(String(error?.message ?? ''))) {
+      return {
+        ok: false,
+        message: `📻 ${provider.name}'s free-tier quota is tapped out for now (their side, HTTP 429). It resets automatically — try again later.`,
+      };
+    }
+    return {
+      ok: false,
+      message: '🕵️ The detective’s phone line dropped (provider error). Try again in a bit — if it keeps failing, the owner should check the API key and `journalctl -u cuffbot`.',
+    };
+  }
+}
+
 /**
  * One AI turn: availability checks → global rate limit → provider call.
  * Never throws: every failure mode returns { ok:false, message } with a
  * user-ready, in-theme explanation.
  * @returns {Promise<{ok:true, reply:string} | {ok:false, message:string}>}
  */
-export async function askDetective({ guildId, channelId, askerName, question, now = Date.now(), env = process.env, fetchImpl = fetch }) {
+export async function askDetective({ guildId, channelId, askerName, question, userId = null, now = Date.now(), env = process.env, fetchImpl = fetch }) {
   if (!getAiConfig(guildId).enabled) {
     return { ok: false, message: '🕵️ The detective is off duty — an admin can bring them back with `/ai-config enabled:True`.' };
   }
@@ -78,32 +121,76 @@ export async function askDetective({ guildId, channelId, askerName, question, no
   const slot = limiter.take(now, { maxPerDay });
   if (!slot.ok) {
     const wait = humanWait(slot.retryAfterMs);
+    // Owner request (S29): don't make people retype — park the question on
+    // the desk pile and answer automatically when a slot frees up. Daily
+    // refusals are NOT parked (hours-long waits answer into a dead room).
+    if (shouldQueue(slot.reason, slot.retryAfterMs)) {
+      const parked = enqueueQuestion(pendingQueue, {
+        guildId,
+        channelId,
+        userId,
+        askerName,
+        question: clean,
+        queuedAt: now,
+      });
+      if (parked.status !== 'full') {
+        pendingQueue = parked.queue;
+        storyCounter += 1;
+        const note = parked.status === 'replaced' ? '\n_(This replaces your earlier parked question.)_' : '';
+        return { ok: false, queued: true, message: `${waitStory(storyCounter, parked.position, wait)}${note}` };
+      }
+      return {
+        ok: false,
+        message: `🗂️ The desk pile is FULL (${pendingQueue.length} cases waiting) — the precinct is popular today. Try again in ~${wait}.`,
+      };
+    }
     const refusals = {
       cooldown: `📻 The radio is busy — one question per 7 seconds for the whole precinct. Try again in ${wait}.`,
       hourly: `📻 The precinct's hourly detective budget (62 questions) is spent. New slot in ~${wait}.`,
-      daily: `📻 The precinct's DAILY detective budget (${maxPerDay} questions on the free ${provider.name} tier) is spent. New slot in ~${wait}.`,
+      daily: `📻 The precinct's DAILY detective budget (${maxPerDay} questions on the free ${provider.name} tier) is spent — the desk pile can't bridge a wait that long. Come back tomorrow, officer.`,
     };
     return { ok: false, message: refusals[slot.reason] ?? refusals.hourly };
   }
 
-  const messages = buildMessages(histories.get(channelId), askerName, clean, now);
+  return completeQuestion({ guildId, channelId, askerName, question: clean, now, env, fetchImpl });
+}
+
+/**
+ * Answer parked questions as budget frees up (called by the queue-flush
+ * event every ~10 s; injectable for tests). Answers land in the original
+ * channel, mentioning the asker. One question per tick keeps the cooldown
+ * honest — the pile drains at the same pace members would.
+ * @returns {Promise<number>} answers delivered this tick
+ */
+export async function flushQueue(client, { now = Date.now(), env = process.env, fetchImpl = fetch } = {}) {
+  if (pendingQueue.length === 0) return 0;
+  const provider = pickProvider(env);
+  if (!provider) return 0;
+  const item = pendingQueue[0];
+  if (!getAiConfig(item.guildId).enabled) {
+    pendingQueue = pendingQueue.slice(1); // parked before the off-switch — drop silently
+    return 0;
+  }
+  const slot = limiter.take(now, { maxPerDay: dailyLimitFor(provider, env) });
+  if (!slot.ok) return 0; // still throttled — next tick tries again
+  pendingQueue = pendingQueue.slice(1);
+
+  const result = await completeQuestion({ ...item, now, env, fetchImpl });
   try {
-    const raw = await provider.complete({ system: PERSONA, messages, env, fetchImpl });
-    const reply = normalizeReply(raw);
-    rememberExchange(channelId, askerName, clean, reply, now);
-    return { ok: true, reply };
+    let channel = client.channels?.cache?.get(item.channelId) ?? null;
+    if (!channel) channel = await client.channels?.fetch?.(item.channelId).catch(() => null);
+    if (!channel?.send) return 0;
+    const mention = item.userId ? `<@${item.userId}> ` : '';
+    await channel.send({
+      content: result.ok
+        ? `🕵️ ${mention}Case reopened — you asked: “${item.question.slice(0, 150)}${item.question.length > 150 ? '…' : ''}”\n${result.reply}`
+        : `${mention}${result.message}`,
+      allowedMentions: { users: item.userId ? [item.userId] : [] },
+    });
+    return result.ok ? 1 : 0;
   } catch (error) {
-    logger.warn(`Detective: ${provider.name} call failed:`, error);
-    if (/HTTP 429/.test(String(error?.message ?? ''))) {
-      return {
-        ok: false,
-        message: `📻 ${provider.name}'s free-tier quota is tapped out for now (their side, HTTP 429). It resets automatically — try again later.`,
-      };
-    }
-    return {
-      ok: false,
-      message: '🕵️ The detective’s phone line dropped (provider error). Try again in a bit — if it keeps failing, the owner should check the API key and `journalctl -u cuffbot`.',
-    };
+    logger.warn('Detective: queue flush delivery failed:', error);
+    return 0;
   }
 }
 

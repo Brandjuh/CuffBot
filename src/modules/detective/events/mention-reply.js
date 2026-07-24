@@ -36,6 +36,7 @@ export default {
         channelId: message.channel.id,
         askerName: message.member.displayName ?? message.author.username,
         question,
+        userId: message.author.id,
       });
       await message.reply({
         content: result.ok ? `🕵️ ${result.reply}` : result.message,

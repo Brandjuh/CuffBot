@@ -628,3 +628,16 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - **`/restart`** (core, admin/owner-gated): replies, stores the order (shared update-marker, new `kind: 'restart'`), then `sudo -n systemctl restart cuffbot` — the EXACT sudoers-allowed command (arguments are part of the rule; no flags may be added). Once systemd accepts the job it survives the process death. Fallback without sudoers: exit(1) — the unit runs `Restart=on-failure` + `RestartSec=5`, so systemd revives it either way. After boot the `update-report` event posts "🔄 Restart complete — configuration reloaded, back on duty 🚔" in the invoking channel, pinging the requester (the reporter now branches on marker kind).
 - **Groq free-tier limits recorded + enforced:** `dailyLimit: 14_400` (documented dev-tier RPD for llama-3.1-8b-instant) instead of uncapped — never binding under the owner's 62/hour (max 1,488/day) but an honest knob that `CUFFBOT_AI_DAILY_LIMIT` can override if the owner's dashboard differs. RPM needs nothing: the 7 s cooldown caps at ~8.6/min, under both Groq's 30 and Gemini's 10.
 - Tests 333 → **335** (restart-kind reporter branch; /restart deny-path writes no marker — the allowed path is deliberately untested, same dangerous-in-tests precedent as /update's S10 owner path). Manuals core.md (+ /restart section) and detective.md; README 40 commands.
+
+---
+
+## Session 29 — 2026-07-24
+
+**Goal:** owner request (AI chat): a rate-limited question must be answered AUTOMATICALLY once the limit clears — nobody retypes — with a fun story in the waiting message.
+
+**Done:**
+- **The desk pile** (`lib/queue.js`, pure): cooldown- and hourly-refused questions are parked — the refusal reply tells a rotating in-theme story ("The detective is mid-interrogation — two suspects, one donut, tensions high"), the case position, and the ETA. Rules: cap 5 parked cases; ONE per member (a newer question replaces their parked one); only waits ≤ 1 h park. **Daily-budget refusals never park** (an answer half a day later lands in a dead room): "Come back tomorrow, officer."
+- **Auto-answer:** a 10 s flusher (`events/queue-flush.js` → `flushQueue`, injectable) takes a limiter slot when one frees, answers the oldest parked case in its ORIGINAL channel — pinging the asker and echoing their question ("Case reopened — you asked: …") — one per tick so the pile drains at the same cooldown pace members face directly. Dead channels consume the item without a retry loop; parked items for a guild that disabled the AI are dropped without spending budget.
+- Pipeline refactor: `completeQuestion` (provider+memory, no limiter) extracted so askDetective and the flusher share one path; both entry points now pass `userId` for the ping.
+- `/ai-config` shows the pile size. Queue is RAM-only (restart clears it — someone simply re-asks).
+- Tests 335 → **339**: queue rules (replace-per-user, cap, shouldQueue matrix, story format), park→too-soon→flush end-to-end (ping + echo + answer + scoped mentions asserted), dead-channel and disabled-guild flushes, daily-no-park; two daily tests now jump the clock 30 h for a clean rolling-24h window (the process-global limiter made low-limit tests neighbor-sensitive).
