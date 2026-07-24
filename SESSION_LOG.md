@@ -516,3 +516,21 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 **Decisions:** module named `memorial` (respectful over "fallen-tracker"); feeds+roles committed as product constants (owner-given, like homeGuildId); 30-min polling (feeds update rarely; politeness toward memorial organizations); baseline-first-sweep over "post everything on install".
 
 **State for next session:** M13 starboard is next.
+
+---
+
+## Session 22 — 2026-07-24
+
+**Goal:** M13 — starboard (autonomous marathon).
+
+**Done:**
+- Module `starboard` — the commendation board. `MessageReactionAdd` watcher: at the configured ⭐ threshold (default 3) the message reposts to the board channel as an embed (author name/avatar, content clamped at 1000 chars, first image attachment rendered, jump link, source channel, star count; never pings).
+- **Gateway plumbing:** added the non-privileged `GuildMessageReactions` intent to `BASE_INTENTS` and `Message`/`Reaction`/`Channel` partials to the client, so stars on messages from before the current boot still fire (the handler fetches partials on demand). Both changes live in the fallback path too.
+- **Exactly-once boarding:** the boarded-map is claimed synchronously BEFORE the send (two near-simultaneous stars cannot double-post); a failed send rolls the claim back so a later star retries. Map bounded at 1000 (oldest evicted). Bot reactors, the board channel itself, and foreign guilds are ignored by pure rules (`lib/board.js → shouldBoard`).
+- `/starboard-config` (admin): enabled / channel / threshold (1–25) + boarded-count status.
+- Tests 292 → **301**: the shouldBoard decision matrix, content clamp + image pick + empty-text fallback, map bounding/eviction, post-once/dedupe/rollback, embed rendering, and the event with fakes (threshold boards once, 4th star no-op, wrong emoji/low count/bot/foreign/board-channel ignored, partial fetched before judging).
+- Manual `starboard.md`; README (13 modules, 38 commands), docs index, ROADMAP M13 ✅, STATE, help badge ⭐.
+
+**Decisions:** board post shows the star count at boarding time and is not edited afterwards (live-updating counts add write traffic and edit-permission failure modes for marginal value); raw reaction count is used (self-stars count — a community that games its own commendation board is celebrating itself, which is fine).
+
+**State for next session:** M15 chat starter is the last buildable backlog item; then the marathon report.
