@@ -1006,3 +1006,13 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 450 → **454** (committed defaults; delay bounds + typo guards; tick matrix: spawned-in-channel + busy on double-tick + catch pays identically, no-intent/off/no-channel). Manual economy.md (rules, options, troubleshooting, testing, changelog).
 
 **Retrospective:** pure pattern application — S37 (reuse live primitives), S38 (intent gate), S44 (options last), S55 (resolver), promoted owner-value rule — nothing new to teach the skill from the build itself. One workflow lesson from S55 recorded in LEARNINGS (import insertion by line heuristic broke on multi-line imports; anchor scripted edits on exact text instead) — skill 0.5.12.
+
+---
+
+## Session 57 — 2026-07-24
+
+**Goal:** owner statement of fact: "Alle intents zijn geregeld. Hoef je niet opnieuw te vertellen, dankje" — all privileged intents are enabled in the portal; stop repeating intent reminders.
+
+**Done:** administrative session, no code. STATE.md's pending-actions block now records the resolution as an owner confirmation (Message Content + Server Members live → text commands, patrol, both hunt modes, welcome, and member logs fully armed) **plus the standing instruction to never repeat intent reminders in owner reports** — future sessions read STATE, so the instruction lives there, not in chat. The Server Members pending item (S34) is cleared; remaining pending items renumbered. Portal state itself is unverifiable from a session container (no bot token here) — recorded explicitly as the owner's confirmation, which is the authoritative source for their own portal.
+
+**Retrospective:** no skill change — pure application of the promoted "owner decisions land in the repo immediately" rule; the general fix (the do-not-remind instruction) belongs in STATE.md where every session reads it, and now sits there.

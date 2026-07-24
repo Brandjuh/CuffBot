@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 56 · 2026-07-24
+**Last updated:** Session 57 · 2026-07-24
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,14 +16,14 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 454/454 pass as of S56 |
+| Tests green | `npm test` | 454/454 pass as of S57 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'leveling', 'logbook', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia', 'welcome', 'youtube' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, core, detective, dispatch, economy, enforcement, leveling, logbook, memorial, patrol, public-affairs, records, starboard, trivia, welcome, youtube |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 56 · 2026-07-24)
+## What exists (verified Session 57 · 2026-07-24)
 
 - **YouTube announcer (S52):** module `youtube` — follows up to 25 creators via YouTube's public Atom feeds (**no API key**). `/youtube` (admin): enabled/channel/add (UC id, channel URL, or @handle — resolved via one page fetch)/remove/preview. **Adding baselines the back catalog** (memorial rule — no history flood); the 10-min sweep (+boot tick) posts NEW uploads oldest-first (cap 3/creator/sweep) as `📺 **Creator** just uploaded: **Title**` + the plain link (Discord renders the playable card); **S53: every announcement leads with a ping for role `625326875442675763`** (committed owner default; `allowedMentions` scoped to exactly that role; `/youtube ping-role:` retargets, `no-ping:True` silences); failed sends stay unseen and retry. No announce channel invented — owner must set one. Manual `youtube.md`.
 
@@ -67,12 +67,12 @@
 
 **M1–M13 + M15 complete plus S34–S41 (logbook, welcome, channellist, ladder resilience, economy incl. /steal + /pot, categorized viewer-filtered /help, /xp-ladder, YYYY/MM/DD birthdays + timezone picker, patrol wizard, /daily, youtube announcer): 19 modules, 53 commands, 454 tests, dual invocation, self-update, audited. The entire owner backlog is built except M14 (goal tracker — still awaits owner scope). The economy is designed for more games to plug into (`adjustBalance` seam). `/help` paginates against the 6000-char embed total (S39) — rosters can keep growing.** The FRA cog source used for S36 lives in repo `brandjuh/fireandrescueacademycogs` (`channellist/`) — re-add via add_repo if a future session needs it again. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
 
+✅ **Intents resolved (S57, owner confirmation):** ALL privileged intents are enabled in the portal — Message Content and Server Members are live, so text commands, patrol, the hunts (activity + timed), welcome messages, and member logs are fully armed. **Do NOT repeat intent reminders in owner reports** — the owner explicitly asked to stop ("Alle intents zijn geregeld. Hoef je niet opnieuw te vertellen.", S57). If an intent-gated feature misbehaves, check `/radio-check` output first instead of re-suspecting the portal.
+
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.
 2. Detective: put `GROQ_API_KEY` (or `GEMINI_API_KEY`) in the Pi's `.env` and restart — AI replies "not configured" until then (`docs/modules/detective.md` § Owner setup).
-3. Welcome + logbook member events (S34): enable the **Server Members Intent** (Developer Portal → Bot → Privileged Gateway Intents), then `/restart` — until then no welcome messages and no join/leave/nickname/role logs (`/radio-check` shows the state). Same page as the Message Content intent that text commands need. (The logbook itself needs NO setup since S35 — the owner's four log channels are committed defaults.)
-
-4. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
+3. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
 
 Next: **M14 — goal tracker** once the owner defines its scope (question queued in the owner report); otherwise: owner live-verification of the marathon modules (each manual has a checklist), then polish/ideas. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
 
