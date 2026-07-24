@@ -18,6 +18,7 @@ const MODULE_BADGES = {
   leveling: '📈',
   detective: '🕵️',
   birthdays: '🎂',
+  trivia: '❓',
 };
 
 /**
