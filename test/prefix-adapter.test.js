@@ -129,3 +129,29 @@ test('adapter accepts a text channel where addChannelTypes allows it', async () 
   assert.deepEqual(errors, []);
   assert.equal(interaction.options.getChannel('announce').id, CHAN);
 });
+
+test('a genuine Discord 50007 refusal names the per-server privacy setting (S46)', async () => {
+  const { message, channelSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
+  const refusal = new Error('Cannot send messages to this user');
+  refusal.code = 50007;
+  message.author.send = async () => { throw refusal; };
+  const parsed = parseCommandLine(message.content, '!');
+  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  await interaction.reply({ embeds: [{ description: 'secret embed' }], flags: MessageFlags.Ephemeral });
+  assert.equal(channelSends.length, 1);
+  assert.match(channelSends[0].content, /Privacy Settings/);
+  assert.equal(channelSends[0].embeds[0].description, 'secret embed', 'the private payload still arrives');
+});
+
+test('any other DM failure is reported as the bot’s problem — never "your DMs are closed" (S46)', async () => {
+  const { message, channelSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
+  const apiError = new Error('Invalid Form Body');
+  apiError.code = 50035;
+  message.author.send = async () => { throw apiError; };
+  const parsed = parseCommandLine(message.content, '!');
+  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  await interaction.reply({ embeds: [{ description: 'roster page' }], flags: MessageFlags.Ephemeral });
+  assert.equal(channelSends.length, 1);
+  assert.match(channelSends[0].content, /failed on my end/);
+  assert.ok(!/DMs are closed|Privacy Settings/.test(channelSends[0].content), 'no false blame');
+});
