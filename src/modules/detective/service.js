@@ -9,6 +9,7 @@ import {
   LIMITS,
   PERSONA,
   buildMessages,
+  estimateRequestTokens,
   normalizeQuestion,
   normalizeReply,
   pruneHistory,
@@ -114,11 +115,13 @@ export async function askDetective({ guildId, channelId, askerName, question, us
   }
 
   // The GLOBAL limit (owner spec): 1 message per 7 s AND 62 per hour, shared
-  // by everyone together — plus the active provider's free-tier DAILY request
-  // cap (Gemini free tier: 20/day, owner's dashboard). Checked before any
-  // tokens are spent.
+  // by everyone together — plus the active provider's free-tier caps:
+  // requests/day AND (S33) estimated tokens/minute + tokens/day. All checked
+  // before any tokens are spent.
   const maxPerDay = dailyLimitFor(provider, env);
-  const slot = limiter.take(now, { maxPerDay });
+  const plannedMessages = buildMessages(histories.get(channelId), askerName, clean, now);
+  const tokens = estimateRequestTokens(PERSONA, plannedMessages);
+  const slot = limiter.take(now, { maxPerDay, tokens, tpm: provider.tpm ?? null, tpd: provider.tpd ?? null });
   if (!slot.ok) {
     const wait = humanWait(slot.retryAfterMs);
     // Owner request (S29): don't make people retype — park the question on
@@ -148,6 +151,8 @@ export async function askDetective({ guildId, channelId, askerName, question, us
       cooldown: `📻 The radio is busy — one question per 7 seconds for the whole precinct. Try again in ${wait}.`,
       hourly: `📻 The precinct's hourly detective budget (62 questions) is spent. New slot in ~${wait}.`,
       daily: `📻 The precinct's DAILY detective budget (${maxPerDay} questions on the free ${provider.name} tier) is spent — the desk pile can't bridge a wait that long. Come back tomorrow, officer.`,
+      'tokens-minute': `📻 The radio channel is saturated (the free ${provider.name} tier's token budget this minute). Try again in ~${wait}.`,
+      'tokens-day': `📻 Today's token budget on the free ${provider.name} tier is spent — the detective is out of ink. Come back tomorrow, officer.`,
     };
     return { ok: false, message: refusals[slot.reason] ?? refusals.hourly };
   }
@@ -171,7 +176,13 @@ export async function flushQueue(client, { now = Date.now(), env = process.env, 
     pendingQueue = pendingQueue.slice(1); // parked before the off-switch — drop silently
     return 0;
   }
-  const slot = limiter.take(now, { maxPerDay: dailyLimitFor(provider, env) });
+  const flushMessages = buildMessages(histories.get(item.channelId), item.askerName, item.question, now);
+  const slot = limiter.take(now, {
+    maxPerDay: dailyLimitFor(provider, env),
+    tokens: estimateRequestTokens(PERSONA, flushMessages),
+    tpm: provider.tpm ?? null,
+    tpd: provider.tpd ?? null,
+  });
   if (!slot.ok) return 0; // still throttled — next tick tries again
   pendingQueue = pendingQueue.slice(1);
 
@@ -206,6 +217,10 @@ export function detectiveStatus(guildId, now = Date.now(), env = process.env) {
     maxPerHour: use.maxPerHour,
     usedToday: use.usedToday,
     maxPerDay: use.maxPerDay,
+    tokensThisMinute: use.tokensThisMinute,
+    tokensToday: use.tokensToday,
+    tpm: provider?.tpm ?? null,
+    tpd: provider?.tpd ?? null,
     historyLimits: LIMITS,
   };
 }

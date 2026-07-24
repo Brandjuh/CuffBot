@@ -22,12 +22,13 @@ async function safeText(res) {
 export const groqProvider = {
   name: 'groq',
   keyEnv: 'GROQ_API_KEY',
-  // Groq free tier for llama-3.1-8b-instant (documented dev tier): RPM 30,
-  // RPD 14,400. Our 7 s cooldown keeps RPM ≤ ~8.6, and the owner's 62/hour
-  // cap tops out at 1,488/day — both far inside the tier, but the RPD is
-  // recorded and enforced anyway so a future limit change has one honest
-  // knob (CUFFBOT_AI_DAILY_LIMIT overrides if your dashboard differs).
+  // Groq free tier for llama-3.1-8b-instant (owner dashboard 2026-07-24):
+  // RPM 30, RPD 14,400, TPM 6,000, TPD 500,000. The 7 s cooldown keeps RPM
+  // at ~8.6; RPD and both TOKEN windows are enforced by the shared limiter
+  // (tokens estimated at ~4 chars each, output reserved at 400).
   dailyLimit: 14_400,
+  tpm: 6_000,
+  tpd: 500_000,
   model: (env) => env.CUFFBOT_AI_MODEL || GROQ_DEFAULT_MODEL,
   configured: (env) => Boolean(env.GROQ_API_KEY),
   async complete({ system, messages, env, fetchImpl = fetch, timeoutMs = 20_000 }) {
@@ -57,6 +58,8 @@ export const geminiProvider = {
   name: 'gemini',
   keyEnv: 'GEMINI_API_KEY',
   dailyLimit: 20, // owner's free-tier dashboard: 20 requests/day for this model
+  tpm: 250_000, // owner dashboard: 250K tokens/minute — effectively never binding here
+  tpd: null,
   model: (env) => env.CUFFBOT_AI_MODEL || GEMINI_DEFAULT_MODEL,
   configured: (env) => Boolean(env.GEMINI_API_KEY),
   async complete({ system, messages, env, fetchImpl = fetch, timeoutMs = 20_000 }) {

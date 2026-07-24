@@ -24,45 +24,61 @@ const DAY_MS = 24 * HOUR_MS;
  */
 export function createLimiter(limits = {}) {
   const cfg = { ...DEFAULT_LIMITS, ...limits };
-  let stamps = []; // timestamps of granted calls, pruned to the last 24 h
+  let stamps = []; // {t, tok} per granted call, pruned to the last 24 h
 
-  const withinHour = (now) => stamps.filter((t) => now - t < HOUR_MS);
+  const within = (now, windowMs) => stamps.filter((s) => now - s.t < windowMs);
+  const tokensIn = (list) => list.reduce((n, s) => n + (s.tok ?? 0), 0);
 
   return {
     /**
      * Try to consume one slot at `now`. Grants record themselves; refusals
-     * report why and when to retry. `overrides` supplies call-time limits
-     * (e.g. the active provider's daily cap).
-     * @returns {{ ok:true } | { ok:false, reason:'cooldown'|'hourly'|'daily', retryAfterMs:number }}
+     * report why and when to retry. `overrides` supplies call-time limits from
+     * the active provider: `maxPerDay` (requests/day), and — S33 — `tokens`
+     * (this request's estimated cost) with `tpm`/`tpd` token windows.
+     * @returns {{ ok:true } | { ok:false, reason:'cooldown'|'hourly'|'daily'|'tokens-minute'|'tokens-day', retryAfterMs:number }}
      */
     take(now, overrides = {}) {
       const eff = { ...cfg, ...overrides };
-      stamps = stamps.filter((t) => now - t < DAY_MS);
+      const tokens = overrides.tokens ?? 0;
+      stamps = within(now, DAY_MS);
       const last = stamps[stamps.length - 1];
-      if (last !== undefined && now - last < eff.minIntervalMs) {
-        return { ok: false, reason: 'cooldown', retryAfterMs: eff.minIntervalMs - (now - last) };
+      if (last !== undefined && now - last.t < eff.minIntervalMs) {
+        return { ok: false, reason: 'cooldown', retryAfterMs: eff.minIntervalMs - (now - last.t) };
       }
-      const hour = withinHour(now);
+      const hour = within(now, HOUR_MS);
       if (hour.length >= eff.maxPerHour) {
         // The oldest in-window stamp aging out frees the next slot.
-        return { ok: false, reason: 'hourly', retryAfterMs: hour[0] + HOUR_MS - now };
+        return { ok: false, reason: 'hourly', retryAfterMs: hour[0].t + HOUR_MS - now };
       }
       if (eff.maxPerDay != null && stamps.length >= eff.maxPerDay) {
-        return { ok: false, reason: 'daily', retryAfterMs: stamps[0] + DAY_MS - now };
+        return { ok: false, reason: 'daily', retryAfterMs: stamps[0].t + DAY_MS - now };
       }
-      stamps.push(now);
+      if (eff.tpm != null && tokens > 0) {
+        const minute = within(now, 60_000);
+        if (tokensIn(minute) + tokens > eff.tpm) {
+          const retryAt = minute.length > 0 ? minute[0].t + 60_000 : now + 60_000;
+          return { ok: false, reason: 'tokens-minute', retryAfterMs: Math.max(1_000, retryAt - now) };
+        }
+      }
+      if (eff.tpd != null && tokens > 0 && tokensIn(stamps) + tokens > eff.tpd) {
+        const retryAt = stamps.length > 0 ? stamps[0].t + DAY_MS : now + DAY_MS;
+        return { ok: false, reason: 'tokens-day', retryAfterMs: Math.max(1_000, retryAt - now) };
+      }
+      stamps.push({ t: now, tok: tokens });
       return { ok: true };
     },
 
     /** Usage snapshot for a status display. */
     usage(now, overrides = {}) {
       const eff = { ...cfg, ...overrides };
-      stamps = stamps.filter((t) => now - t < DAY_MS);
+      stamps = within(now, DAY_MS);
       return {
-        usedThisHour: withinHour(now).length,
+        usedThisHour: within(now, HOUR_MS).length,
         maxPerHour: eff.maxPerHour,
         usedToday: stamps.length,
         maxPerDay: eff.maxPerDay ?? null,
+        tokensThisMinute: tokensIn(within(now, 60_000)),
+        tokensToday: tokensIn(stamps),
       };
     },
   };

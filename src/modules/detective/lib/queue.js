@@ -24,9 +24,10 @@ export function enqueueQuestion(queue, item, cap = QUEUE_CAP) {
   return { queue: [...queue, { ...item }], status: 'queued', position: queue.length + 1 };
 }
 
-/** Should this refusal be parked at all? (daily waits are too long to be useful) */
+/** Should this refusal be parked at all? (day-long waits are too long to be useful) */
 export function shouldQueue(reason, retryAfterMs) {
-  return reason !== 'daily' && retryAfterMs <= MAX_QUEUE_WAIT_MS;
+  if (reason === 'daily' || reason === 'tokens-day') return false;
+  return retryAfterMs <= MAX_QUEUE_WAIT_MS;
 }
 
 // The fun part (owner request: "verzin er een leuk verhaaltje bij") — why the

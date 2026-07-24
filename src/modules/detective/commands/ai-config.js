@@ -25,6 +25,7 @@ export default {
           `**Provider:** ${s.provider ? `${s.provider} (model \`${s.model}\`)` : '⚠️ none — add `GROQ_API_KEY` or `GEMINI_API_KEY` to `.env` and restart'}`,
           `**Rate limit (server-wide, everyone combined):** 1 question / 7 s · max 62 / hour${s.maxPerDay ? ` · max ${s.maxPerDay} / day (free ${s.provider} tier)` : ''}`,
           `**Used this hour:** ${s.usedThisHour} / ${s.maxPerHour}${s.maxPerDay ? ` · **today:** ${s.usedToday} / ${s.maxPerDay}` : ''}`,
+          ...(s.tpm ? [`**Token budget (est.):** ${s.tokensThisMinute.toLocaleString('en-US')} / ${s.tpm.toLocaleString('en-US')} this minute${s.tpd ? ` · ${s.tokensToday.toLocaleString('en-US')} / ${s.tpd.toLocaleString('en-US')} today` : ''}`] : []),
           `**Desk pile (parked questions):** ${pendingCount()}`,
           `**Conversation memory:** last ${s.historyLimits.maxHistoryEntries} exchanges per channel, ${Math.round(s.historyLimits.historyTtlMs / 60000)} min`,
           '',
