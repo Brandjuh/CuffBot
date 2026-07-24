@@ -15,7 +15,7 @@ Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or
 
 - The prefix is `config.json → prefix` (default `!`).
 - Text arguments are positional and the last text option is greedy: `!detain @user 2h being a repeat offender` maps to `target`, `duration`, then `reason`.
-- Replies that are ephemeral as a slash command (rap sheets, refusals) are sent to the user's **DMs** as a text command, so sensitive output never becomes public.
+- Replies that are ephemeral as a slash command (rap sheets, refusals) are sent to the user's **DMs** as a text command, so sensitive output never becomes public. **When a DM fails (S46):** only Discord error 50007 is reported as a DM refusal — the note names the real fix (the server's **Privacy Settings → Direct Messages** toggle, which is per-server and separate from global DM settings, or an unblock). Every other failure is reported as the bot's own problem and logged with its error code, never blamed on "closed DMs".
 - **Text commands need the Message Content intent** (privileged). If it is not enabled in the Developer Portal, the bot still boots and runs slash commands; text commands and patrol stay disabled and a startup warning explains how to enable it (Bot → Privileged Gateway Intents → Message Content Intent). See Troubleshooting.
 
 ## Commands
@@ -141,3 +141,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S28 | `/restart` added (reload `.env` from Discord, with a post-boot "Restart complete" report via the shared marker, `kind: 'restart'`). |
 | S39 | `/help` fixed for the 18-module roster: Discord's 6000-char TOTAL embed cap broke it — now paginated into numbered ephemeral embeds (DM pages via `!help`), only visible to the asker. |
 | S43 | `/help` rebuilt: grouped by purpose categories (Moderation/Games/Fun/Ranks/Community/Info/Admin), one line per command, and viewer-filtered — members only see commands they can actually use. |
+| S46 | Text-command DM failures diagnosed honestly: 50007 → per-server privacy-setting guidance; anything else → "failed on my end" + logged error code (was: every failure claimed "your DMs are closed"). |

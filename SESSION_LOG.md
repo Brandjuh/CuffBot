@@ -865,3 +865,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests stay **418/418** — default-dependent expectations updated (ladder-reconcile floors 303/580/919 → 3482/7225/12126, promotion smoke 100 → 1000, fakes gained `getNumber`). Manual leveling.md.
 
 **Improve:** none needed — the S37 lesson ("the sweep re-applies the live rules") paid off again: threshold rebalancing required zero new reconciliation code.
+
+---
+
+## Session 46 — 2026-07-24
+
+**Goal:** owner bug report: "the bot says my DMs are closed, but they're open?"
+
+**Diagnosis:** the prefix adapter's ephemeral→DM path swallowed EVERY `author.send` error with `catch(() => null)` and always reported "your DMs are closed" — conflating genuine refusals with payload bugs and network failures, and logging nothing. Two truths hidden by that message: (1) only Discord error **50007** means a refused DM, and (2) even then the usual cause is the **per-server** privacy toggle (Server → Privacy Settings → "Direct Messages from server members"), which is separate from the global DM setting the owner had checked — "my DMs are open" and "this server blocks bot DMs" can both be true.
+
+**Done:**
+- `deliver()` now try/catches with the error in hand: **50007** → fallback note names the per-server Privacy Settings toggle and the block-list; **anything else** → "the DM failed on my end, so it lands here instead" — the member is never sent settings-hunting for our bug. Every failure is logged with its code (`journalctl` finally shows what actually happened; if the owner's case was NOT a 50007, the log will now say so).
+- Payload preserved on fallback (embeds still delivered, content prefixed with the author mention as before).
+- Tests 418 → **420** (50007 → privacy-settings note + embeds intact; a 50035 Invalid-Form-Body → "failed on my end" and explicitly NO false DM-closed/privacy blame). Manual core.md.
+
+**Handoff note:** if the owner reports it again after this update, `journalctl -u cuffbot | grep "Text-command DM"` now contains the real error code — diagnose from there instead of guessing.

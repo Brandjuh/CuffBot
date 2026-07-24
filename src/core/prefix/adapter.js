@@ -8,6 +8,7 @@
 // intent by DMing the author instead — sensitive output (rap sheets, refusals)
 // stays private, matching the slash behavior as closely as a text channel allows.
 import { MessageFlags } from 'discord.js';
+import { logger } from '../logger.js';
 import { assignOptions, usageFor } from './parse.js';
 
 const EPHEMERAL = MessageFlags.Ephemeral;
@@ -83,12 +84,24 @@ export async function createMessageInteraction(message, command, parsed) {
 
   async function deliver(payload, { asNew = false } = {}) {
     if (isEphemeral(payload)) {
-      const dm = await author.send(forChannel(payload)).catch(() => null);
-      if (dm) return dm;
-      // DMs closed — fall back to the channel with a discreet note.
-      const p = forChannel(payload);
-      p.content = `${author}, ${p.content ?? '(private reply, but your DMs are closed)'}`;
-      return message.channel.send(p);
+      try {
+        return await author.send(forChannel(payload));
+      } catch (error) {
+        // Only Discord error 50007 means the DM was genuinely refused.
+        // Anything else (bad payload, network) is OUR failure — blaming the
+        // member's "closed DMs" for it sends them hunting through settings
+        // that are already fine (S46 owner report). Log the real error.
+        logger.warn(
+          `Text-command DM to ${author.tag ?? author.id} failed (code ${error?.code ?? 'unknown'}): ${error?.message ?? error}`,
+        );
+        const p = forChannel(payload);
+        const note =
+          error?.code === 50007
+            ? '(private reply — Discord refused the DM. Check this server’s **Privacy Settings → Direct Messages**, and that CuffBot isn’t blocked.)'
+            : '(private reply — the DM failed on my end, so it lands here instead.)';
+        p.content = p.content ? `${author}, ${p.content}` : `${author}, ${note}`;
+        return message.channel.send(p);
+      }
     }
     if (asNew || !state.sent) return message.channel.send(forChannel(payload));
     return message.channel.send(forChannel(payload));
