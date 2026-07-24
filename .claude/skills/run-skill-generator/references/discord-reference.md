@@ -24,6 +24,13 @@ client.login(process.env.DISCORD_TOKEN);
 
 - String select menus cap at **25 options**. For large choice sets (all ~400 IANA timezones), use **option autocomplete** instead: `.setAutocomplete(true)` on the option, plus an `autocomplete(interaction)` export on the command — the central router (src/index.js) calls it on `interaction.isAutocomplete()` and answers `[]` on errors so a broken suggester never blocks typing. Suggestions are advisory: ALWAYS re-validate the submitted value in execute().
 
+## Component wizards (S47)
+
+- Multi-step setup flows = ephemeral message + buttons/select menus that `interaction.update()` the SAME message per step; modals for free-text input (`showModal` IS the button's response — never update alongside it; the ModalSubmit can `update()` the origin message when `isFromMessage()`).
+- Route components through a module-owned InteractionCreate handler filtering a customId prefix (`patrol-wizard:` — the trivia `trivia:` pattern generalized to buttons+selects+modals).
+- Keep the draft in RAM with a TTL and write the store ONLY on the final Save — cancel/expiry must change nothing. Seed the draft from the live config so re-running the wizard edits instead of resetting.
+- Ephemeral messages make the components single-user by construction. Text-command paths have no component interactions — point them at the slash form.
+
 ## Slash command registration
 
 - Commands are *defined* in code but must be *registered* with Discord via REST (`deploy-commands.js`). Code changes to `execute` apply on restart; changes to `data` (name/options) require re-running deploy.

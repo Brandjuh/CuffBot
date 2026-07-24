@@ -75,6 +75,18 @@ Banned-term matching is deliberately **aggressive** so it can't be dodged with s
 | `src/modules/patrol/commands/*.js` | patrol, patrol-rule, patrol-term |
 | `test/patrol-screen.test.js`, `test/patrol-event.test.js`, `test/patrol-commands.test.js` | Coverage |
 
+## The setup wizard — `/patrol-wizard` (S47)
+
+A guided, fully **ephemeral** 3-step flow (admin, Manage Server) — the clear path to a working patrol without memorizing three commands:
+
+1. **Overview** — what patrol does (delete → DM → rap sheet → evidence locker; moderators exempt) and the current status, with a Start button.
+2. **Choose rules** — a multi-select over the three categories (banned terms / invite links / spam), preselected with the current config.
+3. **Review & save** — the chosen setup summarized; **✏️ Edit banned terms** opens a modal (comma- or newline-separated, prefilled, deduped, ≤100 terms of ≤64 chars); then **🚨 Save & turn ON** or **💾 Save, keep OFF**.
+
+- The draft starts from the LIVE config (re-running the wizard edits, never resets) and lives in RAM for 10 minutes — nothing is written until Save; Cancel and expiry change nothing.
+- Interactive components need real interactions, so `!patrol-wizard` points at the slash form.
+- Implementation: pure logic in `lib/wizard.js` (term parsing, selection mapping, summaries), rendering in `wizard-ui.js`, one module-owned InteractionCreate pump filtering `patrol-wizard:` customIds (trivia pattern) in `events/wizard.js`.
+
 ## Testing
 
 - **Automated:** `npm test` — normalization/evasion, each detector (banned via spacing+leet, invites across forms and spacing, spam floods/runs), `screenMessage` rule toggles, the event handler (removes + records on a hit; no-op for mods, disabled, missing intent, clean, bots), and command smokes (permission gate, on/off, intent warning, rule toggle, term add/remove without echo). No token or network needed.
@@ -98,4 +110,5 @@ Banned-term matching is deliberately **aggressive** so it can't be dodged with s
 
 | Session | Change |
 |---|---|
+| S47 | `/patrol-wizard`: guided 3-step ephemeral setup (rule multi-select, banned-terms modal, review + enable/save), RAM draft with 10-min TTL. |
 | S13 | Created: pure screener (banned terms/invites/spam), MessageCreate handler (mod-exempt, cross-module routing), `/patrol`, `/patrol-rule`, `/patrol-term`; false-positive story documented. |

@@ -880,3 +880,16 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 418 → **420** (50007 → privacy-settings note + embeds intact; a 50035 Invalid-Form-Body → "failed on my end" and explicitly NO false DM-closed/privacy blame). Manual core.md.
 
 **Handoff note:** if the owner reports it again after this update, `journalctl -u cuffbot | grep "Text-command DM"` now contains the real error code — diagnose from there instead of guessing.
+
+---
+
+## Session 47 — 2026-07-24
+
+**Goal:** owner request: a clear wizard for setting up patrol rules.
+
+**Done:**
+- **`/patrol-wizard`** (admin, fully ephemeral) — CuffBot's first multi-step component flow: **(1) Overview** (what patrol does — delete → DM → rap sheet → evidence locker, moderators exempt — plus current status), **(2) Choose rules** (multi-select over banned-terms/invites/spam, preselected from the live config), **(3) Review & save** (summary; **✏️ Edit banned terms** opens a prefilled modal — comma/newline separated, deduped, ≤100×64 chars; then **Save & turn ON** or **Save, keep OFF**).
+- **Draft semantics:** seeded from the LIVE config (re-running edits instead of resetting), RAM-only with a 10-min TTL, written to the store only on Save — Cancel and expiry change nothing. Every step `update()`s the same ephemeral message; `showModal` is the button's response; the ModalSubmit updates the origin via `isFromMessage()`.
+- **Routing:** one module-owned InteractionCreate pump filtering `patrol-wizard:` customIds (the trivia pattern generalized to buttons + selects + modals). `!patrol-wizard` points at the slash form (text has no component interactions).
+- Pure logic in `lib/wizard.js` (parseTermsInput, applyRuleSelection, summarizeDraft, TTL rules); rendering in `wizard-ui.js`; draft state in service.
+- Tests 420 → **429**: term parsing (split/trim/dedupe/clamps), selection mapping, summaries, TTL expiry, and the FULL flow end-to-end with fakes (overview → rules → deselect spam → review → modal → enable writes exactly the drafted config and clears state), save-keep-off, cancel-saves-nothing, expired-press honesty, foreign-customId isolation, text-path pointer. Manual patrol.md; README 51 commands; skill 0.5.7 (component-wizard pattern).

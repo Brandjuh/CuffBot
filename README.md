@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 18 modules, 50 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 18 modules, 51 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -15,7 +15,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Records** 📋 | `/rapsheet`, `/expunge` | [records](docs/modules/records.md) |
 | **Dispatch** 🗄️ | `/evidence-locker`, `/dispatch` | [dispatch](docs/modules/dispatch.md) |
 | **Academy** 🎖️ | `/promote`, `/demote`, `/ranks`, `/rank-setup`, `/rank-exclude` | [academy](docs/modules/academy.md) |
-| **Patrol** 👮 | `/patrol`, `/patrol-rule`, `/patrol-term` (automod) | [patrol](docs/modules/patrol.md) |
+| **Patrol** 👮 | `/patrol-wizard` (guided setup), `/patrol`, `/patrol-rule`, `/patrol-term` (automod) | [patrol](docs/modules/patrol.md) |
 | **Public Affairs** 🍩 | `/badge`, `/wanted`, `/donut`, `/911` | [public-affairs](docs/modules/public-affairs.md) |
 | **Leveling** 🎖️ | `/level`, `/leaderboard`, `/xp-config` — message + voice XP, auto-rank | [leveling](docs/modules/leveling.md) |
 | **Detective** 🕵️ | `/ask`, `/ai-config` — talk to the bot (AI, or just @mention it) | [detective](docs/modules/detective.md) |
