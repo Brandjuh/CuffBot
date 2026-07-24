@@ -17,7 +17,7 @@ export default {
       o
         .setName('channel')
         .setDescription('Channel the list is posted in (post it with /channel-list)')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     )
     .addRoleOption((o) =>
       o.setName('role').setDescription('Only channels THIS role can see are listed'),

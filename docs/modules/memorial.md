@@ -17,7 +17,7 @@
 
 ### /memorial-config (admin — Manage Server)
 
-- **Options:** `enabled` (bool), `channel` (text channel), `preview` (bool — fetches each feed **now** and shows its latest entry ephemerally; nothing is posted, nothing is marked seen).
+- **Options:** `enabled` (bool), `channel` (text or announcement channel), `preview` (bool — fetches each feed **now** and shows its latest entry ephemerally; nothing is posted, nothing is marked seen).
 - **Reply:** ephemeral status — enabled, channel (with a ⚠️ until set), each feed with its role and baseline state.
 - Nothing is ever posted until an admin sets a channel.
 
@@ -53,3 +53,4 @@
 | Session | Change |
 |---|---|
 | S21 | Created: zero-dep RSS parser, baseline-first-sweep, 30-min polite polling, per-feed role tagging, seen-store with retry-until-delivered. |
+| S55 | Channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

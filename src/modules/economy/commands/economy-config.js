@@ -20,7 +20,7 @@ export default {
       o
         .setName('test-hunt')
         .setDescription('Spawn one crook RIGHT NOW in this channel (test)')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     ),
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;

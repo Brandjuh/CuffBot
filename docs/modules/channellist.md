@@ -65,3 +65,4 @@
 | Session | Change |
 |---|---|
 | S36 | Created: full port of the FRA channellist cog — UI-order rendering, edit-in-place sync, 10 s debounced auto-updates, boot catch-up, visibility role, ignores, header/emoji/color options. |
+| S55 | Channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

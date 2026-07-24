@@ -16,7 +16,7 @@
 
 ### /starboard-config (admin — Manage Server)
 
-- **Options:** `enabled` (bool), `channel` (text channel), `threshold` (1–25, default 3), `emoji` (S25 — a unicode emoji like 🌟/🍩, **or a custom server emoji** picked from the emoji picker so it looks like `<:name:id>`; custom emoji match on their ID). None given = view (also shows how many messages have been boarded).
+- **Options:** `enabled` (bool), `channel` (text or announcement channel), `threshold` (1–25, default 3), `emoji` (S25 — a unicode emoji like 🌟/🍩, **or a custom server emoji** picked from the emoji picker so it looks like `<:name:id>`; custom emoji match on their ID). None given = view (also shows how many messages have been boarded).
 - Nothing is boarded until an admin sets a channel.
 
 ## How it works
@@ -54,3 +54,4 @@
 |---|---|
 | S22 | Created: ⭐-threshold watcher with partials, claim-before-send dedupe, bounded boarded-map, admin config. |
 | S25 | Text always visible (REST re-fetch + embed harvesting); configurable emoji incl. custom server emoji (ID-matched). |
+| S55 | Channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

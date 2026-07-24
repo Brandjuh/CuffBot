@@ -12,6 +12,7 @@ import { logger } from '../../core/logger.js';
 import { DEFAULT_STARTER_CONFIG, pickQuestionIndex, rememberIndex, validateQuestions } from './lib/starter.js';
 import { dailyLimitFor, pickProvider } from '../detective/lib/providers.js';
 import { limiter as aiLimiter } from '../detective/service.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 
 export const STARTER_CONFIG_KEY = 'chatStarterConfig';
 export const STARTER_STATE_KEY = 'chatStarterState';
@@ -85,6 +86,8 @@ export function resetActivity() {
 export async function seedActivityFromHistory(guild, config, botUserId) {
   if (!config.channelId) return false;
   try {
+    // Read-only history peek — no send requirement here (the posting paths
+    // use resolveSendableChannel); a cache miss just falls back to boot time.
     const channel = guild.channels.cache.get(config.channelId);
     const messages = await channel?.messages?.fetch?.({ limit: 1 });
     const last = messages?.first?.();
@@ -107,8 +110,8 @@ export async function seedActivityFromHistory(guild, config, botUserId) {
  * @returns {Promise<boolean>} posted
  */
 export async function postStarter(guild, config, now = Date.now()) {
-  const channel = guild.channels.cache.get(config.channelId);
-  if (!channel?.send) return false;
+  const channel = await resolveSendableChannel(guild, config.channelId);
+  if (!channel) return false;
   const question = await nextQuestion(guild.id, config);
   if (!question) return false;
   try {

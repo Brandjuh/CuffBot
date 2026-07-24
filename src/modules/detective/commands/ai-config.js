@@ -12,7 +12,7 @@ export default {
       o
         .setName('channel')
         .setDescription('The ONLY channel where /ask and mention-replies work (S51)')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     )
     .addBooleanOption((o) =>
       o.setName('everywhere').setDescription('Lift the channel restriction — AI answers anywhere'),

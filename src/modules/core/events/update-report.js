@@ -6,6 +6,7 @@
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { getHead, takeFreshUpdateMarker } from '../update-status.js';
+import { resolveSendableChannel } from '../../../core/channels.js';
 
 export default {
   name: Events.ClientReady,
@@ -16,8 +17,8 @@ export default {
       if (!guild) return;
       const marker = takeFreshUpdateMarker(guild.id);
       if (!marker?.channelId) return;
-      const channel = guild.channels.cache.get(marker.channelId);
-      if (!channel?.send) return;
+      const channel = await resolveSendableChannel(guild, marker.channelId);
+      if (!channel) return;
 
       const { head, subject } = getHead();
       const requester = marker.requesterId ? `<@${marker.requesterId}> ` : '';

@@ -14,6 +14,7 @@ import { logger } from '../../core/logger.js';
 import { auditReason } from '../enforcement/lib/audit.js';
 import { currentRankIndex } from '../academy/lib/ladder.js';
 import { isPinnedLadder, ladderForGuild } from '../academy/service.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 import {
   DEFAULT_XP_CONFIG,
   messageXpGain,
@@ -436,7 +437,7 @@ export async function announceRankUp(guild, member, sync, config, fallbackChanne
     : `🎖️ **${who}** earned their first stripes: **${sync.to}**! Welcome to the force.`;
 
   let channel = null;
-  if (config.announceChannelId) channel = guild.channels.cache.get(config.announceChannelId) ?? null;
+  if (config.announceChannelId) channel = await resolveSendableChannel(guild, config.announceChannelId);
   if (!channel) channel = fallbackChannel;
   if (!channel?.send) return;
   await channel.send({ content: text, allowedMentions: { parse: [] } }).catch(() => {});

@@ -13,7 +13,7 @@ export default {
       o
         .setName('channel')
         .setDescription('Channel where starred messages are reposted')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     )
     .addIntegerOption((o) =>
       o.setName('threshold').setDescription('Stars needed to board a message (1–25)').setMinValue(1).setMaxValue(25),

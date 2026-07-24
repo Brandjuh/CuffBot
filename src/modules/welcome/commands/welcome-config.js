@@ -12,7 +12,7 @@ export default {
       o
         .setName('channel')
         .setDescription('Channel where newcomers are greeted')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     )
     .addStringOption((o) =>
       o.setName('message').setDescription('Custom welcome text — {user} = mention, {server} = server name'),

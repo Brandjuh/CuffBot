@@ -3,6 +3,7 @@
 // in lib/feed.js. No API key — YouTube's public Atom feeds only.
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 import {
   FEED_URL_PREFIX,
   MAX_CREATORS,
@@ -132,8 +133,8 @@ export async function sweepYouTube(guild, { fetchImpl, log = true } = {}) {
   const creators = getCreators(guild.id);
   const ids = Object.keys(creators);
   if (!config.enabled || !config.channelId || ids.length === 0) return { posted: 0, checked: 0 };
-  const channel = guild.channels.cache.get(config.channelId);
-  if (!channel?.send) return { posted: 0, checked: 0 };
+  const channel = await resolveSendableChannel(guild, config.channelId);
+  if (!channel) return { posted: 0, checked: 0 };
 
   let posted = 0;
   let checked = 0;

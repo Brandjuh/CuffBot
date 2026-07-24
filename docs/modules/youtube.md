@@ -16,7 +16,7 @@
 
 ### /youtube (admin — Manage Server)
 
-- **Options:** `enabled` (master switch), `channel` (where uploads are announced), `add` (creator: `UC…` channel ID, a `youtube.com/channel/…` URL, or an `@handle`), `remove` (name or ID), `preview` (fetches live, shows each creator's latest video, posts nothing), `ping-role` (role pinged on every new upload), `no-ping:True` (stop pinging any role). None given = status view with the full roster and the current ping target.
+- **Options:** `enabled` (master switch), `channel` (where uploads are announced — text **or Announcement/news** channel, S55), `add` (creator: `UC…` channel ID, a `youtube.com/channel/…` URL, or an `@handle`), `remove` (name or ID), `preview` (fetches live, shows each creator's latest video, posts nothing), `ping-role` (role pinged on every new upload), `no-ping:True` (stop pinging any role). None given = status view with the full roster and the current ping target.
 - **`add` semantics:** the feed is fetched once to validate the creator and learn their channel name, and every EXISTING video is baselined as seen — adding a creator never floods the channel with their back catalog; only uploads from that moment on are announced. `@handle` inputs are resolved with one page fetch.
 - Roster cap: 25 creators (status embed stays readable).
 
@@ -46,6 +46,7 @@
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Nothing ever posts | No channel set, disabled, or empty roster | `/youtube` status shows all three |
+| Channel is set but still nothing posts | Configured channel deleted, wrong type, or hidden from the bot | `/youtube` status live-probes the channel and says "I can't post there" (S55) |
 | Announcements don't ping | `no-ping` was set, or the role was deleted | `/youtube ping-role:@role` sets a (new) target |
 | The wrong role gets pinged | `ping-role` was changed | `/youtube` status shows the current target |
 | A creator was added but old videos never appeared | By design — the back catalog is baselined on add | Only NEW uploads are announced |
@@ -58,3 +59,4 @@
 |---|---|
 | S52 | Created: multi-creator upload announcements via public Atom feeds (no API key), baseline-on-add, 10-min sweep with failed-send retry, `/youtube` admin command with @handle resolution and live preview. |
 | S53 | New-upload announcements ping role `625326875442675763` (committed owner default), scoped via `allowedMentions: { roles: […] }`; `/youtube ping-role:` retargets, `no-ping:True` silences; status embed shows the ping target. |
+| S55 | `channel:` accepts Announcement (news) channels; the sweep resolves the channel via the API on a cache miss; the status embed live-probes the configured channel and warns when the bot cannot post there. |

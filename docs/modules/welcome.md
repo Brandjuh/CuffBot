@@ -16,7 +16,7 @@
 
 ### /welcome-config (admin — Manage Server)
 
-- **Options:** `enabled` (bool), `channel` (text channel), `message` (custom text — `{user}` becomes the newcomer's mention, `{server}` the server name; greedy in `!welcome-config` text form), `test` (bool — posts the welcome right now with YOU as the newcomer).
+- **Options:** `enabled` (bool), `channel` (text or announcement channel), `message` (custom text — `{user}` becomes the newcomer's mention, `{server}` the server name; greedy in `!welcome-config` text form), `test` (bool — posts the welcome right now with YOU as the newcomer).
 - The status embed shows a rendered preview and — crucially — whether the **Server Members Intent** is active; without it the bot cannot see joins at all.
 
 ## Behavior
@@ -54,3 +54,4 @@ The join event only fires with the **Server Members Intent**: Developer Portal �
 |---|---|
 | S34 | Created: lobby greeting with `{user}`/`{server}` templates, test shot, intent-aware status. |
 | S35 | Newcomers are named but never pinged (owner decision) — mentions render, notifications suppressed. |
+| S55 | Channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

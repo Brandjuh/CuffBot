@@ -5,6 +5,7 @@
 import { ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { getGuildData, setGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 import {
   ACTION_EDIT,
   ACTION_REPOST,
@@ -171,8 +172,8 @@ export function withListLock(guildId, fn) {
 export async function refreshList(guild, { forceRepost = false } = {}) {
   const config = getChannellistConfig(guild.id);
   if (!config.channelId) return 'unconfigured';
-  const channel = guild.channels.cache.get(config.channelId);
-  if (!channel?.send) return 'missing-channel';
+  const channel = await resolveSendableChannel(guild, config.channelId);
+  if (!channel) return 'missing-channel';
   const me = guild.members?.me;
   if (me && channel.permissionsFor) {
     const perms = channel.permissionsFor(me);

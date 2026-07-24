@@ -15,7 +15,7 @@ export default {
       o
         .setName('channel')
         .setDescription('Channel to revive when it goes quiet')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     )
     .addIntegerOption((o) =>
       o

@@ -3,6 +3,7 @@
 import { EmbedBuilder } from 'discord.js';
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { boardModel, DEFAULT_STARBOARD_CONFIG, isBoarded, recordBoarded } from './lib/board.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 
 export const STARBOARD_CONFIG_KEY = 'starboardConfig';
 export const STARBOARD_POSTED_KEY = 'starboardPosted';
@@ -43,8 +44,8 @@ export function starboardEmbed(model) {
  * @returns {Promise<boolean>} whether it was posted
  */
 export async function boardMessage(guild, snap, config) {
-  const channel = guild.channels.cache.get(config.channelId);
-  if (!channel?.send) return false;
+  const channel = await resolveSendableChannel(guild, config.channelId);
+  if (!channel) return false;
 
   let claimed = false;
   updateGuildData(

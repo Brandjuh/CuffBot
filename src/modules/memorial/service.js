@@ -6,6 +6,7 @@ import { EmbedBuilder } from 'discord.js';
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
 import { mergeSeen, parseFeed, unseenItems } from './lib/rss.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 
 export const MEMORIAL_CONFIG_KEY = 'memorialConfig';
 export const MEMORIAL_SEEN_KEY = 'memorialSeen';
@@ -84,8 +85,8 @@ export function memorialEmbed(feed, item) {
 export async function sweepMemorial(guild, { fetchImpl = fetch } = {}) {
   const config = getMemorialConfig(guild.id);
   if (!config.enabled || !config.channelId) return 0;
-  const channel = guild.channels.cache.get(config.channelId);
-  if (!channel?.send) return 0;
+  const channel = await resolveSendableChannel(guild, config.channelId);
+  if (!channel) return 0;
 
   let posted = 0;
   for (const feed of FEEDS) {

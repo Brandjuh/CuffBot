@@ -97,3 +97,4 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | S48 | Heist cooldown 5 min → **3 hours** (owner decision — the original limit message never reached S40's session). |
 | S49 | `/daily`: +25 🍩 per rolling 24 h with an exact-wait refusal; `formatWaitMs` shared with /steal. |
 | S50 | Game replies/refusals no longer DM on the `!` text path (owner rule: only important things in DM) — they answer in the channel as a no-ping reply; slash stays ephemeral. |
+| S55 | `/economy-config` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |

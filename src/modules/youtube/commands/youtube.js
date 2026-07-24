@@ -1,4 +1,5 @@
 import { ChannelType, EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { resolveSendableChannel } from '../../../core/channels.js';
 import { ensureInvokerPermission } from '../../enforcement/guards.js';
 import { MAX_CREATORS } from '../lib/feed.js';
 import {
@@ -20,7 +21,7 @@ export default {
       o
         .setName('channel')
         .setDescription('Channel where new uploads are posted')
-        .addChannelTypes(ChannelType.GuildText),
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
     )
     .addStringOption((o) =>
       o
@@ -87,6 +88,15 @@ export default {
 
     const config = getYouTubeConfig(guildId);
     const creators = getCreators(guildId);
+    // Live probe (S55): a configured channel the bot cannot actually post to
+    // must show up HERE, not as a silent sweep no-op.
+    let channelLine = '⚠️ not set — nothing posts until an admin picks one';
+    if (config.channelId) {
+      const target = await resolveSendableChannel(interaction.guild, config.channelId);
+      channelLine = target
+        ? `<#${config.channelId}>`
+        : `⚠️ <#${config.channelId}> — I can't post there (deleted, wrong type, or hidden from me); pick another with \`channel:\``;
+    }
     const roster = Object.entries(creators)
       .map(([id, c]) => `📺 **${c.name}** — \`${id}\``)
       .join('\n');
@@ -96,7 +106,7 @@ export default {
       .setDescription(
         [
           `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
-          `**Channel:** ${config.channelId ? `<#${config.channelId}>` : '⚠️ not set — nothing posts until an admin picks one'}`,
+          `**Channel:** ${channelLine}`,
           `**Pings:** ${config.pingRoleId ? `<@&${config.pingRoleId}> on every new upload` : 'nobody'}`,
           `**Checked:** every 10 minutes (plus right after a restart)`,
           '',

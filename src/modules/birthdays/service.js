@@ -5,6 +5,7 @@ import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js
 import { logger } from '../../core/logger.js';
 import { dueBirthdays } from './lib/birthday.js';
 import { grantBirthdayBonus } from '../economy/service.js';
+import { resolveSendableChannel } from '../../core/channels.js';
 
 export const BIRTHDAY_CONFIG_KEY = 'birthdayConfig';
 export const BIRTHDAY_USERS_KEY = 'birthdayUsers';
@@ -66,8 +67,8 @@ export function removeBirthday(guildId, userId) {
 export async function sweepBirthdays(guild, now = Date.now()) {
   const config = getBirthdayConfig(guild.id);
   if (!config.enabled || !config.channelId) return 0;
-  const channel = guild.channels.cache.get(config.channelId);
-  if (!channel?.send) return 0;
+  const channel = await resolveSendableChannel(guild, config.channelId);
+  if (!channel) return 0;
 
   const due = dueBirthdays(getBirthdayUsers(guild.id), now);
   let announced = 0;
