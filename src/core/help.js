@@ -20,6 +20,7 @@ const MODULE_BADGES = {
   birthdays: '🎂',
   trivia: '❓',
   memorial: '🕯️',
+  starboard: '⭐',
 };
 
 /**

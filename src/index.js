@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
+import { Client, Events, GatewayIntentBits, MessageFlags, Partials } from 'discord.js';
 import { loadEnvFile } from './core/env.js';
 import { loadConfig } from './core/config.js';
 import { logger } from './core/logger.js';
@@ -40,7 +40,12 @@ function wireSlashRouter(client) {
 }
 
 async function buildAndLogin(intents, { messageContent }) {
-  const client = new Client({ intents });
+  // Partials let reaction events fire for messages sent before this boot
+  // (starboard): the handler fetches the full objects on demand.
+  const client = new Client({
+    intents,
+    partials: [Partials.Message, Partials.Reaction, Partials.Channel],
+  });
   // Modules read product settings (e.g. homeGuildId, prefix) from here.
   client.config = config;
   // Features that need the Message Content intent (text commands, patrol) check
@@ -69,13 +74,16 @@ function isDisallowedIntents(error) {
 }
 
 // Non-privileged intents every feature set needs: GuildMessages fires
-// MessageCreate (message XP needs the event, not the content) and
-// GuildVoiceStates shows who is in voice (voice XP). Only MessageContent is
-// privileged, so the fallback keeps everything except reading message text.
+// MessageCreate (message XP needs the event, not the content),
+// GuildVoiceStates shows who is in voice (voice XP), and
+// GuildMessageReactions fires the starboard's reaction events. Only
+// MessageContent is privileged, so the fallback keeps everything except
+// reading message text.
 const BASE_INTENTS = [
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildMessages,
   GatewayIntentBits.GuildVoiceStates,
+  GatewayIntentBits.GuildMessageReactions,
 ];
 
 try {
