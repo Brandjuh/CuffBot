@@ -181,14 +181,15 @@ test('heist amounts are honest when the payer is nearly broke', () => {
   assert.equal(balanceOf(guildId, 'poorvictim'), 0);
 });
 
-test('heist cooldown: one attempt per lay-low window, stamped on both outcomes', () => {
+test('heist cooldown: one attempt per 3-hour lay-low window (S48), stamped on both outcomes', () => {
   const guildId = freshGuildId();
   const guild = { id: guildId, ownerId: 'brandjuh' };
+  const HOUR = 60 * 60_000;
   assert.equal(attemptHeist(guild, 'thief', 'v1', { random: () => 0.9, now: 1_000_000 }).code, 'failure');
-  const blocked = attemptHeist(guild, 'thief', 'v2', { random: () => 0, now: 1_000_000 + 60_000 });
+  const blocked = attemptHeist(guild, 'thief', 'v2', { random: () => 0, now: 1_000_000 + HOUR });
   assert.equal(blocked.code, 'cooldown');
-  assert.equal(blocked.waitMs, 4 * 60_000);
-  const later = attemptHeist(guild, 'thief', 'v2', { random: () => 0, now: 1_000_000 + 5 * 60_000 });
+  assert.equal(blocked.waitMs, 2 * HOUR, '3-hour window minus the hour already served');
+  const later = attemptHeist(guild, 'thief', 'v2', { random: () => 0, now: 1_000_000 + 3 * HOUR });
   assert.equal(later.code, 'success');
 });
 

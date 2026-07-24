@@ -21,7 +21,7 @@ export const DEFAULT_ECONOMY_CONFIG = {
   stealMax: 250,
   heistChance: 0.3, // /steal success odds (owner: 30%)
   heistAmount: 500, // what a successful /steal moves victim → thief; a failed one feeds the pot
-  heistCooldownMs: 5 * 60_000, // lay-low time between attempts per thief
+  heistCooldownMs: 3 * 60 * 60_000, // lay-low time per thief (S48 owner decision: 3 hours)
   potDailyTopUp: 500, // the pot grows by this every day (owner: S41)
   potWinChance: 0.005, // odds that a daily /pot try empties it (owner: 0.5%)
 };

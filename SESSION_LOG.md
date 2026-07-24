@@ -893,3 +893,13 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - **Routing:** one module-owned InteractionCreate pump filtering `patrol-wizard:` customIds (the trivia pattern generalized to buttons + selects + modals). `!patrol-wizard` points at the slash form (text has no component interactions).
 - Pure logic in `lib/wizard.js` (parseTermsInput, applyRuleSelection, summarizeDraft, TTL rules); rendering in `wizard-ui.js`; draft state in service.
 - Tests 420 → **429**: term parsing (split/trim/dedupe/clamps), selection mapping, summaries, TTL expiry, and the FULL flow end-to-end with fakes (overview → rules → deselect spam → review → modal → enable writes exactly the drafted config and clears state), save-keep-off, cancel-saves-nothing, expired-press honesty, foreign-customId isolation, text-path pointer. Manual patrol.md; README 51 commands; skill 0.5.7 (component-wizard pattern).
+
+---
+
+## Session 48 — 2026-07-24
+
+**Goal:** owner: "check the steal command — I believe I said it should be limited too. Make the cooldown 3 hours."
+
+**Verified:** no steal-limit instruction ever reached a session — S40 shipped with a 5-minute anti-spam cooldown chosen by the session itself (the owner's limit almost certainly sat in the message that was lost in transit around S40/S41, which they flagged at the time). Now specified explicitly: **3 hours**.
+
+**Done:** `heistCooldownMs` 5 min → **3 h** (owner decision, session-tagged comment); the cooldown refusal now formats the wait as hours + minutes ("~2 h 45 min"). Cooldown test rewritten around the 3-hour window (blocked mid-window with exact remaining-wait math; free again at +3 h). Tests **429/429**; manual economy.md.

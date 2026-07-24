@@ -3,6 +3,12 @@ import { attemptHeist, getEconomyConfig } from '../service.js';
 
 const noPing = { allowedMentions: { parse: [] } };
 const donuts = (n) => `**${n.toLocaleString('en-US')} donuts** 🍩`;
+const formatWait = (ms) => {
+  const totalMinutes = Math.ceil(ms / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours} h ${minutes} min` : `${minutes} min`;
+};
 
 export default {
   data: new SlashCommandBuilder()
@@ -34,9 +40,8 @@ export default {
         });
         return;
       case 'cooldown': {
-        const minutes = Math.ceil(result.waitMs / 60_000);
         await interaction.reply({
-          content: `🕶️ Lay low — the heat is still on. Try again in ~${minutes} min.`,
+          content: `🕶️ Lay low — the heat is still on. Try again in ~${formatWait(result.waitMs)}.`,
           flags: 64,
         });
         return;

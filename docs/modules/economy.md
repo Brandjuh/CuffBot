@@ -33,7 +33,7 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 
 - **30% success** (owner spec): the loot — **500 🍩** — moves from the target to you, capped by what the target actually carries ("that was everything they had on them").
 - **70% busted:** YOUR 500 🍩 drop **into the donut pot** (S41 — originally the server owner collected). A failed attempt never touches the target.
-- One attempt per **5-minute lay-low window** per thief (stamped on success and failure alike; ephemeral refusal shows the wait). Self-theft and bots refused. Outcome messages name people but never ping.
+- One attempt per **3-hour lay-low window** per thief (S48 owner decision — was 5 min; stamped on success and failure alike; the ephemeral refusal shows the remaining wait in hours + minutes). Self-theft and bots refused. Outcome messages name people but never ping.
 - House math: expected value per attempt is 0.3·500 − 0.7·500 = **−200 🍩** — stealing is a gamble, not an income.
 
 ## The donut pot 🍯 — `/pot` (S41)
@@ -87,3 +87,4 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | S38 | Created: 10k starting balance, activity pay, crook hunt (active-channel spawns, 5–20 s window, STOP POLICE catch, escape-steal from a random member), 50k birthday gift announced in the birthday message, `/donuts`, `/donut-board`, `/economy-config` with test-hunt. |
 | S40 | `/steal` heist: 30% → 500 🍩 victim→thief; busted → 500 🍩 thief→server owner; 5-min lay-low cooldown; honest capped amounts. |
 | S41 | The donut pot: all lost donuts (busted steals — replacing the S40 to-owner rule — and crook loot) pool up, +500/day, one 0.5% crack attempt per member per day, winner takes all. |
+| S48 | Heist cooldown 5 min → **3 hours** (owner decision — the original limit message never reached S40's session). |
