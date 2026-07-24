@@ -7,7 +7,14 @@
 export const DEFAULT_LIMITS = {
   minIntervalMs: 7_000, // at most one AI message per 7 seconds, server-wide
   maxPerHour: 62, // at most 62 AI messages per rolling hour, server-wide
+  // Provider free tiers also cap requests per DAY (owner's Gemini dashboard,
+  // 2026-07-24: 20/day). null = no daily cap. The effective value comes from
+  // the provider/env at call time via take()'s overrides.
+  maxPerDay: null,
 };
+
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
 
 /**
  * Create a global limiter. State lives in memory: a restart forgets at most
@@ -17,32 +24,46 @@ export const DEFAULT_LIMITS = {
  */
 export function createLimiter(limits = {}) {
   const cfg = { ...DEFAULT_LIMITS, ...limits };
-  let stamps = []; // timestamps of granted calls, pruned to the last hour
+  let stamps = []; // timestamps of granted calls, pruned to the last 24 h
+
+  const withinHour = (now) => stamps.filter((t) => now - t < HOUR_MS);
 
   return {
     /**
      * Try to consume one slot at `now`. Grants record themselves; refusals
-     * report why and when to retry.
-     * @returns {{ ok:true } | { ok:false, reason:'cooldown'|'hourly', retryAfterMs:number }}
+     * report why and when to retry. `overrides` supplies call-time limits
+     * (e.g. the active provider's daily cap).
+     * @returns {{ ok:true } | { ok:false, reason:'cooldown'|'hourly'|'daily', retryAfterMs:number }}
      */
-    take(now) {
-      stamps = stamps.filter((t) => now - t < 3_600_000);
+    take(now, overrides = {}) {
+      const eff = { ...cfg, ...overrides };
+      stamps = stamps.filter((t) => now - t < DAY_MS);
       const last = stamps[stamps.length - 1];
-      if (last !== undefined && now - last < cfg.minIntervalMs) {
-        return { ok: false, reason: 'cooldown', retryAfterMs: cfg.minIntervalMs - (now - last) };
+      if (last !== undefined && now - last < eff.minIntervalMs) {
+        return { ok: false, reason: 'cooldown', retryAfterMs: eff.minIntervalMs - (now - last) };
       }
-      if (stamps.length >= cfg.maxPerHour) {
-        // The oldest stamp aging out frees the next slot.
-        return { ok: false, reason: 'hourly', retryAfterMs: stamps[0] + 3_600_000 - now };
+      const hour = withinHour(now);
+      if (hour.length >= eff.maxPerHour) {
+        // The oldest in-window stamp aging out frees the next slot.
+        return { ok: false, reason: 'hourly', retryAfterMs: hour[0] + HOUR_MS - now };
+      }
+      if (eff.maxPerDay != null && stamps.length >= eff.maxPerDay) {
+        return { ok: false, reason: 'daily', retryAfterMs: stamps[0] + DAY_MS - now };
       }
       stamps.push(now);
       return { ok: true };
     },
 
     /** Usage snapshot for a status display. */
-    usage(now) {
-      stamps = stamps.filter((t) => now - t < 3_600_000);
-      return { usedThisHour: stamps.length, maxPerHour: cfg.maxPerHour };
+    usage(now, overrides = {}) {
+      const eff = { ...cfg, ...overrides };
+      stamps = stamps.filter((t) => now - t < DAY_MS);
+      return {
+        usedThisHour: withinHour(now).length,
+        maxPerHour: eff.maxPerHour,
+        usedToday: stamps.length,
+        maxPerDay: eff.maxPerDay ?? null,
+      };
     },
   };
 }

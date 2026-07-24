@@ -13,7 +13,7 @@ import {
   normalizeReply,
   pruneHistory,
 } from './lib/prompt.js';
-import { pickProvider } from './lib/providers.js';
+import { dailyLimitFor, pickProvider } from './lib/providers.js';
 
 export const AI_CONFIG_KEY = 'aiConfig';
 export const DEFAULT_AI_CONFIG = { enabled: true };
@@ -71,17 +71,19 @@ export async function askDetective({ guildId, channelId, askerName, question, no
   }
 
   // The GLOBAL limit (owner spec): 1 message per 7 s AND 62 per hour, shared
-  // by everyone together — checked before any tokens are spent.
-  const slot = limiter.take(now);
+  // by everyone together — plus the active provider's free-tier DAILY request
+  // cap (Gemini free tier: 20/day, owner's dashboard). Checked before any
+  // tokens are spent.
+  const maxPerDay = dailyLimitFor(provider, env);
+  const slot = limiter.take(now, { maxPerDay });
   if (!slot.ok) {
     const wait = humanWait(slot.retryAfterMs);
-    return {
-      ok: false,
-      message:
-        slot.reason === 'cooldown'
-          ? `📻 The radio is busy — one question per 7 seconds for the whole precinct. Try again in ${wait}.`
-          : `📻 The precinct's hourly detective budget (62 questions) is spent. New slot in ~${wait}.`,
+    const refusals = {
+      cooldown: `📻 The radio is busy — one question per 7 seconds for the whole precinct. Try again in ${wait}.`,
+      hourly: `📻 The precinct's hourly detective budget (62 questions) is spent. New slot in ~${wait}.`,
+      daily: `📻 The precinct's DAILY detective budget (${maxPerDay} questions on the free ${provider.name} tier) is spent. New slot in ~${wait}.`,
     };
+    return { ok: false, message: refusals[slot.reason] ?? refusals.hourly };
   }
 
   const messages = buildMessages(histories.get(channelId), askerName, clean, now);
@@ -92,6 +94,12 @@ export async function askDetective({ guildId, channelId, askerName, question, no
     return { ok: true, reply };
   } catch (error) {
     logger.warn(`Detective: ${provider.name} call failed:`, error);
+    if (/HTTP 429/.test(String(error?.message ?? ''))) {
+      return {
+        ok: false,
+        message: `📻 ${provider.name}'s free-tier quota is tapped out for now (their side, HTTP 429). It resets automatically — try again later.`,
+      };
+    }
     return {
       ok: false,
       message: '🕵️ The detective’s phone line dropped (provider error). Try again in a bit — if it keeps failing, the owner should check the API key and `journalctl -u cuffbot`.',
@@ -102,13 +110,15 @@ export async function askDetective({ guildId, channelId, askerName, question, no
 /** Status line data for /ai-config. */
 export function detectiveStatus(guildId, now = Date.now(), env = process.env) {
   const provider = pickProvider(env);
-  const use = limiter.usage(now);
+  const use = limiter.usage(now, { maxPerDay: dailyLimitFor(provider, env) });
   return {
     enabled: getAiConfig(guildId).enabled,
     provider: provider?.name ?? null,
     model: provider?.model(env) ?? null,
     usedThisHour: use.usedThisHour,
     maxPerHour: use.maxPerHour,
+    usedToday: use.usedToday,
+    maxPerDay: use.maxPerDay,
     historyLimits: LIMITS,
   };
 }

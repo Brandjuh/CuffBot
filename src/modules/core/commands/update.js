@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import {
+  behindOrigin,
   classifyPollTick,
   clearUpdateMarker,
   getHead,
@@ -135,11 +136,23 @@ export default {
         } else if (Date.now() - startedAt > POLL_LIMIT_MS) {
           stop();
           clearUpdateMarker(interaction.guild.id);
-          await interaction
-            .editReply(announcedFetch
-              ? `🔄 Still busy after ${Math.round(POLL_LIMIT_MS / 60_000)} min — check \`journalctl -u cuffbot-update -n 30\` on the Pi.`
-              : `✅ Already up to date — \`${started.head}\` is the latest version. Nothing changed.`)
-            .catch(() => {});
+          if (announcedFetch) {
+            await interaction
+              .editReply(`🔄 Still busy after ${Math.round(POLL_LIMIT_MS / 60_000)} min — check \`journalctl -u cuffbot-update -n 30\` on the Pi.`)
+              .catch(() => {});
+          } else {
+            // Nothing moved on disk. "Up to date" is only true if origin
+            // agrees — an updater that never STARTED looks identical from
+            // here, so check before claiming success.
+            const { behind } = await behindOrigin();
+            const message =
+              behind === 0
+                ? `✅ Already up to date — \`${started.head}\` is the latest version. Nothing changed.`
+                : behind === null
+                  ? '⚠️ Could not verify against GitHub (network/credentials?) — run `npm run doctor` on the Pi; it names the problem.'
+                  : `🚨 There IS a newer version (${behind} commit(s) ahead) but the updater never ran — the update service or its sudo rights are probably missing. On the Pi: \`bash scripts/update.sh\` now, and \`bash scripts/setup-pi.sh\` once to fix it permanently.`;
+            await interaction.editReply(message).catch(() => {});
+          }
         }
       } catch (error) {
         logger.warn('Update poll failed:', error);

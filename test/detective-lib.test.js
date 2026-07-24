@@ -8,7 +8,7 @@ import {
   normalizeReply,
   pruneHistory,
 } from '../src/modules/detective/lib/prompt.js';
-import { geminiProvider, groqProvider, pickProvider } from '../src/modules/detective/lib/providers.js';
+import { dailyLimitFor, geminiProvider, groqProvider, pickProvider } from '../src/modules/detective/lib/providers.js';
 
 // ── rate limiting (owner spec: server-wide, 1/7s, 62/hour) ──────────────────
 
@@ -43,8 +43,8 @@ test('limiter usage reports the rolling-hour count', () => {
   const t0 = 50_000_000;
   lim.take(t0);
   lim.take(t0 + 8_000);
-  assert.deepEqual(lim.usage(t0 + 9_000), { usedThisHour: 2, maxPerHour: 62 });
-  assert.deepEqual(lim.usage(t0 + 3_700_000), { usedThisHour: 0, maxPerHour: 62 });
+  assert.deepEqual(lim.usage(t0 + 9_000), { usedThisHour: 2, maxPerHour: 62, usedToday: 2, maxPerDay: null });
+  assert.deepEqual(lim.usage(t0 + 3_700_000), { usedThisHour: 0, maxPerHour: 62, usedToday: 2, maxPerDay: null });
 });
 
 test('humanWait rounds up to whole seconds/minutes', () => {
@@ -177,4 +177,42 @@ test('pickProvider: first configured key wins; CUFFBOT_AI_PROVIDER pins explicit
     'gemini',
   );
   assert.equal(pickProvider({ CUFFBOT_AI_PROVIDER: 'groq' }), null, 'pinned but keyless = unconfigured');
+});
+
+test('limiter enforces a provider daily cap and frees it after 24 h (S27)', () => {
+  const lim = createLimiter({ minIntervalMs: 0, maxPerHour: 1000 });
+  const t0 = 700_000_000;
+  for (let i = 0; i < 20; i += 1) {
+    assert.equal(lim.take(t0 + i * 60_000, { maxPerDay: 20 }).ok, true, `grant ${i + 1}`);
+  }
+  const refused = lim.take(t0 + 21 * 60_000, { maxPerDay: 20 });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.reason, 'daily');
+  assert.equal(refused.retryAfterMs, t0 + 24 * 3_600_000 - (t0 + 21 * 60_000));
+  // No cap when maxPerDay is null.
+  assert.equal(lim.take(t0 + 22 * 60_000, { maxPerDay: null }).ok, true);
+  // A day after the first grant, a capped slot frees up again.
+  assert.equal(lim.take(t0 + 24 * 3_600_000 + 22 * 60_000, { maxPerDay: 20 }).ok, true);
+});
+
+test('limiter usage reports daily numbers alongside hourly (S27)', () => {
+  const lim = createLimiter({ minIntervalMs: 0 });
+  const t0 = 900_000_000;
+  lim.take(t0);
+  lim.take(t0 + 2 * 3_600_000); // outside the hour window, inside the day
+  const use = lim.usage(t0 + 2 * 3_600_000 + 1_000, { maxPerDay: 20 });
+  assert.equal(use.usedThisHour, 1);
+  assert.equal(use.usedToday, 2);
+  assert.equal(use.maxPerDay, 20);
+});
+
+test('provider defaults: gemini-2.5-flash-lite + 20/day; groq uncapped (S27, owner spec)', () => {
+  assert.equal(geminiProvider.model({}), 'gemini-2.5-flash-lite');
+  assert.equal(geminiProvider.dailyLimit, 20);
+  assert.equal(groqProvider.dailyLimit, null);
+  assert.equal(dailyLimitFor(geminiProvider, {}), 20);
+  assert.equal(dailyLimitFor(groqProvider, {}), null);
+  assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: '50' }), 50, 'env override wins');
+  assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: '0' }), null, '0 disables the cap');
+  assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: 'junk' }), 20, 'junk falls back');
 });
