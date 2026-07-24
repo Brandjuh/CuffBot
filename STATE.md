@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 19 · 2026-07-24
-**Phase:** M1–M10 complete; ops chain made diagnosable (S18). Autonomous marathon running: M11 trivia → M12 fallen tracker → M13 starboard → M15 chat starter (M14 awaits owner scope).
+**Last updated:** Session 20 · 2026-07-24
+**Phase:** M1–M11 complete; ops chain diagnosable (S18). Autonomous marathon running: M12 fallen tracker → M13 starboard → M15 chat starter (M14 awaits owner scope).
 
 ## Verification block — run this before trusting the rest
 
@@ -16,14 +16,16 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 271/271 pass as of S19 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'patrol', 'public-affairs', 'records' ]` |
-| Manuals current | `ls docs/modules/` | academy, birthdays, core, detective, dispatch, enforcement, leveling, patrol, public-affairs, records |
+| Tests green | `npm test` | 283/283 pass as of S20 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'patrol', 'public-affairs', 'records', 'trivia' ]` |
+| Manuals current | `ls docs/modules/` | academy, birthdays, core, detective, dispatch, enforcement, leveling, patrol, public-affairs, records, trivia |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 19 · 2026-07-24)
+## What exists (verified Session 20 · 2026-07-24)
+
+- **Trivia (M11, S20):** module `trivia` — `/trivia [set]` posts a buttoned question (A–E) in the channel: first correct press wins a point, ONE guess per member, 20 s timeout reveals the answer (+fact). One active round per channel (in-RAM; restart forfeits the round, never the scores). `/trivia-scores` (store-backed leaderboard), `/trivia-sets`. Question banks are data-driven JSON files in `src/modules/trivia/data/` (validateSet at load, bad files skipped loudly) — ships with police-codes + world-police. Buttons handled by a module-owned InteractionCreate handler filtering the `trivia:` customId prefix (stale/foreign presses politely refused). Manual `trivia.md`.
 
 - **Birthdays (M10, S19):** module `birthdays` — `/birthday-set` (day+month+IANA timezone, validated incl. Feb 29; **no birth year stored**), `/birthday-remove`, `/birthdays` (upcoming, soonest first, per-member timezone), `/birthday-config` (admin: enabled+channel; off until a channel is set). 10-minute idempotent sweep (`ClientReady`, unref'd interval, tick at boot) announces on the member's OWN calendar day, once per local year — `lastAnnouncedYear` stamped BEFORE the send so failures skip a year instead of spamming every tick. Feb 29 → celebrated Mar 1 in non-leap years. Announcement pings only the birthday member. Pure calendar math in `lib/birthday.js` (Intl-based `localDateParts`). Manual `birthdays.md`.
 - **Ops hardening (S18):** doctor v2 (`npm run doctor`) diagnoses the whole update chain — git behind-origin, registered-vs-code command diff (`diffCommandSets`), cuffbot service active, update timer armed — each ❌ with its exact fix. `update.sh` logs deploy-commands failures loudly (was silent) and verifies the service is active post-restart. Boot smoke tests spawn both real entry points (no test previously evaluated `src/index.js`/`src/deploy-commands.js`). Runbook troubleshooting rewritten around doctor v2.
@@ -47,7 +49,7 @@
 
 ## Resume point
 
-**M1–M10 complete: 10 modules, 33 commands, 271 tests, dual invocation, self-update, audited.**
+**M1–M11 complete: 11 modules, 36 commands, 283 tests, dual invocation, self-update, audited.**
 
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.
@@ -55,7 +57,7 @@
 
 3. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
 
-Next: **M11 — Police trivia** (autonomous marathon, owner mandate 2026-07-24: "ga autonoom verder met alles wat je nog moet doen"); then M12 fallen tracker, M13 starboard, M15 chat starter. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
+Next: **M12 — fallen tracker** (autonomous marathon, owner mandate 2026-07-24); then M13 starboard, M15 chat starter. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
 
 
 ## Open problems / blockers

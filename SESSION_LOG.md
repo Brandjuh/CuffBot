@@ -481,3 +481,20 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 **Decisions:** no birth year stored (privacy; nobody needs a member's age to celebrate); default timezone Europe/Amsterdam (the precinct's home); sweep-stamp-before-send (duplicate announcements are worse than a skipped year on a broken channel).
 
 **State for next session:** M11 trivia is next in the marathon.
+
+---
+
+## Session 20 — 2026-07-24
+
+**Goal:** M11 — police trivia (autonomous marathon).
+
+**Done:**
+- Module `trivia` (3 commands, 1 event): `/trivia [set]` starts a one-question round in the channel — public embed with A–D answer **buttons** (no Message Content needed), first correct press wins a point, one guess per member, 20 s timeout edits the question into a reveal (answer + optional fact). One active round per channel; back-to-back rounds avoid repeating the previous question. `/trivia-scores` (persistent, store-backed, medals), `/trivia-sets` (lists installed banks).
+- **Data-driven question banks** (owner requirement "option to add more trivias later"): plain JSON files in `src/modules/trivia/data/`, validated at load (`validateSet`), invalid files skipped with a journal warning instead of crashing the module. The `/trivia` set picker choices are generated from the files at deploy time. Ships with `police-codes` and `world-police` (10 verifiable questions each; only facts, no inventions).
+- Buttons handled by a module-owned `InteractionCreate` handler filtered on the `trivia:` customId prefix — coexists with future component modules; stale-round and post-restart presses get a polite ephemeral. Active rounds are deliberately RAM-only (restart forfeits the round, never the scores).
+- Tests 271 → **283**: set validation incl. every shipped file, no-repeat picking, the answer state machine (wrong → burned guess, first correct → win, locked after win), render models, leaderboard sorting, per-channel rounds, score accumulation, full command+button flows with fakes, stale/foreign button handling.
+- Manual `trivia.md` (incl. "adding a question set" recipe); README (11 modules, 36 commands), docs index, ROADMAP M11 ✅, STATE, help badge ❓.
+
+**Decisions:** buttons over typed answers (works without the Message Content intent and prevents answer-editing); single-question rounds (repeat /trivia for more) over multi-question sessions — simpler state, and scores accumulate across rounds anyway; RAM-only rounds (a forfeited round on restart is harmless; persistent scores are what matter).
+
+**State for next session:** M12 fallen tracker is next in the marathon.

@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 10 modules, 33 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 11 modules, 36 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -20,6 +20,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Leveling** 🎖️ | `/level`, `/leaderboard`, `/xp-config` — message + voice XP, auto-rank | [leveling](docs/modules/leveling.md) |
 | **Detective** 🕵️ | `/ask`, `/ai-config` — talk to the bot (AI, or just @mention it) | [detective](docs/modules/detective.md) |
 | **Birthdays** 🎂 | `/birthday-set`, `/birthday-remove`, `/birthdays`, `/birthday-config` | [birthdays](docs/modules/birthdays.md) |
+| **Trivia** ❓ | `/trivia`, `/trivia-scores`, `/trivia-sets` — buttoned quiz rounds | [trivia](docs/modules/trivia.md) |
 
 Enforcement actions flow into the rap sheet and the evidence locker automatically. The bot **self-updates** from `main` (test-gated) and is operated from a Raspberry Pi — see [operations](docs/README.md#operations).
 
