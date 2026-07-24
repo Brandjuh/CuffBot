@@ -27,3 +27,15 @@ test('botIdFromToken decodes a snowflake from the first segment', () => {
   assert.equal(botIdFromToken('not-base64-snowflake.a.b'), null);
   assert.equal(botIdFromToken(''), null);
 });
+
+test('diffCommandSets reports missing/extra/in-sync correctly', async () => {
+  const { diffCommandSets } = await import('../src/core/diagnostics.js');
+  const assert = (await import('node:assert/strict')).default;
+  const both = diffCommandSets(['a', 'b', 'ask'], ['a', 'b', 'old-cmd']);
+  assert.deepEqual(both.missing, ['ask']);
+  assert.deepEqual(both.extra, ['old-cmd']);
+  assert.equal(both.inSync, false);
+  const sync = diffCommandSets(['a', 'b'], ['b', 'a']);
+  assert.equal(sync.inSync, true);
+  assert.deepEqual(sync.missing, []);
+});

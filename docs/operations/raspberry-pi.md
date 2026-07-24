@@ -67,14 +67,18 @@ Every command also works as `!command` (e.g. `!help`, `!cite @user spam`). This 
 
 ## Troubleshooting
 
+**Start here for almost everything:** `cd ~/CuffBot && npm run doctor`. Since S18 the doctor checks the whole chain — credentials against Discord, whether the checkout is behind GitHub (self-updater stalled), whether every command in the code is actually registered in Discord (it lists exactly which are missing), whether the bot service is running, and whether the update timer is armed — and prints the exact fix command for each ❌.
+
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| **Anything credential-related** | — | `cd ~/CuffBot && npm run doctor` — verifies your `.env` and token **against Discord itself** and names the exact problem (invalid token, token/application mismatch, quotes/whitespace in `.env`) |
+| **A command is missing in Discord** (e.g. a new `/x` never appears) | Registration failed during self-update, or the updater never ran | `npm run doctor` → follow its arrow; usually `node src/deploy-commands.js`. Since S18 the updater logs registration failures loudly: `journalctl -u cuffbot-update -n 30` |
+| **Every command errors / "application did not respond"** | Bot process down or crash-looping | `npm run doctor` (Services section) → `journalctl -u cuffbot -n 30` names the crash |
+| **New features never arrive on the Pi** | Update timer not armed, or git fetch failing (credentials) | `npm run doctor` (Update chain + Services) → re-run `bash scripts/setup-pi.sh` to arm the timer |
+| Anything credential-related | — | `npm run doctor` — verifies your `.env` and token **against Discord itself** and names the exact problem |
 | `git clone` asks for a password and rejects your GitHub password | Repo is private; git needs a token, not your password | Create the Personal Access Token described above and paste it as the password |
 | Script aborts: "armv6 … no builds" | Pi 1 / Pi Zero | Use a Pi 2 or newer |
 | "Command registration failed" | Token or client id wrong in `.env` | Fix `~/CuffBot/.env`, re-run the script |
 | Service runs but bot is offline in Discord | Wrong token, or bot not invited to the precinct | `journalctl -u cuffbot -n 50`; check the invite step in README → Quickstart |
-| `/radio-check` missing in the picker | Commands not registered after a change | Re-run the script (it re-registers), wait a few seconds, reopen Discord |
 | Bot immediately leaves your server | That guild is not the home precinct — by design | Set the right id in `config.json → homeGuildId`, re-run the script |
 
 More bot-level troubleshooting: [`docs/modules/core.md → Troubleshooting`](../modules/core.md#troubleshooting).
