@@ -29,6 +29,20 @@ async function runCommand(command, interaction) {
 
 function wireSlashRouter(client) {
   client.on(Events.InteractionCreate, async (interaction) => {
+    // Autocomplete (S44): commands may export autocomplete(interaction) to
+    // serve typed-suggestion options (e.g. the birthday timezone picker —
+    // select menus cap at 25 options, autocomplete does not).
+    if (interaction.isAutocomplete()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command?.autocomplete) return;
+      try {
+        await command.autocomplete(interaction);
+      } catch (error) {
+        logger.warn(`Autocomplete for "/${interaction.commandName}" failed:`, error);
+        await interaction.respond([]).catch(() => {});
+      }
+      return;
+    }
     if (!interaction.isChatInputCommand()) return;
     const command = client.commands.get(interaction.commandName);
     if (!command) {

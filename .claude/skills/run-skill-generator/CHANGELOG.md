@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.6 — 2026-07-24 (Session 44)
+
+- `discord-reference.md`: new section — select menus cap at 25 options; large choice sets use option autocomplete (`.setAutocomplete(true)` + `command.autocomplete`, routed centrally, fail-safe `[]`, submitted values re-validated).
+- Evidence: S44's timezone picker — "a dropdown with all timezones" is impossible as a literal select; autocomplete over `Intl.supportedValuesOf('timeZone')` delivers it, and the router seam now exists for every future command.
+
 ## 0.5.5 — 2026-07-24 (Session 40)
 
 - `LEARNINGS.md`: new candidate — person-references in owner specs resolve to structural handles (`guild.ownerId`, role holders) rather than hardcoded personal user ids; complements the promoted owner-defaults rule (channels/values literal, people structural).

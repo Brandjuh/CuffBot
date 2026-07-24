@@ -75,3 +75,4 @@ Removes your record (ephemeral confirmation; says so if nothing was on file).
 | S31 | Default announcement channel committed: `411609312037961729` (owner decision). |
 | S32 | Default timezone → `America/New_York` (owner decision: US-based community; Eastern is the most-populated US zone). |
 | S38 | Birthday members receive 50,000 donuts (economy seam), announced inside the birthday message. |
+| S44 | `/birthday-set` input is now a single **YYYY/MM/DD** date (year validated 1900–now, real leap-year checking; stored but never announced) and the timezone option is a **typed picker** (autocomplete over the full IANA list, US zones first). |

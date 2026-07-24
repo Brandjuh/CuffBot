@@ -13,6 +13,8 @@ import {
   isValidTimeZone,
   localDateParts,
   nextBirthdays,
+  parseBirthdayDate,
+  suggestTimeZones,
 } from '../src/modules/birthdays/lib/birthday.js';
 import {
   getBirthdayConfig,
@@ -207,4 +209,41 @@ test('the default timezone is US Eastern (S32, owner decision)', async () => {
   // July 24 it is still July 23 in New York, so the birthday is NOT due yet.
   const due = dueBirthdays({ u: { day: 24, month: 7, timeZone: 'Mars/Junk' } }, T_2026_07_24_0030Z);
   assert.deepEqual(due, [], 'invalid timezone now falls back to Eastern, not Amsterdam');
+});
+
+// ── S44: YYYY/MM/DD input + timezone suggestions ─────────────────────────────
+
+test('parseBirthdayDate accepts YYYY/MM/DD (and - or . separators), fully validated', () => {
+  assert.deepEqual(parseBirthdayDate('1990/05/23'), { year: 1990, month: 5, day: 23 });
+  assert.deepEqual(parseBirthdayDate('1990-5-3'), { year: 1990, month: 5, day: 3 });
+  assert.deepEqual(parseBirthdayDate(' 2000.12.31 '), { year: 2000, month: 12, day: 31 });
+  assert.equal(parseBirthdayDate('23/05/1990'), null, 'DD/MM/YYYY is refused — the year leads');
+  assert.equal(parseBirthdayDate('1990/13/01'), null);
+  assert.equal(parseBirthdayDate('1990/04/31'), null, 'April has 30 days');
+  assert.equal(parseBirthdayDate('nonsense'), null);
+});
+
+test('parseBirthdayDate knows leap years and bounds the year', () => {
+  assert.deepEqual(parseBirthdayDate('2000/02/29'), { year: 2000, month: 2, day: 29 }, '2000 was a leap year');
+  assert.equal(parseBirthdayDate('2001/02/29'), null, '2001 was not');
+  assert.equal(parseBirthdayDate('1899/01/01'), null, 'pre-1900 refused');
+  assert.equal(parseBirthdayDate('2030/01/01', { currentYear: 2026 }), null, 'no future birthdays');
+  assert.deepEqual(parseBirthdayDate('2026/01/01', { currentYear: 2026 }), { year: 2026, month: 1, day: 1 });
+});
+
+test('suggestTimeZones: US-first on empty query, substring search otherwise, capped at 25', () => {
+  const empty = suggestTimeZones('');
+  assert.equal(empty[0], 'America/New_York', 'the community default leads');
+  assert.ok(empty.includes('Europe/Amsterdam'));
+  assert.ok(empty.length <= 25);
+
+  const amsterdam = suggestTimeZones('amster');
+  assert.equal(amsterdam[0], 'Europe/Amsterdam');
+
+  const america = suggestTimeZones('america/');
+  assert.ok(america.length <= 25);
+  assert.ok(america.every((z) => z.toLowerCase().includes('america/')));
+  assert.equal(america[0], 'America/New_York', 'prioritized zones outrank alphabetical ones');
+
+  assert.deepEqual(suggestTimeZones('zzzzz-nope'), []);
 });

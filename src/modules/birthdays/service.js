@@ -28,11 +28,13 @@ export function getBirthdayUsers(guildId) {
   return getGuildData(guildId, BIRTHDAY_USERS_KEY, {});
 }
 
-export function setBirthday(guildId, userId, { day, month, timeZone }) {
+export function setBirthday(guildId, userId, { day, month, timeZone, year = null }) {
   return updateGuildData(
     guildId,
     BIRTHDAY_USERS_KEY,
-    (users) => ({ ...users, [userId]: { day, month, timeZone } }),
+    // The year (S44: YYYY/MM/DD input) is stored but never announced — the
+    // sweep and upcoming list read only day/month/timeZone.
+    (users) => ({ ...users, [userId]: { day, month, timeZone, ...(year ? { year } : {}) } }),
     {},
   );
 }

@@ -837,3 +837,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 411 → **415** (category ordering, member-vs-admin filtering incl. runtime-gated pair, Other-bucket behavior, the real-loader completeness sweep; the old roster smoke rewritten to assert both viewer perspectives + ephemerality). Manual core.md.
 
 **Improve:** the completeness test IS the improvement — category drift is now impossible to ship silently (same family as the S24 packaging test: assert the invariant, not the intention).
+
+---
+
+## Session 44 — 2026-07-24
+
+**Goal:** owner request: birthday input as **YYYY/MM/DD**, and "if possible a dropdown with all timezones".
+
+**Done:**
+- **`parseBirthdayDate` (pure):** single `date` option replaces day+month — `YYYY/MM/DD` (also `-`/`.` separators), fully validated against the real calendar: with the year known, **Feb 29 only passes in actual leap years**; years bounded 1900–current; DD/MM/YYYY explicitly refused. The year is **stored but never announced** (ephemeral confirmation says "the year stays private"); the sweep still reads only day/month/timeZone.
+- **Timezone picker:** a literal dropdown can hold 25 options — the IANA list has ~400+ — so the `timezone` option uses Discord's native **autocomplete**: `suggestTimeZones(query)` serves the common US zones (+ Amsterdam) on an empty query and substring-filters the FULL `Intl.supportedValuesOf('timeZone')` list as you type, prioritized zones first, capped at 25. The framework gained **autocomplete routing** (`interaction.isAutocomplete()` → `command.autocomplete(interaction)`, fail-safe empty response) — available to every future command.
+- Submit-time validation unchanged (autocomplete is advisory; typed junk still gets the friendly refusal). Text path `!birthday-set 1990/05/23 Europe/Amsterdam` works positionally (no autocomplete in text, by nature).
+- Tests 415 → **418** (format + separators + order refusal; leap-year and year-bound matrix; suggestions: US-first empty query, substring search, priority ranking, cap, no-match). Manual birthdays.md.
+
+**Improve:** skill 0.5.6 — discord-reference gains the "≤25 select options → use option autocomplete" pattern + the router seam.
