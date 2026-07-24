@@ -1076,3 +1076,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Done:** FEEDS odmp role corrected + comment trail; `odmpChannelId` committed default; firehero `match` filter; `probeFeed` + `probe:` option (appended last); tests 474 → **479** (owner-decision assertions, filter matrix, filtered-sweep end-to-end incl. baseline-on-all-news, null-vs-empty, probe outcomes; legacy tests adapted to the new defaults/filter — each adaptation is the new behavior, not a weakened assertion). Manual memorial.md; skill 0.5.14 (probe-surface candidate in LEARNINGS).
 
 **Handoff:** waiting on the owner for (a) the firefighters channel id, (b) probe results of candidate feeds. When both land: commit `fireheroChannelId`, and either swap the firehero URL for the verified source or keep the filter — one small session.
+
+---
+
+## Session 62 — 2026-07-24
+
+**Goal:** owner's live screenshot of `/memorial-config` (probe + status) surfaced three facts; make the fixable one fixable from Discord.
+
+**Live facts learned (screenshot):**
+1. **Probe of `firehero.org/feed/`: 10 items, ALL news** (scholarships, awards) — zero hero profiles. The main firehero feed is confirmed dead for memorial purposes; the S61 filter correctly passes nothing. USFA probe still to be run by the owner.
+2. **The committed firehero role `627943529544417300` no longer exists** on the live server (rendered @unknown-role) — and roles were hard-committed in FEEDS with no way to fix them without a code change.
+3. **The tracker is disabled on the live server** (`enabled: no` in the store) and the owner re-confirmed the officers ping role `627946543273738240` (matches the S61 commit; renders correctly).
+
+**Done:** per-feed ping-role overrides mirroring the S60 channel pattern — `odmpRoleId`/`fireheroRoleId` (default null → the committed FEEDS role), `roleIdForFeed`, sweep pings the override with scoped `allowedMentions` (and cleanly no-pings when a feed has no role at all); `/memorial-config` gained `officers-role:` + `firefighters-role:` (appended LAST); the status view now checks `guild.roles.cache` and prints "⚠️ role … no longer exists — set a new one with `firefighters-role:`" instead of blindly rendering @unknown-role. Tests 479 → **481**. Manual memorial.md.
+
+**Retrospective:** no skill change — S62 is the S60 override pattern applied to roles; the deeper lesson (committed ids can rot on the live server → every committed id needs a config override + a status probe) is emerging across S55/S61/S62 but is not yet distinct enough from existing candidates to record separately; revisit if it recurs.
+
+**Handoff:** owner must still (a) run `/memorial-config enabled:True`, (b) probe the USFA URL, (c) supply the firefighters channel + role (now self-serve via options).

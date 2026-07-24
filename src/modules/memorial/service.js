@@ -18,11 +18,21 @@ export const DEFAULT_MEMORIAL_CONFIG = {
   channelId: null,
   odmpChannelId: '451095508560379934', // S61 owner decision: officers channel
   fireheroChannelId: null,
+  // S62: per-feed PING-ROLE overrides — the committed firehero role turned
+  // out deleted on the live server (@unknown-role), so roles must be
+  // adjustable from Discord without a code change. null = the FEEDS default.
+  odmpRoleId: null,
+  fireheroRoleId: null,
 };
 
 /** The channel a feed posts to: its own override, else the shared channel. */
 export function channelIdForFeed(config, feedId) {
   return config[`${feedId}ChannelId`] ?? config.channelId ?? null;
+}
+
+/** The role a feed pings: the config override, else the committed default. */
+export function roleIdForFeed(config, feed) {
+  return config[`${feed.id}RoleId`] ?? feed.roleId ?? null;
 }
 
 // Owner-specified sources (S16 backlog): feed → role to tag. Committed here as
@@ -165,12 +175,13 @@ export async function sweepMemorial(guild, { fetchImpl = fetch } = {}) {
     }
 
     const fresh = unseenItems(matching, seenIds);
+    const pingRoleId = roleIdForFeed(config, feed);
     for (const item of fresh) {
       try {
         await channel.send({
-          content: `<@&${feed.roleId}>`,
+          content: pingRoleId ? `<@&${pingRoleId}>` : undefined,
           embeds: [memorialEmbed(feed, item)],
-          allowedMentions: { roles: [feed.roleId] },
+          allowedMentions: pingRoleId ? { roles: [pingRoleId] } : { parse: [] },
         });
         posted += 1;
         // Mark seen per successful post — a failure retries next sweep.
