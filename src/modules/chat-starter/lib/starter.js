@@ -2,9 +2,12 @@
 // channel earns an ice-breaker and WHICH question to post.
 
 export const DEFAULT_STARTER_CONFIG = {
-  enabled: false, // posting unprompted is opt-in by design
-  channelId: null,
-  idleMinutes: 180, // 3 hours of silence before a starter
+  // Owner decision 2026-07-24: the chat starter runs in this channel after
+  // 12 hours of silence — committed as product defaults (like the memorial
+  // feeds) so it works out of the box; /chat-starter-config overrides win.
+  enabled: true,
+  channelId: '411609312037961729',
+  idleMinutes: 720, // 12 hours of silence before a starter
   useAi: false, // when true AND the detective has a provider, generate instead of picking
 };
 

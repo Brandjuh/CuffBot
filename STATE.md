@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 29 · 2026-07-24
+**Last updated:** Session 30 · 2026-07-24
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 339/339 pass as of S29 |
+| Tests green | `npm test` | 343/343 pass as of S30 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'chat-starter', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, chat-starter, core, detective, dispatch, enforcement, leveling, memorial, patrol, public-affairs, records, starboard, trivia |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
@@ -25,7 +25,7 @@
 
 ## What exists (verified Session 23 · 2026-07-24)
 
-- **Chat starter (M15, S23):** module `chat-starter` — after `idleMinutes` (default 180) of silence in the configured channel, posts an open-ended question. 40-question bank (`data/questions.json`, validated; no-repeat ring of 10 persisted) + optional AI generation via the detective provider (own 15 s call outside the /ask budget; junk output rejected; list fallback). **Never monologues:** a human message must land between starters; the bot's own posts don't count as conversation; other bots reset only the idle clock. **Off by default** (unprompted posting is opt-in). RAM activity tracking; 5-min sweep. `/chat-starter-config` (admin: enabled/channel/idle-minutes 15–1440/use-ai/preview). Manual `chat-starter.md`.
+- **Chat starter (M15, S23):** module `chat-starter` — after `idleMinutes` (default 180) of silence in the configured channel, posts an open-ended question. 40-question bank (`data/questions.json`, validated; no-repeat ring of 10 persisted) + optional AI generation via the detective provider (own 15 s call outside the /ask budget; junk output rejected; list fallback). **Never monologues:** a human message must land between starters; the bot's own posts don't count as conversation; other bots reset only the idle clock. **S30: enabled by default for the owner's channel 411609312037961729 with a 12 h window (owner decision, committed like the memorial feeds); boot seeds the idle clock from real channel history; `test` option fires one real starter in ~30 s.** RAM activity tracking; 5-min sweep. `/chat-starter-config` (admin: enabled/channel/idle-minutes 15–1440/use-ai/preview). Manual `chat-starter.md`.
 
 - **Starboard (M13, S22):** module `starboard` — the commendation board. `MessageReactionAdd` watcher (new base intent `GuildMessageReactions` + `Message`/`Reaction`/`Channel` partials so pre-boot messages still count): at threshold (default 3×⭐) the message reposts to the board channel — author, text clamped 1000, first image attachment, jump link, star count; never pings. Exactly-once via synchronous claim-before-send (rollback on failed send → later star retries); boarded-map bounded at 1000. Bot reactors, the board channel itself, foreign guilds all ignored. `/starboard-config` (admin: enabled/channel/threshold 1–25). Manual `starboard.md`.
 
