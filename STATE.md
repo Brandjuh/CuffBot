@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 22 · 2026-07-24
-**Phase:** M1–M13 complete; ops chain diagnosable (S18). Autonomous marathon: M15 chat starter next (M14 awaits owner scope).
+**Last updated:** Session 23 · 2026-07-24
+**Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
 
@@ -16,14 +16,16 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 301/301 pass as of S22 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia' ]` |
-| Manuals current | `ls docs/modules/` | academy, birthdays, core, detective, dispatch, enforcement, leveling, memorial, patrol, public-affairs, records, starboard, trivia |
+| Tests green | `npm test` | 313/313 pass as of S23 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'chat-starter', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia' ]` |
+| Manuals current | `ls docs/modules/` | academy, birthdays, chat-starter, core, detective, dispatch, enforcement, leveling, memorial, patrol, public-affairs, records, starboard, trivia |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 22 · 2026-07-24)
+## What exists (verified Session 23 · 2026-07-24)
+
+- **Chat starter (M15, S23):** module `chat-starter` — after `idleMinutes` (default 180) of silence in the configured channel, posts an open-ended question. 40-question bank (`data/questions.json`, validated; no-repeat ring of 10 persisted) + optional AI generation via the detective provider (own 15 s call outside the /ask budget; junk output rejected; list fallback). **Never monologues:** a human message must land between starters; the bot's own posts don't count as conversation; other bots reset only the idle clock. **Off by default** (unprompted posting is opt-in). RAM activity tracking; 5-min sweep. `/chat-starter-config` (admin: enabled/channel/idle-minutes 15–1440/use-ai/preview). Manual `chat-starter.md`.
 
 - **Starboard (M13, S22):** module `starboard` — the commendation board. `MessageReactionAdd` watcher (new base intent `GuildMessageReactions` + `Message`/`Reaction`/`Channel` partials so pre-boot messages still count): at threshold (default 3×⭐) the message reposts to the board channel — author, text clamped 1000, first image attachment, jump link, star count; never pings. Exactly-once via synchronous claim-before-send (rollback on failed send → later star retries); boarded-map bounded at 1000. Bot reactors, the board channel itself, foreign guilds all ignored. `/starboard-config` (admin: enabled/channel/threshold 1–25). Manual `starboard.md`.
 
@@ -53,7 +55,7 @@
 
 ## Resume point
 
-**M1–M13 complete: 13 modules, 38 commands, 301 tests, dual invocation, self-update, audited.**
+**M1–M13 + M15 complete: 14 modules, 39 commands, 313 tests, dual invocation, self-update, audited. The entire owner backlog is built except M14 (goal tracker — needs owner scope).**
 
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.
@@ -61,7 +63,7 @@
 
 3. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
 
-Next: **M15 — chat starter** (autonomous marathon, last buildable backlog item; M14 goal tracker awaits owner scope). **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
+Next: **M14 — goal tracker** once the owner defines its scope (question queued in the owner report); otherwise: owner live-verification of the marathon modules (each manual has a checklist), then polish/ideas. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
 
 
 ## Open problems / blockers

@@ -21,6 +21,7 @@ const MODULE_BADGES = {
   trivia: '❓',
   memorial: '🕯️',
   starboard: '⭐',
+  'chat-starter': '💬',
 };
 
 /**

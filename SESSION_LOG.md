@@ -534,3 +534,21 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 **Decisions:** board post shows the star count at boarding time and is not edited afterwards (live-updating counts add write traffic and edit-permission failure modes for marginal value); raw reaction count is used (self-stars count — a community that games its own commendation board is celebrating itself, which is fine).
 
 **State for next session:** M15 chat starter is the last buildable backlog item; then the marathon report.
+
+---
+
+## Session 23 — 2026-07-24
+
+**Goal:** M15 — chat starter (final buildable backlog item of the autonomous marathon).
+
+**Done:**
+- Module `chat-starter`: when the configured channel is silent for `idle-minutes` (15–1440, default 180), the 5-minute sweep posts an open-ended question ("💬 Radio check, precinct! …", never pings).
+- **Never-monologue guard:** after a starter, at least one HUMAN message must land before the next one — the bot's own posts don't count as conversation, other bots reset only the idle clock. **Off by default** (unprompted posting is opt-in).
+- Question sources: 40-question bank in `data/questions.json` (validated at load, no-repeat ring of 10 persisted in the store) + optional `use-ai` — one short generated ice-breaker via the detective's provider (own 15 s call outside the /ask budget; too-short/junk output rejected; any trouble falls back to the list).
+- `/chat-starter-config` (admin): enabled/channel/idle-minutes/use-ai/preview (sample question ephemerally, posts nothing; warns when use-ai is on without a provider key).
+- Tests 301 → **313**: bank validity+validation, shouldPost matrix, ring avoidance without starvation, activity semantics (human re-arm / bot-own no re-arm / other-bot clock-only), the activity event, no-repeat draws, AI path incl. junk rejection via fake fetch, and the sweep end-to-end (idle→post→refuse-monologue→human→post; failure tolerance).
+- Manual `chat-starter.md`; README (14 modules, 39 commands), docs index, ROADMAP M15 ✅, STATE, help badge 💬.
+
+**Decisions:** off by default (a bot that starts posting into channels uninvited after an update would be a nasty surprise); the AI call bypasses the /ask rate budget (one question per hours; keeps member budget intact) but reuses the provider layer end-to-end.
+
+**Marathon complete:** every buildable backlog item (M9–M13, M15) is now built, tested, documented, and merged. M14 (goal tracker) deliberately not built — scope must come from the owner.

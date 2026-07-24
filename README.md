@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 13 modules, 38 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 14 modules, 39 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -23,6 +23,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Trivia** ❓ | `/trivia`, `/trivia-scores`, `/trivia-sets` — buttoned quiz rounds | [trivia](docs/modules/trivia.md) |
 | **Memorial** 🕯️ | `/memorial-config` — fallen firefighters/officers tracker (RSS, role tags) | [memorial](docs/modules/memorial.md) |
 | **Starboard** ⭐ | `/starboard-config` — ⭐-reactions repost highlights to the board | [starboard](docs/modules/starboard.md) |
+| **Chat starter** 💬 | `/chat-starter-config` — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |
 
 Enforcement actions flow into the rap sheet and the evidence locker automatically. The bot **self-updates** from `main` (test-gated) and is operated from a Raspberry Pi — see [operations](docs/README.md#operations).
 
