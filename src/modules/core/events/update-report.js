@@ -21,10 +21,14 @@ export default {
 
       const { head, subject } = getHead();
       const requester = marker.requesterId ? `<@${marker.requesterId}> ` : '';
-      const content =
-        head && head !== marker.startedHead
-          ? `✅ ${requester}Update complete: \`${marker.startedHead}\` → \`${head}\`${subject ? ` — “${subject}”` : ''}. Back on duty. 🚔`
-          : `↩️ ${requester}Back on duty on the SAME version (\`${marker.startedHead}\`) — the update was rolled back or only a restart happened. Details: \`journalctl -u cuffbot-update -n 30\`.`;
+      let content;
+      if (marker.kind === 'restart') {
+        content = `🔄 ${requester}Restart complete — configuration reloaded, back on duty. 🚔`;
+      } else if (head && head !== marker.startedHead) {
+        content = `✅ ${requester}Update complete: \`${marker.startedHead}\` → \`${head}\`${subject ? ` — “${subject}”` : ''}. Back on duty. 🚔`;
+      } else {
+        content = `↩️ ${requester}Back on duty on the SAME version (\`${marker.startedHead}\`) — the update was rolled back or only a restart happened. Details: \`journalctl -u cuffbot-update -n 30\`.`;
+      }
       await channel.send({
         content,
         allowedMentions: { users: marker.requesterId ? [marker.requesterId] : [] },

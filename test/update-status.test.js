@@ -107,3 +107,18 @@ test('boot reporter stays silent without a marker or without the channel', async
   await updateReport.execute(gone.client);
   assert.equal(gone.sends.length, 0, 'deleted channel → no crash, no send');
 });
+
+test('boot reporter announces a deliberate restart with the restart message (S28)', async () => {
+  const guildId = freshGuildId();
+  const { client, sends } = fakeClient(guildId, {
+    channelId: 'chan-1',
+    requesterId: 'u5',
+    startedHead: 'whatever',
+    at: Date.now(),
+    kind: 'restart',
+  });
+  await updateReport.execute(client);
+  assert.equal(sends.length, 1);
+  assert.match(sends[0].content, /Restart complete — configuration reloaded/);
+  assert.match(sends[0].content, /<@u5>/);
+});

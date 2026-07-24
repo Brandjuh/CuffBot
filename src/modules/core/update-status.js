@@ -23,9 +23,13 @@ export function getHead(runner = spawnSync) {
   };
 }
 
-/** Remember an ordered update so the post-restart boot can report back. */
-export function writeUpdateMarker(guildId, { channelId, requesterId, startedHead, at }) {
-  setGuildData(guildId, UPDATE_MARKER_KEY, { channelId, requesterId, startedHead, at });
+/**
+ * Remember an ordered update/restart so the post-restart boot can report back.
+ * `kind` distinguishes the report: 'update' (default) compares versions,
+ * 'restart' simply confirms the bot is back with a fresh configuration.
+ */
+export function writeUpdateMarker(guildId, { channelId, requesterId, startedHead, at, kind = 'update' }) {
+  setGuildData(guildId, UPDATE_MARKER_KEY, { channelId, requesterId, startedHead, at, kind });
 }
 
 export function clearUpdateMarker(guildId) {

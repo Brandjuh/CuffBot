@@ -25,6 +25,7 @@ Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or
 | `/radio-check` | Confirms the bot is on the air and reports round-trip latency | none | Everyone | `/radio-check` |
 | `/help` | Shows every loaded command (grouped by module) and how to use it | none | Everyone | `/help` |
 | `/update` | Updates the bot from GitHub with live status in Discord; restarts only when the tests pass | none | Administrators / guild owner | `/update` |
+| `/restart` | Restarts the bot to reload `.env`/configuration, reports back when on duty | none | Administrators / guild owner | `/restart` |
 
 ### /radio-check
 
@@ -44,6 +45,13 @@ Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or
 - **What happens:** triggers the same test-gated self-updater the timer uses (`scripts/update.sh`: fetch → tests must pass → deploy-commands → restart), so a manual update is exactly as safe as an automatic one — a red suite rolls back and the running bot is untouched. Prefers the `cuffbot-update` systemd unit (runs outside the bot's own lifecycle); falls back to a detached script run.
 - **Live status in Discord (S25):** the reply updates as the update progresses — `✅ Already up to date` when nothing is new; `🔄 New version fetched (old → new), tests running…` when something arrived; `🚨 FAILED its tests and was rolled back` when the gate refused it. When the update succeeds, the restart kills the bot mid-command — the order is remembered in the store, and right after boot the bot posts **"✅ Update complete: `old` → `new` — back on duty"** in the channel where `/update` was typed, pinging the admin who ordered it (core's `update-report` boot event; stale orders >30 min are dropped silently).
 - **Reliability:** wants the systemd update unit + the scoped sudoers drop-in that `setup-pi.sh` step 8 installs. Without them it still attempts a detached run. One update order at a time — a second `/update` while one runs is refused.
+
+### /restart
+
+- **Permission:** administrators / guild owner (runtime-checked, like `/update`).
+- **What happens (S28):** for when the owner edits `.env` (API keys, overrides) — the process must restart to re-read it. Replies "Restarting to reload the configuration", stores the order, then runs `sudo -n systemctl restart cuffbot` (the exact command the sudoers drop-in allows). After boot, the `update-report` event posts **"🔄 Restart complete — configuration reloaded, back on duty"** in the same channel, pinging the requester.
+- **Fallback without sudoers:** the process exits with a failure code — the unit runs `Restart=on-failure` with `RestartSec=5`, so systemd revives it within seconds either way.
+- **Failure modes:** non-admin → ephemeral refusal, nothing happens. Note `!restart` (text) requires the Message Content intent like every `!command`.
 
 ## Events
 
@@ -128,3 +136,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S25 | `/update` got a feedback loop: live status edits (up-to-date / fetched+testing / rolled-back) and a post-restart "back on duty" report in the invoking channel via the `update-report` boot event + a store marker. |
 | S26 | `/radio-check` now reports whether `!` text commands are live (Message Content fallback made visible in Discord); the doctor decodes the portal's intent flags and names the exact portal fix. |
 | S27 | `/update`'s "already up to date" is now verified against origin: an updater that never STARTED is reported as such (with the fix), instead of masquerading as up-to-date. |
+| S28 | `/restart` added (reload `.env` from Discord, with a post-boot "Restart complete" report via the shared marker, `kind: 'restart'`). |

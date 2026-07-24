@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 14 modules, 39 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 14 modules, 40 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -10,7 +10,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 
 | Area | Commands | Manual |
 |---|---|---|
-| **Core** 📻 | `/radio-check`, `/help`, `/update` | [core](docs/modules/core.md) |
+| **Core** 📻 | `/radio-check`, `/help`, `/update`, `/restart` | [core](docs/modules/core.md) |
 | **Enforcement** 🚨 | `/cite` (animated ticket), `/fine` (fun), `/detain`, `/release`, `/arrest` | [enforcement](docs/modules/enforcement.md) |
 | **Records** 📋 | `/rapsheet`, `/expunge` | [records](docs/modules/records.md) |
 | **Dispatch** 🗄️ | `/evidence-locker`, `/dispatch` | [dispatch](docs/modules/dispatch.md) |
