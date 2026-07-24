@@ -130,6 +130,21 @@ export function planRankSync(memberRoleIds, ladder, xp, config = DEFAULT_XP_CONF
 }
 
 /**
+ * The XP list (S42 owner request): which XP total earns which rank, lowest
+ * rank first — exactly the thresholds the promote-only sync acts on.
+ * @param {{ranks: Array<{roleId:string,name:string}>}} ladder highest-first
+ * @returns {Array<{roleId:string, name:string, fromXp:number}>}
+ */
+export function ladderTable(ladder, config = DEFAULT_XP_CONFIG) {
+  const rankCount = ladder.ranks.length;
+  const thresholds = thresholdsFor(rankCount, config);
+  return thresholds.map((fromXp, index) => ({
+    ...ladder.ranks[rankCount - 1 - index],
+    fromXp,
+  }));
+}
+
+/**
  * Progress info for a /level card.
  * @returns {{ achieved:number, rankCount:number, currentFloor:number,
  *             nextThreshold:number|null, xpIntoRank:number, xpForNext:number|null }}
