@@ -18,7 +18,10 @@ import { dailyLimitFor, pickProvider } from './lib/providers.js';
 import { enqueueQuestion, shouldQueue, waitStory } from './lib/queue.js';
 
 export const AI_CONFIG_KEY = 'aiConfig';
-export const DEFAULT_AI_CONFIG = { enabled: true };
+// Owner decision S51: the detective only talks in this channel — committed as
+// product config (owner-defaults pattern). `/ai-config channel:` overrides;
+// `everywhere:True` stores channelId null to lift the restriction.
+export const DEFAULT_AI_CONFIG = { enabled: true, channelId: '412354971170897921' };
 
 export function getAiConfig(guildId) {
   return { ...DEFAULT_AI_CONFIG, ...getGuildData(guildId, AI_CONFIG_KEY, {}) };

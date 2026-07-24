@@ -87,6 +87,12 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 | Constant hourly-budget refusals | 62/h is genuinely spent, or a member is farming | It resets on a rolling hour; `/ai-config` shows usage. Limits are owner-spec — changing them is a code change (`lib/ratelimit.js DEFAULT_LIMITS`) |
 | Answers in the wrong language | Model quirk | Re-ask explicitly ("antwoord in het Nederlands") — the persona already requests the asker's language |
 
+## The detective's desk (S51)
+
+- The AI only answers in **one channel** — committed default `412354971170897921` (owner decision). `/ask` elsewhere gets an ephemeral redirect (in-channel no-ping reply on the `!` path); a bot-mention elsewhere gets a short pointer ("You'll find my desk in #…") **without spending any AI budget**.
+- Change the desk with `/ai-config channel:#other`; lift the restriction entirely with `/ai-config everywhere:True`. The status embed shows the current desk.
+- The desk-pile flusher is unaffected: questions can only enter the pile from the desk, so parked answers always land there too.
+
 ## Changelog
 
 | Session | Change |
@@ -95,3 +101,4 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 | S27 | Gemini default model → `gemini-2.5-flash-lite` (owner decision; dashboard limits RPM 10 / TPM 250K / RPD 20); bot-side DAILY cap (gemini 20/day, `CUFFBOT_AI_DAILY_LIMIT` override); specific 429 message; chat-starter AI shares this budget. |
 | S29 | The desk pile: cooldown/hourly-refused questions are parked with a story and answered automatically when budget frees (10 s flusher, one per tick; cap 5, one per member, ≤1 h waits; RAM-only). Daily refusals don't park. |
 | S33 | Token budgets enforced (owner's Groq dashboard: RPM 30 / RPD 14.4K / TPM 6K / TPD 500K): estimated-token windows in the limiter (minute + day), token-aware history trimming, `/ai-config` shows token usage. Token-day refusals don't park. |
+| S51 | The detective answers only at his desk: channel `412354971170897921` (committed default; `/ai-config channel:`/`everywhere:` override). Mentions elsewhere get a budget-free pointer. |

@@ -4,7 +4,7 @@
 // silence without it (slash /ask keeps working; the manual documents this).
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
-import { askDetective } from '../service.js';
+import { askDetective, getAiConfig } from '../service.js';
 
 /** Strip every mention of the bot (and its role form) from the text. */
 export function stripBotMention(content, botId) {
@@ -28,6 +28,17 @@ export default {
       if (!message.mentions?.users?.has(client.user.id)) return;
       // Prefix commands ("!ask …") route via the prefix router, not this event.
       if (message.content.startsWith(client.config.prefix)) return;
+
+      // S51: mentions outside the detective's channel get a pointer, never an
+      // answer — no AI budget is spent on them.
+      const config = getAiConfig(message.guild.id);
+      if (config.channelId && message.channel.id !== config.channelId) {
+        await message.reply({
+          content: `🕵️ You’ll find my desk in <#${config.channelId}> — ask me there!`,
+          allowedMentions: { parse: [], repliedUser: false },
+        });
+        return;
+      }
 
       const question = stripBotMention(message.content, client.user.id);
       await message.channel.sendTyping?.().catch?.(() => {});
