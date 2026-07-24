@@ -15,7 +15,7 @@ export default {
   async execute(interaction) {
     const target = interaction.options.getUser('target', true);
     if (target.bot) {
-      await interaction.reply({ content: '🤖 Bots keep their donuts in the cloud — unstealable.', flags: 64 });
+      await interaction.reply({ content: '🤖 Bots keep their donuts in the cloud — unstealable.', flags: 64, textInChannel: true });
       return;
     }
 
@@ -26,18 +26,20 @@ export default {
 
     switch (result.code) {
       case 'disabled':
-        await interaction.reply({ content: '🍩 The economy is currently disabled.', flags: 64 });
+        await interaction.reply({ content: '🍩 The economy is currently disabled.', flags: 64, textInChannel: true });
         return;
       case 'self':
         await interaction.reply({
           content: '🪞 Stealing from yourself? That’s just moving donuts between pockets.',
           flags: 64,
+          textInChannel: true,
         });
         return;
       case 'cooldown': {
         await interaction.reply({
           content: `🕶️ Lay low — the heat is still on. Try again in ~${formatWaitMs(result.waitMs)}.`,
           flags: 64,
+          textInChannel: true,
         });
         return;
       }

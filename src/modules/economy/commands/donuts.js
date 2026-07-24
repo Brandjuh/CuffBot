@@ -9,7 +9,7 @@ export default {
   async execute(interaction) {
     const target = interaction.options.getUser('member') ?? interaction.user;
     if (target.bot) {
-      await interaction.reply({ content: '🤖 Bots run on electricity, not donuts.', flags: 64 });
+      await interaction.reply({ content: '🤖 Bots run on electricity, not donuts.', flags: 64, textInChannel: true });
       return;
     }
     const config = getEconomyConfig(interaction.guild.id);

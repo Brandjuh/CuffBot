@@ -96,3 +96,4 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | S41 | The donut pot: all lost donuts (busted steals — replacing the S40 to-owner rule — and crook loot) pool up, +500/day, one 0.5% crack attempt per member per day, winner takes all. |
 | S48 | Heist cooldown 5 min → **3 hours** (owner decision — the original limit message never reached S40's session). |
 | S49 | `/daily`: +25 🍩 per rolling 24 h with an exact-wait refusal; `formatWaitMs` shared with /steal. |
+| S50 | Game replies/refusals no longer DM on the `!` text path (owner rule: only important things in DM) — they answer in the channel as a no-ping reply; slash stays ephemeral. |

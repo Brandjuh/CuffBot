@@ -911,3 +911,16 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Goal:** owner request: a `/daily` command — once per 24 hours, grants 25 donuts; a too-early attempt must say when the next claim is possible.
 
 **Done:** `claimDaily` in the economy service — **+25 🍩 per rolling 24 h** per member (`lastDailyAt` in the account record; claim + stamp in ONE store write; rolling window, no midnight rush). Too early → `{code:'cooldown', waitMs}` with the exact remainder, rendered as "fresh in ~14 h 0 min" via `formatWaitMs` — extracted to `lib/bank.js` and now shared with /steal's refusal. `/daily` (everyone, ephemeral, category games). Config knobs `dailyAmount` 25 / `dailyCooldownMs` 24 h. Tests 429 → **431** (claim → +25 on the implicit 10k, mid-window refusal with exact wait math, free at +24 h, disabled refusal; formatWaitMs rendering). Manual economy.md; README 52 commands.
+
+---
+
+## Session 50 — 2026-07-24
+
+**Goal:** owner: "why does /daily arrive by DM? I only want IMPORTANT things in DM, not fluff."
+
+**Diagnosis:** the text-command adapter's ephemeral→DM rule (S9) conflated two intents behind one flag: ephemeral-for-PRIVACY (rap sheets — DM is right) and ephemeral-for-NOISE (game claims, cooldown notices — DM reads as spam). `!daily`'s replies are the latter.
+
+**Done:**
+- **`textInChannel` payload marker:** noise-only ephemerals now answer right in the channel on the text path — as a reply to the invoking message WITHOUT pinging (`allowedMentions: { repliedUser: false }`); the marker is adapter-only and stripped before anything reaches Discord. Unmarked ephemerals keep DMing — privacy stays the default, so nothing sensitive changed behavior. Slash-command behavior is untouched (still ephemeral).
+- **Marked as noise:** all of `/daily`'s replies, `/steal`'s refusals (bot/self/cooldown/disabled), `/pot`'s view + already/disabled refusals, `/donuts`' bot refusal, `/donut-board`'s empty notice. Admin config views and rap sheets deliberately stay on the DM path.
+- Tests 431 → **433** (marked ephemeral → channel with flags+marker stripped and no-ping reply, zero DMs; unmarked ephemeral → still DMs). Manuals core.md + economy.md; skill 0.5.8 (ephemeral-has-two-intents note).

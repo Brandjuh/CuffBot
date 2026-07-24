@@ -17,6 +17,7 @@ export default {
       await interaction.reply({
         content: '🍩 Nobody has moved a single donut yet — get chatting (or catch a crook).',
         flags: 64,
+        textInChannel: true,
       });
       return;
     }
