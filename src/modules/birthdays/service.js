@@ -3,16 +3,23 @@
 // configured channel.
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
-import { dueBirthdays } from './lib/birthday.js';
+import { birthdayCelebrants, dueBirthdays } from './lib/birthday.js';
 import { grantBirthdayBonus } from '../economy/service.js';
 import { resolveSendableChannel } from '../../core/channels.js';
 
 export const BIRTHDAY_CONFIG_KEY = 'birthdayConfig';
 export const BIRTHDAY_USERS_KEY = 'birthdayUsers';
+export const BIRTHDAY_ROLE_HOLDERS_KEY = 'birthdayRoleHolders';
 // Owner decision 2026-07-24 (S31): birthday announcements land in this channel
 // by default — committed as product config (same pattern as the chat starter
 // and the memorial feeds). /birthday-config overrides still win.
-export const DEFAULT_BIRTHDAY_CONFIG = { enabled: true, channelId: '411609312037961729' };
+// birthdayRoleId (S58 owner decision): celebrants wear this role for their
+// whole local birthday; the sweep adds and removes it.
+export const DEFAULT_BIRTHDAY_CONFIG = {
+  enabled: true,
+  channelId: '411609312037961729',
+  birthdayRoleId: '701577807070756946',
+};
 
 export function getBirthdayConfig(guildId) {
   return { ...DEFAULT_BIRTHDAY_CONFIG, ...getGuildData(guildId, BIRTHDAY_CONFIG_KEY, {}) };
@@ -56,6 +63,69 @@ export function removeBirthday(guildId, userId) {
     {},
   );
   return existed;
+}
+
+/**
+ * Keep the birthday role in sync (S58 owner request: celebrants wear role
+ * `birthdayRoleId` for their WHOLE local birthday). Runs every sweep tick:
+ * celebrants get the role (only when they don't hold it yet — no API spam),
+ * and members WE granted it to lose it once their local day ends. Only roles
+ * this bot granted are ever removed (`birthdayRoleHolders` store map) — a
+ * manually assigned birthday role is never stripped. Failures are logged and
+ * retried next tick; a vanished member just drops off the holder list.
+ * @returns {Promise<{added: number, removed: number}>}
+ */
+export async function syncBirthdayRole(guild, now = Date.now()) {
+  const config = getBirthdayConfig(guild.id);
+  const roleId = config.birthdayRoleId;
+  const result = { added: 0, removed: 0 };
+  if (!config.enabled || !roleId) return result;
+
+  const celebrants = new Set(birthdayCelebrants(getBirthdayUsers(guild.id), now));
+  const holders = getGuildData(guild.id, BIRTHDAY_ROLE_HOLDERS_KEY, {});
+
+  const setHolder = (userId, on) =>
+    updateGuildData(
+      guild.id,
+      BIRTHDAY_ROLE_HOLDERS_KEY,
+      (all) => {
+        const next = { ...all };
+        if (on) next[userId] = true;
+        else delete next[userId];
+        return next;
+      },
+      {},
+    );
+
+  for (const userId of celebrants) {
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (!member) continue; // left the guild — nothing to wear the role
+    try {
+      if (!member.roles.cache.has(roleId)) {
+        await member.roles.add(roleId, 'Birthday role: it is their birthday — via CuffBot');
+        result.added += 1;
+      }
+      setHolder(userId, true);
+    } catch (error) {
+      logger.warn(`Birthdays: could not give the birthday role to ${userId}:`, error?.message ?? error);
+    }
+  }
+
+  for (const userId of Object.keys(holders)) {
+    if (celebrants.has(userId)) continue;
+    try {
+      const member = await guild.members.fetch(userId).catch(() => null);
+      if (member?.roles.cache.has(roleId)) {
+        await member.roles.remove(roleId, 'Birthday role: the day is over — via CuffBot');
+        result.removed += 1;
+      }
+      setHolder(userId, false); // gone or stripped either way — stop tracking
+    } catch (error) {
+      // Removal failed (hierarchy/permissions/API): keep tracking, retry next tick.
+      logger.warn(`Birthdays: could not remove the birthday role from ${userId}:`, error?.message ?? error);
+    }
+  }
+  return result;
 }
 
 /**

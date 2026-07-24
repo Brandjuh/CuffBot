@@ -4,7 +4,7 @@
 // so the interval can fire as often as it likes.
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
-import { sweepBirthdays } from '../service.js';
+import { sweepBirthdays, syncBirthdayRole } from '../service.js';
 
 export const SWEEP_INTERVAL_MS = 10 * 60_000;
 
@@ -15,7 +15,14 @@ export default {
     const tick = async () => {
       try {
         const guild = client.guilds.cache.get(client.config.homeGuildId);
-        if (guild) await sweepBirthdays(guild);
+        if (!guild) return;
+        // Role first (S58): the celebrant already wears the role when the
+        // announcement lands. Each step has its own catch — a role failure
+        // must never silence the announcement, or vice versa.
+        await syncBirthdayRole(guild).catch((error) =>
+          logger.warn('Birthdays: role sync failed:', error),
+        );
+        await sweepBirthdays(guild);
       } catch (error) {
         logger.warn('Birthdays: sweep failed:', error);
       }

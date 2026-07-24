@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import {
+  birthdayCelebrants,
   daysUntilBirthday,
   dueBirthdays,
   formatBirthday,
@@ -23,6 +24,7 @@ import {
   setBirthday,
   setBirthdayConfig,
   sweepBirthdays,
+  syncBirthdayRole,
 } from '../src/modules/birthdays/service.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-birthdays-'));
@@ -246,4 +248,107 @@ test('suggestTimeZones: US-first on empty query, substring search otherwise, cap
   assert.equal(america[0], 'America/New_York', 'prioritized zones outrank alphabetical ones');
 
   assert.deepEqual(suggestTimeZones('zzzzz-nope'), []);
+});
+
+// ── the birthday role (S58) ──────────────────────────────────────────────────
+
+const BDAY_ROLE = '701577807070756946';
+const T_NEXT_DAY = Date.UTC(2026, 6, 25, 0, 30); // July 25 in Amsterdam
+
+test('the owner birthday role is the committed default (S58)', async () => {
+  const { DEFAULT_BIRTHDAY_CONFIG } = await import('../src/modules/birthdays/service.js');
+  assert.equal(DEFAULT_BIRTHDAY_CONFIG.birthdayRoleId, BDAY_ROLE);
+});
+
+test('birthdayCelebrants ignores the announce stamp — the role lasts all day', () => {
+  const users = { u: { day: 24, month: 7, timeZone: 'Europe/Amsterdam', lastAnnouncedYear: 2026 } };
+  assert.deepEqual(birthdayCelebrants(users, T_2026_07_24_0030Z), ['u'], 'announced ≠ done celebrating');
+  assert.deepEqual(birthdayCelebrants(users, T_NEXT_DAY), [], 'day over');
+});
+
+function fakeRoleGuild(guildId, memberIds, state = { failRemove: false }) {
+  const members = new Map();
+  const log = { added: [], removed: [] };
+  for (const id of memberIds) {
+    const held = new Set();
+    members.set(id, {
+      id,
+      held,
+      roles: {
+        cache: { has: (r) => held.has(r) },
+        add: async (r) => {
+          held.add(r);
+          log.added.push(id);
+        },
+        remove: async (r) => {
+          if (state.failRemove) throw new Error('hierarchy says no');
+          held.delete(r);
+          log.removed.push(id);
+        },
+      },
+    });
+  }
+  return {
+    id: guildId,
+    channels: { cache: new Map() },
+    members: {
+      fetch: async (id) => {
+        const m = members.get(id);
+        if (!m) throw new Error('Unknown Member');
+        return m;
+      },
+      map: members,
+    },
+    log,
+  };
+}
+
+test('syncBirthdayRole: worn all day, removed the day after, add is idempotent (S58)', async () => {
+  const guildId = freshGuildId();
+  const guild = fakeRoleGuild(guildId, ['jarige']);
+  setBirthday(guildId, 'jarige', { day: 24, month: 7, timeZone: 'Europe/Amsterdam' });
+
+  const first = await syncBirthdayRole(guild, T_2026_07_24_0030Z);
+  assert.deepEqual(first, { added: 1, removed: 0 });
+  assert.ok(guild.members.map.get('jarige').held.has(BDAY_ROLE));
+
+  // Later ticks the same day: still a celebrant, no duplicate API add.
+  const second = await syncBirthdayRole(guild, T_2026_07_24_0030Z + 3_600_000);
+  assert.deepEqual(second, { added: 0, removed: 0 });
+  assert.equal(guild.log.added.length, 1);
+
+  // The day after: the role comes off and tracking stops.
+  const third = await syncBirthdayRole(guild, T_NEXT_DAY);
+  assert.deepEqual(third, { added: 0, removed: 1 });
+  assert.ok(!guild.members.map.get('jarige').held.has(BDAY_ROLE));
+  assert.deepEqual(await syncBirthdayRole(guild, T_NEXT_DAY + 600_000), { added: 0, removed: 0 });
+});
+
+test('syncBirthdayRole: a failed removal is retried next tick; manual roles are never stripped (S58)', async () => {
+  const guildId = freshGuildId();
+  const state = { failRemove: true };
+  const guild = fakeRoleGuild(guildId, ['jarige', 'manual'], state);
+  setBirthday(guildId, 'jarige', { day: 24, month: 7, timeZone: 'Europe/Amsterdam' });
+  guild.members.map.get('manual').held.add(BDAY_ROLE); // given by a human, not by us
+
+  await syncBirthdayRole(guild, T_2026_07_24_0030Z); // grant
+  assert.deepEqual(await syncBirthdayRole(guild, T_NEXT_DAY), { added: 0, removed: 0 }, 'blocked removal');
+  assert.ok(guild.members.map.get('jarige').held.has(BDAY_ROLE), 'still worn — will retry');
+
+  state.failRemove = false;
+  assert.deepEqual(await syncBirthdayRole(guild, T_NEXT_DAY + 600_000), { added: 0, removed: 1 }, 'retried');
+  assert.ok(guild.members.map.get('manual').held.has(BDAY_ROLE), 'the manually granted role is untouched');
+  assert.equal(guild.log.removed.filter((id) => id === 'manual').length, 0);
+});
+
+test('syncBirthdayRole: no-op without a role id; a departed celebrant is skipped (S58)', async () => {
+  const guildId = freshGuildId();
+  setBirthday(guildId, 'ghost', { day: 24, month: 7, timeZone: 'Europe/Amsterdam' });
+  const guild = fakeRoleGuild(guildId, []); // nobody fetchable
+  assert.deepEqual(await syncBirthdayRole(guild, T_2026_07_24_0030Z), { added: 0, removed: 0 });
+
+  setBirthdayConfig(guildId, { birthdayRoleId: null }); // /birthday-config no-birthday-role:True
+  const guild2 = fakeRoleGuild(guildId, ['ghost']);
+  assert.deepEqual(await syncBirthdayRole(guild2, T_2026_07_24_0030Z), { added: 0, removed: 0 });
+  assert.equal(guild2.log.added.length, 0);
 });
