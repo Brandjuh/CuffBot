@@ -903,3 +903,11 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Verified:** no steal-limit instruction ever reached a session — S40 shipped with a 5-minute anti-spam cooldown chosen by the session itself (the owner's limit almost certainly sat in the message that was lost in transit around S40/S41, which they flagged at the time). Now specified explicitly: **3 hours**.
 
 **Done:** `heistCooldownMs` 5 min → **3 h** (owner decision, session-tagged comment); the cooldown refusal now formats the wait as hours + minutes ("~2 h 45 min"). Cooldown test rewritten around the 3-hour window (blocked mid-window with exact remaining-wait math; free again at +3 h). Tests **429/429**; manual economy.md.
+
+---
+
+## Session 49 — 2026-07-24
+
+**Goal:** owner request: a `/daily` command — once per 24 hours, grants 25 donuts; a too-early attempt must say when the next claim is possible.
+
+**Done:** `claimDaily` in the economy service — **+25 🍩 per rolling 24 h** per member (`lastDailyAt` in the account record; claim + stamp in ONE store write; rolling window, no midnight rush). Too early → `{code:'cooldown', waitMs}` with the exact remainder, rendered as "fresh in ~14 h 0 min" via `formatWaitMs` — extracted to `lib/bank.js` and now shared with /steal's refusal. `/daily` (everyone, ephemeral, category games). Config knobs `dailyAmount` 25 / `dailyCooldownMs` 24 h. Tests 429 → **431** (claim → +25 on the implicit 10k, mid-window refusal with exact wait math, free at +24 h, disabled refusal; formatWaitMs rendering). Manual economy.md; README 52 commands.

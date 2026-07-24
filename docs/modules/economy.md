@@ -44,8 +44,15 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 - `/pot` (without `try`) shows the current pot and the rules, ephemerally.
 - Persistence: pot balance, top-up day, and per-member attempt days live in the store (`economyPot`) — restarts change nothing.
 
+## The daily ration 🍩 — `/daily` (S49)
+
+- **+25 donuts, once per rolling 24 hours** per member (owner spec). The claim and the timestamp land in one store write.
+- Too early? The ephemeral refusal says exactly how long until the next batch ("fresh in ~14 h 0 min").
+- Rolling window (24 h since your last claim), not a calendar day — no midnight rush.
+
 ## Commands
 
+- **/daily** — the ration above.
 - **/donuts `[member]`** — a wallet check (anyone's; bots run on electricity).
 - **/donut-board `[top]`** — richest officers, top 1–25 (default 10).
 - **/steal `target`** — the heist above.
@@ -88,3 +95,4 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | S40 | `/steal` heist: 30% → 500 🍩 victim→thief; busted → 500 🍩 thief→server owner; 5-min lay-low cooldown; honest capped amounts. |
 | S41 | The donut pot: all lost donuts (busted steals — replacing the S40 to-owner rule — and crook loot) pool up, +500/day, one 0.5% crack attempt per member per day, winner takes all. |
 | S48 | Heist cooldown 5 min → **3 hours** (owner decision — the original limit message never reached S40's session). |
+| S49 | `/daily`: +25 🍩 per rolling 24 h with an exact-wait refusal; `formatWaitMs` shared with /steal. |

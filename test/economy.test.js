@@ -7,6 +7,7 @@ import {
   DEFAULT_ECONOMY_CONFIG,
   channelIsActive,
   earnGain,
+  formatWaitMs,
   huntDurationMs,
   isCatchPhrase,
   pickVictim,
@@ -19,6 +20,7 @@ import {
   addToPot,
   adjustBalance,
   attemptHeist,
+  claimDaily,
   awardActivity,
   balanceOf,
   getAccounts,
@@ -200,6 +202,36 @@ test('heist guards: self-theft and disabled economy refuse without stamping', ()
   setEconomyConfig(guildId, { enabled: false });
   assert.equal(attemptHeist(guild, 'me', 'other', { now: 1_000_000 }).code, 'disabled');
   assert.equal(getAccounts(guildId).me, undefined, 'refusals write nothing');
+});
+
+// ── /daily ration ────────────────────────────────────────────────────────────
+
+test('daily ration: +25, once per rolling 24 hours, honest wait (S49)', () => {
+  const guildId = freshGuildId();
+  const HOUR = 60 * 60_000;
+  const first = claimDaily(guildId, 'member', { now: 1_000_000 });
+  assert.equal(first.code, 'claimed');
+  assert.equal(first.amount, 25);
+  assert.equal(first.balance, 10_025, 'starting 10k + the ration');
+
+  const early = claimDaily(guildId, 'member', { now: 1_000_000 + 10 * HOUR });
+  assert.equal(early.code, 'cooldown');
+  assert.equal(early.waitMs, 14 * HOUR, 'exactly the remaining window');
+
+  const next = claimDaily(guildId, 'member', { now: 1_000_000 + 24 * HOUR });
+  assert.equal(next.code, 'claimed');
+  assert.equal(next.balance, 10_050);
+
+  setEconomyConfig(guildId, { enabled: false });
+  assert.equal(claimDaily(guildId, 'other', { now: 1 }).code, 'disabled');
+  setEconomyConfig(guildId, { enabled: true });
+});
+
+test('formatWaitMs renders hours + minutes', () => {
+  assert.equal(formatWaitMs(14 * 60 * 60_000), '14 h 0 min');
+  assert.equal(formatWaitMs(2 * 60 * 60_000 + 45 * 60_000), '2 h 45 min');
+  assert.equal(formatWaitMs(12 * 60_000), '12 min');
+  assert.equal(formatWaitMs(1), '1 min', 'always at least a minute');
 });
 
 // ── the donut pot ────────────────────────────────────────────────────────────
