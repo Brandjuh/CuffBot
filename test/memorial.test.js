@@ -103,10 +103,13 @@ const fetchFor = (byUrl) => async (url) => ({
 test('first sweep BASELINES both feeds without posting; later sweeps post only new items', async () => {
   const guildId = freshGuildId();
   const guild = fakeGuild(guildId);
-  setMemorialConfig(guildId, { channelId: 'mem-chan' });
+  // odmpChannelId now defaults to the owner's real channel (S61) — point it at
+  // the fake channel; firehero items need filter-passing profile links (S61).
+  setMemorialConfig(guildId, { channelId: 'mem-chan', odmpChannelId: 'mem-chan' });
+  const heroLink = (slug) => `https://www.firehero.org/fallen-firefighter/${slug}/`;
 
   const initial = {
-    [FEEDS[0].url]: RSS([{ title: 'History A', guid: 'fa1' }]),
+    [FEEDS[0].url]: RSS([{ title: 'History A', guid: 'fa1', link: heroLink('a') }]),
     [FEEDS[1].url]: RSS([{ title: 'History B', guid: 'ob1' }]),
   };
   assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(initial) }), 0, 'baseline posts nothing');
@@ -114,7 +117,10 @@ test('first sweep BASELINES both feeds without posting; later sweeps post only n
   assert.deepEqual(getSeen(guildId)[FEEDS[0].id], ['fa1']);
 
   const updated = {
-    [FEEDS[0].url]: RSS([{ title: 'New Fallen Firefighter', guid: 'fa2' }, { title: 'History A', guid: 'fa1' }]),
+    [FEEDS[0].url]: RSS([
+      { title: 'New Fallen Firefighter', guid: 'fa2', link: heroLink('b') },
+      { title: 'History A', guid: 'fa1', link: heroLink('a') },
+    ]),
     [FEEDS[1].url]: RSS([{ title: 'History B', guid: 'ob1' }]),
   };
   assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(updated) }), 1);
@@ -156,11 +162,15 @@ test('a failing channel send retries the item on the next sweep', async () => {
     },
   };
   const guild = { id: guildId, channels: { cache: new Map([['mem-chan', channel]]) } };
-  setMemorialConfig(guildId, { channelId: 'mem-chan' });
+  setMemorialConfig(guildId, { channelId: 'mem-chan', odmpChannelId: 'mem-chan' });
+  const hero = (slug) => `https://www.firehero.org/fallen-firefighter/${slug}/`;
 
-  const feeds = { [FEEDS[0].url]: RSS([{ title: 'Base', guid: 'b1' }]), [FEEDS[1].url]: RSS([]) };
+  const feeds = { [FEEDS[0].url]: RSS([{ title: 'Base', guid: 'b1', link: hero('base') }]), [FEEDS[1].url]: RSS([]) };
   await sweepMemorial(guild, { fetchImpl: fetchFor(feeds) }); // baseline
-  const withNew = { ...feeds, [FEEDS[0].url]: RSS([{ title: 'New', guid: 'b2' }, { title: 'Base', guid: 'b1' }]) };
+  const withNew = {
+    ...feeds,
+    [FEEDS[0].url]: RSS([{ title: 'New', guid: 'b2', link: hero('new') }, { title: 'Base', guid: 'b1', link: hero('base') }]),
+  };
 
   assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(withNew) }), 0, 'send failed');
   assert.equal(getSeen(guildId)[FEEDS[0].id].includes('b2'), false, 'failed post stays unseen');
@@ -182,7 +192,7 @@ test('memorialEmbed renders title, link, and date', () => {
 
 test('per-feed channel defaults are null and the fallback rule holds (S60)', async () => {
   const { DEFAULT_MEMORIAL_CONFIG, channelIdForFeed } = await import('../src/modules/memorial/service.js');
-  assert.equal(DEFAULT_MEMORIAL_CONFIG.odmpChannelId, null);
+  assert.equal(DEFAULT_MEMORIAL_CONFIG.odmpChannelId, '451095508560379934', 'owner-set since S61');
   assert.equal(DEFAULT_MEMORIAL_CONFIG.fireheroChannelId, null);
   assert.equal(channelIdForFeed({ channelId: 'shared' }, 'odmp'), 'shared', 'shared fallback');
   assert.equal(
@@ -214,14 +224,18 @@ test('each feed posts to its OWN channel (S60 owner request)', async () => {
   const guild = twoChannelGuild(guildId);
   setMemorialConfig(guildId, { odmpChannelId: 'officers-chan', fireheroChannelId: 'fire-chan' });
 
+  const fire = (slug) => `https://www.firehero.org/fallen-firefighter/${slug}/`;
   const base = {
-    [FEEDS[0].url]: RSS([{ title: 'Fire base', guid: 'fb1' }]),
+    [FEEDS[0].url]: RSS([{ title: 'Fire base', guid: 'fb1', link: fire('base') }]),
     [FEEDS[1].url]: RSS([{ title: 'Officer base', guid: 'ob1' }]),
   };
   assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(base) }), 0, 'baseline, no shared channel needed');
 
   const withNew = {
-    [FEEDS[0].url]: RSS([{ title: 'New Firefighter Entry', guid: 'fb2' }, { title: 'Fire base', guid: 'fb1' }]),
+    [FEEDS[0].url]: RSS([
+      { title: 'New Firefighter Entry', guid: 'fb2', link: fire('new') },
+      { title: 'Fire base', guid: 'fb1', link: fire('base') },
+    ]),
     [FEEDS[1].url]: RSS([{ title: 'New Officer Entry', guid: 'ob2' }, { title: 'Officer base', guid: 'ob1' }]),
   };
   assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(withNew) }), 2);
@@ -250,4 +264,95 @@ test('a feed without any channel is skipped while the other still posts (S60)', 
   assert.equal(guild.firefighters.sends.length, 0);
   const { getSeen: seenOf } = await import('../src/modules/memorial/service.js');
   assert.ok(!Array.isArray(seenOf(guildId).firehero), 'unconfigured feed is not even baselined');
+});
+
+// ── S61: owner officers config, item filter, probe ───────────────────────────
+
+test('S61 owner decisions are committed: officers channel + corrected ping role, firehero filter', async () => {
+  const { DEFAULT_MEMORIAL_CONFIG } = await import('../src/modules/memorial/service.js');
+  assert.equal(DEFAULT_MEMORIAL_CONFIG.odmpChannelId, '451095508560379934', 'officers channel (owner, S61)');
+  const odmp = FEEDS.find((f) => f.id === 'odmp');
+  assert.equal(odmp.roleId, '627946543273738240', 'S21 role id was actually the channel — corrected');
+  const firehero = FEEDS.find((f) => f.id === 'firehero');
+  assert.deepEqual(firehero.match, { linkIncludes: ['/fallen-firefighter'] });
+});
+
+test('itemMatchesFeed: no rules pass all; link/title needles; misses filtered', async () => {
+  const { itemMatchesFeed } = await import('../src/modules/memorial/lib/rss.js');
+  assert.equal(itemMatchesFeed(undefined, { link: 'https://x/news' }), true);
+  const match = { linkIncludes: ['/fallen-firefighter'] };
+  assert.equal(itemMatchesFeed(match, { link: 'https://www.firehero.org/fallen-firefighter/john-doe/' }), true);
+  assert.equal(itemMatchesFeed(match, { link: 'https://www.firehero.org/2026/gala-announced/' }), false);
+  assert.equal(itemMatchesFeed({ titleIncludes: ['line of duty'] }, { title: 'Line of Duty Death: J. Doe' }), true);
+  assert.equal(itemMatchesFeed({ titleIncludes: ['line of duty'] }, { title: 'Annual Gala' }), false);
+});
+
+test('a filtered feed posts profiles only — news never lands (S61)', async () => {
+  const guildId = freshGuildId();
+  const guild = twoChannelGuild(guildId);
+  setMemorialConfig(guildId, { odmpChannelId: 'officers-chan', fireheroChannelId: 'fire-chan' });
+
+  const profile = (guid, name) => ({ title: name, guid, link: `https://www.firehero.org/fallen-firefighter/${guid}/` });
+  const news = (guid, title) => ({ title, guid, link: `https://www.firehero.org/2026/${guid}/` });
+
+  // First fetch: only news → baseline happens anyway (0 matching items).
+  const allNews = { [FEEDS[0].url]: RSS([news('n1', 'Gala announced')]), [FEEDS[1].url]: RSS([]) };
+  assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(allNews) }), 0);
+  const { getSeen: seenOf } = await import('../src/modules/memorial/service.js');
+  assert.ok(Array.isArray(seenOf(guildId).firehero), 'baselined on first successful fetch, even all-news');
+
+  // A hero profile appears among fresh news → ONLY the profile posts.
+  const withProfile = {
+    [FEEDS[0].url]: RSS([profile('hero1', 'Firefighter John Doe'), news('n2', 'New merch'), news('n1', 'Gala announced')]),
+    [FEEDS[1].url]: RSS([]),
+  };
+  assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(withProfile) }), 1);
+  assert.equal(guild.firefighters.sends.length, 1);
+  assert.match(guild.firefighters.sends[0].embeds[0].toJSON().title, /John Doe/);
+
+  // More news only → silence.
+  const moreNews = {
+    [FEEDS[0].url]: RSS([news('n3', 'Sponsor day'), profile('hero1', 'Firefighter John Doe')]),
+    [FEEDS[1].url]: RSS([]),
+  };
+  assert.equal(await sweepMemorial(guild, { fetchImpl: fetchFor(moreNews) }), 0);
+});
+
+test('an unreachable feed does NOT baseline (null ≠ empty, S61)', async () => {
+  const guildId = freshGuildId();
+  const guild = twoChannelGuild(guildId);
+  setMemorialConfig(guildId, { fireheroChannelId: 'fire-chan' });
+  const dead = async () => ({ ok: false, status: 503, text: async () => '' });
+  assert.equal(await sweepMemorial(guild, { fetchImpl: dead }), 0);
+  const { getSeen: seenOf } = await import('../src/modules/memorial/service.js');
+  assert.ok(!Array.isArray(seenOf(guildId).firehero), 'no baseline on failure');
+});
+
+test('probeFeed reports totals, samples, and honest failures (S61)', async () => {
+  const { probeFeed } = await import('../src/modules/memorial/service.js');
+  const xml = RSS([
+    { title: 'Notice One', guid: 'p1', link: 'https://apps.usfa.fema.gov/ff/1' },
+    { title: 'Notice Two', guid: 'p2' },
+    { title: 'Notice Three', guid: 'p3' },
+    { title: 'Notice Four', guid: 'p4' },
+  ]);
+  const ok = await probeFeed('https://apps.usfa.fema.gov/ff/rss.xml', {
+    fetchImpl: async () => ({ ok: true, status: 200, text: async () => xml }),
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.total, 4);
+  assert.equal(ok.sample.length, 3);
+  assert.equal(ok.sample[0].title, 'Notice One');
+
+  assert.deepEqual(await probeFeed('not a url', {}), { ok: false, code: 'bad-url' });
+  const http = await probeFeed('https://x.example/feed', {
+    fetchImpl: async () => ({ ok: false, status: 404, text: async () => '' }),
+  });
+  assert.deepEqual(http, { ok: false, code: 'http', status: 404 });
+  const dead = await probeFeed('https://x.example/feed', {
+    fetchImpl: async () => {
+      throw new Error('boom');
+    },
+  });
+  assert.equal(dead.code, 'unreachable');
 });

@@ -1059,3 +1059,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 471 → **474** (defaults + fallback rule; two-channel routing end-to-end incl. baseline-without-shared-channel; one-feed-unconfigured skip incl. the not-baselined assertion). Manual memorial.md.
 
 **Retrospective:** no skill change — direct application of the per-target-override pattern (S35 logbook per-category channels) plus existing rules; the logbook precedent made this a small session.
+
+---
+
+## Session 61 — 2026-07-24
+
+**Goal:** owner: Fallen Officers = channel `451095508560379934`, feed `odmp.org/feed`, ping role `627946543273738240`; and research the best Fallen Firefighters source — firehero.org has no memorial-specific feed (its feeds carry all site news).
+
+**Correction of record (S21):** the id `451095508560379934`, committed in S21 as the odmp feed's ROLE, is actually the owner's officers **channel** — meaning the officers ping has pointed at a non-role since S21 (rendered dead, pinged nobody). Fixed: it now lives in `DEFAULT_MEMORIAL_CONFIG.odmpChannelId`; the real ping role `627946543273738240` sits in `FEEDS`.
+
+**Research finding:** live probing is IMPOSSIBLE from this session — the network gateway answers 403 to CONNECT for all external hosts (verified against firehero.org, odmp.org, apps.usfa.fema.gov; recorded as an environment fact in STATE). Committing an unverified feed URL would break iron rule 2. Therefore:
+- **Firehero feed made safe today:** per-feed `match` rules (`itemMatchesFeed`, pure) — the firehero feed passes only hero-profile items (`/fallen-firefighter/` links); plain news can never post. Baseline semantics refined: fetch FAILURE returns null (no baseline, retry), while an empty or all-filtered SUCCESS does baseline — the first matching item ever is posted, not swallowed.
+- **`/memorial-config probe:<url>` (S61):** fetches ANY candidate feed live from the Pi (which has open internet) and shows HTTP state, item count, and the newest three titles/links — the owner verifies candidates from Discord; the next session commits the winner. Candidate to try first: USFA's firefighter-fatality notices (official memorial-specific source, `apps.usfa.fema.gov/firefighter-fatalities/` — exact RSS URL to be confirmed via probe).
+- Preview now distinguishes unreachable vs no-matching-items and shows "X of Y pass the memorial filter".
+
+**Done:** FEEDS odmp role corrected + comment trail; `odmpChannelId` committed default; firehero `match` filter; `probeFeed` + `probe:` option (appended last); tests 474 → **479** (owner-decision assertions, filter matrix, filtered-sweep end-to-end incl. baseline-on-all-news, null-vs-empty, probe outcomes; legacy tests adapted to the new defaults/filter — each adaptation is the new behavior, not a weakened assertion). Manual memorial.md; skill 0.5.14 (probe-surface candidate in LEARNINGS).
+
+**Handoff:** waiting on the owner for (a) the firefighters channel id, (b) probe results of candidate feeds. When both land: commit `fireheroChannelId`, and either swap the firehero URL for the verified source or keep the filter — one small session.
