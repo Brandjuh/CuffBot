@@ -134,22 +134,27 @@ test('starboardEmbed renders author, jump link, stars, and image', () => {
 
 // ── the reaction event ───────────────────────────────────────────────────────
 
-function fakeReaction(guild, { count = 3, emoji = '⭐', channelId = 'general', messageId = 'msg-1', partial = false }) {
+function fakeReaction(guild, {
+  count = 3, emoji = '⭐', emojiId = null, channelId = 'general', messageId = 'msg-1',
+  partial = false, content = 'stellar comment', embeds = [], restContent = null,
+}) {
   const message = {
     id: messageId,
     partial: false,
     guild,
     channelId,
-    content: 'stellar comment',
+    content,
+    embeds,
     url: 'https://discord.com/channels/1/2/3',
     author: { username: 'brand', displayAvatarURL: () => null },
     member: { displayName: 'Brand' },
     attachments: new Map(),
     client: { config: { homeGuildId: guild.id } },
+    fetch: async (force) => (force && restContent !== null ? { ...message, content: restContent } : message),
   };
   const reaction = {
     partial,
-    emoji: { name: emoji },
+    emoji: { name: emoji, id: emojiId },
     count,
     message,
     fetch: async () => ({ ...reaction, partial: false }),
@@ -196,4 +201,72 @@ test('star-watch fetches partial reactions before judging them', async () => {
   const partial = fakeReaction(guild, { count: 2, messageId: 'old-msg', partial: true });
   await starWatch.execute(partial, { bot: false });
   assert.equal(guild.sends.length, 1, 'partial was fetched and boarded');
+});
+
+// ── S25 additions: text harvesting + configurable emoji ──────────────────────
+
+test('textFromEmbeds harvests title/description/fields, from .data too', async () => {
+  const { textFromEmbeds } = await import('../src/modules/starboard/lib/board.js');
+  assert.equal(textFromEmbeds([]), '');
+  assert.equal(
+    textFromEmbeds([{ title: 'Wanted', description: 'Reward: 500', fields: [{ name: 'Crime', value: 'Donut theft' }] }]),
+    'Wanted\nReward: 500\nCrime\nDonut theft',
+  );
+  assert.equal(textFromEmbeds([{ data: { description: 'from data' } }]), 'from data');
+});
+
+test('star-watch REST-fetches empty content so the board always shows text (S25)', async () => {
+  const guildId = freshGuildId();
+  const guild = fakeGuild(guildId);
+  setStarboardConfig(guildId, { channelId: 'board', threshold: 1 });
+  const reaction = fakeReaction(guild, {
+    count: 1, messageId: 'gw-empty', content: '', restContent: 'text the gateway withheld',
+  });
+  await starWatch.execute(reaction, { bot: false });
+  assert.equal(guild.sends.length, 1);
+  assert.match(guild.sends[0].embeds[0].toJSON().description, /text the gateway withheld/);
+});
+
+test('star-watch falls back to embed text for embed-only messages (S25)', async () => {
+  const guildId = freshGuildId();
+  const guild = fakeGuild(guildId);
+  setStarboardConfig(guildId, { channelId: 'board', threshold: 1 });
+  const reaction = fakeReaction(guild, {
+    count: 1, messageId: 'embed-only', content: '',
+    embeds: [{ title: 'Citation #42', description: 'Crime: jaywalking' }],
+  });
+  await starWatch.execute(reaction, { bot: false });
+  assert.equal(guild.sends.length, 1);
+  const desc = guild.sends[0].embeds[0].toJSON().description;
+  assert.match(desc, /Citation #42/);
+  assert.match(desc, /jaywalking/);
+});
+
+test('parseEmojiInput/displayEmoji: unicode, custom mentions, junk (S25)', async () => {
+  const { parseEmojiInput, displayEmoji } = await import('../src/modules/starboard/lib/board.js');
+  assert.deepEqual(parseEmojiInput('🌟'), { ok: true, value: '🌟', display: '🌟' });
+  assert.deepEqual(parseEmojiInput('<:pepe_star:123456789012345678>'), {
+    ok: true, value: '123456789012345678', display: '<:pepe_star:123456789012345678>',
+  });
+  assert.equal(parseEmojiInput('<a:party:123456789012345678>').value, '123456789012345678');
+  assert.equal(parseEmojiInput('star').ok, false, 'plain words rejected');
+  assert.equal(parseEmojiInput('').ok, false);
+  assert.equal(parseEmojiInput('👮‍♂️').ok, true, 'ZWJ sequences accepted');
+  assert.equal(displayEmoji('🌟'), '🌟');
+  assert.equal(displayEmoji('123456789012345678'), '<:e:123456789012345678>');
+});
+
+test('a custom-emoji starboard matches on the reaction ID (S25)', async () => {
+  const guildId = freshGuildId();
+  const guild = fakeGuild(guildId);
+  setStarboardConfig(guildId, { channelId: 'board', threshold: 1, emoji: '123456789012345678' });
+  // The right custom emoji (id matches, name irrelevant) boards…
+  await starWatch.execute(
+    fakeReaction(guild, { count: 1, emoji: 'pepe_star', emojiId: '123456789012345678', messageId: 'custom-1' }),
+    { bot: false },
+  );
+  assert.equal(guild.sends.length, 1);
+  // …a plain ⭐ no longer does.
+  await starWatch.execute(fakeReaction(guild, { count: 5, messageId: 'star-now-wrong' }), { bot: false });
+  assert.equal(guild.sends.length, 1);
 });

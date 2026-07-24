@@ -574,3 +574,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 313 → **315**.
 
 **Lesson (LEARNINGS candidate):** local tests validate the disk; production receives the commit — when code loads files at runtime, a test must prove those files are in the commit. Blind spots can live in `.gitignore`, where no unit test looks.
+
+---
+
+## Session 25 — 2026-07-24
+
+**Goal:** three owner requests while live-testing: (1) "een command om de bot te updaten via Discord" — /update existed (S9) but was invisible-by-design (all feedback lived in journalctl); (2) starboard must always show the message text, also from restricted channels; (3) starboard emoji must be configurable.
+
+**Done:**
+- **/update feedback loop:** the reply now live-edits through the update's states — `✅ Already up to date` (nothing new), `🔄 fetched old → new, tests running` (on-disk HEAD moved), `🚨 tests FAILED, rolled back` (HEAD moved back) — via a 5 s / max 3 min poll of `git rev-parse` (`classifyPollTick`, pure). The success path restarts the bot mid-command, so the order (channel, requester, start commit) is stored (`updateReport` marker) and core's new `update-report` ClientReady event posts **"✅ Update complete: old → new — back on duty 🚔"** in the invoking channel, pinging the requester. Stale markers (>30 min) are dropped silently; one order at a time; take-once semantics so a normal restart never re-reports.
+- **Starboard text always visible:** empty gateway content triggers a REST re-fetch (REST returns content regardless of the Message Content intent), and embed-only messages (bot posts, link previews) get text harvested from embed title/description/fields (`textFromEmbeds`, pure). Restricted channels work whenever the bot can view the channel; documented that Discord sends no events at all without access.
+- **Starboard emoji configurable:** `/starboard-config emoji:` accepts a unicode emoji (ZWJ sequences included) or a custom server emoji (`<:name:id>` — stored and matched by ID, since names are not unique; `parseEmojiInput`/`displayEmoji` pure). Junk input gets a specific refusal.
+- Tests 315 → **326** (update-status marker/take-once/classify + boot-reporter with fakes incl. same-version and deleted-channel paths; starboard REST-refetch, embed-harvest, custom-emoji matrix, parse/display). Manuals core.md + starboard.md updated.
+
+**Decisions:** the /update poller reads the on-disk commit rather than parsing journal output (no sudo needed, no text-format coupling); marker stamped BEFORE triggering so the report survives the restart; custom emoji identity = ID.
