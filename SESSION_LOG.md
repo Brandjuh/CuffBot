@@ -924,3 +924,15 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - **`textInChannel` payload marker:** noise-only ephemerals now answer right in the channel on the text path — as a reply to the invoking message WITHOUT pinging (`allowedMentions: { repliedUser: false }`); the marker is adapter-only and stripped before anything reaches Discord. Unmarked ephemerals keep DMing — privacy stays the default, so nothing sensitive changed behavior. Slash-command behavior is untouched (still ephemeral).
 - **Marked as noise:** all of `/daily`'s replies, `/steal`'s refusals (bot/self/cooldown/disabled), `/pot`'s view + already/disabled refusals, `/donuts`' bot refusal, `/donut-board`'s empty notice. Admin config views and rap sheets deliberately stay on the DM path.
 - Tests 431 → **433** (marked ephemeral → channel with flags+marker stripped and no-ping reply, zero DMs; unmarked ephemeral → still DMs). Manuals core.md + economy.md; skill 0.5.8 (ephemeral-has-two-intents note).
+
+---
+
+## Session 51 — 2026-07-24
+
+**Goal:** owner request: the ASK / talking-AI function may only work in channel `412354971170897921`.
+
+**Done:**
+- **The detective's desk:** `DEFAULT_AI_CONFIG.channelId = '412354971170897921'` (committed owner default, S35 pattern). `/ask` outside it → ephemeral redirect naming the desk (a `textInChannel` noise refusal on the `!` path — S50 rule); a bot-**mention** outside it → one short pointer reply ("You'll find my desk in #…") with **zero AI budget spent** (no limiter take, no provider call). Inside the desk everything works as before.
+- **`/ai-config`** gained `channel:` (move the desk) and `everywhere:True` (store channelId null — lift the restriction); the status embed shows the current desk. Sparse store semantics: an explicit null overrides the committed default.
+- Desk-pile unaffected by construction: questions can only ENTER the pile from the desk, so flushed answers always land there.
+- Tests 433 → **436** (redirect without defer/provider-call + textInChannel assertion; mention pointer with no-ping reply; everywhere-null lifts the lock; existing pipeline tests moved onto the desk channel; ai-config fake gained getChannel). Manual detective.md.

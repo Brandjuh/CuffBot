@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { askDetective } from '../service.js';
+import { askDetective, getAiConfig } from '../service.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -12,6 +12,17 @@ export default {
   textGreedyArg: 'question',
   async execute(interaction) {
     const question = interaction.options.getString('question', true);
+    // S51: the detective has ONE desk — questions outside it are redirected
+    // before any budget is spent.
+    const config = getAiConfig(interaction.guild.id);
+    if (config.channelId && interaction.channel?.id !== config.channelId) {
+      await interaction.reply({
+        content: `🕵️ The detective only takes questions at his desk: <#${config.channelId}>. Ask me there!`,
+        flags: 64,
+        textInChannel: true,
+      });
+      return;
+    }
     // Provider calls take seconds; the 3-second interaction window does not.
     await interaction.deferReply();
     const result = await askDetective({

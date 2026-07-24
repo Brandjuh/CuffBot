@@ -125,7 +125,7 @@ test('/ask defers, then edits in the pipeline result', async () => {
   const state = { deferred: false, edited: null };
   await ask.execute({
     guild: { id: freshGuildId() },
-    channel: { id: 'chan' },
+    channel: { id: '412354971170897921' }, // the detective's desk (S51 default)
     member: { displayName: 'Brand' },
     user: { username: 'brand' },
     options: { getString: () => 'a question' },
@@ -144,7 +144,7 @@ test('/ai-config toggles the switch and reports status', async () => {
   const ix = (enabled) => ({
     guild: { id: guildId },
     memberPermissions: { has: () => true },
-    options: { getBoolean: () => enabled },
+    options: { getBoolean: () => enabled, getChannel: () => null },
     reply: async (p) => replies.push(p),
   });
   await aiConfig.execute(ix(false));
@@ -157,7 +157,7 @@ test('/ai-config toggles the switch and reports status', async () => {
 
 // ── mention-reply event ──────────────────────────────────────────────────────
 
-function fakeMentionMessage({ content, botMentioned = true, everyone = false, contentAvailable = true }) {
+function fakeMentionMessage({ content, botMentioned = true, everyone = false, contentAvailable = true, channelId = '412354971170897921' } = {}) {
   const replies = [];
   const message = {
     content,
@@ -165,7 +165,7 @@ function fakeMentionMessage({ content, botMentioned = true, everyone = false, co
     author: { bot: false, username: 'brand' },
     member: { displayName: 'Brand' },
     guild: { id: 'g-home' },
-    channel: { id: 'chan', sendTyping: async () => {} },
+    channel: { id: channelId, sendTyping: async () => {} },
     mentions: {
       everyone,
       users: { has: (id) => botMentioned && id === 'bot-1' },
@@ -213,6 +213,50 @@ test('mention event leaves prefix commands to the prefix router', async () => {
   const { message, replies } = fakeMentionMessage({ content: '!ask <@bot-1> hi' });
   await mentionReply.execute(message);
   assert.equal(replies.length, 0, '!-prefixed messages are not answered here');
+});
+
+// ── S51: the detective's single desk ─────────────────────────────────────────
+
+test('/ask outside the detective channel redirects without spending anything', async () => {
+  const state = { deferred: false, replies: [] };
+  await ask.execute({
+    guild: { id: freshGuildId() },
+    channel: { id: 'somewhere-else' },
+    member: { displayName: 'Brand' },
+    user: { username: 'brand' },
+    options: { getString: () => 'a question' },
+    deferReply: async () => { state.deferred = true; },
+    reply: async (p) => state.replies.push(p),
+    editReply: async () => {},
+  });
+  assert.equal(state.deferred, false, 'no defer, no provider call');
+  assert.match(state.replies[0].content, /<#412354971170897921>/);
+  assert.equal(state.replies[0].textInChannel, true, 'noise refusal, never a DM on the text path');
+});
+
+test('a mention outside the channel gets a pointer, not an answer (S51)', async () => {
+  const { message, replies } = fakeMentionMessage({ content: '<@bot-1> hi', channelId: 'lobby' });
+  await mentionReply.execute(message);
+  assert.equal(replies.length, 1);
+  assert.match(replies[0].content, /my desk in <#412354971170897921>/);
+  assert.deepEqual(replies[0].allowedMentions, { parse: [], repliedUser: false });
+});
+
+test('ai-config: everywhere lifts the restriction; channel sets a new desk', async () => {
+  const guildId = freshGuildId();
+  setAiConfig(guildId, { channelId: null }); // "everywhere"
+  const state = { deferred: false, edited: null };
+  await ask.execute({
+    guild: { id: guildId },
+    channel: { id: 'any-channel' },
+    member: { displayName: 'B' },
+    user: { username: 'b' },
+    options: { getString: () => 'q' },
+    deferReply: async () => { state.deferred = true; },
+    editReply: async (p) => { state.edited = p; },
+  });
+  assert.equal(state.deferred, true, 'unrestricted: the pipeline runs anywhere');
+  setAiConfig(guildId, { channelId: '412354971170897921' });
 });
 
 test('askDetective enforces the provider daily cap with a specific refusal (S27)', async () => {
