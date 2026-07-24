@@ -15,7 +15,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { loadEnvFile } from './core/env.js';
-import { analyzeSecret, botIdFromToken, diffCommandSets, tokenFingerprint } from './core/diagnostics.js';
+import {
+  analyzeSecret,
+  botIdFromToken,
+  diffCommandSets,
+  messageContentIntentState,
+  tokenFingerprint,
+} from './core/diagnostics.js';
 
 loadEnvFile();
 
@@ -95,6 +101,18 @@ try {
         ok(`CLIENT_ID matches the token's application ("${application.name}", id ${application.id})`);
       } else {
         bad(`MISMATCH: the token belongs to application "${application.name}" (id ${application.id}), but CLIENT_ID is ${clientId}`, `you have two applications mixed up — either set CLIENT_ID=${application.id} in .env, or copy the token from the application with id ${clientId}`);
+      }
+      // Privileged-intent portal state: without Message Content the bot cannot
+      // READ message text, so every "!command" is invisible to it (slash
+      // commands keep working — the bot logs the fallback at boot).
+      const intent = messageContentIntentState(application.flags);
+      if (intent === 'disabled') {
+        bad(
+          'Message Content intent is DISABLED in the portal — "!" text commands, patrol, and @mention AI replies cannot work',
+          'Developer Portal → your app → Bot → Privileged Gateway Intents → enable "Message Content Intent" → Save, then: sudo systemctl restart cuffbot',
+        );
+      } else {
+        ok(`Message Content intent is ${intent} in the portal ("!" text commands can work)`);
       }
     } else {
       info(`could not read the token's application (${app.status}) — skipping the match check`);
