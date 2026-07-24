@@ -210,3 +210,32 @@ test('mention event leaves prefix commands to the prefix router', async () => {
   await mentionReply.execute(message);
   assert.equal(replies.length, 0, '!-prefixed messages are not answered here');
 });
+
+test('askDetective enforces the provider daily cap with a specific refusal (S27)', async () => {
+  const guildId = freshGuildId();
+  const base = freshNow();
+  const env = { GEMINI_API_KEY: 'k' };
+  const GEMINI_OK = {
+    ok: true, status: 200,
+    json: async () => ({ candidates: [{ content: { parts: [{ text: 'Copy.' }] } }] }),
+    text: async () => '',
+  };
+  // Twenty grants (spaced past the 7 s cooldown), then the daily wall.
+  for (let i = 0; i < 20; i += 1) {
+    const r = await askDetective({ guildId, channelId: 'cd', askerName: 'A', question: `q${i}`, now: base + i * 8_000, env, fetchImpl: async () => GEMINI_OK });
+    assert.equal(r.ok, true, `grant ${i + 1}`);
+  }
+  const refused = await askDetective({ guildId, channelId: 'cd', askerName: 'A', question: 'q21', now: base + 21 * 8_000, env, fetchImpl: async () => GEMINI_OK });
+  assert.equal(refused.ok, false);
+  assert.match(refused.message, /DAILY detective budget \(20 questions/);
+});
+
+test('a provider HTTP 429 gets the quota message, not the generic one (S27)', async () => {
+  const result = await askDetective({
+    guildId: freshGuildId(), channelId: 'c429', askerName: 'B', question: 'hi',
+    now: freshNow(), env: { GROQ_API_KEY: 'k' },
+    fetchImpl: async () => ({ ok: false, status: 429, json: async () => ({}), text: async () => 'quota' }),
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.message, /free-tier quota/);
+});

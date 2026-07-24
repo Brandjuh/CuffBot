@@ -602,3 +602,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 326 → **328** (flag decoder matrix incl. combined flags; /radio-check both states).
 
 **Owner action (portal, not code):** Developer Portal → CuffBot app → Bot → Privileged Gateway Intents → **Message Content Intent** ON → Save → `sudo systemctl restart cuffbot`. Then `/radio-check` should show ✅ and `!help` works; patrol and @mention-AI-replies also come alive.
+
+---
+
+## Session 27 — 2026-07-24
+
+**Goal:** two owner requests: (1) "/update moet laten zien of het gelukt of mislukt is" — S25 built exactly this, but the owner ran the OLD (pre-S25) /update, which updated silently; plus one honesty gap remained. (2) "Gebruik Gemini 2.5 Flash Lite — RPM 10, TPM 250K, RPD 20" (their free-tier dashboard).
+
+**Done:**
+- **/update honesty fix:** the timeout path no longer claims "already up to date" unverified — it now async-fetches origin and distinguishes three outcomes: genuinely up to date; **"there IS a newer version (N commits) but the updater never ran"** (with the sudoers/setup fix); "could not verify against GitHub" (network/credentials → doctor). `behindOrigin()` in update-status (execFile-async so a slow fetch never blocks the gateway).
+- **Gemini model → `gemini-2.5-flash-lite`** (owner decision, recorded in code + .env.example; `CUFFBOT_AI_MODEL` still overrides).
+- **Daily budget:** the limiter now supports a rolling-24h cap taken from the active provider (gemini 20/day per the owner's dashboard; groq uncapped; `CUFFBOT_AI_DAILY_LIMIT` env override, 0 = off). Checked BEFORE tokens are spent, with a specific in-theme refusal; provider-side HTTP 429 gets its own "free-tier quota tapped out" message. `/ai-config` shows today's usage (X / 20).
+- **Chat-starter AI now draws from the same shared budget** (cross-module seam to the detective limiter): with only 20 requests/day, an unmetered ice-breaker channel would starve members' /ask budget. A refused slot silently falls back to the question list — members outrank ice-breakers.
+- Tests 328 → **333** (daily-cap grant/refuse/free-after-24h, usage shape, provider defaults + env override matrix incl. 0-disables, the 21st-question refusal end-to-end, the 429 message). Manuals detective/chat-starter/core updated.
+
+**Decisions:** the RPD cap lives bot-side as a POLITE refusal before Google's hard 429 (better UX than opaque provider errors); limits are per-provider defaults + env override rather than store config (they describe the provider's tier, not a server preference).

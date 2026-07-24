@@ -23,8 +23,8 @@ export default {
         [
           `**Enabled:** ${s.enabled ? 'yes' : 'no'}`,
           `**Provider:** ${s.provider ? `${s.provider} (model \`${s.model}\`)` : '⚠️ none — add `GROQ_API_KEY` or `GEMINI_API_KEY` to `.env` and restart'}`,
-          `**Rate limit (server-wide, everyone combined):** 1 question / 7 s · max 62 / hour`,
-          `**Used this hour:** ${s.usedThisHour} / ${s.maxPerHour}`,
+          `**Rate limit (server-wide, everyone combined):** 1 question / 7 s · max 62 / hour${s.maxPerDay ? ` · max ${s.maxPerDay} / day (free ${s.provider} tier)` : ''}`,
+          `**Used this hour:** ${s.usedThisHour} / ${s.maxPerHour}${s.maxPerDay ? ` · **today:** ${s.usedToday} / ${s.maxPerDay}` : ''}`,
           `**Conversation memory:** last ${s.historyLimits.maxHistoryEntries} exchanges per channel, ${Math.round(s.historyLimits.historyTtlMs / 60000)} min`,
           '',
           'Talk to the detective with `/ask`, `!ask …`, or by mentioning the bot in a message.',

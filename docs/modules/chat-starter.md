@@ -24,7 +24,7 @@
 
 - **Activity tracking** (RAM): every message in the configured channel updates its last-activity time. The bot's own starter doesn't count as conversation; other bots reset the idle clock but only **humans** re-arm the next starter.
 - **The sweep** (every 5 min): posts when the channel has been silent ≥ `idle-minutes` **and** at least one human spoke since the previous starter — the never-monologue guard. A restart simply starts a fresh idle window (RAM state).
-- **Question choice:** with `use-ai:True` and a detective provider key, one short ice-breaker is generated (its own 15 s call, outside `/ask`'s budget — one question per hours is negligible; malformed/too-short output is rejected). Any AI trouble falls back to the list. List picks avoid the last 10 questions used (persisted ring).
+- **Question choice:** with `use-ai:True` and a detective provider key, one short ice-breaker is generated (15 s call). **It draws from the same shared AI budget as `/ask`** (free tiers cap requests per day — Gemini: 20); when the budget refuses, the list is used silently — members' questions outrank ice-breakers. Malformed/too-short output is rejected; any AI trouble falls back to the list. List picks avoid the last 10 questions used (persisted ring).
 - Starters never ping (`allowedMentions: { parse: [] }`).
 
 ## Adding questions

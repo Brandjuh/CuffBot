@@ -1,15 +1,17 @@
 // Chat-starter service: question bank, per-channel activity tracking (RAM),
 // and the posting action. Pure rules live in lib/starter.js. The optional AI
-// path asks the detective's provider directly (its own tiny prompt, outside
-// the /ask budget — one question every few hours is negligible), falling back
-// to the list on any trouble.
+// path asks the detective's provider with its own tiny prompt, but draws from
+// the SAME shared AI budget as /ask — free tiers cap requests per DAY (Gemini:
+// 20), so an unmetered side channel would silently starve the members' budget.
+// Any refusal or trouble falls back to the list.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
 import { DEFAULT_STARTER_CONFIG, pickQuestionIndex, rememberIndex, validateQuestions } from './lib/starter.js';
-import { pickProvider } from '../detective/lib/providers.js';
+import { dailyLimitFor, pickProvider } from '../detective/lib/providers.js';
+import { limiter as aiLimiter } from '../detective/service.js';
 
 export const STARTER_CONFIG_KEY = 'chatStarterConfig';
 export const STARTER_STATE_KEY = 'chatStarterState';
@@ -86,6 +88,10 @@ export async function aiQuestion(env = process.env, fetchImpl = fetch) {
   try {
     const provider = pickProvider(env);
     if (!provider) return null;
+    // Same shared budget as /ask (cross-module seam): a refused slot means
+    // the list question is used — members' questions outrank ice-breakers.
+    const slot = aiLimiter.take(Date.now(), { maxPerDay: dailyLimitFor(provider, env) });
+    if (!slot.ok) return null;
     const raw = await provider.complete({
       system: 'You write single ice-breaker questions for community chats.',
       messages: [{ role: 'user', content: AI_PROMPT }],

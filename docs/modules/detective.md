@@ -10,7 +10,7 @@
 | **Commands** | `/ask` (everyone), `/ai-config` (admin) — both also as `!ask` / `!ai-config` |
 | **Events** | `MessageCreate` — replies when the bot is @mentioned (needs Message Content intent) |
 | **Provider** | Groq (`GROQ_API_KEY`) or Google Gemini (`GEMINI_API_KEY`) — free tiers; picked automatically by which key exists |
-| **Rate limit** | **Server-wide, everyone combined:** 1 question / 7 s **and** 62 / rolling hour (owner spec) |
+| **Rate limit** | **Server-wide, everyone combined:** 1 question / 7 s **and** 62 / rolling hour (owner spec) **and** the provider's free-tier daily cap — Gemini: **20 / rolling 24 h** (owner's dashboard, S27). Override: `CUFFBOT_AI_DAILY_LIMIT` (0 = off) |
 | **Data** | `aiConfig` (enabled flag) in the guild store; conversation memory is in-RAM only, never on disk |
 | **Dependencies** | none beyond `fetch` (built into Node ≥18) — zero new packages |
 
@@ -26,15 +26,15 @@
 3. `sudo systemctl restart cuffbot`
 4. `/ai-config` must show the provider and model. Done.
 
-Without a key everything else keeps working; AI commands reply "not configured". Optional env overrides: `CUFFBOT_AI_PROVIDER` (`groq`/`gemini`, when both keys exist) and `CUFFBOT_AI_MODEL` (defaults: `llama-3.1-8b-instant` / `gemini-2.0-flash`).
+Without a key everything else keeps working; AI commands reply "not configured". Optional env overrides: `CUFFBOT_AI_PROVIDER` (`groq`/`gemini`, when both keys exist), `CUFFBOT_AI_MODEL` (defaults: `llama-3.1-8b-instant` / **`gemini-2.5-flash-lite`** — owner decision S27), and `CUFFBOT_AI_DAILY_LIMIT` (bot-side daily cap protecting the provider's RPD quota; defaults gemini 20, groq uncapped).
 
 ## Commands
 
 ### /ask
 
 - **Options:** `question` (string, required; greedy in text form — `!ask how do sirens work` takes the whole line).
-- **What happens:** defers the reply (providers take seconds), runs the shared pipeline: enabled? → provider configured? → question non-empty (≤1000 chars, longer is cut)? → **global rate limit** → provider call (20 s timeout) → reply clamped to 1900 chars, `@everyone`/`@here` neutered, no mentions ping.
-- **Reply:** public `🕵️ <answer>`; refusals are specific and in-theme (cooldown: "one question per 7 seconds for the whole precinct, try again in Xs"; budget: "hourly detective budget (62 questions) is spent, new slot in ~Xm"; no key: points the owner at this manual).
+- **What happens:** defers the reply (providers take seconds), runs the shared pipeline: enabled? → provider configured? → question non-empty (≤1000 chars, longer is cut)? → **global rate limit incl. the daily cap** → provider call (20 s timeout) → reply clamped to 1900 chars, `@everyone`/`@here` neutered, no mentions ping.
+- **Reply:** public `🕵️ <answer>`; refusals are specific and in-theme (cooldown: "one question per 7 seconds for the whole precinct, try again in Xs"; budget: "hourly detective budget (62 questions) is spent, new slot in ~Xm"; daily: "DAILY detective budget (20 questions on the free gemini tier) is spent"; no key: points the owner at this manual). A provider-side HTTP 429 gets its own "free-tier quota tapped out" message.
 - **Failure modes:** provider/network error → "phone line dropped" message (logged with the real error in `journalctl`); never a crash, never a hanging "thinking…".
 
 ### /ai-config (admin — Manage Server)
@@ -56,7 +56,7 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 
 ## Safety rails
 
-- **Budget before tokens:** the rate limit is checked before any provider call — refused questions cost nothing.
+- **Budget before tokens:** the rate limit (incl. the daily cap) is checked before any provider call — refused questions cost nothing. The chat-starter's AI questions draw from this same budget, and members' questions outrank ice-breakers (a refused slot silently falls back to the question list).
 - The persona forbids inventing facts about members and declines harmful/personal-data requests; the bot cannot be talked into running commands (it has no such path — it only ever returns text).
 - Replies never ping: `allowedMentions: { parse: [] }` plus zero-width-breaking of `@everyone`/`@here` inside model text.
 - Question and reply length hard-capped; empty/whitespace questions refused before touching the budget.
@@ -92,3 +92,4 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 | Session | Change |
 |---|---|
 | S17 | Created: `/ask`, `/ai-config`, mention replies, Groq+Gemini free-tier providers, server-wide 1/7s + 62/h budget, per-channel conversation memory. |
+| S27 | Gemini default model → `gemini-2.5-flash-lite` (owner decision; dashboard limits RPM 10 / TPM 250K / RPD 20); bot-side DAILY cap (gemini 20/day, `CUFFBOT_AI_DAILY_LIMIT` override); specific 429 message; chat-starter AI shares this budget. |

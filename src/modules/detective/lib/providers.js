@@ -6,7 +6,9 @@
 //                      complete({ system, messages, env, fetchImpl, timeoutMs }) → string }
 
 const GROQ_DEFAULT_MODEL = 'llama-3.1-8b-instant';
-const GEMINI_DEFAULT_MODEL = 'gemini-2.0-flash';
+// Owner decision 2026-07-24: Gemini 2.5 Flash Lite (their dashboard: RPM 10,
+// TPM 250K, RPD 20 — the RPD cap is enforced via each provider's dailyLimit).
+const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash-lite';
 
 /** Read a response body safely for error messages (never throws). */
 async function safeText(res) {
@@ -20,6 +22,7 @@ async function safeText(res) {
 export const groqProvider = {
   name: 'groq',
   keyEnv: 'GROQ_API_KEY',
+  dailyLimit: null, // Groq's free tier is thousands/day — no bot-side day cap
   model: (env) => env.CUFFBOT_AI_MODEL || GROQ_DEFAULT_MODEL,
   configured: (env) => Boolean(env.GROQ_API_KEY),
   async complete({ system, messages, env, fetchImpl = fetch, timeoutMs = 20_000 }) {
@@ -48,6 +51,7 @@ export const groqProvider = {
 export const geminiProvider = {
   name: 'gemini',
   keyEnv: 'GEMINI_API_KEY',
+  dailyLimit: 20, // owner's free-tier dashboard: 20 requests/day for this model
   model: (env) => env.CUFFBOT_AI_MODEL || GEMINI_DEFAULT_MODEL,
   configured: (env) => Boolean(env.GEMINI_API_KEY),
   async complete({ system, messages, env, fetchImpl = fetch, timeoutMs = 20_000 }) {
@@ -94,4 +98,18 @@ export function pickProvider(env) {
     return p && p.configured(env) ? p : null;
   }
   return PROVIDERS.find((p) => p.configured(env)) ?? null;
+}
+
+/**
+ * The daily request cap to enforce for a provider: an explicit
+ * CUFFBOT_AI_DAILY_LIMIT wins (0 or negative = uncapped), else the provider's
+ * free-tier default. null = no cap.
+ */
+export function dailyLimitFor(provider, env) {
+  const raw = env.CUFFBOT_AI_DAILY_LIMIT;
+  if (raw !== undefined && raw !== '') {
+    const n = Number(raw);
+    if (Number.isFinite(n)) return n > 0 ? Math.floor(n) : null;
+  }
+  return provider?.dailyLimit ?? null;
 }

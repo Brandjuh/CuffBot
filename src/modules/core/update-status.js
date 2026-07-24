@@ -56,3 +56,25 @@ export function classifyPollTick(startedHead, previousHead, currentHead) {
   }
   return 'fetched';
 }
+
+/**
+ * How many commits origin is ahead of the local checkout — the honest answer
+ * behind "already up to date". Async (execFile) so a slow network fetch never
+ * blocks the gateway. Returns { behind: null } when the check itself fails
+ * (network/credentials), which callers must report as "could not check", not
+ * as "up to date".
+ */
+export async function behindOrigin(runner = null) {
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  const run = runner ?? promisify(execFile);
+  const opts = { cwd: REPO_DIR, timeout: 20_000 };
+  try {
+    const branch = (await run('git', ['rev-parse', '--abbrev-ref', 'HEAD'], opts)).stdout.trim();
+    await run('git', ['fetch', '--quiet', 'origin', branch], opts);
+    const count = (await run('git', ['rev-list', '--count', `HEAD..origin/${branch}`], opts)).stdout.trim();
+    return { behind: Number(count || '0') };
+  } catch {
+    return { behind: null };
+  }
+}

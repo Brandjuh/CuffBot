@@ -127,3 +127,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S9 | Added dual invocation (`/x` + `!x`) via `src/core/prefix/`, `/help` (generated roster), `/update` (manual self-update), Message Content intent with graceful slash-only fallback. |
 | S25 | `/update` got a feedback loop: live status edits (up-to-date / fetched+testing / rolled-back) and a post-restart "back on duty" report in the invoking channel via the `update-report` boot event + a store marker. |
 | S26 | `/radio-check` now reports whether `!` text commands are live (Message Content fallback made visible in Discord); the doctor decodes the portal's intent flags and names the exact portal fix. |
+| S27 | `/update`'s "already up to date" is now verified against origin: an updater that never STARTED is reported as such (with the fix), instead of masquerading as up-to-date. |
