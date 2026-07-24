@@ -464,3 +464,20 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 **Not fixable from here:** the Pi's actual state. The morning report asks the owner to run `npm run doctor` on the Pi and paste the output; every branch of their symptoms now has a named check + fix.
 
 **State for next session:** continuing autonomously with M10 (owner mandate: "ga autonoom verder met alles wat je nog moet doen").
+
+---
+
+## Session 19 — 2026-07-24
+
+**Goal:** M10 — birthdays (owner backlog: "Birthday announcement: User birthday input, Timezone"). Part of the autonomous marathon mandated by the owner ("ga autonoom verder met alles wat je nog moet doen, ik ga slapen").
+
+**Done:**
+- Module `birthdays` (4 commands, 1 event): `/birthday-set` (day 1–31 + month 1–12 + optional IANA timezone, default Europe/Amsterdam; calendar-validated incl. Feb 29; **no birth year asked or stored** — privacy by design), `/birthday-remove`, `/birthdays [count]` (upcoming, soonest first, TODAY/tomorrow/in-N-days counted in each member's own timezone, never pings), `/birthday-config` (admin: enabled + announcement channel; announcements stay off until a channel is set).
+- Announcement design: **10-minute idempotent sweep** (plus a tick at boot) instead of a missable midnight cron — a Pi rebooting overnight announces on the next tick. Once per member per LOCAL year via `lastAnnouncedYear`, stamped **before** the send (a failing channel skips the year instead of retry-spamming every 10 minutes). Feb 29 birthdays celebrate on Mar 1 in non-leap years. The announcement pings exactly one person: the birthday member.
+- Pure calendar math in `lib/birthday.js` — `localDateParts` via `Intl.DateTimeFormat` (full-icu ships with Node), validity, due-selection, day counting with year wrap.
+- Tests 257 → **271**: month lengths/Feb 29 validity, timezone validation, one fixed instant being July 24 in Amsterdam AND July 23 in New York, leap rules, due-selection (already-announced / wrong day / corrupt records), year-wrap day counts, ordering, store round-trip, sweep idempotence + next-year re-fire, disabled/unconfigured no-ops, stamp-before-send under a failing channel, sparse config.
+- Manual `docs/modules/birthdays.md`; README (10 modules, 33 commands), docs index, ROADMAP M10 ✅, STATE, help badge 🎂.
+
+**Decisions:** no birth year stored (privacy; nobody needs a member's age to celebrate); default timezone Europe/Amsterdam (the precinct's home); sweep-stamp-before-send (duplicate announcements are worse than a skipped year on a broken channel).
+
+**State for next session:** M11 trivia is next in the marathon.

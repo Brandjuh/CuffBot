@@ -17,6 +17,7 @@ const MODULE_BADGES = {
   'public-affairs': '🍩',
   leveling: '📈',
   detective: '🕵️',
+  birthdays: '🎂',
 };
 
 /**
