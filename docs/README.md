@@ -23,6 +23,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | welcome | [`modules/welcome.md`](modules/welcome.md) | stable (S35) |
 | economy | [`modules/economy.md`](modules/economy.md) | stable (S38) |
 | youtube | [`modules/youtube.md`](modules/youtube.md) | stable (S52) |
+| selfroles | [`modules/selfroles.md`](modules/selfroles.md) | stable (S59) |
 
 ## Operations
 

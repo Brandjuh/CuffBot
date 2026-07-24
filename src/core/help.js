@@ -27,6 +27,7 @@ const MODULE_BADGES = {
   channellist: '🗂️',
   economy: '💰',
   youtube: '📺',
+  selfroles: '🎭',
 };
 
 /**
@@ -111,6 +112,7 @@ export const COMMAND_CATEGORIES = {
   help: 'info',
   update: 'admin',
   restart: 'admin',
+  selfroles: 'admin',
   dispatch: 'admin',
   'evidence-locker': 'admin',
   'rank-setup': 'admin',
