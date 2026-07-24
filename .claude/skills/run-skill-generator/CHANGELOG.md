@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.4.2 — 2026-07-24 (Sessions 18–23)
+
+- `discord-reference.md` → Client & intents: reaction events need `GuildMessageReactions` PLUS `Partials.Message/Reaction/Channel` (with fetch-on-partial) to fire for messages older than the current boot — without partials a reaction feature silently ignores most of a server's history.
+- `LEARNINGS.md`: two marathon candidates — the module-finish boilerplate (manual/README/ROADMAP/STATE/log/badge) is repetitive WORK that wants a script if more modules come; and "a session is a work unit (one PR), not one conversation" (S17–S23 shipped as separate numbered sessions inside a single owner-mandated marathon).
+- Evidence: S22 built the starboard (the partials fact was load-bearing: pre-boot messages are the majority case); S18–S23 shipped six PRs in one conversation with the per-milestone checklist done by hand six times.
+
 ## 0.4.1 — 2026-07-23 (Session 16)
 
 - `discord-reference.md` → Client & intents: two S16 facts — (a) event-only features (message XP) need just `GuildMessages`, never `MessageContent`; design them to survive the privileged-intent fallback; (b) `GuildVoiceStates` is non-privileged and voice presence is cache-only (no REST listing).
