@@ -15,7 +15,7 @@ Leveling is CuffBot's own XP system, built to **replace the old leveler bot**: m
 |---|---|---|---|---|
 | `/level` | XP card: rank, progress bar, next rank | `target` | Everyone | `/level target:@user` |
 | `/leaderboard` | Top officers by XP | `size` | Everyone | `/leaderboard size:15` |
-| `/xp-config` | View/change XP settings | `enabled`, `sync-roles`, `message-xp`, `voice-xp`, `cooldown`, `announce` | Admins (Manage Server) | `/xp-config message-xp:20` |
+| `/xp-config` | View/change XP settings | `enabled`, `sync-roles`, `message-xp`, `voice-xp`, `cooldown`, `announce`, `base-xp`, `exponent` | Admins (Manage Server) | `/xp-config base-xp:1500` |
 | `/xp-ladder` | The XP list: which XP total earns which rank (S42), with a "you are here" marker | none | Everyone | `/xp-ladder` |
 
 All three also work as text commands: `!level @user`, `!leaderboard 15`, `!xp-config`.
@@ -56,9 +56,9 @@ Stored per guild in the JSON store under `xpConfig` (no env vars):
 | `syncRoles` | `true` | Auto-assign rank roles when XP earns them (promote-only) |
 | `messageXp` | `15` | XP per message outside the cooldown |
 | `messageCooldownMs` | `60000` | Window in which further messages pay 0 XP |
-| `voiceXpPerMin` | `10` | XP per eligible voice minute |
-| `baseXp` | `100` | XP required for the lowest rank |
-| `exponent` | `1.6` | Rank N (from the bottom) costs `round(baseXp · N^1.6)` |
+| `voiceXpPerMin` | `1` | XP per eligible voice minute (S45 owner decision — was 10) |
+| `baseXp` | `1000` | XP required for the lowest rank (S45 — ranks are a real challenge) |
+| `exponent` | `1.8` | Rank N (from the bottom) costs `round(baseXp · N^exponent)` (S45 — steeper curve) |
 | `announceChannelId` | `null` | Promotion announcement channel (`null` = where it happened; voice promotions then stay silent) |
 
 XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRank } }`.

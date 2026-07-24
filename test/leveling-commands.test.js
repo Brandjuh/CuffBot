@@ -146,7 +146,7 @@ test('/leaderboard lists seeded + earned XP, highest first', async () => {
   const replies = [];
   await leaderboardCmd.execute({
     guild,
-    options: { getInteger: () => null },
+    options: { getInteger: () => null, getNumber: () => null },
     reply: async (p) => replies.push(p),
   });
   const desc = embedDesc(replies[0]);
@@ -159,7 +159,7 @@ test('/leaderboard with no data explains how XP starts', async () => {
   const replies = [];
   await leaderboardCmd.execute({
     guild,
-    options: { getInteger: () => null },
+    options: { getInteger: () => null, getNumber: () => null },
     reply: async (p) => replies.push(p),
   });
   assert.match(embedDesc(replies[0]), /No XP on the books yet/);
@@ -176,6 +176,7 @@ function configInteraction(guild, opts = {}, perms = [PermissionFlagsBits.Manage
     options: {
       getBoolean: (n) => opts[n] ?? null,
       getInteger: (n) => opts[n] ?? null,
+      getNumber: (n) => opts[n] ?? null,
       getChannel: (n) => opts[n] ?? null,
     },
     reply: async (p) => replies.push(p),
@@ -237,10 +238,10 @@ function fakeMessage(guild, member, homeGuildId = guild.id) {
 test('message event awards XP and announces a promotion in-channel', async () => {
   const guild = fakeGuild(freshGuildId());
   const member = fakeMember(guild, 'u3', []);
-  setXpConfig(guild.id, { messageXp: 100 }); // one message reaches Rookie (T[0]=100)
+  setXpConfig(guild.id, { messageXp: 1_000 }); // one message reaches Rookie (T[0]=1000, S45)
   const message = fakeMessage(guild, member);
   await messageXpEvent.execute(message);
-  assert.equal(getUserXp(guild.id, 'u3'), 100);
+  assert.equal(getUserXp(guild.id, 'u3'), 1_000);
   assert.deepEqual(member.added, ['r-rookie']);
   assert.equal(message.sent.length, 1);
   assert.match(message.sent[0].content, /first stripes.*Rookie/);

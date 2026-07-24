@@ -851,3 +851,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 415 → **418** (format + separators + order refusal; leap-year and year-bound matrix; suggestions: US-first empty query, substring search, priority ranking, cap, no-match). Manual birthdays.md.
 
 **Improve:** skill 0.5.6 — discord-reference gains the "≤25 select options → use option autocomplete" pattern + the router seam.
+
+---
+
+## Session 45 — 2026-07-24
+
+**Goal:** owner request: make the XP scale bigger/harder — "it must be a real challenge"; voice XP 10 → **1 per minute** (explicit).
+
+**Done:**
+- **New defaults (owner decision):** `voiceXpPerMin` 10 → **1**; `baseXp` 100 → **1000**; `exponent` 1.6 → **1.8**. First rank ≈ a few days of real activity; a 10-rank top ≈ round(1000·10^1.8) = **63,096 XP** — a long-haul goal. Message XP stays 15 (the owner named only voice; difficulty lives in the thresholds).
+- **Tuning knobs:** `/xp-config` gained `base-xp` (50–100k) and `exponent` (1.0–3.0) so the owner can adjust difficulty live without code changes; the settings embed shows the curve formula. New options sit LAST in the builder so the `!xp-config` positional order is unchanged.
+- **Existing members:** nobody loses a rank (promote-only); the S16 self-heal lifts each rank holder's XP to their held rank's NEW floor lazily (next message/voice minute/`/level`) — exactly the mechanism that already handles threshold shifts. Sparse config means the new defaults reach the live guild unless the owner ever overrode those keys (`/xp-config` shows the live values).
+- Tests stay **418/418** — default-dependent expectations updated (ladder-reconcile floors 303/580/919 → 3482/7225/12126, promotion smoke 100 → 1000, fakes gained `getNumber`). Manual leveling.md.
+
+**Improve:** none needed — the S37 lesson ("the sweep re-applies the live rules") paid off again: threshold rebalancing required zero new reconciliation code.

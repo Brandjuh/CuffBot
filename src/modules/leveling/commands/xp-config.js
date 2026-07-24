@@ -40,6 +40,21 @@ export default {
       o
         .setName('clear-announce')
         .setDescription('Reset announcements back to "the channel where the promotion happened"'),
+    )
+    // S45 tuning knobs — LAST so the text path's positional order stays stable.
+    .addIntegerOption((o) =>
+      o
+        .setName('base-xp')
+        .setDescription('XP the LOWEST rank costs (50–100000) — all thresholds scale from this')
+        .setMinValue(50)
+        .setMaxValue(100_000),
+    )
+    .addNumberOption((o) =>
+      o
+        .setName('exponent')
+        .setDescription('Curve steepness: rank N costs base·N^exp (1.0–3.0)')
+        .setMinValue(1)
+        .setMaxValue(3),
     ),
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
@@ -50,6 +65,8 @@ export default {
     const messageXp = interaction.options.getInteger('message-xp');
     const voiceXp = interaction.options.getInteger('voice-xp');
     const cooldown = interaction.options.getInteger('cooldown');
+    const baseXp = interaction.options.getInteger('base-xp');
+    const exponent = interaction.options.getNumber('exponent');
     const announce = interaction.options.getChannel('announce');
     const clearAnnounce = interaction.options.getBoolean('clear-announce');
     if (enabled !== null) patch.enabled = enabled;
@@ -57,6 +74,8 @@ export default {
     if (messageXp !== null) patch.messageXp = messageXp;
     if (voiceXp !== null) patch.voiceXpPerMin = voiceXp;
     if (cooldown !== null) patch.messageCooldownMs = cooldown * 1000;
+    if (baseXp !== null) patch.baseXp = baseXp;
+    if (exponent !== null) patch.exponent = exponent;
     if (announce) patch.announceChannelId = announce.id;
     else if (clearAnnounce === true) patch.announceChannelId = null;
 
@@ -87,6 +106,7 @@ export default {
           `**Ladder pinned:** ${pinned ? 'yes' : '⚠️ no — auto-rank and rank seeding stay idle until an admin runs `/rank-setup header:@<divider>`'}`,
           `**Message XP:** ${config.messageXp} (cooldown ${Math.round(config.messageCooldownMs / 1000)}s)`,
           `**Voice XP:** ${config.voiceXpPerMin}/min (needs ≥2 humans, not self-deafened, not AFK channel)`,
+          `**Curve:** rank N costs round(${config.baseXp.toLocaleString('en-US')} · N^${config.exponent}) — tune with \`base-xp\`/\`exponent\``,
           `**Announcements:** ${config.announceChannelId ? `<#${config.announceChannelId}>` : '_channel where the promotion happened_'}`,
           '',
           '**Rank thresholds (highest first):**',
