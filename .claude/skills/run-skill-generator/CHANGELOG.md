@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.9 — 2026-07-24 (Session 53)
+
+- `discord-reference.md` → new "Mentions & pings" section + pitfalls row: mentions are two layers (content renders, `allowedMentions` delivers); deliberate pings scope the allow-list to exactly the target, no-ping renders use `parse: []` / `repliedUser: false`; any message interpolating external text sets `allowedMentions` explicitly.
+- Evidence: S53 (scoped role ping on upload announcements) was the third mention-control decision after S35 (no-ping welcome) and S50 (no-ping replies), yet the reference had zero coverage — each session re-derived the same two-layer model.
+
 ## 0.5.8 — 2026-07-24 (Session 50)
 
 - `discord-reference.md` → interaction lifecycle: ephemeral has two intents — privacy vs noise-reduction; the text path must route them differently (DM vs in-channel no-ping reply, `textInChannel` marker).

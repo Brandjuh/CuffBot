@@ -18,7 +18,9 @@ export const YOUTUBE_CREATORS_KEY = 'youtubeCreators';
 
 // No announce channel invented: the owner asked for "a specific channel"
 // without naming one — /youtube channel:#… sets it (nothing posts until then).
-export const DEFAULT_YOUTUBE_CONFIG = { enabled: true, channelId: null };
+// The ping role IS owner-named (S53) and therefore committed; announcements
+// ping exactly that role (the memorial pattern: the bot's one deliberate ping).
+export const DEFAULT_YOUTUBE_CONFIG = { enabled: true, channelId: null, pingRoleId: '625326875442675763' };
 
 export function getYouTubeConfig(guildId) {
   return { ...DEFAULT_YOUTUBE_CONFIG, ...getGuildData(guildId, YOUTUBE_CONFIG_KEY, {}) };
@@ -121,7 +123,8 @@ export function removeCreator(guildId, input) {
 /**
  * One sweep: fetch every creator's feed and announce videos we have not seen.
  * A creator's failed FETCH skips them this tick (retried next sweep); a failed
- * SEND leaves the video unseen so it is retried too. Announcements never ping.
+ * SEND leaves the video unseen so it is retried too. Announcements ping only
+ * the configured role (S53) — allowedMentions is scoped to exactly that id.
  * @returns {{posted: number, checked: number}}
  */
 export async function sweepYouTube(guild, { fetchImpl, log = true } = {}) {
@@ -148,8 +151,10 @@ export async function sweepYouTube(guild, { fetchImpl, log = true } = {}) {
     for (const video of fresh) {
       try {
         await channel.send({
-          content: formatAnnouncement(creators[id].name ?? feed.channelTitle ?? 'A creator', video),
-          allowedMentions: { parse: [] },
+          content: formatAnnouncement(creators[id].name ?? feed.channelTitle ?? 'A creator', video, {
+            pingRoleId: config.pingRoleId,
+          }),
+          allowedMentions: config.pingRoleId ? { roles: [config.pingRoleId] } : { parse: [] },
         });
         deliveredIds.push(video.videoId);
         posted += 1;

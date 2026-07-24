@@ -949,3 +949,15 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - **Add = validate + baseline:** the feed is fetched once, the channel NAME is learned from it, and the whole back catalog is marked seen — adding a creator never floods the channel; only uploads from that moment on announce.
 - **Sweep:** every 10 min + one tick ~15 s after boot; new videos post **oldest-first**, cap 3/creator/sweep; announcement = `📺 **Creator** just uploaded: **Title**` + the plain link (Discord renders the playable card; owner explicitly wanted the link in the channel); never pings. Failed fetch → creator skipped one tick; failed send → video stays unseen and retries next sweep. Seen-ring 50 ids/creator.
 - Tests 436 → **446** (parser incl. entities/CDATA/garbage, input matrix, oldest-first cap, seen-ring, announcement format, @handle resolution, add semantics incl. dupe/fetch-fail, sweep end-to-end incl. failed-send retry, no-op guards, remove by name/id). Manual `youtube.md`; README 19 modules / 53 commands; badge 📺.
+
+---
+
+## Session 53 — 2026-07-24
+
+**Goal:** owner request: ping role `625326875442675763` on every new YouTube video.
+
+**Done:**
+- `DEFAULT_YOUTUBE_CONFIG.pingRoleId = '625326875442675763'` — committed owner default (S35 pattern). `formatAnnouncement` now leads with `<@&id> ` when a ping role is set; the sweep sends with **`allowedMentions: { roles: [pingRoleId] }`** — scoped to exactly that role, so nothing else in the message (creator names, video titles) can ever ping. Cleared ping → back to fully silent `{ parse: [] }`.
+- **`/youtube`** gained `ping-role:` (retarget) and `no-ping:True` (store null — lift the default); the status embed shows the current ping target.
+- Tests 446 → **447** (committed-default assertion; ping-variant of formatAnnouncement; sweep asserts the leading role mention + scoped allowedMentions; cleared-ping case back to `{ parse: [] }`). Manual youtube.md (announcement/options/troubleshooting + changelog row); stale "never pings" comments corrected.
+- Skill 0.5.9: `discord-reference.md` "Mentions & pings" section — mentions are two layers (content renders, allowedMentions delivers); third mention-control session (S35, S50, S53) finally generalized.
