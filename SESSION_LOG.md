@@ -813,3 +813,13 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 405 → **409** (lazy top-up incl. multi-day catch-up and same-day idempotence; addToPot; the win/lose/already/per-member matrix with exact threshold checks — 0.005 loses, 0.0049 wins; pot reset + reseed after a jackpot; disabled refusal; the revised heist-failure test proving the owner no longer collects; hunt-expiry test proving the crook's loot lands in the pot). Manual economy.md; README 49 commands.
 
 **Improve:** no new skill lesson — S41 was pattern application; notably the S40 LEARNINGS candidate (structural person references) proved its worth immediately: replacing "pay the owner" with "feed the pot" was a one-function edit because the money-flow endpoint sat behind one call.
+
+---
+
+## Session 42 — 2026-07-24
+
+**Goal:** owner request: "generate a list showing at which XP you earn which rank."
+
+**Done:** `/xp-ladder` (leveling, everyone): lists every rank lowest-first with its exact XP floor — the same `thresholdsFor` numbers the promote-only sync acts on, so the list can never disagree with actual promotions. Includes a "⬅️ you (N XP)" marker on the tier the invoker's XP has EARNED (a hand-given higher rank simply sits above the marker), a "0 XP — no rank yet" opening row, role mentions in an embed (render colored, never ping), the XP-earning rules in the footer, and the unpinned-ladder warning when `/rank-setup` hasn't run. Pure `ladderTable(ladder, config)` in `lib/xp.js`. Tests 409 → **411** (lowest-first order, floors ≡ thresholds, strict increase, empty ladder). Manual leveling.md; README 50 commands.
+
+**Improve:** no skill change — pure pattern application (pure fn + thin command); nothing slowed the session.

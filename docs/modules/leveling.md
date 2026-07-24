@@ -16,6 +16,7 @@ Leveling is CuffBot's own XP system, built to **replace the old leveler bot**: m
 | `/level` | XP card: rank, progress bar, next rank | `target` | Everyone | `/level target:@user` |
 | `/leaderboard` | Top officers by XP | `size` | Everyone | `/leaderboard size:15` |
 | `/xp-config` | View/change XP settings | `enabled`, `sync-roles`, `message-xp`, `voice-xp`, `cooldown`, `announce` | Admins (Manage Server) | `/xp-config message-xp:20` |
+| `/xp-ladder` | The XP list: which XP total earns which rank (S42), with a "you are here" marker | none | Everyone | `/xp-ladder` |
 
 All three also work as text commands: `!level @user`, `!leaderboard 15`, `!xp-config`.
 
@@ -102,6 +103,7 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 | `src/modules/leveling/commands/level.js` | `/level` card |
 | `src/modules/leveling/commands/leaderboard.js` | `/leaderboard` |
 | `src/modules/leveling/commands/xp-config.js` | `/xp-config` admin settings |
+| `src/modules/leveling/commands/xp-ladder.js` | `/xp-ladder` — the XP-per-rank list |
 | `src/modules/leveling/events/message-xp.js` | Message XP + promotion announce |
 | `src/modules/leveling/events/voice-sweep.js` | 60-second voice XP sweep |
 | `src/modules/leveling/events/ladder-watch.js` | Ladder-change detection (role events + boot) → quiet reconciliation |

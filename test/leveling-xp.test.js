@@ -4,6 +4,7 @@ import {
   DEFAULT_XP_CONFIG,
   achievedRanks,
   eligibleVoiceMemberIds,
+  ladderTable,
   levelProgress,
   messageXpGain,
   planRankSync,
@@ -174,4 +175,23 @@ test('DEFAULT_XP_CONFIG values are sane for a small community', () => {
   assert.ok(DEFAULT_XP_CONFIG.messageCooldownMs >= 10_000, 'cooldown stops spam-farming');
   assert.ok(DEFAULT_XP_CONFIG.voiceXpPerMin > 0);
   assert.ok(DEFAULT_XP_CONFIG.exponent > 1, 'higher ranks must cost progressively more');
+});
+
+test('ladderTable lists ranks lowest-first with their XP floors (the S42 XP list)', () => {
+  const rows = ladderTable(LADDER, DEFAULT_XP_CONFIG);
+  assert.equal(rows.length, LADDER.ranks.length);
+  assert.equal(rows[0].name, LADDER.ranks.at(-1).name, 'lowest rank opens the list');
+  assert.equal(rows.at(-1).name, LADDER.ranks[0].name, 'top rank closes it');
+  assert.deepEqual(
+    rows.map((r) => r.fromXp),
+    thresholdsFor(LADDER.ranks.length, DEFAULT_XP_CONFIG),
+    'floors are exactly the thresholds the promote-only sync acts on',
+  );
+  for (let i = 1; i < rows.length; i += 1) {
+    assert.ok(rows[i].fromXp > rows[i - 1].fromXp, 'floors strictly increase');
+  }
+});
+
+test('ladderTable on an empty ladder is an empty list', () => {
+  assert.deepEqual(ladderTable({ ranks: [] }, DEFAULT_XP_CONFIG), []);
 });
