@@ -11,6 +11,7 @@ import {
   rememberSeen,
 } from '../src/modules/youtube/lib/feed.js';
 import {
+  DEFAULT_YOUTUBE_CONFIG,
   addCreator,
   getCreators,
   removeCreator,
@@ -99,6 +100,12 @@ test('formatAnnouncement carries the plain link so Discord embeds the player', (
   const line = formatAnnouncement('Creator', { title: 'New vid', url: 'https://www.youtube.com/watch?v=x' });
   assert.match(line, /\*\*Creator\*\* just uploaded/);
   assert.match(line, /\nhttps:\/\/www\.youtube\.com\/watch\?v=x$/);
+  const pinged = formatAnnouncement('Creator', { title: 'V', url: 'u' }, { pingRoleId: '625326875442675763' });
+  assert.match(pinged, /^<@&625326875442675763> 📺/, 'the ping role leads the message (S53)');
+});
+
+test('the owner ping role is the committed default (S53)', () => {
+  assert.equal(DEFAULT_YOUTUBE_CONFIG.pingRoleId, '625326875442675763');
 });
 
 // ── service with fake fetch ──────────────────────────────────────────────────
@@ -175,7 +182,12 @@ test('sweep announces only NEW uploads, retries after a failed send, never pings
   assert.equal(first.posted, 1);
   assert.match(guild.sends[0].content, /Fresh upload/);
   assert.match(guild.sends[0].content, /watch\?v=new00000001/);
-  assert.deepEqual(guild.sends[0].allowedMentions, { parse: [] });
+  assert.match(guild.sends[0].content, /^<@&625326875442675763> /, 'the owner role is pinged (S53)');
+  assert.deepEqual(
+    guild.sends[0].allowedMentions,
+    { roles: ['625326875442675763'] },
+    'the ping is scoped to exactly that role',
+  );
 
   // Already seen → silent.
   assert.equal((await sweepYouTube(guild, { fetchImpl: async () => okResponse(withNew) })).posted, 0);
@@ -190,6 +202,18 @@ test('sweep announces only NEW uploads, retries after a failed send, never pings
   const retry = await sweepYouTube(failing, { fetchImpl: async () => okResponse(withNewer), log: false });
   assert.equal(retry.posted, 1);
   assert.match(failing.sends[0].content, /Even fresher/);
+
+  // no-ping (pingRoleId null) restores the silent announcement.
+  setYouTubeConfig(guildId, { pingRoleId: null });
+  const withNewest = feedXml([
+    { id: 'new00000003', title: 'Third', published: '2026-07-24T14:00:00+00:00' },
+    { id: 'new00000002', title: 'Even fresher', published: '2026-07-24T12:00:00+00:00' },
+  ]);
+  const silent = fakeAnnounceGuild(guildId);
+  await sweepYouTube(silent, { fetchImpl: async () => okResponse(withNewest), log: false });
+  assert.ok(!silent.sends[0].content.startsWith('<@&'), 'no role mention when cleared');
+  assert.deepEqual(silent.sends[0].allowedMentions, { parse: [] });
+  setYouTubeConfig(guildId, { pingRoleId: '625326875442675763' });
 });
 
 test('sweep is a no-op when disabled, unconfigured, or the roster is empty', async () => {

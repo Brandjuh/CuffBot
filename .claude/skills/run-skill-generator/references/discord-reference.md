@@ -64,6 +64,14 @@ client.login(process.env.DISCORD_TOKEN);
 - `setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)` on the builder controls who *sees* the command by default — but server admins can override that in Integration settings. Re-check at runtime: `interaction.memberPermissions.has(...)`.
 - The bot's own permissions in the *channel* matter too (`guild.members.me.permissionsIn(channel)`) — a bot can be muted per-channel.
 
+## Mentions & pings (S53)
+
+Mentions are **two layers**: the `<@id>`/`<@&id>` text in `content` only *renders* a mention; whether anyone is *notified* is decided by `allowedMentions`. Control both, always explicitly:
+
+- **Deliberate ping** → scope the allow-list to exactly the intended target: `allowedMentions: { roles: [roleId] }` (S53 upload announcements). Never rely on default parsing — a creator/video/user-supplied string in the same message could smuggle extra mentions.
+- **Render without pinging** → mention in content + `allowedMentions: { parse: [] }` (S35 no-ping welcome) or `{ repliedUser: false }` for no-ping replies (S50 `textInChannel`).
+- Rule of thumb: every outbound bot message that interpolates any external text sets `allowedMentions` explicitly.
+
 ## Common pitfalls
 
 | Symptom | Cause |
@@ -76,6 +84,7 @@ client.login(process.env.DISCORD_TOKEN);
 | `InteractionAlreadyReplied` | Double `reply()` — use `followUp()`/`editReply()` |
 | Empty `guild.members.cache` | Missing `GuildMembers` intent; use `guild.members.fetch(id)` for one-offs |
 | `Missing Permissions` (50013) | Role hierarchy or channel overrides — check `moderatable`/`bannable` first |
+| A mention shows but nobody gets notified (or vice versa) | `allowedMentions` disagrees with `content` — the text renders the mention, the allow-list decides delivery (see Mentions & pings) |
 
 ## Testing without a live bot
 

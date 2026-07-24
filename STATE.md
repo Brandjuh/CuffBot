@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 52 · 2026-07-24
+**Last updated:** Session 53 · 2026-07-24
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,16 +16,16 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 446/446 pass as of S52 |
+| Tests green | `npm test` | 447/447 pass as of S53 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'leveling', 'logbook', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia', 'welcome', 'youtube' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, core, detective, dispatch, economy, enforcement, leveling, logbook, memorial, patrol, public-affairs, records, starboard, trivia, welcome, youtube |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 52 · 2026-07-24)
+## What exists (verified Session 53 · 2026-07-24)
 
-- **YouTube announcer (S52):** module `youtube` — follows up to 25 creators via YouTube's public Atom feeds (**no API key**). `/youtube` (admin): enabled/channel/add (UC id, channel URL, or @handle — resolved via one page fetch)/remove/preview. **Adding baselines the back catalog** (memorial rule — no history flood); the 10-min sweep (+boot tick) posts NEW uploads oldest-first (cap 3/creator/sweep) as `📺 **Creator** just uploaded: **Title**` + the plain link (Discord renders the playable card), never pings; failed sends stay unseen and retry. No announce channel invented — owner must set one. Manual `youtube.md`.
+- **YouTube announcer (S52):** module `youtube` — follows up to 25 creators via YouTube's public Atom feeds (**no API key**). `/youtube` (admin): enabled/channel/add (UC id, channel URL, or @handle — resolved via one page fetch)/remove/preview. **Adding baselines the back catalog** (memorial rule — no history flood); the 10-min sweep (+boot tick) posts NEW uploads oldest-first (cap 3/creator/sweep) as `📺 **Creator** just uploaded: **Title**` + the plain link (Discord renders the playable card); **S53: every announcement leads with a ping for role `625326875442675763`** (committed owner default; `allowedMentions` scoped to exactly that role; `/youtube ping-role:` retargets, `no-ping:True` silences); failed sends stay unseen and retry. No announce channel invented — owner must set one. Manual `youtube.md`.
 
 - **Economy (S38):** module `economy` — the donut economy. **Everyone starts with 10,000 🍩** (implicit account; store record materializes on first write). Activity pays 5 🍩/message (60 s cooldown, read-only fast path). **Crook hunt:** an active channel (≥4 msgs from ≥2 humans in 3 min) rolls 3%/message (10-min per-channel cooldown) to spawn a 🦹 that lingers **5–20 s**; first message leading with **STOP POLICE** (case/punctuation-forgiving) earns 100–300 🍩; on escape the crook steals 50–250 🍩 from a random member (named, never pinged; balances floor at 0). **Hunts gated on the Message Content intent** (unwinnable otherwise; activity tracking still runs). **Birthday gift: 50,000 🍩** granted by the birthday sweep via seam and announced inside the birthday message (skipped when economy disabled). `/donuts [member]`, `/donut-board [top]`, **`/daily` (S49: +25 🍩 per rolling 24 h, exact-wait refusal)**, `/economy-config` (enabled/hunt/earn/**test-hunt** channel). **S40: `/steal target:` heist** — 30% success moves 500 🍩 victim→thief (capped by what the victim carries); **3-hour** lay-low cooldown per thief (S48 owner decision) stamped on both outcomes; failed attempts never touch the target. **S41: the donut pot (`/pot`)** — every lost donut pools up (busted steals — replacing S40's to-owner rule — AND the escaping crook's loot; future games call `addToPot`); +500 🍩/day lazy top-up (UTC rollover, missed days catch up); one crack attempt per member per day at **0.5%** — winner takes the whole pot, which resets to 0 and reseeds next day; pot/attempts persisted in `economyPot`. RAM hunt state — a restart forfeits an open hunt. Manual `economy.md`.
 
@@ -65,7 +65,7 @@
 
 ## Resume point
 
-**M1–M13 + M15 complete plus S34–S41 (logbook, welcome, channellist, ladder resilience, economy incl. /steal + /pot, categorized viewer-filtered /help, /xp-ladder, YYYY/MM/DD birthdays + timezone picker, patrol wizard, /daily, youtube announcer): 19 modules, 53 commands, 446 tests, dual invocation, self-update, audited. The entire owner backlog is built except M14 (goal tracker — still awaits owner scope). The economy is designed for more games to plug into (`adjustBalance` seam). `/help` paginates against the 6000-char embed total (S39) — rosters can keep growing.** The FRA cog source used for S36 lives in repo `brandjuh/fireandrescueacademycogs` (`channellist/`) — re-add via add_repo if a future session needs it again. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
+**M1–M13 + M15 complete plus S34–S41 (logbook, welcome, channellist, ladder resilience, economy incl. /steal + /pot, categorized viewer-filtered /help, /xp-ladder, YYYY/MM/DD birthdays + timezone picker, patrol wizard, /daily, youtube announcer): 19 modules, 53 commands, 447 tests, dual invocation, self-update, audited. The entire owner backlog is built except M14 (goal tracker — still awaits owner scope). The economy is designed for more games to plug into (`adjustBalance` seam). `/help` paginates against the 6000-char embed total (S39) — rosters can keep growing.** The FRA cog source used for S36 lives in repo `brandjuh/fireandrescueacademycogs` (`channellist/`) — re-add via add_repo if a future session needs it again. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
 
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.

@@ -85,7 +85,12 @@ export function rememberSeen(seenIds, videoIds, { cap = SEEN_CAP } = {}) {
   return merged.slice(-cap);
 }
 
-/** One announcement line — Discord auto-embeds the URL as a playable card. */
-export function formatAnnouncement(creatorName, video) {
-  return `📺 **${creatorName}** just uploaded: **${video.title}**\n${video.url}`;
+/**
+ * One announcement line — Discord auto-embeds the URL as a playable card.
+ * With a pingRoleId the role mention leads the message (S53 owner request);
+ * the caller scopes allowedMentions to exactly that role.
+ */
+export function formatAnnouncement(creatorName, video, { pingRoleId = null } = {}) {
+  const ping = pingRoleId ? `<@&${pingRoleId}> ` : '';
+  return `${ping}📺 **${creatorName}** just uploaded: **${video.title}**\n${video.url}`;
 }

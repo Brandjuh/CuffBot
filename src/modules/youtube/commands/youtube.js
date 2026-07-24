@@ -32,6 +32,12 @@ export default {
     )
     .addBooleanOption((o) =>
       o.setName('preview').setDescription('Show each creator’s latest video (fetches live, posts nothing)'),
+    )
+    .addRoleOption((o) =>
+      o.setName('ping-role').setDescription('Role pinged on every new upload'),
+    )
+    .addBooleanOption((o) =>
+      o.setName('no-ping').setDescription('Stop pinging any role on uploads'),
     ),
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
@@ -45,6 +51,9 @@ export default {
     const patch = {};
     if (enabled !== null) patch.enabled = enabled;
     if (channel) patch.channelId = channel.id;
+    const pingRole = interaction.options.getRole('ping-role');
+    if (pingRole) patch.pingRoleId = pingRole.id;
+    else if (interaction.options.getBoolean('no-ping') === true) patch.pingRoleId = null;
     if (Object.keys(patch).length) setYouTubeConfig(guildId, patch);
 
     const add = interaction.options.getString('add');
@@ -88,6 +97,7 @@ export default {
         [
           `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
           `**Channel:** ${config.channelId ? `<#${config.channelId}>` : '⚠️ not set — nothing posts until an admin picks one'}`,
+          `**Pings:** ${config.pingRoleId ? `<@&${config.pingRoleId}> on every new upload` : 'nobody'}`,
           `**Checked:** every 10 minutes (plus right after a restart)`,
           '',
           `**Following (${Object.keys(creators).length}/${MAX_CREATORS}):**`,
