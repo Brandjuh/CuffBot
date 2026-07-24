@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.5 — 2026-07-24 (Session 40)
+
+- `LEARNINGS.md`: new candidate — person-references in owner specs resolve to structural handles (`guild.ownerId`, role holders) rather than hardcoded personal user ids; complements the promoted owner-defaults rule (channels/values literal, people structural).
+- Evidence: S40's /steal — "the donuts go to me, Brandjuh" implemented via guild.ownerId; no id had to be asked for, and tests run against any fake guild.
+
 ## 0.5.4 — 2026-07-24 (Session 39)
 
 - `discord-reference.md` → pitfalls table: the embed TOTAL cap (6000 chars across title/description/fields) — clamping each field to 1024 is not enough; ≤25 fields per embed, ≤10 embeds per message; paginate grown rosters.

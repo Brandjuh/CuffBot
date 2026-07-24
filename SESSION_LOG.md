@@ -784,3 +784,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 397 → **400**: chunk splitting at entry boundaries with zero entry loss, the 18-module regression shape (every page ≤6000 total and ≤25 fields, groups all survive, numbering + intro-on-page-1), single-page rosters stay unnumbered. Manual core.md updated.
 
 **Skill:** discord-reference.md gains the embed-limit pitfall (6000 total ≠ 1024/field; 25 fields; 10 embeds/message) — 0.5.4.
+
+---
+
+## Session 40 — 2026-07-24
+
+**Goal:** owner request: a `/steal` command — attempt to rob another member's donuts; 30% success; success pays you 500 donuts; failure sends the donuts to Brandjuh.
+
+**Done:**
+- **`attemptHeist` (economy service):** 30% roll (`heistSucceeds`, strictly-below comparison keeps the odds exact; injectable random). Success: 500 🍩 move **victim → thief**, capped by what the victim actually carries (balances floor at 0; capped amounts reported honestly — "that was everything they had on them"). Busted: 500 🍩 move **thief → the precinct chief = `guild.ownerId`** — resolving "naar mij Brandjuh" to the SERVER OWNER structurally instead of hardcoding a personal user id; a failed attempt never touches the target.
+- **Lay-low cooldown:** one attempt per 5 minutes per thief (`lastHeistAt` persisted in the account record, stamped on success AND failure; ephemeral refusal shows the remaining wait). Guards: self-theft, bots, disabled economy — refusals write nothing.
+- **`/steal target:`** (everyone): public in-theme outcome messages (HEIST! / BUSTED!), names but never pings; ephemeral refusals. House math documented: EV = −200 🍩 per attempt — a gamble, not an income.
+- Config knobs in `DEFAULT_ECONOMY_CONFIG`: `heistChance` 0.3, `heistAmount` 500, `heistCooldownMs` 5 min.
+- Tests 400 → **405** (success transfer, failure→owner with untouched target, honest broke-victim cap, cooldown incl. both-outcome stamping and exact wait math, self/disabled guards writing nothing). Manual economy.md; README 48 commands.
+
+**Decision:** "the donuts go to me, Brandjuh" is implemented as **the server owner** (`guild.ownerId`) — no hardcoded personal id; it survives account changes and is correct in any test guild. Success STEALS (victim pays) rather than mints: the command is called steal, and minting would inflate the economy.

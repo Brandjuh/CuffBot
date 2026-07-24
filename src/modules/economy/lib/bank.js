@@ -19,6 +19,9 @@ export const DEFAULT_ECONOMY_CONFIG = {
   catchRewardMax: 300,
   stealMin: 50,
   stealMax: 250,
+  heistChance: 0.3, // /steal success odds (owner: 30%)
+  heistAmount: 500, // what a successful /steal moves victim → thief; a failed one moves thief → chief
+  heistCooldownMs: 5 * 60_000, // lay-low time between attempts per thief
 };
 
 /** Donuts to award for a message given the last-earn time. 0 within cooldown. */
@@ -111,4 +114,9 @@ export function isCatchPhrase(content) {
 export function pickVictim(candidateIds, random = Math.random) {
   if (!candidateIds || candidateIds.length === 0) return null;
   return candidateIds[Math.floor(random() * candidateIds.length)];
+}
+
+/** One /steal roll: strictly-below keeps the odds exactly at heistChance. */
+export function heistSucceeds(config, random = Math.random) {
+  return random() < (config.heistChance ?? DEFAULT_ECONOMY_CONFIG.heistChance);
 }

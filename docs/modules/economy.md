@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Purpose** | Owner request (S38): an economy with donuts — earn by being active, win/lose via games; first game: the crook hunt |
-| **Commands** | `/donuts`, `/donut-board` (everyone), `/economy-config` (admin) — also as `!` commands |
+| **Commands** | `/donuts`, `/donut-board`, `/steal` (everyone), `/economy-config` (admin) — also as `!` commands |
 | **Events** | One `MessageCreate` watcher (earnings + hunt spawn/catch); expiry via timer |
 | **Data** | `economyUsers` (balance, lastEarnAt per member), `economyConfig` (sparse overrides) |
 | **Intents** | Earnings work event-only; **the hunt needs the Message Content intent** (it must hear "STOP POLICE") — without it hunts don't spawn at all |
@@ -29,10 +29,18 @@
 
 A restart forfeits any open hunt (RAM only) — the next busy conversation simply spawns a new one.
 
+## The heist 🕶️ — `/steal target:@member` (S40)
+
+- **30% success** (owner spec): the loot — **500 🍩** — moves from the target to you, capped by what the target actually carries ("that was everything they had on them").
+- **70% busted:** YOUR 500 🍩 are confiscated by the **precinct chief — the server owner** (resolved live via `guild.ownerId`, no hardcoded personal id; that's Brandjuh). A failed attempt never touches the target.
+- One attempt per **5-minute lay-low window** per thief (stamped on success and failure alike; ephemeral refusal shows the wait). Self-theft and bots refused. Outcome messages name people but never ping.
+- House math: expected value per attempt is 0.3·500 − 0.7·500 = **−200 🍩** — stealing is a gamble, not an income.
+
 ## Commands
 
 - **/donuts `[member]`** — a wallet check (anyone's; bots run on electricity).
 - **/donut-board `[top]`** — richest officers, top 1–25 (default 10).
+- **/steal `target`** — the heist above.
 - **/economy-config** (admin — Manage Server): `enabled` (master switch), `hunt` (hunts on/off), `earn` (donuts per message 0–100), `test-hunt` (channel — spawn a crook now). Status shows every number plus the Message Content intent state.
 
 ## Design notes
@@ -68,3 +76,4 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | Session | Change |
 |---|---|
 | S38 | Created: 10k starting balance, activity pay, crook hunt (active-channel spawns, 5–20 s window, STOP POLICE catch, escape-steal from a random member), 50k birthday gift announced in the birthday message, `/donuts`, `/donut-board`, `/economy-config` with test-hunt. |
+| S40 | `/steal` heist: 30% → 500 🍩 victim→thief; busted → 500 🍩 thief→server owner; 5-min lay-low cooldown; honest capped amounts. |

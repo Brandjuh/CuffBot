@@ -17,6 +17,7 @@ import {
 import {
   activeHunt,
   adjustBalance,
+  attemptHeist,
   awardActivity,
   balanceOf,
   getAccounts,
@@ -140,6 +141,60 @@ test('birthday bonus: 50k donuts, refused when the economy is disabled', () => {
   setEconomyConfig(guildId, { enabled: false });
   assert.equal(grantBirthdayBonus(guildId, 'bday2'), null);
   assert.equal(getAccounts(guildId).bday2, undefined);
+});
+
+// ── /steal (the heist) ───────────────────────────────────────────────────────
+
+test('heist success (30% roll): 500 donuts move victim → thief', () => {
+  const guildId = freshGuildId();
+  const guild = { id: guildId, ownerId: 'brandjuh' };
+  const result = attemptHeist(guild, 'thief', 'victim', { random: () => 0.29, now: 1_000_000 });
+  assert.equal(result.code, 'success');
+  assert.equal(result.amount, 500);
+  assert.equal(balanceOf(guildId, 'thief'), 10_500);
+  assert.equal(balanceOf(guildId, 'victim'), 9_500);
+});
+
+test('heist failure (roll ≥ 0.3): the thief’s 500 go to the server owner', () => {
+  const guildId = freshGuildId();
+  const guild = { id: guildId, ownerId: 'brandjuh' };
+  const result = attemptHeist(guild, 'thief', 'victim', { random: () => 0.3, now: 1_000_000 });
+  assert.equal(result.code, 'failure');
+  assert.equal(result.amount, 500);
+  assert.equal(result.chiefId, 'brandjuh');
+  assert.equal(balanceOf(guildId, 'thief'), 9_500);
+  assert.equal(balanceOf(guildId, 'brandjuh'), 10_500, 'the chief collects the confiscated loot');
+  assert.equal(balanceOf(guildId, 'victim'), 10_000, 'the target loses nothing on a failed attempt');
+});
+
+test('heist amounts are honest when the payer is nearly broke', () => {
+  const guildId = freshGuildId();
+  const guild = { id: guildId, ownerId: 'brandjuh' };
+  adjustBalance(guildId, 'poorvictim', -9_800); // 200 left
+  const result = attemptHeist(guild, 'thief', 'poorvictim', { random: () => 0, now: 1_000_000 });
+  assert.equal(result.amount, 200, 'you can only steal what they carry');
+  assert.equal(balanceOf(guildId, 'thief'), 10_200);
+  assert.equal(balanceOf(guildId, 'poorvictim'), 0);
+});
+
+test('heist cooldown: one attempt per lay-low window, stamped on both outcomes', () => {
+  const guildId = freshGuildId();
+  const guild = { id: guildId, ownerId: 'brandjuh' };
+  assert.equal(attemptHeist(guild, 'thief', 'v1', { random: () => 0.9, now: 1_000_000 }).code, 'failure');
+  const blocked = attemptHeist(guild, 'thief', 'v2', { random: () => 0, now: 1_000_000 + 60_000 });
+  assert.equal(blocked.code, 'cooldown');
+  assert.equal(blocked.waitMs, 4 * 60_000);
+  const later = attemptHeist(guild, 'thief', 'v2', { random: () => 0, now: 1_000_000 + 5 * 60_000 });
+  assert.equal(later.code, 'success');
+});
+
+test('heist guards: self-theft and disabled economy refuse without stamping', () => {
+  const guildId = freshGuildId();
+  const guild = { id: guildId, ownerId: 'brandjuh' };
+  assert.equal(attemptHeist(guild, 'me', 'me', { now: 1_000_000 }).code, 'self');
+  setEconomyConfig(guildId, { enabled: false });
+  assert.equal(attemptHeist(guild, 'me', 'other', { now: 1_000_000 }).code, 'disabled');
+  assert.equal(getAccounts(guildId).me, undefined, 'refusals write nothing');
 });
 
 // ── the hunt, end to end ─────────────────────────────────────────────────────
