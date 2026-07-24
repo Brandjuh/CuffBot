@@ -51,3 +51,20 @@ export function botIdFromToken(token) {
     return null;
   }
 }
+
+/**
+ * Compare the command names Discord has registered against the names the local
+ * code defines. Order-independent; duplicates collapse.
+ * @param {string[]} localNames commands the code would register
+ * @param {string[]} registeredNames commands Discord currently has
+ * @returns {{ missing: string[], extra: string[], inSync: boolean }}
+ *   missing = defined locally but not registered (deploy-commands needed);
+ *   extra = registered but no longer defined (stale, deploy-commands cleans).
+ */
+export function diffCommandSets(localNames, registeredNames) {
+  const local = new Set(localNames);
+  const registered = new Set(registeredNames);
+  const missing = [...local].filter((n) => !registered.has(n)).sort();
+  const extra = [...registered].filter((n) => !local.has(n)).sort();
+  return { missing, extra, inSync: missing.length === 0 && extra.length === 0 };
+}

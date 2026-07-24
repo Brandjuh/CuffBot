@@ -55,13 +55,32 @@ fi
 rm -f "$TEST_LOG"
 
 # Re-register slash commands (new/changed commands need it; harmless when not).
-run node src/deploy-commands.js >/dev/null 2>&1 || say "warn: deploy-commands failed (bot not in the guild yet?)"
+# A registration failure must be LOUD in the journal: the restart below still
+# happens (tested code beats stale code), but until deploy-commands succeeds,
+# new commands simply do not exist in Discord — the #1 "where is /x?" cause.
+DEPLOY_LOG="$(run node src/deploy-commands.js 2>&1)"
+if [ $? -ne 0 ]; then
+  say "ERROR: command registration FAILED — new/changed commands are NOT visible in Discord."
+  say "deploy-commands said: $DEPLOY_LOG"
+  say "fix and re-run manually: node src/deploy-commands.js   (diagnose with: npm run doctor)"
+else
+  say "commands re-registered"
+fi
 
 if command -v systemctl >/dev/null 2>&1; then
   if [ "$(id -u)" -eq 0 ]; then
     systemctl restart cuffbot 2>/dev/null || say "warn: could not restart cuffbot service"
   else
     sudo -n systemctl restart cuffbot 2>/dev/null || say "warn: run 'sudo systemctl restart cuffbot' to load the update"
+  fi
+  # A restart that lands in a crash-loop looks identical to success from here
+  # unless we check: give the service a moment, then verify it is actually up.
+  sleep 5
+  STATE="$(systemctl is-active cuffbot 2>/dev/null || sudo -n systemctl is-active cuffbot 2>/dev/null || echo unknown)"
+  if [ "$STATE" = "active" ]; then
+    say "cuffbot service is active after update"
+  else
+    say "ERROR: cuffbot service is '$STATE' after update — the bot may be DOWN. Check: journalctl -u cuffbot -n 30"
   fi
 fi
 

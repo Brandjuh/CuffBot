@@ -441,3 +441,26 @@ The independent audit (13 files, math re-derived, discord.js internals verified)
 **State for next session:** M9 shipped and self-merged. Next: **M10 birthdays** (or owner's backlog pick). Owner must add an API key before the detective answers (STATE → Owner actions).
 
 **Skill:** retro run; no protocol gaps found this session (the S16 lessons — Read-before-Edit after compaction, seam conventions — were applied, not re-learned). LEARNINGS S16 "automation trust gate" candidate reconfirmed by design here: mention-replies (automated) get stricter triggers (no @everyone/role pings) than the human-invoked /ask. CHANGELOG unchanged (no skill edits warranted; recorded here per protocol).
+
+---
+
+## Session 18 — 2026-07-24
+
+**Goal:** Owner reports (morning): "AI werkt niet, /ai-config ontbreekt, /help geeft een fout." Diagnose what can be diagnosed from here; make the rest measurable on the Pi.
+
+**Diagnosis from the repo (verified):**
+- main is coherent: 710b3db, 254 tests green, discovery lists 9 modules / 29 commands; the /help embed for all 9 modules totals 3850 chars (under Discord's 6000 cap) — so /help does NOT break on current code here.
+- The symptom trio (missing /ai-config + dead AI + erroring /help) matches Pi-side chain states we cannot see from this container: registrations not applied (update.sh line 58 discarded deploy-commands output and only warned), and/or the bot service down or on stale code (the timer arming has been an open STATE item since S7).
+- Boot-only defects were a real blind spot: NO test ever evaluated src/index.js or src/deploy-commands.js top-to-bottom.
+
+**Done:**
+- **doctor v2** (`npm run doctor`) now checks the whole update chain, read-only, with an exact fix per ❌: git behind-origin count (self-updater stalled?), Discord's registered guild commands diffed against the code (`diffCommandSets`, lists exactly which /commands are missing/stale), cuffbot service active?, cuffbot-update.timer armed?, plus the existing credential checks. Verified end-to-end here (fake token: clean sections, exit 1).
+- **update.sh hardened:** deploy-commands output is now captured and logged loudly on failure (was `>/dev/null` + a soft warn) with the fix commands; after restart the script waits 5 s and verifies `systemctl is-active cuffbot`, logging an ERROR if the bot is down after an update.
+- **Boot smoke tests** (`test/boot-smoke.test.js`): spawn both entry points in an empty cwd without credentials; assert fail-fast with the friendly config error and no SyntaxError/ReferenceError/module-not-found — the import graph of the real entry points is now executed on every `npm test`, including the Pi's update gate.
+- Help badges for the two new modules (leveling 📈, detective 🕵️ — showed as '•').
+- Runbook troubleshooting rewritten around doctor v2 ("start here for almost everything") with the three exact owner symptoms as rows.
+- Tests 254 → **257**.
+
+**Not fixable from here:** the Pi's actual state. The morning report asks the owner to run `npm run doctor` on the Pi and paste the output; every branch of their symptoms now has a named check + fix.
+
+**State for next session:** continuing autonomously with M10 (owner mandate: "ga autonoom verder met alles wat je nog moet doen").

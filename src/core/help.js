@@ -15,6 +15,8 @@ const MODULE_BADGES = {
   academy: '🎖️',
   patrol: '👮',
   'public-affairs': '🍩',
+  leveling: '📈',
+  detective: '🕵️',
 };
 
 /**
