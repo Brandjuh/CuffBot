@@ -961,3 +961,16 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - **`/youtube`** gained `ping-role:` (retarget) and `no-ping:True` (store null — lift the default); the status embed shows the current ping target.
 - Tests 446 → **447** (committed-default assertion; ping-variant of formatAnnouncement; sweep asserts the leading role mention + scoped allowedMentions; cleared-ping case back to `{ parse: [] }`). Manual youtube.md (announcement/options/troubleshooting + changelog row); stale "never pings" comments corrected.
 - Skill 0.5.9: `discord-reference.md` "Mentions & pings" section — mentions are two layers (content renders, allowedMentions delivers); third mention-control session (S35, S50, S53) finally generalized.
+
+---
+
+## Session 54 — 2026-07-24
+
+**Goal:** owner (verbatim): "Stop met het versturen van DM's na gebruik van een ! command. Doe dit niet!" — a `!command` must never answer by DM.
+
+**Done:**
+- **The adapter's DM path is gone.** Every ephemeral-flagged payload on the text path now answers **in the channel** as a reply to the invoking message that pings nobody (`allowedMentions: { repliedUser: false }`). This retires, in one move: the S9 ephemeral→DM rule, the S46 DM-failure diagnostics (no DM left to fail), and the S50 `textInChannel` marker (everything behaves that way now) — marker removed from the adapter and all call sites (economy commands, /ask redirect).
+- **Consequence, documented:** output that is private via slash (rap sheets, admin config views, `!help` pages) is now visible in-channel when invoked via `!` — the slash form remains the private variant. Deliberate moderation DMs (citation copy to the offender, patrol removal notice) are separate features and untouched; the adapter was the only reply-DM sender in the tree (verified by grep).
+- Tests 447 → **444** (five DM-behavior tests removed with the behavior; new: ephemeral → in-channel no-ping reply asserting the reply path, embeds arrive intact, and a hard "author.send is never called" guard). Manuals core.md (routing rule, !help note, changelog row), detective.md + leveling.md (reply lines); skill 0.5.10 (discord-reference S50 note rewritten S50→S54: never pick DM as the private fallback without owner mandate).
+
+**Decision of record:** third DM complaint (S46 false blame → S50 fluff → S54 ban) — the S9 "DM as ephemeral stand-in" default was wrong for this guild from the start; the skill note now warns future sessions off that default.

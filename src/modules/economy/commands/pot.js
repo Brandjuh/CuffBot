@@ -23,7 +23,6 @@ export default {
           'It collects every lost donut (busted `/steal`s, escaped crooks) and grows **+500** 🍩 every day. ' +
           'Once a day you may try to crack it — **0.5%** odds, winner takes ALL: `/pot try:True` (resets at midnight UTC).',
         flags: 64,
-        textInChannel: true,
       });
       return;
     }
@@ -31,13 +30,12 @@ export default {
     const result = tryPot(guildId, interaction.user.id);
     switch (result.code) {
       case 'disabled':
-        await interaction.reply({ content: '🍩 The economy is currently disabled.', flags: 64, textInChannel: true });
+        await interaction.reply({ content: '🍩 The economy is currently disabled.', flags: 64 });
         return;
       case 'already':
         await interaction.reply({
           content: '🍯 You already rattled the pot today — new chance after midnight UTC.',
           flags: 64,
-          textInChannel: true,
         });
         return;
       case 'win':

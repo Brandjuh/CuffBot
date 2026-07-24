@@ -40,7 +40,7 @@ Without a key everything else keeps working; AI commands reply "not configured".
 ### /ai-config (admin — Manage Server)
 
 - **Options:** `enabled` (bool, optional; omit to view).
-- **Reply (ephemeral / DM for `!ai-config`):** enabled, detected provider + model (⚠️ warning when keyless), the rate limit (hour + day), questions used this hour/today, the desk-pile size, and the conversation-memory settings.
+- **Reply (ephemeral; in-channel no-ping reply for `!ai-config` — S54):** enabled, detected provider + model (⚠️ warning when keyless), the rate limit (hour + day), questions used this hour/today, the desk-pile size, and the conversation-memory settings.
 
 ## Mention replies
 

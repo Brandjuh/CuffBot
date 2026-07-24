@@ -231,7 +231,7 @@ test('/ask outside the detective channel redirects without spending anything', a
   });
   assert.equal(state.deferred, false, 'no defer, no provider call');
   assert.match(state.replies[0].content, /<#412354971170897921>/);
-  assert.equal(state.replies[0].textInChannel, true, 'noise refusal, never a DM on the text path');
+  assert.equal(state.replies[0].flags, 64, 'ephemeral refusal — in-channel no-ping reply on the text path (S54)');
 });
 
 test('a mention outside the channel gets a pointer, not an answer (S51)', async () => {
