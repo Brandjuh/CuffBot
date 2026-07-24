@@ -37,7 +37,8 @@ Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or
 ### /help
 
 - **Options:** none.
-- **What happens:** generates the command roster from the modules that are actually loaded (never a hand-maintained list), grouped by module, showing both the `/name` and `!name` forms plus a usage hint. Public (everyone benefits from seeing it).
+- **What happens:** generates the command roster from the modules that are actually loaded (never a hand-maintained list), grouped by module, showing both the `/name` and `!name` forms plus a usage hint.
+- **Paged & private (S39):** the roster no longer fits one embed — Discord caps an embed at **6000 characters in total** (title+description+fields combined), which 18 modules exceed. The roster now splits into numbered embed pages (each ≤25 fields, oversized groups continue in "(continued)" fields), sent **ephemerally** so only the asker sees them; the `!help` text path delivers the pages by DM instead (channel messages can't be ephemeral).
 
 ### /update
 
@@ -137,3 +138,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S26 | `/radio-check` now reports whether `!` text commands are live (Message Content fallback made visible in Discord); the doctor decodes the portal's intent flags and names the exact portal fix. |
 | S27 | `/update`'s "already up to date" is now verified against origin: an updater that never STARTED is reported as such (with the fix), instead of masquerading as up-to-date. |
 | S28 | `/restart` added (reload `.env` from Discord, with a post-boot "Restart complete" report via the shared marker, `kind: 'restart'`). |
+| S39 | `/help` fixed for the 18-module roster: Discord's 6000-char TOTAL embed cap broke it — now paginated into numbered ephemeral embeds (DM pages via `!help`), only visible to the asker. |

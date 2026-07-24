@@ -769,3 +769,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 381 → **397** (pure rules incl. the leading-phrase matcher and inclusive random ranges; balance semantics; spawn→catch→closed; expiry steal with named-never-pinged victim; empty-server escape; watcher intent gate; birthday sweep announcing the 50k line). One bug caught by the suite pre-ship: the intent gate sat BEFORE activity tracking, so pre-intent chatter didn't count — reordered (track always, spawn gated). Manuals `economy.md` + birthdays.md; README 18 modules / 47 commands; badge 💰.
 
 **Decision:** hunts refuse to spawn without the Message Content intent rather than spawning uncatchable crooks — a game nobody can win is a bug, not a feature. Victim pool prefers the live member cache (any member can be robbed — matching "een random persoon in de server"), falling back to existing accounts.
+
+---
+
+## Session 39 — 2026-07-24
+
+**Goal:** owner report: `/help` errors — "I think it's too long; split it and show it only to the requester."
+
+**Diagnosis:** correct instinct. One embed carries at most **6000 characters IN TOTAL** (title + description + all field names/values combined) — the per-field 1024 clamp `/help` already had is not enough. At 18 modules / 47 commands the summed fields blew the total cap and Discord rejected the reply (Invalid Form Body).
+
+**Done:**
+- **Pure pagination in `core/help.js`:** `renderGroupChunks` (splits an oversized module group at entry boundaries into ≤1024-char field values; continuation fields titled "(continued)") + `paginateHelp` (packs groups into pages with a 5000-char budget under the 6000 cap and ≤25 fields; page 1 carries the intro; multi-page titles numbered "(1/N)"; a small roster stays one unnumbered page).
+- **`/help` is now ephemeral** (owner request): page 1 via `reply({flags: 64})`, remaining pages as ephemeral `followUp`s — only the asker sees them. The `!help` text path delivers the same pages by DM (the adapter's established ephemeral→DM semantic; channel messages cannot be ephemeral).
+- Tests 397 → **400**: chunk splitting at entry boundaries with zero entry loss, the 18-module regression shape (every page ≤6000 total and ≤25 fields, groups all survive, numbering + intro-on-page-1), single-page rosters stay unnumbered. Manual core.md updated.
+
+**Skill:** discord-reference.md gains the embed-limit pitfall (6000 total ≠ 1024/field; 25 fields; 10 embeds/message) — 0.5.4.

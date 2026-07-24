@@ -1,12 +1,10 @@
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
-import { buildHelp } from '../../../core/help.js';
-
-const FIELD_LIMIT = 1024; // Discord embed field value cap.
+import { buildHelp, paginateHelp } from '../../../core/help.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('Show every CuffBot command and how to use it.'),
+    .setDescription('Show every CuffBot command and how to use it (only you see the reply).'),
   async execute(interaction) {
     const prefix = interaction.client.config?.prefix ?? '!';
     const modules = (interaction.client.moduleList ?? []).map((mod) => ({
@@ -18,20 +16,16 @@ export default {
       }),
     }));
 
-    const model = buildHelp(modules, prefix);
-    const embed = new EmbedBuilder()
-      .setColor(0x8a5a6a)
-      .setTitle(model.title)
-      .setDescription(model.description);
-
-    for (const group of model.groups) {
-      let value = group.entries
-        .map((e) => `${e.invocations} — ${e.description}\n usage: ${e.usage}`)
-        .join('\n');
-      if (value.length > FIELD_LIMIT) value = `${value.slice(0, FIELD_LIMIT - 2)}…`;
-      embed.addFields({ name: group.title, value });
+    // The full roster no longer fits one embed (Discord's 6000-char TOTAL cap
+    // per embed — S39: 18 modules broke exactly there). Send ephemeral pages
+    // so only the asker sees them; the "!help" text path DMs them instead.
+    const pages = paginateHelp(buildHelp(modules, prefix));
+    for (const [index, page] of pages.entries()) {
+      const embed = new EmbedBuilder().setColor(0x8a5a6a).setTitle(page.title).addFields(page.fields);
+      if (page.description) embed.setDescription(page.description);
+      const payload = { embeds: [embed], flags: 64 };
+      if (index === 0) await interaction.reply(payload);
+      else await interaction.followUp(payload);
     }
-
-    await interaction.reply({ embeds: [embed] });
   },
 };
