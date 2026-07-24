@@ -40,3 +40,22 @@ test('help builds a roster embed from the loaded modules', async () => {
   const title = embed.data?.title ?? embed.title;
   assert.match(title, /Command Roster/);
 });
+
+test('/radio-check reports the text-command channel state (S26)', async () => {
+  const { default: radioCheck } = await import('../src/modules/core/commands/radio-check.js');
+  const assert = (await import('node:assert/strict')).default;
+  const run = async (messageContentAvailable) => {
+    const state = { edited: null };
+    await radioCheck.execute({
+      client: { messageContentAvailable },
+      createdTimestamp: 1_000,
+      reply: async () => ({ resource: { message: { createdTimestamp: 1_050 } } }),
+      editReply: async (p) => (state.edited = p),
+    });
+    return state.edited;
+  };
+  assert.match(await run(true), /✅ Text commands/);
+  const off = await run(false);
+  assert.match(off, /❌ Text commands are OFF/);
+  assert.match(off, /Message Content Intent/);
+});

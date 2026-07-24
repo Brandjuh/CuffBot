@@ -116,6 +116,7 @@ Boot fails fast with a named-variable error message when required settings are m
 | Login fails with `TokenInvalid` / registration says Unauthorized | Wrong or rotated token, or token belongs to a different application than `CLIENT_ID` | `npm run doctor` — it checks the token against Discord and names the exact mismatch |
 | `!commands` do nothing (but `/commands` work) | Message Content intent not enabled | Developer Portal → Bot → Privileged Gateway Intents → Message Content Intent → ON, then restart. The startup log warns when this is the cause. |
 | `/update` replies but nothing happens | Update unit/sudoers not installed, or already up to date | Re-run `setup-pi.sh` step 8; check `journalctl -u cuffbot-update`. "Up to date" is a no-op by design. |
+| **`!commands` don't work, slash commands do** | Message Content intent disabled in the portal — the bot cannot READ message text, so `!help` is invisible to it | `/radio-check` shows it (❌ Text commands OFF), `npm run doctor` verifies the portal flag. Fix: Developer Portal → your app → Bot → Privileged Gateway Intents → **Message Content Intent** ON → Save → `sudo systemctl restart cuffbot` |
 | Bot leaves a server immediately | That server is not the home precinct — working as designed | Change `config.json → homeGuildId` only if the precinct itself moves |
 
 ## Changelog
@@ -125,3 +126,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S1 | Created: `/radio-check`, on-duty sweep, guild lockdown, core plumbing (config/logger/loader), tests. |
 | S9 | Added dual invocation (`/x` + `!x`) via `src/core/prefix/`, `/help` (generated roster), `/update` (manual self-update), Message Content intent with graceful slash-only fallback. |
 | S25 | `/update` got a feedback loop: live status edits (up-to-date / fetched+testing / rolled-back) and a post-restart "back on duty" report in the invoking channel via the `update-report` boot event + a store marker. |
+| S26 | `/radio-check` now reports whether `!` text commands are live (Message Content fallback made visible in Discord); the doctor decodes the portal's intent flags and names the exact portal fix. |

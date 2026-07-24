@@ -68,3 +68,20 @@ export function diffCommandSets(localNames, registeredNames) {
   const extra = [...registered].filter((n) => !local.has(n)).sort();
   return { missing, extra, inSync: missing.length === 0 && extra.length === 0 };
 }
+
+// Discord application flags that describe the privileged Message Content
+// intent's portal state (Developer Portal → Bot → Privileged Gateway Intents).
+const GATEWAY_MESSAGE_CONTENT = 1 << 18; // fully enabled (or verified+approved)
+const GATEWAY_MESSAGE_CONTENT_LIMITED = 1 << 19; // enabled while under 100 servers
+
+/**
+ * Decode whether the Message Content intent is usable, from the application
+ * object's flags (GET /oauth2/applications/@me).
+ * @returns {'enabled'|'limited'|'disabled'}
+ */
+export function messageContentIntentState(flags) {
+  const f = Number(flags ?? 0);
+  if (f & GATEWAY_MESSAGE_CONTENT) return 'enabled';
+  if (f & GATEWAY_MESSAGE_CONTENT_LIMITED) return 'limited';
+  return 'disabled';
+}

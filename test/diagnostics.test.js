@@ -39,3 +39,13 @@ test('diffCommandSets reports missing/extra/in-sync correctly', async () => {
   assert.equal(sync.inSync, true);
   assert.deepEqual(sync.missing, []);
 });
+
+test('messageContentIntentState decodes application flags', async () => {
+  const { messageContentIntentState } = await import('../src/core/diagnostics.js');
+  const assert = (await import('node:assert/strict')).default;
+  assert.equal(messageContentIntentState(0), 'disabled');
+  assert.equal(messageContentIntentState(1 << 18), 'enabled');
+  assert.equal(messageContentIntentState(1 << 19), 'limited');
+  assert.equal(messageContentIntentState((1 << 18) | (1 << 19) | (1 << 12)), 'enabled');
+  assert.equal(messageContentIntentState(undefined), 'disabled');
+});

@@ -588,3 +588,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 315 → **326** (update-status marker/take-once/classify + boot-reporter with fakes incl. same-version and deleted-channel paths; starboard REST-refetch, embed-harvest, custom-emoji matrix, parse/display). Manuals core.md + starboard.md updated.
 
 **Decisions:** the /update poller reads the on-disk commit rather than parsing journal output (no sudo needed, no text-format coupling); marker stamped BEFORE triggering so the report survives the restart; custom emoji identity = ID.
+
+---
+
+## Session 26 — 2026-07-24
+
+**Goal:** owner live report: "!commands don't work, only slash commands." Diagnosis: the Message Content intent is off in the Developer Portal → the S9 graceful fallback is active (slash-only). The bot cannot read message text at all in that state, so this was invisible in Discord — only a boot-time journal warning existed.
+
+**Done (make the invisible state visible in three places):**
+- `npm run doctor` now decodes the application's privileged-intent flags from `/oauth2/applications/@me` (`messageContentIntentState`: GATEWAY_MESSAGE_CONTENT / _LIMITED) and reports ✅/❌ **with the exact portal path** — the intent's portal state is now measurable from the Pi, not guessed.
+- `/radio-check` reports it in Discord where members notice: "✅ Text commands on the air" or "❌ Text commands OFF: Message Content Intent disabled in the Developer Portal (+ fix)". Uses the runtime `client.messageContentAvailable` truth.
+- core.md troubleshooting gained the exact symptom row ("!commands don't work, slash commands do").
+- Tests 326 → **328** (flag decoder matrix incl. combined flags; /radio-check both states).
+
+**Owner action (portal, not code):** Developer Portal → CuffBot app → Bot → Privileged Gateway Intents → **Message Content Intent** ON → Save → `sudo systemctl restart cuffbot`. Then `/radio-check` should show ✅ and `!help` works; patrol and @mention-AI-replies also come alive.
