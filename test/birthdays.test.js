@@ -199,3 +199,12 @@ test('defaults encode the owner decision: announcements in their channel (S31)',
   assert.equal(DEFAULT_BIRTHDAY_CONFIG.enabled, true);
   assert.equal(DEFAULT_BIRTHDAY_CONFIG.channelId, '411609312037961729');
 });
+
+test('the default timezone is US Eastern (S32, owner decision)', async () => {
+  const { DEFAULT_TIMEZONE } = await import('../src/modules/birthdays/lib/birthday.js');
+  assert.equal(DEFAULT_TIMEZONE, 'America/New_York');
+  // A record with a junk timezone falls back to Eastern: at 00:30 UTC on
+  // July 24 it is still July 23 in New York, so the birthday is NOT due yet.
+  const due = dueBirthdays({ u: { day: 24, month: 7, timeZone: 'Mars/Junk' } }, T_2026_07_24_0030Z);
+  assert.deepEqual(due, [], 'invalid timezone now falls back to Eastern, not Amsterdam');
+});

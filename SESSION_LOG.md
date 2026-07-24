@@ -662,3 +662,11 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Goal:** owner question + decision: birthday announcements had no default channel (silent until configured); they must land in `411609312037961729`.
 
 **Done:** `DEFAULT_BIRTHDAY_CONFIG.channelId = '411609312037961729'` — committed as product config (S30/memorial pattern; store overrides via `/birthday-config channel:` still win). Works immediately after update, zero setup. Tests 343 → **344** (defaults assertion; the unconfigured-sweep label updated). Manual + STATE updated.
+
+---
+
+## Session 32 — 2026-07-24
+
+**Goal:** owner request: default birthday timezone → the most-used US timezone.
+
+**Done:** `DEFAULT_TIMEZONE` → `America/New_York` (Eastern covers ~47% of the US population — the largest share; the community is US-based). Option description and refusal examples now lead with US zones; invalid stored timezones also fall back to Eastern. Members elsewhere simply pass `timezone:`. Tests 344 → **345** (default assertion + the junk-timezone fallback now provably resolves to Eastern). Manual + STATE updated.
