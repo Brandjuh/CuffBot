@@ -22,6 +22,8 @@ const MODULE_BADGES = {
   memorial: '🕯️',
   starboard: '⭐',
   'chat-starter': '💬',
+  logbook: '📔',
+  welcome: '👋',
 };
 
 /**

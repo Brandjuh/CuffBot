@@ -39,18 +39,20 @@ function wireSlashRouter(client) {
   });
 }
 
-async function buildAndLogin(intents, { messageContent }) {
+async function buildAndLogin(intents, { messageContent, memberEvents }) {
   // Partials let reaction events fire for messages sent before this boot
   // (starboard): the handler fetches the full objects on demand.
   const client = new Client({
     intents,
-    partials: [Partials.Message, Partials.Reaction, Partials.Channel],
+    partials: [Partials.Message, Partials.Reaction, Partials.Channel, Partials.GuildMember],
   });
   // Modules read product settings (e.g. homeGuildId, prefix) from here.
   client.config = config;
   // Features that need the Message Content intent (text commands, patrol) check
   // this so they degrade instead of misbehaving when the intent is unavailable.
   client.messageContentAvailable = messageContent;
+  // Same idea for the Server Members intent (welcome, logbook member trail).
+  client.memberEventsAvailable = memberEvents;
 
   await loadModules(client);
   wireSlashRouter(client);
@@ -75,27 +77,57 @@ function isDisallowedIntents(error) {
 
 // Non-privileged intents every feature set needs: GuildMessages fires
 // MessageCreate (message XP needs the event, not the content),
-// GuildVoiceStates shows who is in voice (voice XP), and
-// GuildMessageReactions fires the starboard's reaction events. Only
-// MessageContent is privileged, so the fallback keeps everything except
-// reading message text.
+// GuildVoiceStates shows who is in voice (voice XP + logbook), reactions for
+// the starboard, moderation for ban logs, invites and emojis/stickers for the
+// logbook's structure trail. MessageContent and GuildMembers are privileged
+// and handled by the cascade below.
 const BASE_INTENTS = [
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildMessages,
   GatewayIntentBits.GuildVoiceStates,
   GatewayIntentBits.GuildMessageReactions,
+  GatewayIntentBits.GuildModeration,
+  GatewayIntentBits.GuildInvites,
+  GatewayIntentBits.GuildEmojisAndStickers,
 ];
 
-try {
-  await buildAndLogin([...BASE_INTENTS, GatewayIntentBits.MessageContent], { messageContent: true });
-} catch (error) {
-  if (isDisallowedIntents(error)) {
-    logger.warn(
-      'Message Content intent is NOT enabled — "!" text commands and patrol are DISABLED (slash commands and XP work normally). ' +
-        'Enable it: Developer Portal → your app → Bot → Privileged Gateway Intents → Message Content Intent, then restart.',
-    );
-    await buildAndLogin(BASE_INTENTS, { messageContent: false });
-  } else {
-    throw error;
+// Two privileged intents, each individually toggleable in the portal — try
+// the richest combination first and drop whatever the portal refuses (4014
+// does not say WHICH intent, hence the cascade). The bot always comes up.
+const ATTEMPTS = [
+  { messageContent: true, memberEvents: true },
+  { messageContent: true, memberEvents: false },
+  { messageContent: false, memberEvents: true },
+  { messageContent: false, memberEvents: false },
+];
+
+let lastError = null;
+let started = false;
+for (const attempt of ATTEMPTS) {
+  const intents = [
+    ...BASE_INTENTS,
+    ...(attempt.messageContent ? [GatewayIntentBits.MessageContent] : []),
+    ...(attempt.memberEvents ? [GatewayIntentBits.GuildMembers] : []),
+  ];
+  try {
+    await buildAndLogin(intents, attempt);
+    started = true;
+    if (!attempt.messageContent) {
+      logger.warn(
+        'Message Content intent is NOT enabled — "!" text commands, patrol, and @mention AI replies are DISABLED (slash commands and XP work normally). ' +
+          'Enable it: Developer Portal → your app → Bot → Privileged Gateway Intents → Message Content Intent, then restart.',
+      );
+    }
+    if (!attempt.memberEvents) {
+      logger.warn(
+        'Server Members intent is NOT enabled — welcome messages and the logbook member trail (joins/leaves/role changes) are DISABLED. ' +
+          'Enable it: Developer Portal → your app → Bot → Privileged Gateway Intents → Server Members Intent, then restart.',
+      );
+    }
+    break;
+  } catch (error) {
+    if (!isDisallowedIntents(error)) throw error;
+    lastError = error;
   }
 }
+if (!started) throw lastError ?? new Error('Login failed for every intent combination.');

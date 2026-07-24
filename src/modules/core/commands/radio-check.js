@@ -15,6 +15,9 @@ export default {
     const textStatus = interaction.client.messageContentAvailable
       ? '✅ Text commands (`!help`) are on the air.'
       : '❌ Text commands are OFF: the **Message Content Intent** is disabled in the Developer Portal (Bot → Privileged Gateway Intents). Enable it + restart; slash commands work normally meanwhile.';
-    await interaction.editReply(`${describeLatency(latency)}\n${textStatus}`);
+    const memberStatus = interaction.client.memberEventsAvailable
+      ? '✅ Member events (welcome, join/leave logs) are on the air.'
+      : '❌ Member events are OFF: the **Server Members Intent** is disabled in the Developer Portal — no welcome messages, no join/leave/role logs. Enable it + `/restart`.';
+    await interaction.editReply(`${describeLatency(latency)}\n${textStatus}\n${memberStatus}`);
   },
 };

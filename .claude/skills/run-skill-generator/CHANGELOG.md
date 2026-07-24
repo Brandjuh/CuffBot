@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.4.3 — 2026-07-24 (Session 34)
+
+- `discord-reference.md` → Client & intents: generalized the S9 graceful-fallback pattern to MULTIPLE privileged intents — an ordered attempt cascade over the intent combinations (most capable first), one per-feature availability flag per intent, each surfaced inside Discord (status/config commands naming the exact portal switch).
+- Evidence: S34's welcome + logbook modules need the privileged Server Members Intent on a bot that already fallback-handles Message Content; the 2×2 cascade in `src/index.js` keeps any portal misconfiguration from crash-looping the self-restarting service, and the owner discovers the fix via `/radio-check`, `/welcome-config`, or `/logbook` instead of journalctl.
+
 ## 0.4.2 — 2026-07-24 (Sessions 18–23)
 
 - `discord-reference.md` → Client & intents: reaction events need `GuildMessageReactions` PLUS `Partials.Message/Reaction/Channel` (with fetch-on-partial) to fire for messages older than the current boot — without partials a reaction feature silently ignores most of a server's history.
