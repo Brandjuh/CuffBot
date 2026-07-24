@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 17 · 2026-07-23
-**Phase:** M1–M9 complete + audited; leveling (S16) and **detective/AI (S17)** live. Next: M10 birthdays (or owner's pick from the backlog).
+**Last updated:** Session 19 · 2026-07-24
+**Phase:** M1–M10 complete; ops chain made diagnosable (S18). Autonomous marathon running: M11 trivia → M12 fallen tracker → M13 starboard → M15 chat starter (M14 awaits owner scope).
 
 ## Verification block — run this before trusting the rest
 
@@ -16,15 +16,17 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 254/254 pass as of S17 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'patrol', 'public-affairs', 'records' ]` |
-| Manuals current | `ls docs/modules/` | academy, core, detective, dispatch, enforcement, leveling, patrol, public-affairs, records |
+| Tests green | `npm test` | 271/271 pass as of S19 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'patrol', 'public-affairs', 'records' ]` |
+| Manuals current | `ls docs/modules/` | academy, birthdays, core, detective, dispatch, enforcement, leveling, patrol, public-affairs, records |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 17 · 2026-07-23)
+## What exists (verified Session 19 · 2026-07-24)
 
+- **Birthdays (M10, S19):** module `birthdays` — `/birthday-set` (day+month+IANA timezone, validated incl. Feb 29; **no birth year stored**), `/birthday-remove`, `/birthdays` (upcoming, soonest first, per-member timezone), `/birthday-config` (admin: enabled+channel; off until a channel is set). 10-minute idempotent sweep (`ClientReady`, unref'd interval, tick at boot) announces on the member's OWN calendar day, once per local year — `lastAnnouncedYear` stamped BEFORE the send so failures skip a year instead of spamming every tick. Feb 29 → celebrated Mar 1 in non-leap years. Announcement pings only the birthday member. Pure calendar math in `lib/birthday.js` (Intl-based `localDateParts`). Manual `birthdays.md`.
+- **Ops hardening (S18):** doctor v2 (`npm run doctor`) diagnoses the whole update chain — git behind-origin, registered-vs-code command diff (`diffCommandSets`), cuffbot service active, update timer armed — each ❌ with its exact fix. `update.sh` logs deploy-commands failures loudly (was silent) and verifies the service is active post-restart. Boot smoke tests spawn both real entry points (no test previously evaluated `src/index.js`/`src/deploy-commands.js`). Runbook troubleshooting rewritten around doctor v2.
 - **Detective / AI (M9, S17):** module `detective` — `/ask` (everyone; greedy `question`), `/ai-config` (admin: enabled toggle + status: provider/model/hourly usage), and reply-when-@mentioned (same pipeline; needs Message Content; ignores @everyone/role pings, bots, system messages, `!`-prefixed). Providers: **Groq** (`GROQ_API_KEY`, default `llama-3.1-8b-instant`) or **Gemini** (`GEMINI_API_KEY`, default `gemini-2.0-flash`), auto-picked by key, `CUFFBOT_AI_PROVIDER`/`CUFFBOT_AI_MODEL` overrides, plain `fetch`, 20 s timeout, zero new deps. **Owner rate-limit spec implemented exactly (GLOBAL, everyone combined): 1 msg / 7 s AND 62 / rolling hour** — refused before any tokens are spent, in-theme refusals with wait times. Per-channel memory: last 8 exchanges, 30 min TTL, RAM-only. Persona: police detective, answers in the asker's language, ~150 words, declines harmful/personal-data asks. Replies never ping; `@everyone`/`@here` neutered in model text. `askDetective` never throws. Keyless = friendly "not configured" everywhere. Manual `detective.md` (incl. owner key setup).
 - **Leveling (S16):** module `leveling` — CuffBot's own XP system, **replacing the old leveler bot** (owner decision S15/S16). Message XP (cooldown-gated; needs only the MessageCreate *event*, works without Message Content; system messages excluded) + voice XP (60 s sweep, one store write per tick; anti-farm: no AFK channel, ≥2 humans, not self-deafened, no bots; `GuildVoiceStates` intent added to the base set). Thresholds `round(baseXp·N^1.6)` mapped position-based onto the academy ladder; **promote-only** auto rank sync (never demotes; per-member in-flight guard against duplicate promotions) with audit reasons + no-ping announcements. **Seeding (owner requirement S16): first sight of a member with a rank role seeds their XP at that rank's threshold floor — existing members never restart at 0; rankless members start at 0 (`seededFromRank` stored).** **All automation (seeding-from-rank, auto-sync, XP coupling) requires the PINNED ladder** (academy `isPinnedLadder`; `/rank-setup` sets it) — a broken/heuristic ladder can't hand out roles or poison seeds, and under-seeded records **self-heal** (reconcile raises XP to the held rank's floor once the ladder is pinned). `/promote`/`/demote` **couple XP** to the new rank (raise-to-floor / cap-at-floor) so auto-sync never undoes a human demotion. `/level` (bot targets refused), `/leaderboard` (clamped 1–25), `/xp-config` (admin; sparse overrides only; `clear-announce`; shows pinned status). Prefix framework: text path now enforces integer min/max and `addChannelTypes`. Manual `leveling.md`.
 - **Dual invocation (S9):** every command runs as `/x` AND `!x` (`src/core/prefix/` — parser, adapter, router; ephemeral→DM). `/help` (generated roster) and `/update` (manual, admin-only, test-gated) added to core. Message Content intent enabled with graceful slash-only fallback (`client.messageContentAvailable`); `config.json → prefix`. Text commands + patrol need that intent (portal enablement).
@@ -45,13 +47,15 @@
 
 ## Resume point
 
-**M1–M9 complete: 9 modules, 29 commands, 254 tests, dual invocation, self-update, audited.**
+**M1–M10 complete: 10 modules, 33 commands, 271 tests, dual invocation, self-update, audited.**
 
 ⚠️ **Owner actions pending:**
 1. Leveling: run `/rank-setup header:@[LEVELER]` once (pin) — auto-rank and XP seeding stay idle until then.
 2. Detective: put `GROQ_API_KEY` (or `GEMINI_API_KEY`) in the Pi's `.env` and restart — AI replies "not configured" until then (`docs/modules/detective.md` § Owner setup).
 
-Next: **M10 — Birthdays** (first unchecked milestone), or the owner's pick from the backlog (trivia, fallen tracker with the given RSS feeds + role ids, starboard, goal tracker, chat starter — all buildable without external decisions).
+3. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
+
+Next: **M11 — Police trivia** (autonomous marathon, owner mandate 2026-07-24: "ga autonoom verder met alles wat je nog moet doen"); then M12 fallen tracker, M13 starboard, M15 chat starter. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
 
 
 ## Open problems / blockers

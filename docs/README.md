@@ -13,6 +13,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | public-affairs | [`modules/public-affairs.md`](modules/public-affairs.md) | stable (S14) |
 | leveling | [`modules/leveling.md`](modules/leveling.md) | stable (S16) |
 | detective | [`modules/detective.md`](modules/detective.md) | stable (S17) |
+| birthdays | [`modules/birthdays.md`](modules/birthdays.md) | stable (S19) |
 
 ## Operations
 
