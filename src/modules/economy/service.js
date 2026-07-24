@@ -10,6 +10,7 @@ import {
   catchReward,
   channelIsActive,
   earnGain,
+  heistSucceeds,
   huntDurationMs,
   pickVictim,
   shouldSpawnHunt,
@@ -102,6 +103,49 @@ export function grantBirthdayBonus(guildId, userId) {
   if (!config.enabled) return null;
   adjustBalance(guildId, userId, BIRTHDAY_BONUS);
   return BIRTHDAY_BONUS;
+}
+
+/**
+ * One /steal attempt (S40 owner spec): 30% success moves the loot from the
+ * target to the thief; a failed attempt moves it from the thief to the
+ * precinct chief — the SERVER OWNER (guild.ownerId resolves to Brandjuh
+ * without hardcoding a personal id). Amounts are capped by what the payer
+ * actually has (balances floor at 0), reported honestly via `amount`.
+ * @returns {{code:'disabled'|'self'|'cooldown'|'success'|'failure',
+ *            amount?:number, waitMs?:number, chiefId?:string}}
+ */
+export function attemptHeist(guild, thiefId, targetId, { random = Math.random, now = Date.now() } = {}) {
+  const guildId = guild.id;
+  const config = getEconomyConfig(guildId);
+  if (!config.enabled) return { code: 'disabled' };
+  if (thiefId === targetId) return { code: 'self' };
+
+  const lastHeistAt = getAccounts(guildId)[thiefId]?.lastHeistAt ?? null;
+  const cooldown = config.heistCooldownMs;
+  if (lastHeistAt && now - lastHeistAt < cooldown) {
+    return { code: 'cooldown', waitMs: cooldown - (now - lastHeistAt) };
+  }
+  updateGuildData(
+    guildId,
+    ECONOMY_USERS_KEY,
+    (accounts) => {
+      const rec = accounts[thiefId] ?? { balance: config.startingBalance, lastEarnAt: null };
+      return { ...accounts, [thiefId]: { ...rec, lastHeistAt: now } };
+    },
+    {},
+  );
+
+  if (heistSucceeds(config, random)) {
+    const { applied } = adjustBalance(guildId, targetId, -config.heistAmount);
+    const loot = Math.abs(applied);
+    if (loot > 0) adjustBalance(guildId, thiefId, loot);
+    return { code: 'success', amount: loot };
+  }
+  const chiefId = guild.ownerId ?? null;
+  const { applied } = adjustBalance(guildId, thiefId, -config.heistAmount);
+  const seized = Math.abs(applied);
+  if (seized > 0 && chiefId) adjustBalance(guildId, chiefId, seized);
+  return { code: 'failure', amount: seized, chiefId };
 }
 
 /** Top balances: [{userId, balance}], richest first. */
