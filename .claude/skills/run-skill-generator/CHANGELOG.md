@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.7 — 2026-07-24 (Session 47)
+
+- `discord-reference.md`: new section — component wizards (ephemeral update-in-place steps, showModal-as-response, prefix-filtered module-owned interaction pump, RAM draft + TTL, save-only-at-the-end).
+- Evidence: S47's /patrol-wizard — the first multi-step component flow; the trivia button pattern generalized cleanly to selects + modals.
+
 ## 0.5.6 — 2026-07-24 (Session 44)
 
 - `discord-reference.md`: new section — select menus cap at 25 options; large choice sets use option autocomplete (`.setAutocomplete(true)` + `command.autocomplete`, routed centrally, fail-safe `[]`, submitted values re-validated).

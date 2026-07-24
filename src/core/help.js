@@ -116,6 +116,7 @@ export const COMMAND_CATEGORIES = {
   patrol: 'admin',
   'patrol-rule': 'admin',
   'patrol-term': 'admin',
+  'patrol-wizard': 'admin',
   'xp-config': 'admin',
   'ai-config': 'admin',
   'birthday-config': 'admin',
