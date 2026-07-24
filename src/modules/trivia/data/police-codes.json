@@ -1,0 +1,66 @@
+{
+  "set": "police-codes",
+  "title": "Police Codes & Radio Chatter",
+  "questions": [
+    {
+      "q": "What does the radio code **10-4** commonly mean?",
+      "choices": ["Officer down", "Message received", "Send backup", "Stop transmitting"],
+      "answer": 1,
+      "fact": "10-4 is the classic acknowledgement: \"understood\"."
+    },
+    {
+      "q": "In the NATO phonetic alphabet, which word stands for the letter **P**?",
+      "choices": ["Peter", "Papa", "Poppa", "Pilot"],
+      "answer": 1,
+      "fact": "The NATO alphabet runs Alfa, Bravo, Charlie… Papa is P."
+    },
+    {
+      "q": "What does **APB** stand for?",
+      "choices": ["All-Points Bulletin", "Armed Patrol Backup", "Active Pursuit Broadcast", "All Precincts Busy"],
+      "answer": 0,
+      "fact": "An APB broadcasts a suspect or vehicle description to all units."
+    },
+    {
+      "q": "A dispatcher asking your **10-20** wants to know what?",
+      "choices": ["Your badge number", "Your location", "Your arrival time", "Your case number"],
+      "answer": 1,
+      "fact": "\"What's your 20?\" = where are you?"
+    },
+    {
+      "q": "What does **SWAT** stand for?",
+      "choices": ["Special Weapons And Tactics", "Strategic Warrant Arrest Team", "Special Warfare Assault Team", "Street-Wise Action Troop"],
+      "answer": 0,
+      "fact": "SWAT teams handle high-risk operations beyond regular patrol capability."
+    },
+    {
+      "q": "Which letter does **Foxtrot** represent in the phonetic alphabet?",
+      "choices": ["T", "X", "F", "O"],
+      "answer": 2,
+      "fact": "Foxtrot is F — as in \"unit Foxtrot-1\"."
+    },
+    {
+      "q": "What is a **K-9** unit?",
+      "choices": ["A motorcycle squad", "A police dog team", "A drone unit", "A riot squad"],
+      "answer": 1,
+      "fact": "K-9 is a play on \"canine\" — dogs trained for detection and apprehension."
+    },
+    {
+      "q": "What does **BOLO** stand for?",
+      "choices": ["Backup On Location Only", "Be On the LookOut", "Broadcast Of Local Officers", "Break Off, Leave Operation"],
+      "answer": 1,
+      "fact": "A BOLO alert asks units to watch for a person or vehicle."
+    },
+    {
+      "q": "When an officer says **\"copy\"** on the radio, they mean…",
+      "choices": ["Send it in writing", "I understood the message", "Repeat the message", "Recording has started"],
+      "answer": 1,
+      "fact": "\"Copy\" acknowledges the transmission was received and understood."
+    },
+    {
+      "q": "In cop slang, a **\"perp\"** is…",
+      "choices": ["A patrol route", "A rookie officer", "The perpetrator of a crime", "An unmarked car"],
+      "answer": 2,
+      "fact": "Short for perpetrator — the person who committed the offense."
+    }
+  ]
+}

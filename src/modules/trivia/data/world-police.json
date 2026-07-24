@@ -1,0 +1,81 @@
+{
+  "set": "world-police",
+  "title": "Police of the World",
+  "questions": [
+    {
+      "q": "**Scotland Yard** is the headquarters of which police force?",
+      "choices": ["Police Scotland", "London's Metropolitan Police", "Interpol", "The Royal Guard"],
+      "answer": 1,
+      "fact": "The Met's original 1829 headquarters backed onto a street called Great Scotland Yard."
+    },
+    {
+      "q": "What is **Interpol**?",
+      "choices": [
+        "The European riot police",
+        "A fictional agency from movies",
+        "An international police cooperation organization",
+        "The UN's private security force"
+      ],
+      "answer": 2,
+      "fact": "Interpol connects police forces of member countries; it has no arrest powers of its own."
+    },
+    {
+      "q": "In the United States, the **Miranda warning** informs an arrested person of…",
+      "choices": [
+        "The charges and bail amount",
+        "The right to remain silent and to an attorney",
+        "The location of the courthouse",
+        "The officer's name and badge number"
+      ],
+      "answer": 1,
+      "fact": "It stems from Miranda v. Arizona (1966)."
+    },
+    {
+      "q": "What is the **emergency number** in the Netherlands (and across the EU)?",
+      "choices": ["911", "999", "112", "110"],
+      "answer": 2,
+      "fact": "112 works in every EU country; 911 is North America."
+    },
+    {
+      "q": "What color are **police emergency lights** in the Netherlands?",
+      "choices": ["Red and blue", "Blue", "Orange", "Green"],
+      "answer": 1,
+      "fact": "Dutch emergency services run blue lights; red-and-blue is typically American."
+    },
+    {
+      "q": "Which US agency investigates **federal** crimes?",
+      "choices": ["The FBI", "The Secret Service", "The DEA", "The US Marshals"],
+      "answer": 0,
+      "fact": "The Federal Bureau of Investigation is the principal federal investigative agency."
+    },
+    {
+      "q": "The **RCMP** — the \"Mounties\" — are the national police of which country?",
+      "choices": ["Australia", "Canada", "New Zealand", "The United Kingdom"],
+      "answer": 1,
+      "fact": "The Royal Canadian Mounted Police, famous for their red serge uniforms."
+    },
+    {
+      "q": "An officer's **\"beat\"** is…",
+      "choices": ["Their service weapon", "Their regular patrol area", "Their shift schedule", "Their arrest quota"],
+      "answer": 1,
+      "fact": "Walking the beat = patrolling one's assigned territory."
+    },
+    {
+      "q": "The **Carabinieri** are a national gendarmerie of which country?",
+      "choices": ["Spain", "Portugal", "Italy", "Greece"],
+      "answer": 2,
+      "fact": "Italy's Carabinieri are a military corps with police duties."
+    },
+    {
+      "q": "**Forensics** is best described as…",
+      "choices": [
+        "The study of police history",
+        "Applying science to criminal investigation",
+        "The law of search warrants",
+        "Interrogation techniques"
+      ],
+      "answer": 1,
+      "fact": "From fingerprints to DNA — science in service of the case."
+    }
+  ]
+}
