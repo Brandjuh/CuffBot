@@ -687,3 +687,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 345 → **349**: minute-window enforce/age-out with exact retry math, day-window enforce with a fitting smaller request, provider metadata, estimation + oldest-first trimming (question survives), usage-shape updates.
 
 **Decision:** conservative estimates over exact counts (provider-reported usage arrives AFTER spending; an estimate refused up front protects the quota, and the 400-token output reservation biases safe).
+
+---
+
+## Session 34 — 2026-07-24
+
+**Goal:** two owner requests: (1) "Logger — which options are there? I want to log everything" → a full server logbook; (2) a welcome message in lobby 411609312037961729 the moment someone joins. (Request 3 — a channel list like the FRA bot's — is queued: that repository is not visible from this session; question sent to the owner.)
+
+**Done:**
+- **Logbook module** (`/logbook`, admin): six toggleable categories — messages (delete/edit/purge; honest "not in my cache" partials), members (join with account age, leave with roles held, nicknames, role add/remove), moderation (ban with reason, unban), voice (join/leave/move; mute/deaf toggles deliberately ignored as noise), server (channel/role create-delete-rename, emoji add/remove), invites (create/delete). **All categories ON by default** (the owner asked to log everything) — but nothing posts until an admin picks a channel (`/logbook channel:`), because logs are sensitive. One delivery path (`postLog`): master switch → category toggle → the log channel never logs itself → no-ping embed; a failing log write never breaks the event that caused it; CuffBot's own messages are skipped (self-noise). Pure models in `lib/logformat.js`; 19 thin event handlers across three files.
+- **Welcome module** (`/welcome-config`, admin): greets every human newcomer in the owner's lobby (committed default `411609312037961729`, S30 pattern) — `{user}`/`{server}` template, pings exactly the newcomer, bots get no welcome, `test` option posts one right now with the invoker as the newcomer. Status embed renders a preview and shows the Server Members Intent state.
+- **Server Members Intent cascade:** login now walks a 4-attempt table over (Message Content × Server Members) — most capable first, dropping whatever the portal refuses — so a missing portal switch can never crash-loop the bot. `client.memberEventsAvailable` joins `messageContentAvailable`; surfaced in `/radio-check`, `/welcome-config`, and `/logbook`. Base intents grew: GuildModeration, GuildInvites, GuildEmojisAndStickers; partials + GuildMember.
+- Tests 349 → **358** (log models per category, postLog gate matrix incl. the no-recursion guard, all-defaults-on, event fakes: delete/edit incl. identical-content silence, join with account age, ban with reason, voice move vs mute-toggle silence, bot-own-message skip; welcome defaults/placeholders/join ping scope/bot skip/disabled/unsendable channel). Manuals `logbook.md` + `welcome.md`; README 16 modules / 42 commands; skill 0.4.3 (multi-intent cascade generalization in discord-reference.md).
+
+**Owner action required:** enable the **Server Members Intent** (Developer Portal → Bot → Privileged Gateway Intents) + `/restart`, else joins stay invisible to both modules; then `/logbook channel:#…` to start the log.
+
+**Decision:** logbook defaults to everything-on but channel-unset — "log everything" was the request, yet where those logs land must be a deliberate admin choice.
