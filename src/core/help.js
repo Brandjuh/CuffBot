@@ -19,6 +19,7 @@ const MODULE_BADGES = {
   detective: '🕵️',
   birthdays: '🎂',
   trivia: '❓',
+  memorial: '🕯️',
 };
 
 /**
