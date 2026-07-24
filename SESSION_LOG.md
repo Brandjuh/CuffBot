@@ -670,3 +670,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Goal:** owner request: default birthday timezone → the most-used US timezone.
 
 **Done:** `DEFAULT_TIMEZONE` → `America/New_York` (Eastern covers ~47% of the US population — the largest share; the community is US-based). Option description and refusal examples now lead with US zones; invalid stored timezones also fall back to Eastern. Members elsewhere simply pass `timezone:`. Tests 344 → **345** (default assertion + the junk-timezone fallback now provably resolves to Eastern). Manual + STATE updated.
+
+---
+
+## Session 33 — 2026-07-24
+
+**Goal:** owner supplied Groq's free-tier limits for llama-3.1-8b-instant (RPM 30, RPD 14.4K, TPM 6K, TPD 500K). RPM/RPD were already covered (7 s cooldown ≈ 8.6/min; dailyLimit 14 400) — **the token windows were not**, and with conversation memory one request can cost 1 000+ estimated tokens, so a full-rate stream could blow the 6K TPM.
+
+**Done:**
+- **Token budgets in the shared limiter:** `take()` now accepts the request's estimated token cost plus provider `tpm`/`tpd` windows (rolling minute + rolling day over the same stamp list; refusal reasons `tokens-minute`/`tokens-day` with honest retry times). Estimation: ~4 chars/token + the reserved 400-token output (`estimateTokens`/`estimateRequestTokens`, pure).
+- **Provider metadata:** groq `tpm: 6_000, tpd: 500_000` (dashboard comment incl. RPM 30 note); gemini `tpm: 250_000, tpd: null`.
+- **Token-aware history trimming:** `buildMessages` drops the OLDEST exchanges past ~1 200 estimated input tokens — long answers no longer inflate every following request; the new question always survives.
+- All three call sites meter tokens: askDetective, the desk-pile flusher, and the chat-starter's aiQuestion (~550 est.).
+- **Desk-pile semantics:** a saturated MINUTE parks the question (wait ≤ 60 s — perfect for auto-answer); a spent token DAY does not park ("the detective is out of ink — come back tomorrow"), same rule as the request-day cap.
+- `/ai-config` shows the estimated token usage (minute + day) when the provider defines windows.
+- Tests 345 → **349**: minute-window enforce/age-out with exact retry math, day-window enforce with a fitting smaller request, provider metadata, estimation + oldest-first trimming (question survives), usage-shape updates.
+
+**Decision:** conservative estimates over exact counts (provider-reported usage arrives AFTER spending; an estimate refused up front protects the quota, and the 400-token output reservation biases safe).

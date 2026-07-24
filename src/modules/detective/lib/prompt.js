@@ -8,7 +8,26 @@ export const LIMITS = {
   maxHistoryEntries: 8, // last N exchanges kept per channel
   historyTtlMs: 30 * 60_000, // a stale conversation is forgotten
   maxReplyChars: 1_900, // Discord message cap is 2000; leave margin
+  // Keep request INPUT small enough that a full-rate stream of questions fits
+  // Groq's 6K tokens/minute (S33, owner dashboard): history is trimmed
+  // oldest-first past this estimated-token budget.
+  maxHistoryTokens: 1_200,
+  maxOutputTokens: 400, // must match the providers' max_tokens setting
 };
+
+/**
+ * Rough token estimate (≈4 chars/token — the standard heuristic). Used for
+ * budget math only; deliberately conservative rather than exact.
+ */
+export function estimateTokens(text) {
+  return Math.ceil(String(text ?? '').length / 4);
+}
+
+/** Estimated total tokens one request will consume (input + reserved output). */
+export function estimateRequestTokens(system, messages, limits = LIMITS) {
+  const input = estimateTokens(system) + messages.reduce((n, m) => n + estimateTokens(m.content), 0);
+  return input + limits.maxOutputTokens;
+}
 
 export const PERSONA = [
   'You are CuffBot, the precinct detective of a police-themed Discord server called the precinct.',
@@ -44,10 +63,19 @@ export function pruneHistory(history, now, limits = LIMITS) {
  * @returns {Array<{role:'user'|'assistant', content:string}>}
  */
 export function buildMessages(history, askerName, question, now, limits = LIMITS) {
-  const messages = pruneHistory(history, now, limits).map((h) => ({
+  let messages = pruneHistory(history, now, limits).map((h) => ({
     role: h.role,
     content: h.content,
   }));
+  // Token-aware trim (S33): drop the OLDEST exchanges until the history fits
+  // the input budget — long answers would otherwise blow the provider's
+  // tokens-per-minute limit while adding little context.
+  while (
+    messages.length > 0 &&
+    messages.reduce((n, m) => n + estimateTokens(m.content), 0) > limits.maxHistoryTokens
+  ) {
+    messages = messages.slice(1);
+  }
   messages.push({ role: 'user', content: `${askerName}: ${question}` });
   return messages;
 }

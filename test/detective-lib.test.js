@@ -43,8 +43,8 @@ test('limiter usage reports the rolling-hour count', () => {
   const t0 = 50_000_000;
   lim.take(t0);
   lim.take(t0 + 8_000);
-  assert.deepEqual(lim.usage(t0 + 9_000), { usedThisHour: 2, maxPerHour: 62, usedToday: 2, maxPerDay: null });
-  assert.deepEqual(lim.usage(t0 + 3_700_000), { usedThisHour: 0, maxPerHour: 62, usedToday: 2, maxPerDay: null });
+  assert.deepEqual(lim.usage(t0 + 9_000), { usedThisHour: 2, maxPerHour: 62, usedToday: 2, maxPerDay: null, tokensThisMinute: 0, tokensToday: 0 });
+  assert.deepEqual(lim.usage(t0 + 3_700_000), { usedThisHour: 0, maxPerHour: 62, usedToday: 2, maxPerDay: null, tokensThisMinute: 0, tokensToday: 0 });
 });
 
 test('humanWait rounds up to whole seconds/minutes', () => {
@@ -206,6 +206,39 @@ test('limiter usage reports daily numbers alongside hourly (S27)', () => {
   assert.equal(use.maxPerDay, 20);
 });
 
+test('limiter enforces the tokens-per-minute window and frees after 60 s (S33)', () => {
+  const lim = createLimiter({ minIntervalMs: 0, maxPerHour: 1000 });
+  const t0 = 950_000_000;
+  assert.equal(lim.take(t0, { tokens: 3_000, tpm: 6_000 }).ok, true);
+  assert.equal(lim.take(t0 + 5_000, { tokens: 2_500, tpm: 6_000 }).ok, true);
+  const refused = lim.take(t0 + 10_000, { tokens: 1_000, tpm: 6_000 });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.reason, 'tokens-minute');
+  assert.equal(refused.retryAfterMs, t0 + 60_000 - (t0 + 10_000), 'frees when the first batch ages out');
+  // 61 s after the first grant, its 3000 tokens left the window.
+  assert.equal(lim.take(t0 + 61_000, { tokens: 1_000, tpm: 6_000 }).ok, true);
+  const use = lim.usage(t0 + 61_500, { maxPerDay: null });
+  assert.equal(use.tokensThisMinute, 3_500, 'the 2500 (56.5 s old) and 1000 (0.5 s old) batches are in-window; the 3000 aged out');
+});
+
+test('limiter enforces the tokens-per-day window (S33)', () => {
+  const lim = createLimiter({ minIntervalMs: 0, maxPerHour: 100_000 });
+  const t0 = 980_000_000;
+  // Two grants an hour apart: minute window empty, day window accumulates.
+  assert.equal(lim.take(t0, { tokens: 300_000, tpm: 1_000_000, tpd: 500_000 }).ok, true);
+  const refused = lim.take(t0 + 3_600_000, { tokens: 250_000, tpm: 1_000_000, tpd: 500_000 });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.reason, 'tokens-day');
+  assert.equal(lim.take(t0 + 3_600_000, { tokens: 150_000, tpm: 1_000_000, tpd: 500_000 }).ok, true, 'smaller request still fits');
+});
+
+test('provider token metadata matches the owner dashboards (S33)', () => {
+  assert.equal(groqProvider.tpm, 6_000);
+  assert.equal(groqProvider.tpd, 500_000);
+  assert.equal(geminiProvider.tpm, 250_000);
+  assert.equal(geminiProvider.tpd, null);
+});
+
 test('provider defaults: gemini-2.5-flash-lite + 20/day; groq free-tier RPD (S27/S28, owner spec)', () => {
   assert.equal(geminiProvider.model({}), 'gemini-2.5-flash-lite');
   assert.equal(geminiProvider.dailyLimit, 20);
@@ -215,4 +248,28 @@ test('provider defaults: gemini-2.5-flash-lite + 20/day; groq free-tier RPD (S27
   assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: '50' }), 50, 'env override wins');
   assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: '0' }), null, '0 disables the cap');
   assert.equal(dailyLimitFor(geminiProvider, { CUFFBOT_AI_DAILY_LIMIT: 'junk' }), 20, 'junk falls back');
+});
+
+test('token estimation and token-aware history trimming (S33)', async () => {
+  const { estimateTokens, estimateRequestTokens } = await import('../src/modules/detective/lib/prompt.js');
+  assert.equal(estimateTokens('abcd'), 1);
+  assert.equal(estimateTokens('abcde'), 2, 'rounds up');
+  assert.equal(estimateTokens(''), 0);
+  const est = estimateRequestTokens('x'.repeat(400), [{ role: 'user', content: 'y'.repeat(400) }]);
+  assert.equal(est, 100 + 100 + LIMITS.maxOutputTokens);
+
+  // A history of huge answers is trimmed OLDEST-first to the token budget.
+  const now = 3_000_000_000;
+  const big = 'z'.repeat(1_900); // ≈475 tokens each
+  const history = [
+    { role: 'user', content: `old: ${big}`, at: now - 4_000 },
+    { role: 'assistant', content: big, at: now - 3_000 },
+    { role: 'user', content: `mid: ${big}`, at: now - 2_000 },
+    { role: 'assistant', content: big, at: now - 1_000 },
+  ];
+  const messages = buildMessages(history, 'Brand', 'short question', now);
+  const historyTokens = messages.slice(0, -1).reduce((n, m) => n + Math.ceil(m.content.length / 4), 0);
+  assert.ok(historyTokens <= LIMITS.maxHistoryTokens, `history fits the budget (${historyTokens})`);
+  assert.equal(messages[messages.length - 1].content, 'Brand: short question', 'the question always survives');
+  assert.ok(!messages.some((m) => m.content.startsWith('old:')), 'oldest entries dropped first');
 });

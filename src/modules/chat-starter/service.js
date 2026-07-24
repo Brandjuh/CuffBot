@@ -135,7 +135,13 @@ export async function aiQuestion(env = process.env, fetchImpl = fetch) {
     if (!provider) return null;
     // Same shared budget as /ask (cross-module seam): a refused slot means
     // the list question is used — members' questions outrank ice-breakers.
-    const slot = aiLimiter.take(Date.now(), { maxPerDay: dailyLimitFor(provider, env) });
+    // ~550 estimated tokens: the tiny prompt plus the reserved 400 output.
+    const slot = aiLimiter.take(Date.now(), {
+      maxPerDay: dailyLimitFor(provider, env),
+      tokens: 550,
+      tpm: provider.tpm ?? null,
+      tpd: provider.tpd ?? null,
+    });
     if (!slot.ok) return null;
     const raw = await provider.complete({
       system: 'You write single ice-breaker questions for community chats.',

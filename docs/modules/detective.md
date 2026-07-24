@@ -10,7 +10,7 @@
 | **Commands** | `/ask` (everyone), `/ai-config` (admin) — both also as `!ask` / `!ai-config` |
 | **Events** | `MessageCreate` — replies when the bot is @mentioned (needs Message Content intent) |
 | **Provider** | Groq (`GROQ_API_KEY`) or Google Gemini (`GEMINI_API_KEY`) — free tiers; picked automatically by which key exists |
-| **Rate limit** | **Server-wide, everyone combined:** 1 question / 7 s **and** 62 / rolling hour (owner spec) **and** the provider's free-tier daily cap — Gemini: **20 / rolling 24 h** (owner's dashboard, S27). Override: `CUFFBOT_AI_DAILY_LIMIT` (0 = off) |
+| **Rate limit** | **Server-wide, everyone combined:** 1 question / 7 s **and** 62 / rolling hour (owner spec) **and** the provider's free-tier caps (owner dashboards): requests/day (Gemini 20, Groq 14 400 — `CUFFBOT_AI_DAILY_LIMIT` overrides) **and (S33) estimated tokens** — Groq: 6 K/min + 500 K/day; Gemini: 250 K/min. Tokens are estimated at ~4 chars each with the 400-token output reserved, checked BEFORE any call |
 | **Data** | `aiConfig` (enabled flag) in the guild store; conversation memory AND the desk pile (parked questions) are in-RAM only, never on disk |
 | **Dependencies** | none beyond `fetch` (built into Node ≥18) — zero new packages |
 
@@ -49,7 +49,7 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 ## How it works
 
 - `lib/ratelimit.js` (pure): one process-global sliding-window limiter — `take(now)` grants/refuses with `retryAfterMs`; state is in-memory (a restart forgets ≤1 h of history, which only errs generous; keeps the hot path off the SD card).
-- `lib/prompt.js` (pure): persona (police detective flavor, answer in the asker's language, ~150 words, decline harmful/personal-data asks, point moderation questions to /commands), question/reply normalization, and per-channel history pruning (last 8 exchanges, 30 min TTL).
+- `lib/prompt.js` (pure): persona (police detective flavor, answer in the asker's language, ~150 words, decline harmful/personal-data asks, point moderation questions to /commands), question/reply normalization, per-channel history pruning (last 8 exchanges, 30 min TTL), and (S33) **token-aware trimming**: history is cut oldest-first past ~1 200 estimated input tokens so a full-rate stream of questions stays inside Groq's 6 K tokens/minute.
 - `lib/providers.js` (pure-ish, injectable `fetch`): Groq (OpenAI-shaped `chat/completions`) and Gemini (`generateContent`), each `≤400` output tokens, 20 s `AbortSignal.timeout`. `pickProvider(env)` = pinned override or first configured key.
 - `service.js`: the one pipeline both entry points share (`askDetective` never throws — every failure is a user-ready message), the global limiter, in-RAM per-channel memory (`Map`), `aiConfig` store access.
 - Multi-user conversations work: each user turn is stored as `Name: question`, so the model can tell speakers apart within a channel's memory window.
@@ -94,3 +94,4 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 | S17 | Created: `/ask`, `/ai-config`, mention replies, Groq+Gemini free-tier providers, server-wide 1/7s + 62/h budget, per-channel conversation memory. |
 | S27 | Gemini default model → `gemini-2.5-flash-lite` (owner decision; dashboard limits RPM 10 / TPM 250K / RPD 20); bot-side DAILY cap (gemini 20/day, `CUFFBOT_AI_DAILY_LIMIT` override); specific 429 message; chat-starter AI shares this budget. |
 | S29 | The desk pile: cooldown/hourly-refused questions are parked with a story and answered automatically when budget frees (10 s flusher, one per tick; cap 5, one per member, ≤1 h waits; RAM-only). Daily refusals don't park. |
+| S33 | Token budgets enforced (owner's Groq dashboard: RPM 30 / RPD 14.4K / TPM 6K / TPD 500K): estimated-token windows in the limiter (minute + day), token-aware history trimming, `/ai-config` shows token usage. Token-day refusals don't park. |

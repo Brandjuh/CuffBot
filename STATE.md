@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 32 · 2026-07-24
+**Last updated:** Session 33 · 2026-07-24
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 345/345 pass as of S32 |
+| Tests green | `npm test` | 349/349 pass as of S33 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'chat-starter', 'core', 'detective', 'dispatch', 'enforcement', 'leveling', 'memorial', 'patrol', 'public-affairs', 'records', 'starboard', 'trivia' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, chat-starter, core, detective, dispatch, enforcement, leveling, memorial, patrol, public-affairs, records, starboard, trivia |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
@@ -50,7 +50,7 @@
 - **Bot core (M1):** entry/config/logger/loader (+ in-code `.env` loading via `src/core/env.js` — see the S6 environment fact), guild-scoped `deploy-commands`, module `core` (`/radio-check`, on-duty sweep, guild lockdown), `npm run doctor` (S5), `config.json → homeGuildId`, manual `core.md`.
 - **Enforcement (M2, S7; animated S10):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`. **S10:** `/cite` emits an animated GIF (prints out of a slot) via a zero-dependency GIF89a encoder (`lib/gif.js`); added the public for-fun `/fine` (no perms, no records).
 - **Deployment/ops (M8 slices):** `scripts/setup-pi.sh` (8 steps incl. invite gate and self-update arming), `scripts/update.sh` (fetch → ff → npm install → **test gate** → deploy-commands → restart; rollback on red — proven in a clone-pair simulation incl. failure path and exit codes), runbook `docs/operations/raspberry-pi.md`.
-- **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated; **CuffBot's XP replaces the old leveler bot** and **existing members' XP is seeded from their current rank role** (S16); AI (M9) uses a free-tier provider with a GLOBAL rate limit — 1 msg / 7 s AND max 62 msgs / hour, shared across all users (S16); **Gemini model = gemini-2.5-flash-lite with a 20/day bot-side cap** (owner decision S27, matching their free-tier dashboard: RPM 10 / TPM 250K / RPD 20); chat-starter AI draws from the same budget.
+- **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated; **CuffBot's XP replaces the old leveler bot** and **existing members' XP is seeded from their current rank role** (S16); AI (M9) uses a free-tier provider with a GLOBAL rate limit — 1 msg / 7 s AND max 62 msgs / hour, shared across all users (S16); **Gemini model = gemini-2.5-flash-lite with a 20/day bot-side cap** (owner decision S27: RPM 10 / TPM 250K / RPD 20); **Groq llama-3.1-8b-instant limits enforced too (S33: RPM 30 / RPD 14.4K / TPM 6K / TPD 500K)** — request AND estimated-token windows live in the shared limiter, history is token-trimmed, chat-starter AI draws from the same budget.
 - **Tests:** 254 via `node:test` — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges, prompt limits, both providers via fake fetch, pipeline branches, mention gates — **no network, ambient AI keys deleted at suite start**), and command smokes with fake interactions.
 
 ## Resume point
