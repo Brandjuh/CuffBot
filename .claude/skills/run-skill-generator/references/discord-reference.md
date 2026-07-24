@@ -64,6 +64,16 @@ client.login(process.env.DISCORD_TOKEN);
 - `setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)` on the builder controls who *sees* the command by default — but server admins can override that in Integration settings. Re-check at runtime: `interaction.memberPermissions.has(...)`.
 - The bot's own permissions in the *channel* matter too (`guild.members.me.permissionsIn(channel)`) — a bot can be muted per-channel.
 
+## Self-updating posted messages (S36 → S59)
+
+For "the bot maintains a list in a channel" features (channel directory, self-roles board), one proven shape:
+
+- **Track the message**: store `{channelId, messageId}` on post; refresh = fetch → `edit()`; on fetch/edit failure (deleted) → `send()` a fresh one and re-track. The bot can then ALWAYS adjust its own message.
+- **One refresh at a time**: per-guild promise-chain lock — debounced auto-updates and manual commands must never interleave.
+- **Debounce change events** (~15 s): channel/role edits arrive in bursts; collapse to one refresh.
+- **Boot catch-up** (~20 s after ready, unref'ed): offline changes can't leave the list stale. Gate it on "a list was posted" — the explicit `post:` command is go-live; the bot never posts a list on its own first.
+- Content derives from LIVE guild state on every render, never from a stored copy.
+
 ## Mentions & pings (S53)
 
 Mentions are **two layers**: the `<@id>`/`<@&id>` text in `content` only *renders* a mention; whether anyone is *notified* is decided by `allowedMentions`. Control both, always explicitly:

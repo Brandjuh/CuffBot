@@ -1030,3 +1030,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 454 → **459** (committed default; celebrants-ignore-stamp; full day cycle worn→idempotent→removed→quiet; blocked removal retried + manual role untouched; no-role/departed-member no-ops). Manual birthdays.md (at-a-glance, options, how-it-works, troubleshooting, changelog).
 
 **Retrospective:** no skill change — the build is pattern application (committed owner default 0.5.0, S37 self-heal loop shape, S53-style clear knob). The one design decision worth naming is in the manual: "only remove what you granted" (holder map) — recorded there rather than as a skill rule until a second module needs it.
+
+---
+
+## Session 59 — 2026-07-24
+
+**Goal:** owner request (Selfroles): post a list in `625276074833608705` of all roles members can give themselves, taken from the role list under the `self-roles` header; per-role configurable info; toggle buttons under the message (press = get, press again = lose); the bot keeps the list current and can always adjust it.
+
+**Done — new module `selfroles` (20th module, 54th command):**
+- **Section detection (pure `lib/selfroles.js`):** roles under the role named `self-roles` (decorations/case ignored), using the academy's divider rules (`isSectionDivider` shared import — same section semantics everywhere); skips managed roles, `@everyone`, and — security rail — **any role with elevated permissions** (Admin/Manage*/Moderate/Kick/Ban/MentionEveryone), each skip visible in `/selfroles` WITH its reason; cap 25 (Discord's 5×5 button limit), overflow reported.
+- **The posted list:** one embed (emoji + **name** — info text per role) + `selfroles:toggle:<roleId>` buttons in channel **`625276074833608705`** (committed owner default). Tracked in `selfrolesMessage`: refresh edits in place, a deleted message reposts and re-tracks (channellist pattern, second use → skill 0.5.13 generalized it into discord-reference). Role create/delete/update debounce 15 s into one refresh; boot catch-up 20 s (only once posted — `/selfroles post:True` is the explicit go-live).
+- **Toggle (button pump, patrol-wizard pattern):** press = add, press again = remove; validated against the LIVE section every press (a role moved out or newly elevated is refused and the stale list self-refreshes); audit reasons on writes; hierarchy failures answered honestly; all replies ephemeral and ping-free.
+- **`/selfroles`** (admin): enabled/channel/post + per-role `role: info: emoji:` (greedy `info` on the `!` path) and `clear-info`; info changes auto-refresh the list; setup view shows detected + skipped + message state.
+- Tests 459 → **471** (header matching, section rules incl. divider stop/skip reasons/cap, rendering, committed default, post→edit→repost cycle, refresh codes, toggle both directions + refusals + blocked-write honesty, info round-trip, button-row limits). Manual `selfroles.md`; docs index; README 20 modules / 54 commands; help badge 🎭 + admin category (completeness test green).
+
+**Deferred:** custom per-role emoji validation is lenient (invalid emoji falls back to label-only); revisit only if the owner hits it.
