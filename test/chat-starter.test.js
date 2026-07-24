@@ -201,7 +201,10 @@ test('sweepStarter posts after the idle window, then waits for a human before th
 test('sweepStarter is a no-op when disabled/unconfigured and survives send failures', async () => {
   resetActivity();
   const guildId = freshGuildId();
-  assert.equal(await sweepStarter(fakeGuild(guildId), 1_000), false, 'disabled by default');
+  // Defaults point at the owner's channel, which this fake guild doesn't have.
+  assert.equal(await sweepStarter(fakeGuild(guildId), 1_000), false, 'default channel absent in this guild');
+  setStarterConfig(guildId, { enabled: false, channelId: 'quiet-chan' });
+  assert.equal(await sweepStarter(fakeGuild(guildId), 10_000_000), false, 'disabled stays silent');
 
   setStarterConfig(guildId, { enabled: true, channelId: 'quiet-chan', idleMinutes: 15 });
   const broken = fakeGuild(guildId, { sendWorks: false });
@@ -210,4 +213,80 @@ test('sweepStarter is a no-op when disabled/unconfigured and survives send failu
   // The guard was NOT consumed by the failure — a later sweep retries.
   const healthy = fakeGuild(guildId);
   assert.equal(await sweepStarter(healthy, 1_000 + 17 * 60_000), true);
+});
+
+// ── S30: owner defaults, history seeding, the 30 s test shot ─────────────────
+
+test('defaults encode the owner decision: their channel, 12 h idle, enabled (S30)', () => {
+  assert.equal(DEFAULT_STARTER_CONFIG.enabled, true);
+  assert.equal(DEFAULT_STARTER_CONFIG.channelId, '411609312037961729');
+  assert.equal(DEFAULT_STARTER_CONFIG.idleMinutes, 720);
+});
+
+test('seedActivityFromHistory reads the real last message and arms the guard correctly (S30)', async () => {
+  const { seedActivityFromHistory } = await import('../src/modules/chat-starter/service.js');
+  resetActivity();
+  const guildId = freshGuildId();
+  const lastHumanAt = 42_000_000;
+  const mkGuild = (authorId, ts) => ({
+    id: guildId,
+    channels: {
+      cache: new Map([
+        ['seed-chan', { id: 'seed-chan', messages: { fetch: async () => ({ first: () => ({ createdTimestamp: ts, author: { id: authorId } }) }) } }],
+      ]),
+    },
+  });
+  // Last message by a human → clock at their message, guard armed.
+  assert.equal(await seedActivityFromHistory(mkGuild('human-1', lastHumanAt), { channelId: 'seed-chan' }, 'bot-id'), true);
+  let entry = activityFor('seed-chan');
+  assert.equal(entry.lastActivityAt, lastHumanAt);
+  assert.equal(entry.humanSinceStarter, true);
+
+  // Last message by the bot itself (its previous starter) → guard NOT armed.
+  resetActivity();
+  assert.equal(await seedActivityFromHistory(mkGuild('bot-id', lastHumanAt), { channelId: 'seed-chan' }, 'bot-id'), true);
+  entry = activityFor('seed-chan');
+  assert.equal(entry.humanSinceStarter, false, 'a bot-starter as last message must not re-arm');
+
+  // Unreadable history → false, no crash.
+  resetActivity();
+  const broken = { id: guildId, channels: { cache: new Map() } };
+  assert.equal(await seedActivityFromHistory(broken, { channelId: 'seed-chan' }, 'bot-id'), false);
+});
+
+test('postStarter posts immediately and disarms the monologue guard (S30)', async () => {
+  const { postStarter } = await import('../src/modules/chat-starter/service.js');
+  resetActivity();
+  const guildId = freshGuildId();
+  const guild = fakeGuild(guildId);
+  const config = setStarterConfig(guildId, { channelId: 'quiet-chan' });
+  assert.equal(await postStarter(guild, config, 77_000_000), true);
+  assert.equal(guild.sends.length, 1);
+  assert.match(guild.sends[0].content, /Radio check, precinct/);
+  assert.equal(activityFor('quiet-chan').humanSinceStarter, false, 'test shot counts as a starter');
+});
+
+test('the test option arms a shot only when a channel is configured (S30)', async () => {
+  const { default: cmd } = await import('../src/modules/chat-starter/commands/chat-starter-config.js');
+  const guildId = freshGuildId();
+  setStarterConfig(guildId, { channelId: 'quiet-chan' });
+  const replies = [];
+  const ix = (opts) => ({
+    guild: { id: guildId, channels: { cache: new Map() } },
+    memberPermissions: { has: () => true },
+    options: {
+      getBoolean: (n) => opts[n] ?? null,
+      getChannel: () => null,
+      getInteger: () => null,
+    },
+    reply: async (p) => replies.push(p),
+    deferReply: async () => {},
+    editReply: async (p) => replies.push(p),
+  });
+  await cmd.execute(ix({ test: true }));
+  assert.match(replies[0].embeds[0].toJSON().description, /Test armed:.*in ~30 seconds/s);
+
+  setStarterConfig(guildId, { channelId: null });
+  await cmd.execute(ix({ test: true }));
+  assert.match(replies[1].embeds[0].toJSON().description, /no channel configured/);
 });

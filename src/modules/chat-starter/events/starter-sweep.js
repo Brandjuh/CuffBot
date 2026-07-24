@@ -1,9 +1,16 @@
 // Every 5 minutes: if the configured channel has been quiet long enough (and
 // a human has spoken since the last starter), post an open-ended question.
+// At boot the idle clock is seeded from the channel's REAL last message, so
+// "12 hours of silence" survives restarts instead of resetting to boot time.
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { shouldPost } from '../lib/starter.js';
-import { activityFor, getStarterConfig, markStarterPosted, nextQuestion } from '../service.js';
+import {
+  activityFor,
+  getStarterConfig,
+  postStarter,
+  seedActivityFromHistory,
+} from '../service.js';
 
 export const SWEEP_INTERVAL_MS = 5 * 60_000;
 
@@ -20,23 +27,21 @@ export async function sweepStarter(guild, now = Date.now()) {
     humanSinceStarter: entry.humanSinceStarter,
   });
   if (!verdict.post) return false;
-
-  const question = await nextQuestion(guild.id, config);
-  if (!question) return false;
-  try {
-    await channel.send({ content: `💬 **Radio check, precinct!** ${question}`, allowedMentions: { parse: [] } });
-    markStarterPosted(config.channelId, now);
-    return true;
-  } catch (error) {
-    logger.warn('Chat-starter: post failed:', error);
-    return false;
-  }
+  return postStarter(guild, config, now);
 }
 
 export default {
   name: Events.ClientReady,
   once: true,
   async execute(client) {
+    try {
+      const guild = client.guilds.cache.get(client.config.homeGuildId);
+      if (guild) {
+        await seedActivityFromHistory(guild, getStarterConfig(guild.id), client.user?.id);
+      }
+    } catch (error) {
+      logger.warn('Chat-starter: boot seed failed:', error);
+    }
     const tick = async () => {
       try {
         const guild = client.guilds.cache.get(client.config.homeGuildId);

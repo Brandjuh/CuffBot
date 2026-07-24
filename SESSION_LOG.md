@@ -641,3 +641,16 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Pipeline refactor: `completeQuestion` (provider+memory, no limiter) extracted so askDetective and the flusher share one path; both entry points now pass `userId` for the ping.
 - `/ai-config` shows the pile size. Queue is RAM-only (restart clears it — someone simply re-asks).
 - Tests 335 → **339**: queue rules (replace-per-user, cap, shouldQueue matrix, story format), park→too-soon→flush end-to-end (ping + echo + answer + scoped mentions asserted), dead-channel and disabled-guild flushes, daily-no-park; two daily tests now jump the clock 30 h for a clean rolling-24h window (the process-global limiter made low-limit tests neighbor-sensitive).
+
+---
+
+## Session 30 — 2026-07-24
+
+**Goal:** owner request: chat starter must fire in channel 411609312037961729 after ≥12 h of silence, plus a test option that fires after 30 seconds.
+
+**Done:**
+- **Owner defaults committed** (like the memorial feeds — owner-given ids are product config): `DEFAULT_STARTER_CONFIG` = enabled, channel `411609312037961729`, `idleMinutes` 720. Works immediately after update, zero setup; `/chat-starter-config` store overrides still win (sparse config).
+- **Restart-proof idle clock:** at boot, `seedActivityFromHistory` reads the channel's most recent message (one REST fetch) and seeds the idle window from its real timestamp — a 12 h window no longer resets to boot time on every self-update restart. If the last message is the bot's own starter, the never-monologue guard stays armed-off; unreadable history falls back to boot time.
+- **`test` option** on `/chat-starter-config`: arms ONE real starter ~30 s later in the configured channel (idle window + monologue guard bypassed; the shot counts as a real starter afterwards, so the guard arms normally). Refuses cleanly when no channel is set.
+- Refactor: `postStarter(guild, config)` extracted to the service — the sweep and the test shot share one posting path.
+- Tests 339 → **343**: the committed defaults, history seeding (human-last → armed, bot-last → disarmed, unreadable → fallback), postStarter direct behavior, the test-option arming + no-channel refusal; the old "disabled by default" assertions updated for the new defaults.

@@ -11,19 +11,19 @@
 | **Events** | `MessageCreate` (activity tracking, RAM only) + `ClientReady` (5-minute sweep) |
 | **Data** | `chatStarterConfig` (enabled, channelId, idleMinutes, useAi) + `chatStarterState` (recent-question ring) in the guild store |
 | **Question bank** | `data/questions.json` — 40 open-ended questions (validated at load); AI generation optional via the detective's provider |
-| **Default** | **Off** — posting unprompted messages is opt-in by design |
+| **Default** | **On for the owner's channel** (S30, owner decision): channel `411609312037961729`, 12 h idle. `/chat-starter-config` overrides win; other installs can disable or repoint freely |
 
 ## Commands
 
 ### /chat-starter-config (admin — Manage Server)
 
-- **Options:** `enabled` (bool — off by default), `channel` (text channel), `idle-minutes` (15–1440, default 180), `use-ai` (bool), `preview` (bool — shows a sample question ephemerally, posts nothing).
+- **Options:** `enabled` (bool), `channel` (text channel), `idle-minutes` (15–1440, default 720 = 12 h), `use-ai` (bool), `preview` (bool — shows a sample question ephemerally, posts nothing), `test` (bool, S30 — arms **one real starter ~30 seconds from now** in the configured channel, bypassing the idle window and monologue guard, so you can see the real thing without waiting 12 hours).
 - The status embed shows the question source: the list (with count), or AI with list fallback — including a ⚠️ when `use-ai` is on but no provider key exists.
 
 ## How it works
 
 - **Activity tracking** (RAM): every message in the configured channel updates its last-activity time. The bot's own starter doesn't count as conversation; other bots reset the idle clock but only **humans** re-arm the next starter.
-- **The sweep** (every 5 min): posts when the channel has been silent ≥ `idle-minutes` **and** at least one human spoke since the previous starter — the never-monologue guard. A restart simply starts a fresh idle window (RAM state).
+- **The sweep** (every 5 min): posts when the channel has been silent ≥ `idle-minutes` **and** at least one human spoke since the previous starter — the never-monologue guard. **Restarts don't reset the clock (S30):** at boot the idle clock is seeded from the channel's real last message (one history fetch); if that last message is the bot's own starter, the monologue guard stays armed-off. Only if history is unreadable does the window fall back to boot time.
 - **Question choice:** with `use-ai:True` and a detective provider key, one short ice-breaker is generated (15 s call). **It draws from the same shared AI budget as `/ask`** (free tiers cap requests per day — Gemini: 20); when the budget refuses, the list is used silently — members' questions outrank ice-breakers. Malformed/too-short output is rejected; any AI trouble falls back to the list. List picks avoid the last 10 questions used (persisted ring).
 - Starters never ping (`allowedMentions: { parse: [] }`).
 
@@ -55,3 +55,4 @@ Edit `src/modules/chat-starter/data/questions.json` — a plain array of strings
 | Session | Change |
 |---|---|
 | S23 | Created: idle-watch + 5-min sweep, never-monologue guard, 40-question bank with no-repeat ring, optional AI generation with list fallback, opt-in by default. |
+| S30 | Owner defaults committed (channel 411609312037961729, 12 h, enabled); boot seeds the idle clock from real channel history; `test` option posts a real starter in ~30 s. |

@@ -76,6 +76,51 @@ export function resetActivity() {
   activity.clear();
 }
 
+/**
+ * Seed the idle clock from the channel's real history (boot): read the most
+ * recent message so "12 hours of silence" measures from the actual last
+ * message, not from whenever the bot happened to restart. The bot's own
+ * starter as last message keeps the never-monologue guard armed-off.
+ */
+export async function seedActivityFromHistory(guild, config, botUserId) {
+  if (!config.channelId) return false;
+  try {
+    const channel = guild.channels.cache.get(config.channelId);
+    const messages = await channel?.messages?.fetch?.({ limit: 1 });
+    const last = messages?.first?.();
+    if (!last) return false;
+    activity.set(config.channelId, {
+      lastActivityAt: last.createdTimestamp,
+      humanSinceStarter: !(last.author?.id === botUserId),
+    });
+    return true;
+  } catch (error) {
+    logger.warn('Chat-starter: history seed failed (using boot time):', error);
+    return false;
+  }
+}
+
+/**
+ * Post one starter to the configured channel RIGHT NOW (no idle/guard checks
+ * — callers decide). Used by the sweep once its rules pass, and by the
+ * /chat-starter-config test option.
+ * @returns {Promise<boolean>} posted
+ */
+export async function postStarter(guild, config, now = Date.now()) {
+  const channel = guild.channels.cache.get(config.channelId);
+  if (!channel?.send) return false;
+  const question = await nextQuestion(guild.id, config);
+  if (!question) return false;
+  try {
+    await channel.send({ content: `💬 **Radio check, precinct!** ${question}`, allowedMentions: { parse: [] } });
+    markStarterPosted(config.channelId, now);
+    return true;
+  } catch (error) {
+    logger.warn('Chat-starter: post failed:', error);
+    return false;
+  }
+}
+
 // ── question selection + posting ─────────────────────────────────────────────
 
 const AI_PROMPT =
