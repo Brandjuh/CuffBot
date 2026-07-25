@@ -1151,3 +1151,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 484 → **488** (new hunting suite: defaults, board, exact fumble boundaries, scheduler state machine, mode availability, catch/fine/salute/fumble/escape end-to-end incl. pot flows, leaderboard). Manuals hunting.md (new) + economy.md; README 21 modules / 58 commands; help badge 🦹 + categories.
 
 **Retrospective:** no skill change — the port followed the S65 survey + the batch-intake pattern exactly; the survey doc (docs/porting/) proved its worth on the first use (every number was already extracted). Next: M16.2.
+
+---
+
+## Session 67 — 2026-07-25
+
+**Goal:** M16.2 — the claims rework (YamiCogs/payday model, with crack-the-pot kept in view).
+
+**Done:**
+- **The engine (pure `evaluateClaim` + `CLAIM_INTERVALS`):** six intervals with the cog's exact hour table (1/24/168/720/2184/8760); cooldown with exact wait; **the streak rule ported exactly** — claiming within [T, 2T) earns the bonus (flat, or percent mode `base × floor(bonus/100)`, the cog's formula); lapsing past 2T pays base only; first-ever claim pays base (matches the cog's ancient-default-timestamp behavior).
+- **Service:** `peekClaim`/`claimInterval` (stamp + award in one write; per-interval `claims` map on the account record; **legacy `lastDailyAt` silently counts as the day stamp** — mid-window members stay mid-window), `claimAll` (the cog's `freecredits all`).
+- **Commands:** `/claims` (everyone — every enabled interval ready/wait, the crack-pot attempt state, `collect:True` claim-all with totals) and `/claims-config` (admin — six amounts, streak-bonus, streak-percent). `/daily` now runs through the engine unchanged in shape (streak line appears when configured; day amount 0 reads as disabled).
+- **Committed defaults keep S49:** day 25 🍩, all other intervals 0, streaks off. `dailyAmount`/`dailyCooldownMs` retired (recorded deviation: the cog's fixed hour-windows replace the free cooldown knob).
+- Tests 488 → **493** (defaults; the full evaluateClaim matrix incl. window edges and the percent-floor formula; per-interval stamping + legacy migration; claimAll first-ever/streak/nothing-ready; daily-through-engine). All pre-existing daily tests passed UNCHANGED through the new engine before the new tests were added. Manual economy.md; README 60 commands.
+
+**Retrospective:** no skill change — second straight session running purely on the S65 survey + established rules. 21 modules, 60 commands, 493 tests. Next: M16.3 (connect4).

@@ -279,3 +279,85 @@ test('hasPotTryToday flips after the daily attempt and resets next day (S63)', a
   assert.equal(hasPotTryToday(guildId, 'm1', day1), true, 'today’s shot is used');
   assert.equal(hasPotTryToday(guildId, 'm1', day1 + 24 * 60 * 60_000), false, 'fresh after midnight UTC');
 });
+
+// ── payday-style claims (S67 = M16.2) ────────────────────────────────────────
+
+test('claim defaults keep S49 behavior: day 25, everything else off, streaks off', async () => {
+  const { CLAIM_INTERVALS } = await import('../src/modules/economy/lib/bank.js');
+  assert.equal(DEFAULT_ECONOMY_CONFIG.claimDay, 25);
+  for (const key of ['claimHour', 'claimWeek', 'claimMonth', 'claimQuarter', 'claimYear']) {
+    assert.equal(DEFAULT_ECONOMY_CONFIG[key], 0, `${key} off by default`);
+  }
+  assert.equal(DEFAULT_ECONOMY_CONFIG.streakBonus, 0);
+  assert.equal(CLAIM_INTERVALS.find((i) => i.key === 'quarter').hours, 2184, 'the cog’s hour table');
+});
+
+test('evaluateClaim: cooldown, streak window [T,2T), lapse, percent-floor formula', async () => {
+  const { evaluateClaim } = await import('../src/modules/economy/lib/bank.js');
+  const HOUR = 3_600_000;
+  const base = { amount: 100, streakBonus: 40, hours: 1 };
+  assert.deepEqual(evaluateClaim({ ...base, lastClaimAt: null, now: 0 }), { code: 'claim', amount: 100, bonus: 0 });
+  assert.deepEqual(evaluateClaim({ ...base, lastClaimAt: 0, now: HOUR - 1 }), { code: 'cooldown', waitMs: 1 });
+  assert.deepEqual(evaluateClaim({ ...base, lastClaimAt: 0, now: HOUR }), { code: 'claim', amount: 100, bonus: 40 }, 'on-time = streak');
+  assert.deepEqual(evaluateClaim({ ...base, lastClaimAt: 0, now: 2 * HOUR - 1 }), { code: 'claim', amount: 100, bonus: 40 }, 'edge of the window');
+  assert.deepEqual(evaluateClaim({ ...base, lastClaimAt: 0, now: 2 * HOUR }), { code: 'claim', amount: 100, bonus: 0 }, 'lapsed — base only');
+  assert.deepEqual(
+    evaluateClaim({ ...base, streakBonus: 250, streakPercent: true, lastClaimAt: 0, now: HOUR }),
+    { code: 'claim', amount: 100, bonus: 200 },
+    'percent mode: base × floor(250/100) — the cog’s exact formula',
+  );
+  assert.deepEqual(evaluateClaim({ amount: 0, hours: 1, lastClaimAt: null, now: 0 }), { code: 'off' });
+});
+
+test('claimInterval stamps per interval; legacy lastDailyAt counts as the day claim', async () => {
+  const { claimInterval, peekClaim } = await import('../src/modules/economy/service.js');
+  const { getGuildData, setGuildData } = await import('../src/core/store.js');
+  const guildId = freshGuildId();
+  const HOUR = 3_600_000;
+  setEconomyConfig(guildId, { claimHour: 10 });
+
+  const first = claimInterval(guildId, 'm', 'hour', { now: 1_000_000 });
+  assert.equal(first.code, 'claimed');
+  assert.equal(first.balance, 10_010);
+  assert.equal(claimInterval(guildId, 'm', 'hour', { now: 1_000_000 + HOUR / 2 }).code, 'cooldown');
+
+  // Legacy migration: a pre-S67 lastDailyAt mid-window blocks the day claim.
+  setGuildData(guildId, 'economyUsers', {
+    ...getGuildData(guildId, 'economyUsers', {}),
+    legacy: { balance: 10_000, lastEarnAt: null, lastDailyAt: 1_000_000 },
+  });
+  assert.equal(peekClaim(guildId, 'legacy', 'day', { now: 1_000_000 + 12 * HOUR }).code, 'cooldown');
+  assert.equal(claimInterval(guildId, 'legacy', 'day', { now: 1_000_000 + 24 * HOUR }).code, 'claimed');
+});
+
+test('claimAll collects only what is ready and totals the streak bonus', async () => {
+  const { claimAll } = await import('../src/modules/economy/service.js');
+  const guildId = freshGuildId();
+  const HOUR = 3_600_000;
+  setEconomyConfig(guildId, { claimHour: 10, claimWeek: 500, streakBonus: 5 });
+
+  const first = claimAll(guildId, 'm', { now: 1_000_000 });
+  assert.deepEqual(first.claimed.map((r) => r.key), ['hour', 'day', 'week'], 'first-ever claims everything enabled');
+  assert.equal(first.total, 10 + 25 + 500);
+  assert.equal(first.totalBonus, 0, 'no streak on first claims');
+
+  // 90 min later: only the hour is ready again — and on streak.
+  const second = claimAll(guildId, 'm', { now: 1_000_000 + 1.5 * HOUR });
+  assert.deepEqual(second.claimed.map((r) => r.key), ['hour']);
+  assert.equal(second.totalBonus, 5, 'claimed within [T, 2T)');
+
+  const third = claimAll(guildId, 'm', { now: 1_000_000 + 1.6 * HOUR });
+  assert.equal(third.claimed.length, 0, 'nothing ready — nothing collected');
+});
+
+test('/daily via the engine: day amount 0 reads as disabled; streaks apply', async () => {
+  const guildId = freshGuildId();
+  const HOUR = 3_600_000;
+  setEconomyConfig(guildId, { streakBonus: 5 });
+  assert.equal(claimDaily(guildId, 'm', { now: 1_000_000 }).code, 'claimed');
+  const onTime = claimDaily(guildId, 'm', { now: 1_000_000 + 25 * HOUR });
+  assert.equal(onTime.code, 'claimed');
+  assert.equal(onTime.bonus, 5, 'daily streak bonus');
+  setEconomyConfig(guildId, { claimDay: 0 });
+  assert.equal(claimDaily(guildId, 'other', { now: 1 }).code, 'disabled');
+});

@@ -13,8 +13,16 @@ export const DEFAULT_ECONOMY_CONFIG = {
   heistCooldownMs: 3 * 60 * 60_000, // lay-low time per thief (S48 owner decision: 3 hours)
   potDailyTopUp: 500, // the pot grows by this every day (owner: S41)
   potWinChance: 0.005, // odds that a daily /pot try empties it (owner: 0.5%)
-  dailyAmount: 25, // the /daily ration (S49 owner decision)
-  dailyCooldownMs: 24 * 60 * 60_000, // one claim per rolling 24 hours
+  // S67 (M16.2): payday-style claim amounts per interval, 0 = off. The day
+  // claim carries the S49 daily ration forward.
+  claimHour: 0,
+  claimDay: 25,
+  claimWeek: 0,
+  claimMonth: 0,
+  claimQuarter: 0,
+  claimYear: 0,
+  streakBonus: 0, // extra for claiming within [T, 2T) — 0 = streaks off
+  streakPercent: false, // bonus = base × floor(streakBonus/100) instead of flat
 };
 
 /** "2 h 45 min" / "12 min" — shared by every cooldown refusal. */
@@ -79,4 +87,34 @@ export function daysBetween(fromDay, toDay) {
   const to = Date.parse(`${toDay}T00:00:00Z`);
   if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
   return Math.max(0, Math.round((to - from) / 86_400_000));
+}
+
+// ── payday-style claims (S67 = M16.2, ported from YamiCogs/payday) ───────────
+
+/** The six claim intervals, hour-counts exactly as the cog defines them. */
+export const CLAIM_INTERVALS = [
+  { key: 'hour', hours: 1, label: 'Hourly' },
+  { key: 'day', hours: 24, label: 'Daily' },
+  { key: 'week', hours: 168, label: 'Weekly' },
+  { key: 'month', hours: 720, label: 'Monthly' },
+  { key: 'quarter', hours: 2184, label: 'Quarterly' },
+  { key: 'year', hours: 8760, label: 'Yearly' },
+];
+
+/**
+ * One claim evaluation, faithful to the cog's grant_award: elapsed < T →
+ * cooldown with the exact wait; elapsed in [T, 2T) with a bonus configured →
+ * base + streak bonus (percent mode: base × floor(bonus/100), the cog's
+ * exact formula); elapsed ≥ 2T (or first claim ever) → base only.
+ * @returns {{code:'off'}|{code:'cooldown', waitMs:number}|{code:'claim', amount:number, bonus:number}}
+ */
+export function evaluateClaim({ amount, streakBonus = 0, streakPercent = false, lastClaimAt = null, now, hours }) {
+  if (!amount || amount <= 0) return { code: 'off' };
+  if (lastClaimAt == null) return { code: 'claim', amount, bonus: 0 };
+  const T = hours * 3_600_000;
+  const elapsed = now - lastClaimAt;
+  if (elapsed < T) return { code: 'cooldown', waitMs: T - elapsed };
+  const onStreak = streakBonus > 0 && elapsed < 2 * T;
+  const bonus = onStreak ? (streakPercent ? amount * Math.floor(streakBonus / 100) : streakBonus) : 0;
+  return { code: 'claim', amount, bonus };
 }
