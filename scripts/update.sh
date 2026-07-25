@@ -47,12 +47,25 @@ fi
 
 TEST_LOG="$(mktemp /tmp/cuffbot-update-tests.XXXXXX.log)"
 if ! run npm test >"$TEST_LOG" 2>&1; then
-  say "TESTS FAILED on $REMOTE — rolling back to $LOCAL (log: $TEST_LOG)"
+  say "TESTS FAILED on $REMOTE — rolling back to $LOCAL"
+  # The failure evidence must reach the operator, not die in /tmp (S76):
+  # the tail goes into the journal, the full log is kept where the doctor
+  # finds it (data/ is gitignored — survives the rollback below).
+  say "---- last 40 lines of the failing test run ----"
+  tail -n 40 "$TEST_LOG" | while IFS= read -r line; do say "  $line"; done
+  say "---- end of test log (full log: $TEST_LOG) ----"
+  run mkdir -p "$REPO_DIR/data"
+  {
+    echo "failed update: $LOCAL -> $REMOTE at $(date -u +%FT%TZ)"
+    cat "$TEST_LOG"
+  } | run tee "$REPO_DIR/data/last-update-failure.log" >/dev/null 2>&1 || true
   run git reset --hard --quiet "$LOCAL"
   run npm install --no-fund --no-audit --loglevel=error
   exit 1
 fi
 rm -f "$TEST_LOG"
+# A green gate clears any stale failure evidence.
+run rm -f "$REPO_DIR/data/last-update-failure.log"
 
 # Re-register slash commands (new/changed commands need it; harmless when not).
 # A registration failure must be LOUD in the journal: the restart below still

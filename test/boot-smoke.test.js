@@ -15,6 +15,12 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+// Generous on purpose (S76): right after `npm install` on the Pi the module
+// cache is cold and the import graph (24 modules + discord.js) loads from SD
+// I/O — the old 30 s ceiling is exactly the kind of limit slow hardware
+// crosses silently, failing the self-update gate with an empty output.
+const BOOT_TIMEOUT_MS = 120_000;
+
 function bootWithoutCredentials(entry) {
   const cwd = mkdtempSync(path.join(tmpdir(), 'cuffbot-boot-'));
   const env = { ...process.env };
@@ -25,7 +31,7 @@ function bootWithoutCredentials(entry) {
       cwd, // no .env here, so credentials stay missing and no login is attempted
       env,
       encoding: 'utf8',
-      timeout: 30_000,
+      timeout: BOOT_TIMEOUT_MS,
     });
   } finally {
     rmSync(cwd, { recursive: true, force: true });
@@ -35,6 +41,12 @@ function bootWithoutCredentials(entry) {
 for (const entry of ['src/index.js', 'src/deploy-commands.js']) {
   test(`${entry} evaluates its import graph and fails fast without credentials`, () => {
     const res = bootWithoutCredentials(entry);
+    // A timeout kill must read as WHAT IT IS, not as a missing error message.
+    assert.equal(
+      res.signal,
+      null,
+      `boot spawn was killed by ${res.signal} — it exceeded ${BOOT_TIMEOUT_MS} ms (slow disk/CPU?) or the OS reclaimed it; not a code defect`,
+    );
     assert.notEqual(res.status, 0, 'must exit non-zero without credentials');
     const output = `${res.stdout}\n${res.stderr}`;
     assert.match(

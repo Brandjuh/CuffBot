@@ -148,6 +148,22 @@ if (branchRes.status !== 0) {
   }
 }
 
+// 5b) S76: when the last self-update rolled back on a red test gate, the
+// updater saved the evidence — surface it here instead of leaving it in /tmp.
+try {
+  const failureLog = readFileSync('data/last-update-failure.log', 'utf8');
+  const lines = failureLog.trimEnd().split('\n');
+  bad(
+    `the last self-update was ROLLED BACK by the test gate (${lines[0] ?? 'no header'})`,
+    'read the tail below; when the cause is fixed (or was transient), run: bash scripts/update.sh',
+  );
+  console.log('  ---- last 25 lines of that test run ----');
+  for (const line of lines.slice(-25)) console.log(`    ${line}`);
+  console.log('  ---- end (full log: data/last-update-failure.log) ----');
+} catch {
+  // no failure log — nothing rolled back since the last green update
+}
+
 // 6) S68 text-only: HEALTHY = zero registered application commands. Anything
 // still registered is stale UI clutter — deploy-commands now clears it.
 console.log('\nApplication commands (text-only mode — should be none):');
