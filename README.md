@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 29 modules, 67 commands. **CuffBot is text-only (S68): every command is a `!command`**, and config commands are Red-style groups (`!group sub <args>`, S69/S70 — type `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 30 modules, 68 commands. **CuffBot is text-only (S68): every command is a `!command`**, and config commands are Red-style groups (`!group sub <args>`, S69/S70 — type `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -31,6 +31,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Rollout** 🎲 | `!rollout play` — 50-player number-dodging elimination with a prize | [rollout](docs/modules/rollout.md) |
 | **Memory** 🧠 | `!memory play` — find the emoji pairs; fast and precise pays best | [memory](docs/modules/memory.md) |
 | **Wordle** 🟩 | `!wordle play` — type your guesses; 🟩🟨⬛ show how close you are | [wordle](docs/modules/wordle.md) |
+| **Hammertime** ⏰ | `!ht in 2 hours` — timestamps that render right for every reader | [hammertime](docs/modules/hammertime.md) |
 | **Memorial** 🕯️ | `!memorial` group — fallen firefighters/officers tracker (RSS, role tags) | [memorial](docs/modules/memorial.md) |
 | **Starboard** ⭐ | `!starboard` group — ⭐-reactions repost highlights to the board | [starboard](docs/modules/starboard.md) |
 | **Chat starter** 💬 | `!chat-starter` group — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |

@@ -1437,3 +1437,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — S82's state matched reality.
 
 **Retrospective:** nothing new to change in the skill — the S80/S82 reactive pattern (synchronous machine + collector/pump-owned timing) and the S24 packaging guard carried the whole port; the S82 "transcribe Python math token-for-token" candidate needed no second confirmation here (no numeric formulas in this cog).
+
+## Session 84 — 2026-07-25
+
+**Goal:** M16.11 — Hammertime (Dumb-Cogs port; the last small/medium item in the M16 queue). Owner: full throttle continues.
+
+**Done:**
+- **Module `hammertime`:** `!ht <phrase>` → the cog's verbatim seven-style `<t:…>` block (codes + rendered); leading member = their zone; the `list` keyword = everyone's local time grouped **west→east** (the cog sorted identical instants — a no-op — fixed to offset order). Registry: `!ht tz` (city/IANA/current-abbreviation/utc±N; multi-match opens select rows with a remove option), `!ht role` (ManageRoles; >1 timezone role = the cog's ambiguous error — counts roles, not zones, ported as-is), `!ht auto` (quiet `-# <t:F> (<t:R>)` replies to "at 5"/"in 20 min" messages, with the cog's am/pm inference quirk: current half of day, flipped when the hour already passed).
+- **dateutil/pytz replaced hand-rolled on Intl** (the survey's stated risk): `lib/time.js` — zoned wall-clock conversions with an iterative inverse (lenient on DST-skipped times), the cog's calendar-safe add_months, and its exact `%A, %b %-d{th}` display format; `lib/parse.js` — the relative regex ported verbatim (cumulative, a/an=1, ago), **wall-clock delta semantics preserved** (Python aware+timedelta: "in 1 day" across spring-forward = 23 real hours — pinned), and a simplified fuzzy absolute parser (weekdays next-occurrence-today-included, month names incl. ordinals and day-first, US M/D[/Y], ISO, bare hours; unknown words skipped); `lib/zones.js` — the pytz map rebuilt from `Intl.supportedValuesOf` (names + city segments + CURRENT short names + offset matching + alias fallback).
+- **Recorded deviations:** gibberish refuses ("I couldn't understand that") instead of the cog's silent today-midnight fuzzy answer; only current abbreviations indexed (pytz history unavailable in Intl); picker timeout 60 s (cog's 10 s); bare `!ht` = the group overview (`!ht now` for the cog's default).
+- Tests 614 → **628** (14 new, parser-heavy per the survey's risk note): zone round-trips + both seasonal offsets + skipped-wall leniency, month clamps, the display format edges, every documented cog phrase, the DST wall-clock pin, the absolute examples, delta-before-absolute order, the am/pm quirk, the auto pipeline gates, zone lookup (seeded with a fixed July instant so winter test runs stay deterministic), the registry matrix, the seven-style block, list grouping, group shape. All 14 passed on the first run.
+- Docs: manual `hammertime.md`, docs index, README (30 modules / 68 commands), ROADMAP M16.11 ✔, STATE.md (resume → M16.12 heist slices a+b), help badge ⏰ (community).
+
+**Corrections (Step 2):** none — S83's state matched reality.
+
+**Retrospective:** one LEARNINGS candidate strengthened into its own entry — *replacing a library means porting its observable semantics, pinned in tests first* (second data point with S82's int()-order lesson: weekday resolution, fuzzy token-skipping, and wall-clock timedelta arithmetic were each written down as tests before the wiring went in; the suite passed first-run because the semantics were the spec). No skill-file edits, so no version bump.
