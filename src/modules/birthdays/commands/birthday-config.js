@@ -45,7 +45,7 @@ export default {
           `**Channel:** ${config.channelId ? `<#${config.channelId}>` : '⚠️ not set — nothing is announced until an admin picks one'}`,
           `**Birthday role:** ${config.birthdayRoleId ? `<@&${config.birthdayRoleId}> — worn for the celebrant's whole (local) birthday` : 'none'}`,
           '',
-          'Members register with `/birthday-set` (own timezone supported); the sweep checks every ~10 minutes, announces on the member’s own calendar day, once per year.',
+          'Members register with `!birthday-set` (own timezone supported); the sweep checks every ~10 minutes, announces on the member’s own calendar day, once per year.',
         ].join('\n'),
       );
     await interaction.reply({ embeds: [embed], flags: 64 });

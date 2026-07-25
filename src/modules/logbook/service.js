@@ -16,7 +16,7 @@ export const channelKey = (category) => `${category}ChannelId`;
 // per-category defaults (S35 owner decision — same pattern as the welcome
 // lobby and memorial feeds), so the logbook works the moment the bot updates.
 // Voice shares the member-logs channel (it is member activity); invites share
-// the server-logs channel (they are server management). `/logbook` overrides
+// the server-logs channel (they are server management). `!logbook` overrides
 // win (sparse config).
 export const DEFAULT_LOGBOOK_CONFIG = {
   enabled: true,
@@ -33,7 +33,7 @@ export const DEFAULT_LOGBOOK_CONFIG = {
 /**
  * Which channel receives a category's entries. Precedence: an admin's explicit
  * per-category choice, then an admin's explicit single-channel override
- * (`/logbook channel:`), then the committed per-category default.
+ * (`!logbook channel:`), then the committed per-category default.
  */
 export function resolveLogChannelId(guildId, category) {
   const stored = getGuildData(guildId, LOGBOOK_CONFIG_KEY, {});

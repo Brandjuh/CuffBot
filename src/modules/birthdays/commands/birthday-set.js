@@ -59,7 +59,7 @@ export default {
     await interaction.reply({
       content:
         `🎂 Noted: your birthday is **${formatBirthday(record)}** (born ${parsed.year}, timezone **${timeZone}**). ` +
-        'The precinct will be informed on the day — the year stays private. Remove it any time with `/birthday-remove`.',
+        'The precinct will be informed on the day — the year stays private. Remove it any time with `!birthday-remove`.',
       flags: MessageFlags.Ephemeral,
     });
   },

@@ -1,5 +1,5 @@
 // The daily pot attempt as its own command (S63 owner request — replaces the
-// clunky `/pot try:True`). Outcomes are short, clean embeds: the win is loud,
+// clunky `!pot try:True`). Outcomes are short, clean embeds: the win is loud,
 // the loss is one line, refusals are ephemeral.
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { tryPot } from '../service.js';

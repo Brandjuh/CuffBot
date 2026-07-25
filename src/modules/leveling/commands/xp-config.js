@@ -94,7 +94,7 @@ export default {
             return `<@&${r.roleId}> — ${t.toLocaleString('en-US')} XP`;
           })
           .join('\n')
-      : '_no ladder detected — run `/rank-setup`_';
+      : '_no ladder detected — run `!rank-setup`_';
 
     const embed = new EmbedBuilder()
       .setColor(0x2e86de)
@@ -103,7 +103,7 @@ export default {
         [
           `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
           `**Auto rank sync:** ${config.syncRoles ? 'yes (promote-only)' : 'no'}`,
-          `**Ladder pinned:** ${pinned ? 'yes' : '⚠️ no — auto-rank and rank seeding stay idle until an admin runs `/rank-setup header:@<divider>`'}`,
+          `**Ladder pinned:** ${pinned ? 'yes' : '⚠️ no — auto-rank and rank seeding stay idle until an admin runs `!rank-setup header:@<divider>`'}`,
           `**Message XP:** ${config.messageXp} (cooldown ${Math.round(config.messageCooldownMs / 1000)}s)`,
           `**Voice XP:** ${config.voiceXpPerMin}/min (needs ≥2 humans, not self-deafened, not AFK channel)`,
           `**Curve:** rank N costs round(${config.baseXp.toLocaleString('en-US')} · N^${config.exponent}) — tune with \`base-xp\`/\`exponent\``,

@@ -58,13 +58,13 @@ test('help builds the categorized menu, hiding what the viewer cannot use (S43)'
   assert.match(memberEmbed.data?.title ?? memberEmbed.title, /Command Menu/);
   assert.equal(memberView[0].flags, 64, 'help is ephemeral (S39/S43)');
   const memberText = JSON.stringify(memberView.map((r) => r.embeds[0].toJSON?.() ?? r.embeds[0]));
-  assert.ok(memberText.includes('/radio-check'), 'public command visible');
-  assert.ok(!memberText.includes('/cite'), 'moderation hidden from regular members');
-  assert.ok(!memberText.includes('/update'), 'runtime-gated admin command hidden');
+  assert.ok(memberText.includes('!radio-check'), 'public command visible');
+  assert.ok(!memberText.includes('!cite'), 'moderation hidden from regular members');
+  assert.ok(!memberText.includes('!update'), 'runtime-gated admin command hidden');
 
   const adminText = JSON.stringify((await run(true)).map((r) => r.embeds[0].toJSON?.() ?? r.embeds[0]));
-  assert.ok(adminText.includes('/cite'), 'admins see moderation');
-  assert.ok(adminText.includes('/update'), 'admins see runtime-gated commands');
+  assert.ok(adminText.includes('!cite'), 'admins see moderation');
+  assert.ok(adminText.includes('!update'), 'admins see runtime-gated commands');
   assert.ok(adminText.includes('Setup & Admin'), 'admin category present');
 });
 
@@ -83,7 +83,7 @@ test('/radio-check reports the text-command channel state (S26)', async () => {
   };
   assert.match(await run(true), /✅ Text commands/);
   const off = await run(false);
-  assert.match(off, /❌ Text commands are OFF/);
+  assert.match(off, /❌ ALL commands are OFF/);
   assert.match(off, /Message Content Intent/);
 });
 

@@ -50,8 +50,8 @@ export default {
     const current = getEvidenceLocker(guildId);
     await interaction.reply({
       content: current
-        ? `🗄️ Evidence locker is <#${current}>. Run \`/evidence-locker action:clear\` to disable, or \`action:set\` in another channel to move it.`
-        : '🗄️ No evidence locker configured. Run `/evidence-locker action:set` in the channel you want enforcement actions logged to.',
+        ? `🗄️ Evidence locker is <#${current}>. Run \`!evidence-locker action:clear\` to disable, or \`action:set\` in another channel to move it.`
+        : '🗄️ No evidence locker configured. Run `!evidence-locker action:set` in the channel you want enforcement actions logged to.',
       flags: MessageFlags.Ephemeral,
     });
   },

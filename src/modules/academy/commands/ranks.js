@@ -11,8 +11,8 @@ export default {
 
     if (!ladder.headerFound || ladder.ranks.length === 0) {
       embed.setDescription(
-        'No rank ladder detected yet.\nAn admin can point me at the header role with `/rank-setup header:@[LEVELER]` ' +
-          '(the divider your rank roles sit under), then run `/ranks` again.',
+        'No rank ladder detected yet.\nAn admin can point me at the header role with `!rank-setup header:@[LEVELER]` ' +
+          '(the divider your rank roles sit under), then run `!ranks` again.',
       );
       await interaction.reply({ embeds: [embed] });
       return;

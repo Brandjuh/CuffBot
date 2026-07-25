@@ -17,7 +17,7 @@ export default {
     const embed = new EmbedBuilder().setColor(0xdb6ea4).setTitle('🎂 Upcoming Birthdays');
     if (upcoming.length === 0) {
       embed.setDescription(
-        'No birthdays on file yet. Register yours with `/birthday-set day: month: [timezone:]` — the precinct loves cake.',
+        'No birthdays on file yet. Register yours with `!birthday-set day: month: [timezone:]` — the precinct loves cake.',
       );
     } else {
       embed.setDescription(

@@ -17,7 +17,7 @@ export default {
     const round = getRound(interaction.channelId);
     if (!round || round.roundId !== roundId) {
       await interaction
-        .reply({ content: '⌛ That round is over — start a fresh one with `/trivia`.', flags: MessageFlags.Ephemeral })
+        .reply({ content: '⌛ That round is over — start a fresh one with `!trivia`.', flags: MessageFlags.Ephemeral })
         .catch(() => {});
       return;
     }

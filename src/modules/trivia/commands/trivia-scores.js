@@ -11,7 +11,7 @@ export default {
     const embed = new EmbedBuilder().setColor(0xf1c40f).setTitle('🏆 Trivia Leaderboard');
     embed.setDescription(
       rows.length === 0
-        ? 'No points scored yet — start a round with `/trivia`.'
+        ? 'No points scored yet — start a round with `!trivia`.'
         : rows
             .map(({ userId, points }, i) => {
               const medal = ['🥇', '🥈', '🥉'][i] ?? `**${i + 1}.**`;

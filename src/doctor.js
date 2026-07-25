@@ -18,7 +18,6 @@ import { loadEnvFile } from './core/env.js';
 import {
   analyzeSecret,
   botIdFromToken,
-  diffCommandSets,
   messageContentIntentState,
   tokenFingerprint,
 } from './core/diagnostics.js';
@@ -103,8 +102,8 @@ try {
         bad(`MISMATCH: the token belongs to application "${application.name}" (id ${application.id}), but CLIENT_ID is ${clientId}`, `you have two applications mixed up — either set CLIENT_ID=${application.id} in .env, or copy the token from the application with id ${clientId}`);
       }
       // Privileged-intent portal state: without Message Content the bot cannot
-      // READ message text, so every "!command" is invisible to it (slash
-      // commands keep working — the bot logs the fallback at boot).
+      // READ message text — and since S68 CuffBot is text-only, that means
+      // every command is dead until the portal toggle is on.
       const intent = messageContentIntentState(application.flags);
       if (intent === 'disabled') {
         bad(
@@ -149,8 +148,9 @@ if (branchRes.status !== 0) {
   }
 }
 
-// 6) registered commands vs the code (the "command missing in Discord" check)
-console.log('\nRegistered slash commands:');
+// 6) S68 text-only: HEALTHY = zero registered application commands. Anything
+// still registered is stale UI clutter — deploy-commands now clears it.
+console.log('\nApplication commands (text-only mode — should be none):');
 const guildId = (() => {
   try {
     return JSON.parse(readFileSync('config.json', 'utf8')).homeGuildId;
@@ -164,8 +164,6 @@ if (!liveOk) {
   bad('config.json → homeGuildId unreadable', 'restore config.json (it is committed — git checkout config.json)');
 } else {
   try {
-    const { discoverModules } = await import('./core/loader.js');
-    const localNames = (await discoverModules()).flatMap((m) => m.commands.map((c) => c.data.name));
     const res = await fetch(`${API}/applications/${clientId}/guilds/${guildId}/commands`, {
       headers: { Authorization: `Bot ${token}` },
     });
@@ -178,16 +176,12 @@ if (!liveOk) {
       );
     } else {
       const registered = (await res.json()).map((c) => c.name);
-      const diff = diffCommandSets(localNames, registered);
-      if (diff.inSync) {
-        ok(`all ${localNames.length} commands are registered and current`);
+      if (registered.length === 0) {
+        ok('no application commands registered — text-only mode is clean');
       } else {
-        const parts = [];
-        if (diff.missing.length) parts.push(`missing in Discord: ${diff.missing.map((n) => `/${n}`).join(', ')}`);
-        if (diff.extra.length) parts.push(`stale in Discord: ${diff.extra.map((n) => `/${n}`).join(', ')}`);
         bad(
-          `command registration is OUT OF SYNC — ${parts.join(' · ')}`,
-          'run: node src/deploy-commands.js   (then restart Discord\'s client or wait a minute)',
+          `${registered.length} stale slash command(s) still registered: ${registered.map((n) => `/${n}`).join(', ')}`,
+          'run: node src/deploy-commands.js   (it clears the roster; then restart Discord\'s client or wait a minute)',
         );
       }
     }

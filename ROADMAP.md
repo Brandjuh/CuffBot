@@ -85,3 +85,17 @@ The owner requested 12 new game modules ported from Red-DiscordBot cogs, plus tw
 Full mechanics live in `docs/porting/S65-cog-surveys.md` (S65 survey — the porting reference).
 
 *Standing acceptance for every game:* pure rules in `lib/` with tests (deterministic via injectable random/now), economy integration through `adjustBalance`/`addToPot` seams where the cog used Red bank, component interactions via the module-owned pump pattern, help category `games`, manual per module, README counts current.
+
+---
+
+## M17 — Text-only restructure, Red-DiscordBot style (S68 owner mandate)
+
+S68 removed slash commands entirely (text-only engine switch: router, deregistration, doctor, help). The owner's structural directive: some commands were de-facto slash-only (many named options — unusable positionally), so EVERYTHING gets one uniform structure modeled on the S65 source cogs: **`!group subcommand <args>`**, bare `!group` = status/overview (the Red convention).
+
+- [ ] **M17.1 — The subcommand framework** — core/prefix grows group support: per-subcommand positional args (reusing the existing type resolution), auto-generated `!group` overviews listing subcommands + usage, permission per group/subcommand, `!help` renders groups. Legacy flat commands keep working during the migration.
+- [ ] **M17.2 — Convert the worst offenders** (many-option config commands): youtube, selfroles, memorial-config, hunting, logbook, claims-config, economy-config, xp-config, ai-config, birthday-config, chat-starter-config, starboard-config, welcome-config, channel-list-config. Red-style examples: `!youtube add <url>`, `!youtube pingrole @role`, `!memorial officers-channel #x`.
+- [ ] **M17.3 — Convert the rest + retire the legacy path**; patrol wizard returns as `!patrol-wizard` (public message + owner-gated components); full docs sweep rides along per converted module.
+
+*Accept when:* every command follows the group convention, `!help` shows it, all manuals match, and the legacy flat adapter path is gone.
+
+M16 (the games) resumes AFTER M17.1 so every new game lands in the final structure.

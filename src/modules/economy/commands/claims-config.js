@@ -56,7 +56,7 @@ export default {
           '',
           `**Streak bonus:** ${config.streakBonus > 0 ? `${config.streakBonus}${config.streakPercent ? ` → base × ${Math.floor(config.streakBonus / 100)} (percent mode)` : ' 🍩 flat'} — earned by claiming within double the window` : 'off'}`,
           '',
-          '_Members use `/claims` (overview + collect-all) or `/daily`._',
+          '_Members use `!claims` (overview + collect-all) or `!daily`._',
         ].join('\n'),
       );
     await interaction.reply({ embeds: [embed], flags: 64 });

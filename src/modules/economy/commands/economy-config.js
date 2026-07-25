@@ -40,7 +40,7 @@ export default {
           `**Heist (/steal):** ${(config.heistChance * 100).toFixed(0)}% for ${config.heistAmount} 🍩, cooldown ${Math.round(config.heistCooldownMs / 3_600_000)} h`,
           `**Daily claim:** ${config.claimDay} 🍩 per 24 h (more intervals: \`/claims-config\`) · **Pot:** +${config.potDailyTopUp} 🍩/day, crack odds ${(config.potWinChance * 100).toFixed(1)}%`,
           '',
-          '_The crook hunt has its own precinct since S66: `/hunting` (channels, timing, rewards)._',
+          '_The crook hunt has its own precinct since S66: `!hunting` (channels, timing, rewards)._',
         ].join('\n'),
       );
     await interaction.reply({ embeds: [embed], flags: 64 });

@@ -46,7 +46,7 @@ export function buildHelp(modules, prefix) {
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((cmd) => ({
-          invocations: `\`/${cmd.name}\` · \`${prefix}${cmd.name}\``,
+          invocations: `\`${prefix}${cmd.name}\``,
           usage: `\`${prefix}${usageFor(cmd.name, cmd.options)}\``,
           description: cmd.description,
         })),
@@ -56,9 +56,8 @@ export function buildHelp(modules, prefix) {
   return {
     title: '🚔 CuffBot — Command Roster',
     description:
-      `Every command works two ways: as a slash command (**/name**) or as a text command ` +
-      `(**${prefix}name**). ${total} commands on duty. Angle brackets \`<>\` are required, ` +
-      `square brackets \`[]\` are optional.`,
+      `Every command is a text command: **${prefix}name** (S68 — no slash commands). ` +
+      `${total} commands on duty. Angle brackets \`<>\` are required, square brackets \`[]\` are optional.`,
     groups,
   };
 }
@@ -170,7 +169,7 @@ export function buildCategorizedHelp(commands, prefix, { isVisible = () => true 
       entries: list
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map((cmd) => ({ line: `**/${cmd.name}** — ${cmd.description}` })),
+        .map((cmd) => ({ line: `**${prefix}${cmd.name}** — ${cmd.description}` })),
     });
   for (const category of HELP_CATEGORIES) {
     const list = buckets.get(category.key);
@@ -181,8 +180,8 @@ export function buildCategorizedHelp(commands, prefix, { isVisible = () => true 
   return {
     title: '🚔 CuffBot — Command Menu',
     description:
-      `The ${total} commands **you** can use here, sorted by purpose. ` +
-      `Type \`/\` + a name to see its options; every command also works as a text command (\`${prefix}name …\`).`,
+      `The ${total} commands **you** can use here, sorted by purpose — all as text commands: \`${prefix}name …\` (S68). ` +
+      `\`${prefix}help\` any time for this menu.`,
     groups,
   };
 }
