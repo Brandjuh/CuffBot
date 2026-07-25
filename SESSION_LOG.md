@@ -1420,3 +1420,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2/6):** STATE's discovery-smoke expectation had drifted from reality (listed `patrol` before `hunting`; actual readdir is alphabetical — `hunting` sorts after `hangman`). Corrected to the real output while adding `memory`.
 
 **Retrospective:** one new LEARNINGS candidate — *porting Python math: preserve the exact expression, not the intent* (the `int(a/3*2) ≠ floor(a/3)*2` off-by-one; transcribe token-for-token and pin asymmetric cases). No skill-file edits, so no version bump. The S80/S81 reactive-game pattern (synchronous press machine + pump-owned timing) carried this port with zero surprises.
+
+## Session 83 — 2026-07-25
+
+**Goal:** M16.10 — Wordle (AAA3A wordlegame port). Owner: full throttle continues ("Gas erop").
+
+**Done:**
+- **Module `wordle`:** typed-guess Wordle — `!wordle play [length 4–11] [attempts 5–10]` (alias `!wordlegame`, play fallback, Message Content gated), guesses typed straight in the channel: wrong-shaped messages silently ignored (chat continues), dictionary misses get ❌ + a self-deleting 3 s notice and **cost no attempt**, `cancel` (word or ✖️ button) and a 5-minute qualifying-guess timeout both reveal the word. Explanation button = ephemeral rules card.
+- **The cog's EN lists verbatim** (`data/words-en.txt` 7,543 answers, `data/dictionary-en.txt` 219,855 guesses — every entry already 4–11 letters, so no trimming was even needed); diacritic-folded at load (the cog's `jalapeño` secret was untypeable — folded lists fix it), answers unioned into the dictionary (a secret is always a legal guess), the literal `cancel` skipped (the cog's own skip).
+- **The NAIVE coloring rule copied deliberately** (survey mandate): yellow = letter matches any non-green position, NO duplicate counting — `eexit` vs `crane` = two yellow e's, pinned in a test alongside the green-blocks-yellow case. Emoji grid 🟩🟨⬛/⬜ replaces the Pillow PNG; the board **edits in place** (the cog's delete+repost was an attachment artifact — recorded deviation).
+- **The survey-flagged bug fixed:** the cog's loss check was `len(attempts) == 6` regardless of max_attempts — ours is `>= maxAttempts`, pinned at maxAttempts 5 AND 7 (both would fail under the cog's check). Recorded deviation.
+- Per-member concurrency 1 (guild-wide, channel-bound — parallel members fine, cog behavior); stats per member (wins/games/distribution[10], every finish counts games — cog placement) + `!wordle stats [@member]` with the cog's win-rate + distribution lines.
+- Tests 604 → **614**: naive colors, fold + predicate, grid, the bundled lists (counts verbatim, cancel skipped, seeded pick), the guess machine, the loss fix at 5 and 7, cancel, concurrency, stats, group shape. The S24 packaging guard caught the untracked data files exactly as designed (third time it earns its keep).
+- Docs: manual `wordle.md`, docs index, README (29 modules / 67 commands), ROADMAP M16.10 ✔, STATE.md (resume → M16.11 hammertime with the survey notes), help badge 🟩.
+
+**Corrections (Step 2):** none — S82's state matched reality.
+
+**Retrospective:** nothing new to change in the skill — the S80/S82 reactive pattern (synchronous machine + collector/pump-owned timing) and the S24 packaging guard carried the whole port; the S82 "transcribe Python math token-for-token" candidate needed no second confirmation here (no numeric formulas in this cog).

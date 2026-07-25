@@ -11,6 +11,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | memory | [`modules/memory.md`](modules/memory.md) | stable (S82) |
 | records | [`modules/records.md`](modules/records.md) | stable (S8) |
 | rollout | [`modules/rollout.md`](modules/rollout.md) | stable (S81) |
+| wordle | [`modules/wordle.md`](modules/wordle.md) | stable (S83) |
 | russianroulette | [`modules/russianroulette.md`](modules/russianroulette.md) | stable (S73) |
 | dispatch | [`modules/dispatch.md`](modules/dispatch.md) | stable (S11) |
 | academy | [`modules/academy.md`](modules/academy.md) | stable (S12) |
