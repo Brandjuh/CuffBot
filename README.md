@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 32 modules, 70 commands. **CuffBot is text-only (S68): every command is a `!command`**, and config commands are Red-style groups (`!group sub <args>`, S69/S70 — type `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 33 modules, 72 commands. **CuffBot is text-only (S68): every command is a `!command`**, and **every** command is either a Red-style group (`!group sub <args>`) or a flat `!command` — the legacy path is gone as of S96 (M17 complete). Type `!help` for the full roster. Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -11,6 +11,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | Area | Commands | Manual |
 |---|---|---|
 | **Core** 📻 | `!radio-check`, `!help`, `!update`, `!restart` | [core](docs/modules/core.md) |
+| **Rules** 📜 | `!rules` group — write the precinct's rules; the bot keeps one tidy post current by editing it in place | [rules](docs/modules/rules.md) |
 | **Selfroles** 🎭 | `!selfroles` group (button list: press to get a role, press again to remove) | [selfroles](docs/modules/selfroles.md) |
 | **Hunting** 🦹 | `!hunting` group, `!hunt-stats`, `!hunt-board` — STOP POLICE crook hunt with the undercover officer | [hunting](docs/modules/hunting.md) |
 | **Enforcement** 🚨 | `!cite` (animated ticket), `!fine` (fun), `!detain`, `!release`, `!arrest` | [enforcement](docs/modules/enforcement.md) |
