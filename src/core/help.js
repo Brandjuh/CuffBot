@@ -32,6 +32,7 @@ const MODULE_BADGES = {
   connect4: '🔴',
   hangman: '🪢',
   russianroulette: '🔫',
+  splitorsteal: '🤝',
 };
 
 /**
@@ -125,6 +126,7 @@ export const COMMAND_CATEGORIES = {
   connect4: 'games',
   hangman: 'games',
   russianroulette: 'games',
+  splitorsteal: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',
