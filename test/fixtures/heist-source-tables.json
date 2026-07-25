@@ -1,0 +1,1105 @@
+{
+    "HEISTS": {
+        "art_gallery": {
+            "cooldownMs": 14400000,
+            "durationMs": 720000,
+            "emoji": "\ud83d\uddbc\ufe0f",
+            "jailMs": 21600000,
+            "materialDropChance": 0.45,
+            "maxLoss": 30000,
+            "maxReward": 6000,
+            "maxSuccess": 45,
+            "minLoss": 10000,
+            "minReward": 1000,
+            "minSuccess": 15,
+            "policeChance": 0.3,
+            "risk": 0.15,
+            "xpReward": 90
+        },
+        "atm_smash": {
+            "cooldownMs": 2700000,
+            "durationMs": 180000,
+            "emoji": "\ud83c\udfe7",
+            "jailMs": 7200000,
+            "materialDropChance": 0.25,
+            "maxLoss": 1500,
+            "maxReward": 3000,
+            "maxSuccess": 65,
+            "minLoss": 300,
+            "minReward": 500,
+            "minSuccess": 40,
+            "policeChance": 0.05,
+            "risk": 0.04,
+            "xpReward": 30
+        },
+        "bank": {
+            "cooldownMs": 21600000,
+            "durationMs": 900000,
+            "emoji": "\ud83c\udfe6",
+            "jailMs": 43200000,
+            "materialDropChance": 0.45,
+            "maxLoss": 250000,
+            "maxReward": 500000,
+            "maxSuccess": 40,
+            "minLoss": 50000,
+            "minReward": 100000,
+            "minSuccess": 5,
+            "policeChance": 0.35,
+            "risk": 0.25,
+            "xpReward": 160
+        },
+        "casino_vault": {
+            "cooldownMs": 18000000,
+            "durationMs": 900000,
+            "emoji": "\ud83c\udfb0",
+            "jailMs": 28800000,
+            "materialDropChance": 0.5,
+            "maxLoss": 100000,
+            "maxReward": 200000,
+            "maxSuccess": 40,
+            "minLoss": 20000,
+            "minReward": 50000,
+            "minSuccess": 10,
+            "policeChance": 0.35,
+            "risk": 0.2,
+            "xpReward": 120
+        },
+        "corporate": {
+            "cooldownMs": 14400000,
+            "durationMs": 600000,
+            "emoji": "\ud83c\udfe2",
+            "jailMs": 28800000,
+            "materialDropChance": 0.35,
+            "maxLoss": 50000,
+            "maxReward": 100000,
+            "maxSuccess": 50,
+            "minLoss": 10000,
+            "minReward": 25000,
+            "minSuccess": 10,
+            "policeChance": 0.3,
+            "risk": 0.12,
+            "xpReward": 100
+        },
+        "crew_robbery": {
+            "cooldownMs": 28800000,
+            "crewSize": 4,
+            "durationMs": 1200000,
+            "emoji": "\ud83d\udc65",
+            "jailMs": 57600000,
+            "materialDropChance": 0.6,
+            "maxLoss": 300000,
+            "maxReward": 80000000,
+            "maxSuccess": 35,
+            "minLoss": 80000,
+            "minReward": 1000000,
+            "minSuccess": 8,
+            "policeChance": 0.45,
+            "risk": 0.3,
+            "xpReward": 300
+        },
+        "elite": {
+            "cooldownMs": 28800000,
+            "durationMs": 1200000,
+            "emoji": "\ud83d\udc8e",
+            "jailMs": 43200000,
+            "materialDropChance": 0.5,
+            "maxLoss": 500000,
+            "maxReward": 1000000,
+            "maxSuccess": 30,
+            "minLoss": 250000,
+            "minReward": 500000,
+            "minSuccess": 5,
+            "policeChance": 0.4,
+            "risk": 0.35,
+            "xpReward": 200
+        },
+        "fight_club": {
+            "cooldownMs": 10800000,
+            "durationMs": 480000,
+            "emoji": "\ud83e\udd4a",
+            "jailMs": 18000000,
+            "materialDropChance": 0.4,
+            "maxLoss": 15000,
+            "maxReward": 40000,
+            "maxSuccess": 50,
+            "minLoss": 5000,
+            "minReward": 10000,
+            "minSuccess": 20,
+            "policeChance": 0.25,
+            "risk": 0.1,
+            "xpReward": 75
+        },
+        "food_truck": {
+            "cooldownMs": 2400000,
+            "durationMs": 180000,
+            "emoji": "\ud83d\ude9a",
+            "jailMs": 3600000,
+            "materialDropChance": 0.15,
+            "maxLoss": 600,
+            "maxReward": 1200,
+            "maxSuccess": 70,
+            "minLoss": 150,
+            "minReward": 300,
+            "minSuccess": 45,
+            "policeChance": 0.06,
+            "risk": 0.03,
+            "xpReward": 20
+        },
+        "gold_reserve": {
+            "cooldownMs": 21600000,
+            "durationMs": 1080000,
+            "emoji": "\ud83e\ude99",
+            "jailMs": 36000000,
+            "materialDropChance": 0.45,
+            "materialTiers": [
+                "scrap_metal",
+                "tech_parts",
+                "rare_alloy",
+                "military_grade_alloy"
+            ],
+            "maxLoss": 180000,
+            "maxReward": 4000000,
+            "maxSuccess": 28,
+            "minLoss": 40000,
+            "minReward": 3000000,
+            "minSuccess": 6,
+            "policeChance": 0.38,
+            "risk": 0.22,
+            "xpReward": 130
+        },
+        "hospital_pharmacy": {
+            "cooldownMs": 7200000,
+            "durationMs": 420000,
+            "emoji": "\ud83c\udfe5",
+            "jailMs": 14400000,
+            "materialDropChance": 0.3,
+            "maxLoss": 10000,
+            "maxReward": 9000,
+            "maxSuccess": 50,
+            "minLoss": 3000,
+            "minReward": 0,
+            "minSuccess": 20,
+            "policeChance": 0.18,
+            "risk": 0.08,
+            "xpReward": 50
+        },
+        "jewelry_store": {
+            "cooldownMs": 7200000,
+            "durationMs": 360000,
+            "emoji": "\ud83d\udc8e",
+            "jailMs": 14400000,
+            "materialDropChance": 0.35,
+            "maxLoss": 7000,
+            "maxReward": 12000,
+            "maxSuccess": 55,
+            "minLoss": 2000,
+            "minReward": 3000,
+            "minSuccess": 25,
+            "policeChance": 0.2,
+            "risk": 0.07,
+            "xpReward": 60
+        },
+        "luxury_yacht": {
+            "cooldownMs": 14400000,
+            "durationMs": 780000,
+            "emoji": "\ud83d\udee5\ufe0f",
+            "jailMs": 86400000,
+            "materialDropChance": 0.6,
+            "maxLoss": 70000,
+            "maxReward": 80000,
+            "maxSuccess": 43,
+            "minLoss": 15000,
+            "minReward": 10000,
+            "minSuccess": 13,
+            "policeChance": 0.45,
+            "risk": 0.17,
+            "xpReward": 120
+        },
+        "military_depot": {
+            "cooldownMs": 25200000,
+            "durationMs": 1080000,
+            "emoji": "\ud83e\ude96",
+            "jailMs": 50400000,
+            "materialDropChance": 0.5,
+            "materialTiers": [
+                "rare_alloy",
+                "classified_docs",
+                "military_grade_alloy"
+            ],
+            "maxLoss": 220000,
+            "maxReward": 500000,
+            "maxSuccess": 30,
+            "minLoss": 60000,
+            "minReward": 120000,
+            "minSuccess": 8,
+            "policeChance": 0.42,
+            "risk": 0.28,
+            "xpReward": 150
+        },
+        "museum_relic": {
+            "cooldownMs": 14400000,
+            "durationMs": 840000,
+            "emoji": "\ud83c\udffa",
+            "jailMs": 43200000,
+            "materialDropChance": 0.55,
+            "maxLoss": 60000,
+            "maxReward": 50000,
+            "maxSuccess": 42,
+            "minLoss": 15000,
+            "minReward": 10000,
+            "minSuccess": 12,
+            "policeChance": 0.4,
+            "risk": 0.18,
+            "xpReward": 120
+        },
+        "parking_meter": {
+            "cooldownMs": 1200000,
+            "durationMs": 60000,
+            "emoji": "\ud83c\udd7f\ufe0f",
+            "jailMs": 1800000,
+            "materialDropChance": 0.08,
+            "maxLoss": 100,
+            "maxReward": 200,
+            "maxSuccess": 85,
+            "minLoss": 20,
+            "minReward": 50,
+            "minSuccess": 60,
+            "policeChance": 0.03,
+            "risk": 0.01,
+            "xpReward": 8
+        },
+        "pocket_steal": {
+            "cooldownMs": 1800000,
+            "durationMs": 120000,
+            "emoji": "\ud83d\udd76\ufe0f",
+            "jailMs": 3600000,
+            "materialDropChance": 0.2,
+            "maxLoss": 300,
+            "maxReward": 300,
+            "maxSuccess": 80,
+            "minLoss": 100,
+            "minReward": 0,
+            "minSuccess": 70,
+            "policeChance": 0.05,
+            "risk": 0.01,
+            "xpReward": 15
+        },
+        "space_agency": {
+            "cooldownMs": 36000000,
+            "durationMs": 1500000,
+            "emoji": "\ud83d\ude80",
+            "jailMs": 86400000,
+            "materialDropChance": 0.55,
+            "materialTiers": [
+                "rare_alloy",
+                "classified_docs",
+                "military_grade_alloy"
+            ],
+            "maxLoss": 700000,
+            "maxReward": 200000,
+            "maxSuccess": 22,
+            "minLoss": 300000,
+            "minReward": 100000,
+            "minSuccess": 5,
+            "policeChance": 0.5,
+            "risk": 0.38,
+            "xpReward": 220
+        },
+        "stock_exchange": {
+            "cooldownMs": 10800000,
+            "durationMs": 600000,
+            "emoji": "\ud83d\udcc8",
+            "jailMs": 21600000,
+            "materialDropChance": 0.35,
+            "maxLoss": 30000,
+            "maxReward": 4000,
+            "maxSuccess": 45,
+            "minLoss": 8000,
+            "minReward": 10,
+            "minSuccess": 12,
+            "policeChance": 0.22,
+            "risk": 0.12,
+            "xpReward": 85
+        },
+        "store_robbery": {
+            "cooldownMs": 3600000,
+            "durationMs": 300000,
+            "emoji": "\ud83c\udfec",
+            "jailMs": 10800000,
+            "materialDropChance": 0.3,
+            "maxLoss": 2000,
+            "maxReward": 5000,
+            "maxSuccess": 60,
+            "minLoss": 500,
+            "minReward": 1000,
+            "minSuccess": 50,
+            "policeChance": 0.15,
+            "risk": 0.05,
+            "xpReward": 40
+        },
+        "street_bike": {
+            "cooldownMs": 3600000,
+            "durationMs": 180000,
+            "emoji": "\ud83d\udeb2",
+            "jailMs": 7200000,
+            "materialDropChance": 0.15,
+            "maxLoss": 2000,
+            "maxReward": 0,
+            "maxSuccess": 60,
+            "minLoss": 500,
+            "minReward": 0,
+            "minSuccess": 20,
+            "policeChance": 0.1,
+            "risk": 0.03,
+            "xpReward": 25
+        },
+        "street_car": {
+            "cooldownMs": 10800000,
+            "durationMs": 480000,
+            "emoji": "\ud83d\ude97",
+            "jailMs": 14400000,
+            "materialDropChance": 0.25,
+            "maxLoss": 20000,
+            "maxReward": 5000,
+            "maxSuccess": 40,
+            "minLoss": 8000,
+            "minReward": 100,
+            "minSuccess": 10,
+            "policeChance": 0.2,
+            "risk": 0.08,
+            "xpReward": 50
+        },
+        "street_motorcycle": {
+            "cooldownMs": 7200000,
+            "durationMs": 300000,
+            "emoji": "\ud83c\udfcd\ufe0f",
+            "jailMs": 10800000,
+            "materialDropChance": 0.2,
+            "maxLoss": 8000,
+            "maxReward": 0,
+            "maxSuccess": 50,
+            "minLoss": 2000,
+            "minReward": 0,
+            "minSuccess": 15,
+            "policeChance": 0.15,
+            "risk": 0.05,
+            "xpReward": 35
+        },
+        "vending_machine": {
+            "cooldownMs": 600000,
+            "durationMs": 30000,
+            "emoji": "\ud83e\udd64",
+            "jailMs": 900000,
+            "materialDropChance": 0.05,
+            "maxLoss": 30,
+            "maxReward": 80,
+            "maxSuccess": 95,
+            "minLoss": 5,
+            "minReward": 10,
+            "minSuccess": 80,
+            "policeChance": 0.01,
+            "risk": 0.005,
+            "xpReward": 9
+        }
+    },
+    "ITEMS": {
+        "bank_drill": {
+            "boost": 0.16,
+            "cost": 12000,
+            "emoji": "\ud83d\udd28",
+            "forHeist": "bank",
+            "type": "tool"
+        },
+        "bike_tool": {
+            "boost": 0.1,
+            "cost": 500,
+            "emoji": "\ud83d\udd27",
+            "forHeist": "street_bike",
+            "type": "tool"
+        },
+        "brass_knuckles": {
+            "boost": 0.12,
+            "cost": 800,
+            "emoji": "\ud83e\udd4a",
+            "forHeist": "fight_club",
+            "type": "tool"
+        },
+        "car_tool": {
+            "boost": 0.15,
+            "cost": 1000,
+            "emoji": "\ud83d\udd13",
+            "forHeist": "street_car",
+            "type": "tool"
+        },
+        "classified_docs": {
+            "emoji": "\ud83d\udcc4",
+            "maxSell": 3000,
+            "minSell": 1000,
+            "type": "material"
+        },
+        "coin_hook": {
+            "boost": 0.08,
+            "cost": 150,
+            "emoji": "\ud83e\ude9d",
+            "forHeist": "vending_machine",
+            "type": "tool"
+        },
+        "corporate_badge": {
+            "boost": 0.14,
+            "cost": 3500,
+            "emoji": "\ud83c\udff7\ufe0f",
+            "forHeist": "corporate",
+            "type": "tool"
+        },
+        "crowbar": {
+            "boost": 0.07,
+            "cost": 300,
+            "emoji": "\ud83e\ude93",
+            "forHeist": "atm_smash",
+            "type": "tool"
+        },
+        "diamond_shield": {
+            "cost": 35000,
+            "durationHours": 72,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.12,
+            "type": "shield"
+        },
+        "distraction_device": {
+            "boost": 0.12,
+            "cost": 700,
+            "emoji": "\ud83d\udce6",
+            "forHeist": "food_truck",
+            "type": "tool"
+        },
+        "elite_kit": {
+            "boost": 0.18,
+            "cost": 40000,
+            "emoji": "\ud83e\uddf0",
+            "forHeist": "elite",
+            "type": "tool"
+        },
+        "enhanced_bank_drill": {
+            "boost": 0.22,
+            "emoji": "\ud83d\udd28",
+            "forHeist": "bank",
+            "type": "tool"
+        },
+        "enhanced_bike_tool": {
+            "boost": 0.13,
+            "emoji": "\ud83d\udd27",
+            "forHeist": "street_bike",
+            "type": "tool"
+        },
+        "enhanced_brass_knuckles": {
+            "boost": 0.15,
+            "emoji": "\ud83e\udd4a",
+            "forHeist": "fight_club",
+            "type": "tool"
+        },
+        "enhanced_car_tool": {
+            "boost": 0.18,
+            "emoji": "\ud83d\udd13",
+            "forHeist": "street_car",
+            "type": "tool"
+        },
+        "enhanced_coin_hook": {
+            "boost": 0.12,
+            "emoji": "\ud83e\ude9d",
+            "forHeist": "vending_machine",
+            "type": "tool"
+        },
+        "enhanced_corporate_badge": {
+            "boost": 0.18,
+            "emoji": "\ud83c\udff7\ufe0f",
+            "forHeist": "corporate",
+            "type": "tool"
+        },
+        "enhanced_crowbar": {
+            "boost": 0.1,
+            "emoji": "\ud83e\ude93",
+            "forHeist": "atm_smash",
+            "type": "tool"
+        },
+        "enhanced_distraction_device": {
+            "boost": 0.16,
+            "emoji": "\ud83d\udce6",
+            "forHeist": "food_truck",
+            "type": "tool"
+        },
+        "enhanced_elite_kit": {
+            "boost": 0.25,
+            "emoji": "\ud83e\uddf0",
+            "forHeist": "elite",
+            "type": "tool"
+        },
+        "enhanced_glass_cutter": {
+            "boost": 0.13,
+            "emoji": "\ud83d\udd2a",
+            "forHeist": "jewelry_store",
+            "type": "tool"
+        },
+        "enhanced_gold_drill": {
+            "boost": 0.22,
+            "emoji": "\u26cf\ufe0f",
+            "forHeist": "gold_reserve",
+            "type": "tool"
+        },
+        "enhanced_grappling_hook": {
+            "boost": 0.18,
+            "emoji": "\ud83e\ude9d",
+            "forHeist": "luxury_yacht",
+            "type": "tool"
+        },
+        "enhanced_hacking_device": {
+            "boost": 0.18,
+            "emoji": "\ud83d\udcbe",
+            "forHeist": "casino_vault",
+            "type": "tool"
+        },
+        "enhanced_laser_jammer": {
+            "boost": 0.18,
+            "emoji": "\ud83d\udce1",
+            "forHeist": "art_gallery",
+            "type": "tool"
+        },
+        "enhanced_lockpick_kit": {
+            "boost": 0.17,
+            "emoji": "\ud83d\udddd\ufe0f",
+            "forHeist": "museum_relic",
+            "type": "tool"
+        },
+        "enhanced_military_keycard": {
+            "boost": 0.24,
+            "emoji": "\ud83e\udeaa",
+            "forHeist": "military_depot",
+            "type": "tool"
+        },
+        "enhanced_motorcycle_tool": {
+            "boost": 0.15,
+            "emoji": "\ud83d\udee0\ufe0f",
+            "forHeist": "street_motorcycle",
+            "type": "tool"
+        },
+        "enhanced_parking_slim_jim": {
+            "boost": 0.14,
+            "emoji": "\ud83d\udd29",
+            "forHeist": "parking_meter",
+            "type": "tool"
+        },
+        "enhanced_pharmacy_mask": {
+            "boost": 0.18,
+            "emoji": "\ud83d\ude37",
+            "forHeist": "hospital_pharmacy",
+            "type": "tool"
+        },
+        "enhanced_pickpocket_gloves": {
+            "boost": 0.08,
+            "emoji": "\ud83e\udde4",
+            "forHeist": "pocket_steal",
+            "type": "tool"
+        },
+        "enhanced_space_suit": {
+            "boost": 0.26,
+            "emoji": "\ud83d\udc68\u200d\ud83d\ude80",
+            "forHeist": "space_agency",
+            "type": "tool"
+        },
+        "enhanced_store_key": {
+            "boost": 0.11,
+            "emoji": "\ud83d\udd11",
+            "forHeist": "store_robbery",
+            "type": "tool"
+        },
+        "enhanced_trading_terminal": {
+            "boost": 0.2,
+            "emoji": "\ud83d\udcbb",
+            "forHeist": "stock_exchange",
+            "type": "tool"
+        },
+        "full": {
+            "cost": 100000,
+            "durationHours": 96,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 1.0,
+            "type": "shield"
+        },
+        "glass_cutter": {
+            "boost": 0.1,
+            "cost": 600,
+            "emoji": "\ud83d\udd2a",
+            "forHeist": "jewelry_store",
+            "type": "tool"
+        },
+        "gold_bar": {
+            "emoji": "\ud83c\udfc5",
+            "maxSell": 200000,
+            "minSell": 50000,
+            "type": "loot"
+        },
+        "gold_drill": {
+            "boost": 0.16,
+            "cost": 8000,
+            "emoji": "\u26cf\ufe0f",
+            "forHeist": "gold_reserve",
+            "type": "tool"
+        },
+        "grappling_hook": {
+            "boost": 0.15,
+            "cost": 2000,
+            "emoji": "\ud83e\ude9d",
+            "forHeist": "luxury_yacht",
+            "type": "tool"
+        },
+        "hacking_device": {
+            "boost": 0.15,
+            "cost": 2500,
+            "emoji": "\ud83d\udcbe",
+            "forHeist": "casino_vault",
+            "type": "tool"
+        },
+        "iron_shield": {
+            "cost": 7000,
+            "durationHours": 36,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.05,
+            "type": "shield"
+        },
+        "jewelry": {
+            "emoji": "\ud83d\udc8d",
+            "maxSell": 15000,
+            "minSell": 5000,
+            "type": "loot"
+        },
+        "laser_jammer": {
+            "boost": 0.15,
+            "cost": 1500,
+            "emoji": "\ud83d\udce1",
+            "forHeist": "art_gallery",
+            "type": "tool"
+        },
+        "lockpick_kit": {
+            "boost": 0.14,
+            "cost": 1800,
+            "emoji": "\ud83d\udddd\ufe0f",
+            "forHeist": "museum_relic",
+            "type": "tool"
+        },
+        "medical_supplies": {
+            "emoji": "\ud83d\udc8a",
+            "maxSell": 12000,
+            "minSell": 3000,
+            "type": "loot"
+        },
+        "military_grade_alloy": {
+            "emoji": "\ud83e\udea8",
+            "maxSell": 5000,
+            "minSell": 2000,
+            "type": "material"
+        },
+        "military_keycard": {
+            "boost": 0.18,
+            "cost": 15000,
+            "emoji": "\ud83e\udeaa",
+            "forHeist": "military_depot",
+            "type": "tool"
+        },
+        "motorcycle_tool": {
+            "boost": 0.12,
+            "cost": 800,
+            "emoji": "\ud83d\udee0\ufe0f",
+            "forHeist": "street_motorcycle",
+            "type": "tool"
+        },
+        "painting": {
+            "emoji": "\ud83d\uddbc\ufe0f",
+            "maxSell": 80000,
+            "minSell": 20000,
+            "type": "loot"
+        },
+        "parking_slim_jim": {
+            "boost": 0.1,
+            "cost": 250,
+            "emoji": "\ud83d\udd29",
+            "forHeist": "parking_meter",
+            "type": "tool"
+        },
+        "pharmacy_mask": {
+            "boost": 0.14,
+            "cost": 2000,
+            "emoji": "\ud83d\ude37",
+            "forHeist": "hospital_pharmacy",
+            "type": "tool"
+        },
+        "pickpocket_gloves": {
+            "boost": 0.05,
+            "cost": 200,
+            "emoji": "\ud83e\udde4",
+            "forHeist": "pocket_steal",
+            "type": "tool"
+        },
+        "pocket_loot": {
+            "emoji": "\ud83d\udcb0",
+            "maxSell": 500,
+            "minSell": 100,
+            "type": "loot"
+        },
+        "rare_alloy": {
+            "emoji": "\ud83e\ude99",
+            "maxSell": 1000,
+            "minSell": 500,
+            "type": "material"
+        },
+        "reinforced_diamond_shield": {
+            "durationHours": 72,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.15,
+            "type": "shield"
+        },
+        "reinforced_iron_shield": {
+            "durationHours": 36,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.07,
+            "type": "shield"
+        },
+        "reinforced_steel_shield": {
+            "durationHours": 48,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.09,
+            "type": "shield"
+        },
+        "reinforced_titanium_shield": {
+            "durationHours": 60,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.11,
+            "type": "shield"
+        },
+        "reinforced_wooden_shield": {
+            "durationHours": 24,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.05,
+            "type": "shield"
+        },
+        "relic": {
+            "emoji": "\ud83c\udffa",
+            "maxSell": 120000,
+            "minSell": 30000,
+            "type": "loot"
+        },
+        "satellite_component": {
+            "emoji": "\ud83d\udef0\ufe0f",
+            "maxSell": 400000,
+            "minSell": 100000,
+            "type": "loot"
+        },
+        "scrap_metal": {
+            "emoji": "\ud83e\uddf1",
+            "maxSell": 300,
+            "minSell": 100,
+            "type": "material"
+        },
+        "space_suit": {
+            "boost": 0.2,
+            "cost": 25000,
+            "emoji": "\ud83d\udc68\u200d\ud83d\ude80",
+            "forHeist": "space_agency",
+            "type": "tool"
+        },
+        "steel_shield": {
+            "cost": 12000,
+            "durationHours": 48,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.07,
+            "type": "shield"
+        },
+        "stock_data": {
+            "emoji": "\ud83d\udcca",
+            "maxSell": 50000,
+            "minSell": 10000,
+            "type": "loot"
+        },
+        "store_key": {
+            "boost": 0.08,
+            "cost": 400,
+            "emoji": "\ud83d\udd11",
+            "forHeist": "store_robbery",
+            "type": "tool"
+        },
+        "street_bike": {
+            "emoji": "\ud83d\udeb2",
+            "maxSell": 3500,
+            "minSell": 1500,
+            "type": "loot"
+        },
+        "street_car": {
+            "emoji": "\ud83d\ude97",
+            "maxSell": 30000,
+            "minSell": 20000,
+            "type": "loot"
+        },
+        "street_motorcycle": {
+            "emoji": "\ud83c\udfcd\ufe0f",
+            "maxSell": 12000,
+            "minSell": 8000,
+            "type": "loot"
+        },
+        "tech_parts": {
+            "emoji": "\ud83d\udd29",
+            "maxSell": 500,
+            "minSell": 200,
+            "type": "material"
+        },
+        "titanium_shield": {
+            "cost": 20000,
+            "durationHours": 60,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.09,
+            "type": "shield"
+        },
+        "trading_terminal": {
+            "boost": 0.15,
+            "cost": 4000,
+            "emoji": "\ud83d\udcbb",
+            "forHeist": "stock_exchange",
+            "type": "tool"
+        },
+        "wooden_shield": {
+            "cost": 3000,
+            "durationHours": 24,
+            "emoji": "\ud83d\udee1\ufe0f",
+            "reduction": 0.03,
+            "type": "shield"
+        },
+        "yacht_loot": {
+            "emoji": "\ud83d\udee5\ufe0f",
+            "maxSell": 150000,
+            "minSell": 40000,
+            "type": "loot"
+        }
+    },
+    "RECIPES": {
+        "enhanced_bank_drill": {
+            "materials": {
+                "military_grade_alloy": 2,
+                "rare_alloy": 3
+            },
+            "quantity": 1,
+            "result": "enhanced_bank_drill"
+        },
+        "enhanced_bike_tool": {
+            "materials": {
+                "scrap_metal": 3,
+                "tech_parts": 1
+            },
+            "quantity": 1,
+            "result": "enhanced_bike_tool"
+        },
+        "enhanced_brass_knuckles": {
+            "materials": {
+                "scrap_metal": 5,
+                "tech_parts": 2
+            },
+            "quantity": 1,
+            "result": "enhanced_brass_knuckles"
+        },
+        "enhanced_car_tool": {
+            "materials": {
+                "scrap_metal": 5,
+                "tech_parts": 3
+            },
+            "quantity": 1,
+            "result": "enhanced_car_tool"
+        },
+        "enhanced_coin_hook": {
+            "materials": {
+                "scrap_metal": 2,
+                "tech_parts": 1
+            },
+            "quantity": 1,
+            "result": "enhanced_coin_hook"
+        },
+        "enhanced_corporate_badge": {
+            "materials": {
+                "rare_alloy": 2,
+                "tech_parts": 4
+            },
+            "quantity": 1,
+            "result": "enhanced_corporate_badge"
+        },
+        "enhanced_crowbar": {
+            "materials": {
+                "scrap_metal": 4,
+                "tech_parts": 2
+            },
+            "quantity": 1,
+            "result": "enhanced_crowbar"
+        },
+        "enhanced_distraction_device": {
+            "materials": {
+                "scrap_metal": 2,
+                "tech_parts": 3
+            },
+            "quantity": 1,
+            "result": "enhanced_distraction_device"
+        },
+        "enhanced_elite_kit": {
+            "materials": {
+                "classified_docs": 2,
+                "military_grade_alloy": 3,
+                "rare_alloy": 5
+            },
+            "quantity": 1,
+            "result": "enhanced_elite_kit"
+        },
+        "enhanced_glass_cutter": {
+            "materials": {
+                "rare_alloy": 1,
+                "tech_parts": 4
+            },
+            "quantity": 1,
+            "result": "enhanced_glass_cutter"
+        },
+        "enhanced_gold_drill": {
+            "materials": {
+                "military_grade_alloy": 1,
+                "rare_alloy": 4
+            },
+            "quantity": 1,
+            "result": "enhanced_gold_drill"
+        },
+        "enhanced_grappling_hook": {
+            "materials": {
+                "rare_alloy": 3,
+                "scrap_metal": 6
+            },
+            "quantity": 1,
+            "result": "enhanced_grappling_hook"
+        },
+        "enhanced_hacking_device": {
+            "materials": {
+                "rare_alloy": 3,
+                "tech_parts": 6
+            },
+            "quantity": 1,
+            "result": "enhanced_hacking_device"
+        },
+        "enhanced_laser_jammer": {
+            "materials": {
+                "rare_alloy": 2,
+                "tech_parts": 5
+            },
+            "quantity": 1,
+            "result": "enhanced_laser_jammer"
+        },
+        "enhanced_lockpick_kit": {
+            "materials": {
+                "rare_alloy": 2,
+                "tech_parts": 5
+            },
+            "quantity": 1,
+            "result": "enhanced_lockpick_kit"
+        },
+        "enhanced_military_keycard": {
+            "materials": {
+                "classified_docs": 2,
+                "military_grade_alloy": 2
+            },
+            "quantity": 1,
+            "result": "enhanced_military_keycard"
+        },
+        "enhanced_motorcycle_tool": {
+            "materials": {
+                "scrap_metal": 4,
+                "tech_parts": 2
+            },
+            "quantity": 1,
+            "result": "enhanced_motorcycle_tool"
+        },
+        "enhanced_parking_slim_jim": {
+            "materials": {
+                "scrap_metal": 3,
+                "tech_parts": 1
+            },
+            "quantity": 1,
+            "result": "enhanced_parking_slim_jim"
+        },
+        "enhanced_pharmacy_mask": {
+            "materials": {
+                "rare_alloy": 1,
+                "tech_parts": 4
+            },
+            "quantity": 1,
+            "result": "enhanced_pharmacy_mask"
+        },
+        "enhanced_pickpocket_gloves": {
+            "materials": {
+                "tech_parts": 3
+            },
+            "quantity": 1,
+            "result": "enhanced_pickpocket_gloves"
+        },
+        "enhanced_space_suit": {
+            "materials": {
+                "classified_docs": 3,
+                "military_grade_alloy": 3
+            },
+            "quantity": 1,
+            "result": "enhanced_space_suit"
+        },
+        "enhanced_store_key": {
+            "materials": {
+                "scrap_metal": 3,
+                "tech_parts": 2
+            },
+            "quantity": 1,
+            "result": "enhanced_store_key"
+        },
+        "enhanced_trading_terminal": {
+            "materials": {
+                "rare_alloy": 2,
+                "tech_parts": 5
+            },
+            "quantity": 1,
+            "result": "enhanced_trading_terminal"
+        },
+        "reinforced_diamond_shield": {
+            "materials": {
+                "rare_alloy": 5,
+                "scrap_metal": 15
+            },
+            "quantity": 1,
+            "result": "reinforced_diamond_shield"
+        },
+        "reinforced_iron_shield": {
+            "materials": {
+                "rare_alloy": 2,
+                "scrap_metal": 7
+            },
+            "quantity": 1,
+            "result": "reinforced_iron_shield"
+        },
+        "reinforced_steel_shield": {
+            "materials": {
+                "rare_alloy": 3,
+                "scrap_metal": 10
+            },
+            "quantity": 1,
+            "result": "reinforced_steel_shield"
+        },
+        "reinforced_titanium_shield": {
+            "materials": {
+                "rare_alloy": 4,
+                "scrap_metal": 12
+            },
+            "quantity": 1,
+            "result": "reinforced_titanium_shield"
+        },
+        "reinforced_wooden_shield": {
+            "materials": {
+                "scrap_metal": 5
+            },
+            "quantity": 1,
+            "result": "reinforced_wooden_shield"
+        }
+    }
+}
