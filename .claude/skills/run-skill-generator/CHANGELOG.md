@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.25 — 2026-07-25 (Session 96)
+
+- `references/architecture.md` (Module pattern): the command-shape section now describes **two** shapes, not three — the legacy `{ data, execute }` paragraph is replaced by one line of history. Added the deletion rule: **a migration is not finished when the last caller is converted; it is finished when the scaffolding is gone**, and plan that final slice from the start.
+- Evidence: S96 closed M17.3 by deleting `prefix/adapter.js` (167 lines), `assignOptions` and its slash-option machinery (`parse.js` 172 → 47 lines), the router's and loader's legacy branches, `index.js`'s `runCommand` wrapper, `summarizeCommand`'s legacy branch, the mixed-window `replyEither` shim, `ensureInvokerPermission`, and the adapter's whole test file. The test count went **790 → 769** and that drop is the evidence, not a regression: those tests described a translation layer that no longer exists. Without a planned deletion slice the layer survives indefinitely, and every future session pays to reason about it — which is exactly what STATE said about this adapter for 27 sessions before M17.3 was sliced.
+
 ## 0.5.24 — 2026-07-25 (Session 95)
 
 - `references/architecture.md` (Module pattern): added the sibling of S94's advertised-syntax rule — **a feature gated on a "which surface am I?" test is a time bomb; grep for those tests during a conversion and re-decide each one**, and give any "temporarily disabled" branch a test asserting the disabled behavior so removing it is a visible change.

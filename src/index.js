@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits, MessageFlags, Partials } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 import { loadEnvFile } from './core/env.js';
 import { loadConfig } from './core/config.js';
 import { logger } from './core/logger.js';
@@ -7,25 +7,6 @@ import { wirePrefixRouter } from './core/prefix/router.js';
 
 loadEnvFile();
 const config = loadConfig();
-
-// The error-wrapped executor for the text router (S68: the only command
-// path) — a crash answers with the same themed apology, never a stack trace.
-async function runCommand(command, interaction) {
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    logger.error(`Command ${command.data.name} failed:`, error);
-    const apology = {
-      content: '📻 Dispatch, we have a malfunction. The incident has been logged.',
-      flags: MessageFlags.Ephemeral,
-    };
-    if (interaction.deferred || interaction.replied) {
-      await interaction.followUp(apology).catch(() => {});
-    } else {
-      await interaction.reply(apology).catch(() => {});
-    }
-  }
-}
 
 // S68 (owner mandate): CuffBot is TEXT-ONLY — no application commands. The
 // central InteractionCreate router is gone; module-owned component pumps
@@ -48,7 +29,10 @@ async function buildAndLogin(intents, { messageContent, memberEvents }) {
   client.memberEventsAvailable = memberEvents;
 
   await loadModules(client);
-  if (messageContent) wirePrefixRouter(client, runCommand);
+  // S96: the router owns crash handling for both command shapes now (each
+  // dispatcher answers the themed apology itself), so there is no executor
+  // wrapper to hand it.
+  if (messageContent) wirePrefixRouter(client);
 
   try {
     await client.login(config.token);

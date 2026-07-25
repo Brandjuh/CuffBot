@@ -93,13 +93,14 @@ test('maintenanceNotice: off → null (no owner lookup); on → notice for every
 function fakeRouterWorld(guildId) {
   const state = { handler: null, ran: [], replies: [] };
   const groupRan = [];
+  // S96: the router knows exactly two shapes now — a flat command and a group.
   const client = {
     ...ownerClient(),
     config: { prefix: '!' },
     commands: new Map([
       [
         'ping',
-        { data: { name: 'ping', toJSON: () => ({ name: 'ping', description: 'x', options: [] }) }, execute: async () => {} },
+        { command: { name: 'ping', description: 'x', args: [], run: async () => state.ran.push('ping') } },
       ],
       [
         'testgroup',
@@ -108,7 +109,7 @@ function fakeRouterWorld(guildId) {
     ]),
     on: (event, fn) => (state.handler = fn),
   };
-  wirePrefixRouter(client, async (command, interaction) => state.ran.push(command.data.name));
+  wirePrefixRouter(client);
   const message = (content, authorId) => ({
     content,
     author: { id: authorId, bot: false },
@@ -122,13 +123,13 @@ function fakeRouterWorld(guildId) {
   return { state, groupRan, message };
 }
 
-test('the router answers the notice instead of dispatching — legacy AND group paths, bot owner exempt', async () => {
+test('the router answers the notice instead of dispatching — both command shapes, bot owner exempt', async () => {
   const guildId = freshGuildId();
   setMaintenance(guildId, { enabled: true });
   const { state, groupRan, message } = fakeRouterWorld(guildId);
 
   await state.handler(message('!ping', 'member-1'));
-  assert.equal(state.ran.length, 0, 'legacy command blocked');
+  assert.equal(state.ran.length, 0, 'flat command blocked');
   assert.match(state.replies[0].content, /under maintenance/i);
   assert.deepEqual(state.replies[0].allowedMentions, { repliedUser: false }, 'no-ping notice');
 

@@ -1,18 +1,18 @@
-// Wires text ("!command") invocation onto MessageCreate. Red-style group
-// commands (S69) dispatch through core/prefix/group.js; legacy flat commands
-// reuse command.execute() via the interaction adapter.
+// Wires text ("!command") invocation onto MessageCreate.
+//
+// S96 (M17.3 slice D): there are exactly TWO command shapes now — Red-style
+// groups (S69, `{ group }`) and flat commands (S93, `{ command }`) — and both
+// dispatch here. The third path, which rebuilt an interaction out of a message
+// so pre-S69 `execute(interaction)` commands could run, is gone with the last
+// command that needed it.
 import { Events } from 'discord.js';
-import { parseCommandLine, usageFor } from './parse.js';
-import { createMessageInteraction } from './adapter.js';
+import { parseCommandLine } from './parse.js';
 import { dispatchGroup } from './group.js';
 import { dispatchCommand } from './command.js';
 import { maintenanceNotice } from '../maintenance.js';
 
-/**
- * @param {import('discord.js').Client} client
- * @param {(command: object, interaction: object) => Promise<void>} runCommand shared error-wrapped executor
- */
-export function wirePrefixRouter(client, runCommand) {
+/** @param {import('discord.js').Client} client */
+export function wirePrefixRouter(client) {
   client.on(Events.MessageCreate, async (message) => {
     // Ignore bots (incl. self), DMs, and anything not addressed to us. Unknown
     // "!words" stay silent — they are usually chatter or another bot's prefix.
@@ -32,21 +32,7 @@ export function wirePrefixRouter(client, runCommand) {
       return;
     }
 
-    if (command.group) {
-      await dispatchGroup(command.group, message, parsed.tokens, prefix);
-      return;
-    }
-    if (command.command) {
-      await dispatchCommand(command.command, message, parsed.tokens, prefix);
-      return;
-    }
-
-    const { errors, interaction, usage } = await createMessageInteraction(message, command, parsed);
-    if (errors.length > 0) {
-      const hint = usage ?? usageFor(command.data.name, command.data.toJSON().options ?? []);
-      await message.reply(`🚫 ${errors.join('; ')}\nUsage: \`${prefix}${hint}\``).catch(() => {});
-      return;
-    }
-    await runCommand(command, interaction);
+    if (command.group) await dispatchGroup(command.group, message, parsed.tokens, prefix);
+    else await dispatchCommand(command.command, message, parsed.tokens, prefix);
   });
 }

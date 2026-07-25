@@ -1,23 +1,69 @@
+// Core command smokes. S96 (M17.3 slice D) moved them onto the flat
+// `{ command }` shape — the last four commands to convert — and onto
+// dispatchCommand where the command has a declarable gate.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MessageFlags } from 'discord.js';
+import { PermissionFlagsBits } from 'discord.js';
 import update from '../src/modules/core/commands/update.js';
 import help from '../src/modules/core/commands/help.js';
+import radioCheck from '../src/modules/core/commands/radio-check.js';
+import restart from '../src/modules/core/commands/restart.js';
+import { getGuildData } from '../src/core/store.js';
+import { fakeMessage } from './fixtures/fake-message.js';
 
-// Only the DENIED path is tested — it returns before triggerUpdate(), so no
-// updater process is spawned. Exercising the authorized path would actually
-// run the self-updater against this repo, which must never happen in tests.
-test('update refuses a non-admin, non-owner (no updater spawned)', async () => {
+/**
+ * A ctx for the ops commands. `admin`/`owner` drive `isAdminOrOwner`, which
+ * both !update and !restart check inside run() — the framework's `permission`
+ * field cannot express "Administrator OR guild owner".
+ */
+function opsCtx({ admin = false, owner = false, guildId = '111222333444555666' } = {}) {
   const replies = [];
-  const ix = {
-    user: { id: 'u1', username: 'rando' },
-    guild: { ownerId: 'someone-else' },
-    memberPermissions: { has: () => false },
-    reply: async (p) => replies.push(p),
+  const userId = 'u1';
+  return {
+    replies,
+    ctx: {
+      guild: { id: guildId, ownerId: owner ? userId : 'someone-else' },
+      channel: {
+        id: 'chan-1',
+        permissionsFor: () => ({ has: (flag) => admin && flag === PermissionFlagsBits.Administrator }),
+      },
+      member: { id: userId },
+      user: { id: userId, username: 'rando' },
+      prefix: '!',
+      reply: async (p) => {
+        replies.push(typeof p === 'string' ? { content: p } : p);
+        return { edit: async () => {} };
+      },
+    },
   };
-  await update.execute(ix);
+}
+
+// Only the DENIED path is tested for !update and !restart — each returns
+// before spawning anything. Exercising the authorized path would run the real
+// self-updater or restart against this repo, which must never happen in tests.
+
+test('update refuses a non-admin, non-owner (no updater spawned)', async () => {
+  const { ctx, replies } = opsCtx();
+  await update.command.run(ctx, {});
   assert.match(replies[0].content, /Only administrators/);
-  assert.equal(replies[0].flags, MessageFlags.Ephemeral);
+});
+
+test('restart refuses non-admins without writing a marker (S28)', async () => {
+  const { ctx, replies } = opsCtx();
+  await restart.command.run(ctx, {});
+  assert.match(replies[0].content, /Only administrators/);
+  assert.equal(
+    getGuildData('111222333444555666', 'updateReport', null),
+    null,
+    'no marker written',
+  );
+});
+
+test('the ops gate admits the guild owner even without the Administrator flag', async () => {
+  const { isAdminOrOwner } = await import('../src/core/prefix/permissions.js');
+  assert.equal(isAdminOrOwner(opsCtx({ owner: true }).ctx), true, 'guild owner');
+  assert.equal(isAdminOrOwner(opsCtx({ admin: true }).ctx), true, 'administrator');
+  assert.equal(isAdminOrOwner(opsCtx().ctx), false, 'neither');
 });
 
 test('help builds the categorized menu, hiding what the viewer cannot use (S43)', async () => {
@@ -26,8 +72,8 @@ test('help builds the categorized menu, hiding what the viewer cannot use (S43)'
       name: 'core',
       description: 'core',
       commands: [
-        { data: { toJSON: () => ({ name: 'radio-check', description: 'ping', options: [] }) } },
-        { data: { toJSON: () => ({ name: 'update', description: 'self-update', options: [] }) } },
+        { command: { name: 'radio-check', description: 'ping', args: [] } },
+        { command: { name: 'update', description: 'self-update', args: [] } },
       ],
     },
     {
@@ -35,28 +81,28 @@ test('help builds the categorized menu, hiding what the viewer cannot use (S43)'
       description: 'enf',
       commands: [
         {
-          data: {
-            toJSON: () => ({ name: 'cite', description: 'ticket', options: [], default_member_permissions: '8192' }),
+          command: {
+            name: 'cite',
+            description: 'ticket',
+            permission: PermissionFlagsBits.ModerateMembers,
+            args: [],
           },
         },
       ],
     },
   ];
   const run = async (hasPerms) => {
-    const replies = [];
-    await help.execute({
-      client: { config: { prefix: '!' }, moduleList },
-      memberPermissions: { has: () => hasPerms },
-      reply: async (p) => replies.push(p),
-      followUp: async (p) => replies.push(p),
-    });
-    return replies;
+    const message = fakeMessage({ perms: hasPerms });
+    message.client.config = { prefix: '!' };
+    message.client.moduleList = moduleList;
+    const { buildCtx } = await import('../src/core/prefix/context.js');
+    await help.command.run(buildCtx(message, '!'), {});
+    return message.sent;
   };
 
   const memberView = await run(false);
   const memberEmbed = memberView[0].embeds[0];
   assert.match(memberEmbed.data?.title ?? memberEmbed.title, /Command Menu/);
-  assert.equal(memberView[0].flags, 64, 'help is ephemeral (S39/S43)');
   const memberText = JSON.stringify(memberView.map((r) => r.embeds[0].toJSON?.() ?? r.embeds[0]));
   assert.ok(memberText.includes('!radio-check'), 'public command visible');
   assert.ok(!memberText.includes('!cite'), 'moderation hidden from regular members');
@@ -68,38 +114,26 @@ test('help builds the categorized menu, hiding what the viewer cannot use (S43)'
   assert.ok(adminText.includes('Setup & Admin'), 'admin category present');
 });
 
-test('/radio-check reports the text-command channel state (S26)', async () => {
-  const { default: radioCheck } = await import('../src/modules/core/commands/radio-check.js');
-  const assert = (await import('node:assert/strict')).default;
+test('radio-check reports the text-command channel state (S26)', async () => {
   const run = async (messageContentAvailable) => {
-    const state = { edited: null };
-    await radioCheck.execute({
-      client: { messageContentAvailable },
-      createdTimestamp: 1_000,
-      reply: async () => ({ resource: { message: { createdTimestamp: 1_050 } } }),
-      editReply: async (p) => (state.edited = p),
+    const message = fakeMessage();
+    message.client.messageContentAvailable = messageContentAvailable;
+    message.client.memberEventsAvailable = true;
+    message.createdTimestamp = 1_000;
+    const edits = [];
+    message.reply = async () => ({
+      createdTimestamp: 1_050,
+      edit: async (body) => edits.push(body),
     });
-    return state.edited;
+    const { buildCtx } = await import('../src/core/prefix/context.js');
+    await radioCheck.command.run(buildCtx(message, '!'), {});
+    return edits[0];
   };
-  assert.match(await run(true), /✅ Text commands/);
+  const on = await run(true);
+  assert.match(on, /✅ Text commands/);
+  assert.match(on, /50 ?ms|\d+ ?ms/, 'the measured latency is reported');
+
   const off = await run(false);
   assert.match(off, /❌ ALL commands are OFF/);
   assert.match(off, /Message Content Intent/);
 });
-
-test('/restart refuses non-admins without writing a marker (S28)', async () => {
-  const { default: restart } = await import('../src/modules/core/commands/restart.js');
-  const { getGuildData } = await import('../src/core/store.js');
-  const assert = (await import('node:assert/strict')).default;
-  const replies = [];
-  await restart.execute({
-    guild: { id: '111222333444555666', ownerId: 'someone-else' },
-    user: { id: 'not-admin', username: 'x' },
-    memberPermissions: { has: () => false },
-    reply: async (p) => replies.push(p),
-  });
-  assert.match(replies[0].content, /Only administrators/);
-  assert.equal(getGuildData('111222333444555666', 'updateReport', null), null, 'no marker written');
-});
-// NOTE: the allowed path is deliberately untested — it would trigger a real
-// restart/process.exit (same precedent as /update's owner path, S10).
