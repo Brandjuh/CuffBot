@@ -7,7 +7,10 @@
 import { isSectionDivider } from '../../academy/lib/ladder.js';
 
 export const DEFAULT_HEADER_NAME = 'self-roles';
-export const MAX_SELF_ROLES = 25; // Discord: 5 buttons × 5 rows per message
+// S64 (owner request: support well beyond 20 roles): the list spans multiple
+// messages of 25 buttons each (Discord: 5 buttons × 5 rows per message).
+export const BUTTONS_PER_MESSAGE = 25;
+export const MAX_SELF_ROLES = 125; // 5 messages of 25 — sanity cap, not a Discord limit
 
 /** Does this role name mark the self-roles section header? */
 export function isSelfRolesHeader(name, headerName = DEFAULT_HEADER_NAME) {
@@ -45,7 +48,7 @@ export function selectSelfRoles(rolesDesc, { headerName = DEFAULT_HEADER_NAME, c
       continue;
     }
     if (roles.length >= cap) {
-      skipped.push({ id: role.id, name: role.name, reason: `over the ${cap}-button limit` });
+      skipped.push({ id: role.id, name: role.name, reason: `over the ${cap}-role cap` });
       continue;
     }
     roles.push({ id: role.id, name: role.name });

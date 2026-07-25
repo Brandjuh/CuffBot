@@ -13,7 +13,7 @@ import {
 import {
   BUTTON_PREFIX,
   DEFAULT_SELFROLES_CONFIG,
-  buildSelfRolesPayload,
+  buildSelfRolesPayloads,
   clearRoleInfo,
   getSelfrolesInfo,
   refreshSelfRoles,
@@ -65,15 +65,16 @@ test('selectSelfRoles takes the section under the header, stops at the next divi
   assert.equal(selectSelfRoles([{ id: 'x', name: 'No Header Here' }]).headerFound, false);
 });
 
-test('selectSelfRoles caps at the 25-button limit and reports the overflow', () => {
+test('selectSelfRoles caps at the 125-role sanity cap and reports the overflow (S64)', () => {
   const roles = [
     { id: 'hdr', name: 'self-roles' },
-    ...Array.from({ length: 30 }, (_, i) => ({ id: `r${i}`, name: `Role ${i}` })),
+    ...Array.from({ length: 130 }, (_, i) => ({ id: `r${i}`, name: `Role ${i}` })),
   ];
   const result = selectSelfRoles(roles);
+  assert.equal(MAX_SELF_ROLES, 125, 'S64: five messages of 25 buttons');
   assert.equal(result.roles.length, MAX_SELF_ROLES);
   assert.equal(result.skipped.length, 5);
-  assert.match(result.skipped[0].reason, /25-button limit/);
+  assert.match(result.skipped[0].reason, /125-role cap/);
 });
 
 test('renderSelfRolesLines shows configured emoji and info text', () => {
@@ -235,15 +236,57 @@ test('role info round-trips and clears', () => {
   assert.deepEqual(getSelfrolesInfo(guildId), {});
 });
 
-test('buildSelfRolesPayload rows stay within Discord limits (5 per row, ≤5 rows)', () => {
+test('buildSelfRolesPayloads chunks into messages of ≤25 buttons (S64)', () => {
   const guildId = freshGuildId();
   const many = [
-    fakeRole('hdr', 'self-roles', { position: 40 }),
-    ...Array.from({ length: 23 }, (_, i) => fakeRole(`r${i}`, `Role ${i}`, { position: 30 - i })),
+    fakeRole('hdr', 'self-roles', { position: 100 }),
+    ...Array.from({ length: 33 }, (_, i) => fakeRole(`r${i}`, `Role ${i}`, { position: 90 - i })),
   ];
   const guild = fakeSelfrolesGuild(guildId, many);
   setSelfrolesConfig(guildId, { channelId: 'sr-chan' });
-  const { payload } = buildSelfRolesPayload(guild);
-  assert.equal(payload.components.length, 5, '23 roles → 5 rows');
-  for (const row of payload.components) assert.ok(row.components.length <= 5);
+  const { payloads } = buildSelfRolesPayloads(guild);
+  assert.equal(payloads.length, 2, '33 roles → 25 + 8');
+  assert.equal(payloads[0].components.length, 5, 'first message: full 5 rows');
+  for (const row of payloads[0].components) assert.ok(row.components.length <= 5);
+  assert.equal(payloads[1].components.reduce((n, row) => n + row.components.length, 0), 8);
+  assert.match(payloads[1].embeds[0].data.title, /continued/);
+});
+
+test('refreshSelfRoles maintains a multi-message list: edit, extend, shrink (S64)', async () => {
+  const guildId = freshGuildId();
+  const many = [
+    fakeRole('hdr', 'self-roles', { position: 100 }),
+    ...Array.from({ length: 30 }, (_, i) => fakeRole(`r${i}`, `Role ${i}`, { position: 90 - i })),
+  ];
+  const guild = fakeSelfrolesGuild(guildId, many);
+  setSelfrolesConfig(guildId, { channelId: 'sr-chan' });
+
+  assert.equal(await refreshSelfRoles(guild), 'posted');
+  assert.equal(guild.sends.length, 2, '30 roles → two messages');
+
+  // Unchanged roster → both messages edit in place.
+  assert.equal(await refreshSelfRoles(guild), 'edited');
+  assert.equal(guild.sends.length, 2);
+  assert.equal(guild.sends[0].edits.length, 1);
+  assert.equal(guild.sends[1].edits.length, 1);
+
+  // Roster shrinks under 25 → the surplus second message is deleted.
+  for (let i = 10; i < 30; i += 1) guild.roles.cache.delete(`r${i}`);
+  assert.equal(await refreshSelfRoles(guild), 'edited');
+  assert.equal(guild.messageStore.has(guild.sends[1].id), false, 'surplus message removed');
+  assert.equal(guild.messageStore.has(guild.sends[0].id), true);
+});
+
+test('a legacy single-message record (pre-S64 shape) still edits in place', async () => {
+  const { setGuildData } = await import('../src/core/store.js');
+  const { SELFROLES_MESSAGE_KEY } = await import('../src/modules/selfroles/service.js');
+  const guildId = freshGuildId();
+  const guild = fakeSelfrolesGuild(guildId, SECTION);
+  setSelfrolesConfig(guildId, { channelId: 'sr-chan' });
+
+  await refreshSelfRoles(guild); // creates m1
+  // Rewrite the store into the OLD shape: { channelId, messageId }.
+  setGuildData(guildId, SELFROLES_MESSAGE_KEY, { channelId: 'sr-chan', messageId: guild.sends[0].id });
+  assert.equal(await refreshSelfRoles(guild), 'edited', 'legacy record recognized');
+  assert.equal(guild.sends.length, 1, 'no duplicate post');
 });

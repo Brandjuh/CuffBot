@@ -1107,3 +1107,16 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 481 → **482** (hasPotTryToday day-flip). Manual economy.md; README 55 commands + economy row; help category `crack-pot: games` (completeness test green).
 
 **Retrospective:** no skill change — a wording/layout pass plus the S63 command split; no new generalizable mechanism (the "view and act are separate commands" idea is worth watching — if a third case appears after /pot–/crack-pot, record it).
+
+---
+
+## Session 64 — 2026-07-25
+
+**Goal:** owner: the self-roles list must handle well over 20 roles.
+
+**Done:**
+- **Multi-message list:** Discord caps a message at 25 buttons (5×5), so `buildSelfRolesPayloads` chunks the section into one message per 25 roles — each with its own embed section (the first carries the intro; later ones title "(continued)") and its own buttons. Sanity cap raised 25 → **125** (five messages); overflow still lands under "Skipped" with a reason.
+- **Tracking generalized:** `selfrolesMessage` now stores `messageIds[]` (the pre-S64 single-`messageId` shape is still recognized — live guilds migrate silently on the next refresh). Refresh edits each chunk's message in place, posts missing ones, deletes surplus ones when the roster shrinks, and best-effort-cleans leftovers when the list moves channels.
+- Tests 482 → **484** net (payload chunking; the full multi-message cycle post→edit→shrink-deletes-surplus; legacy-record migration; cap test updated to 125 with the new skip reason). Manual selfroles.md; skill 0.5.15 (multi-message variant added to the posted-messages reference).
+
+**Retrospective:** skill 0.5.15 — the S36/S59 "self-updating posted message" reference now covers outgrowing a single message; third use of the pattern, second generalization.
