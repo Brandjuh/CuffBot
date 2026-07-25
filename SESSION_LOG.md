@@ -1338,3 +1338,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** sharpened the S76 chicken-and-egg note — while the gate stays red, the RUNNING update.sh is always the old checkout's copy, so the S76/S77 evidence plumbing never executes until one gate passes (or the owner runs the script manually). STATE updated accordingly.
 
 **Retrospective:** no skill change — this is the S6 lesson's second-order case (the evidence existed but was unreadable); the root-owned-files hazard was even documented in update.sh's own comment ("root-owned files in the checkout would break later manual pulls") and stopped at the checkout boundary instead of covering /tmp. Fix is where it belongs.
+
+---
+
+## Session 78 — 2026-07-25
+
+**Goal:** root-cause the red Pi gate with the owner's pasted log (the S76/S77 plumbing paid off: the manual run produced a readable log).
+
+**Root cause (CONFIRMED by the Pi log):** `test/youtube.test.js` contained two **top-level `await import(...)`** lines (added in S69, between test registrations). On the Pi's older node:test runner, tests registered after a top-level await execute interleaved/twice via `processPendingSubtests` — the log showed exactly that signature: two youtube-group tests failing on their FIRST assertion with state their OWN LATER lines write (`channelId` already `news-1`/`chan-9`), stack through `processPendingSubtests`. Newer Node handles it cleanly, which is why the container never reproduced it (3× single-core green) and why the gate stayed red only on the Pi across S70–S77.
+
+**Fix:** the two awaits became static top-of-file imports (ESM hoisting → every test registers before the runner starts). Suite 568/568 here; the same commit should turn the Pi's gate green on the next timer run.
+
+**Also recorded:** architecture.md (Verification habits) now forbids top-level await in test files, with the S78 evidence — skill bumped to 0.5.18. STATE's open problem resolved with the full story; the S76 boot-smoke timeout raise reclassified as precautionary (not the cause).
+
+**Corrections (Step 2):** the S76 prime-suspect analysis (boot-smoke timeout) was wrong — the evidence plumbing it shipped is what found the truth. The S6 lesson compounds: the error had to be QUOTED (readable) before it could be diagnosed; 37 root-owned logs hid it for hours.
+
+**Retrospective (skill 0.5.17 → 0.5.18):** the one-line rule went into the reference read before writing tests. Meta-lesson also visible: a version-skewed runtime between the dev container and production means "green here" ≠ "green there" — the test gate on the Pi is the ONLY true gate, and its evidence must always be readable (now guaranteed by S77).

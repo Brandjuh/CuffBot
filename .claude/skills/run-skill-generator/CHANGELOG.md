@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.18 — 2026-07-25 (Session 78)
+
+- `references/architecture.md` (Verification habits): never use top-level `await` in test files — the Pi's older node:test runner executes tests registered after an await interleaved/twice (`processPendingSubtests`), so a test's first assertion sees its own later writes; passes silently on newer Node.
+- Evidence: S78 — S69's two top-level `await import(...)` lines in test/youtube.test.js kept the Pi's self-update gate red across S70–S77 (2 tests failed only there); the readable Pi log (S76/S77 plumbing) pinned it in minutes.
+
 ## 0.5.17 — 2026-07-25 (Session 69)
 
 - `references/architecture.md`: brought in line with the S68/S69 reality — text-only bot (deploy-commands CLEARS the roster), the Red-style `{ group }` command shape documented as the target pattern (with example, permission/error conventions, and the youtube reference pointer), legacy `{ data, execute }` marked as migration-only; stale "registers slash commands" lines fixed.

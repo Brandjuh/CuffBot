@@ -125,5 +125,6 @@ You cannot click around a live Discord server from this environment, so build co
 
 1. `node --check` every file you wrote (catches syntax errors instantly).
 2. `npm test` — lib logic fully covered.
+   **Never use top-level `await` in a test file** (e.g. `await import(...)` between `test()` registrations): the Pi's older node:test runner executes tests registered after an await interleaved/twice via `processPendingSubtests` — a test's first assertion can see its own later writes. It passes on newer Node, so only the Pi's update gate catches it (S78). Import statically at the top of the file.
 3. Boot smoke test without a token: importing the loader and asserting modules/commands resolve must not require logging in (`node scripts/smoke.js` once it exists).
 4. Live test — only the owner can do this. Write down in the module manual's *Testing* section exactly what they should click and expect.
