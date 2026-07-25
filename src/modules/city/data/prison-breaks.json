@@ -1,0 +1,800 @@
+[
+ {
+  "name": "Tunnel Escape",
+  "attempt_text": "🕳️ {user} begins digging a tunnel under their cell...",
+  "success_text": "🕳️ After days of digging, {user} finally breaks through to freedom! The guards are still scratching their heads.",
+  "fail_text": "🕳️ The tunnel collapsed! Guards found {user} covered in dirt and moved them to a cell with a concrete floor.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ You found some old tools left by another prisoner! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ The soil is unusually soft here! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ You found a small pouch of {currency}!",
+    "currency_bonus": 200
+   },
+   {
+    "text": "⭐ You discovered an old prohibition tunnel! (+25% success chance)",
+    "chance_bonus": 0.25
+   },
+   {
+    "text": "⭐ A friendly prison rat is helping you dig! (+5% success chance)",
+    "chance_bonus": 0.05
+   },
+   {
+    "text": "⭐ You found a treasure chest!",
+    "currency_bonus": 400
+   },
+   {
+    "text": "⚠️ You hit solid rock! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ A guard patrol is coming! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Your shovel broke and you had to buy a new one.",
+    "currency_penalty": 150
+   },
+   {
+    "text": "⚠️ The tunnel flooded! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ Your cellmate is snoring loudly, slowing progress! (-5% success chance)",
+    "chance_penalty": 0.05
+   },
+   {
+    "text": "⚠️ Had to bribe the prison geologist.",
+    "currency_penalty": 300
+   }
+  ]
+ },
+ {
+  "name": "Prison Riot",
+  "attempt_text": "🚨 {user} starts a prison riot as a distraction...",
+  "success_text": "🚨 In the chaos of the riot, {user} slips away unnoticed! Freedom at last!",
+  "fail_text": "🚨 The riot was quickly contained. {user} was identified as the instigator and sent to solitary.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ Other prisoners join your cause! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ You found a guard's keycard! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ You looted the commissary during the chaos!",
+    "currency_bonus": 300
+   },
+   {
+    "text": "⭐ The prison's WiFi went down - guards are distracted! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ Someone released all the therapy dogs! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Found the warden's secret stash!",
+    "currency_bonus": 500
+   },
+   {
+    "text": "⚠️ The guards were prepared! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ Security cameras caught your plan! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ You had to bribe another prisoner to keep quiet.",
+    "currency_penalty": 250
+   },
+   {
+    "text": "⚠️ The SWAT team arrived! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ Your riot chant was too cringe! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to replace broken furniture.",
+    "currency_penalty": 350
+   }
+  ]
+ },
+ {
+  "name": "Guard Disguise",
+  "attempt_text": "🕶 {user} puts on a stolen guard uniform...",
+  "success_text": "🕶 Nobody questioned {user} as they walked right out the front door! The perfect disguise!",
+  "fail_text": "🕶 The uniform was from last season's collection. {user} was spotted immediately by the fashion-conscious guards.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ Shift change creates confusion! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ You memorized the guard patterns! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ You found {currency} in the uniform pocket!",
+    "currency_bonus": 250
+   },
+   {
+    "text": "⭐ It's casual Friday - perfect timing! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ Found the guard's secret handshake manual! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Discovered the guard's poker winnings!",
+    "currency_bonus": 450
+   },
+   {
+    "text": "⚠️ Your shoes don't match the uniform! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ A guard recognizes you! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ You had to pay another inmate for the uniform.",
+    "currency_penalty": 200
+   },
+   {
+    "text": "⚠️ Your badge is upside down! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ You forgot the guard's catchphrase! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to buy authentic guard boots.",
+    "currency_penalty": 275
+   }
+  ]
+ },
+ {
+  "name": "Food Cart Escape",
+  "attempt_text": "🍽️ {user} attempts to hide in the kitchen's food delivery cart...",
+  "success_text": "🍽️ Buried under a mountain of mystery meat, {user} was wheeled right out to the delivery truck. The meat was terrible, but freedom tastes sweet!",
+  "fail_text": "🍽️ Return to sender! {user} forgot to put enough stamps on themselves. The postal service has strict policies about shipping prisoners.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ It's holiday rush season! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ You found a perfect-sized box! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ You discovered undelivered {currency} money orders!",
+    "currency_bonus": 275
+   },
+   {
+    "text": "⭐ Health inspector visit - everyone's distracted! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ The chef is having a meltdown! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Found tips from the cooking class!",
+    "currency_bonus": 350
+   },
+   {
+    "text": "⚠️ Package inspection in progress! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ The box is too heavy! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to pay for express shipping.",
+    "currency_penalty": 225
+   },
+   {
+    "text": "⚠️ Someone ordered a surprise inspection! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ The food cart has a squeaky wheel! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to bribe the kitchen staff.",
+    "currency_penalty": 300
+   }
+  ]
+ },
+ {
+  "name": "Laundry Escape",
+  "attempt_text": "👕 {user} tries to sneak out with the laundry truck...",
+  "success_text": "👕 Folded between fresh sheets, {user} enjoyed a comfortable ride to freedom! The prison's 1-star laundry service just lost its best customer.",
+  "fail_text": "👕 {user} was found when they couldn't hold in a sneeze. Turns out hiding in old pepper wasn't the best idea.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ The laundry is extra fluffy today! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ It's extra stinky today - guards won't look! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ You found valuables in the trash!",
+    "currency_bonus": 225
+   },
+   {
+    "text": "⭐ Static electricity makes you invisible! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ Found a lucky sock! (+5% success chance)",
+    "chance_bonus": 0.05
+   },
+   {
+    "text": "⭐ Discovered money in the dryer!",
+    "currency_bonus": 275
+   },
+   {
+    "text": "⚠️ Guard dog inspection day! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ The dumpster has holes in it! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to buy air fresheners.",
+    "currency_penalty": 175
+   },
+   {
+    "text": "⚠️ The washing machine is leaking! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ You're allergic to the detergent! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to pay for premium fabric softener.",
+    "currency_penalty": 225
+   }
+  ]
+ },
+ {
+  "name": "Visitor Swap",
+  "attempt_text": "🎭 {user} attempts to switch places with a visitor...",
+  "success_text": "🎭 The perfect crime! {user}'s identical twin cousin twice removed walked in, and {user} walked out. Family reunions will be awkward though.",
+  "fail_text": "🎭 Turns out your 'identical' cousin was actually your complete opposite. The guards couldn't stop laughing as they dragged you back.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ Your cousin is a master of disguise! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ The visiting room is extra crowded! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Your cousin slipped you some cash!",
+    "currency_bonus": 300
+   },
+   {
+    "text": "⭐ It's twins day at the prison! (+25% success chance)",
+    "chance_bonus": 0.25
+   },
+   {
+    "text": "⭐ Your makeup skills improved! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Found money in the visitor's locker!",
+    "currency_bonus": 400
+   },
+   {
+    "text": "⚠️ The guard is doing double ID checks! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ Your cousin has a distinctive walk! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to buy matching clothes.",
+    "currency_penalty": 250
+   },
+   {
+    "text": "⚠️ New biometric scanners installed! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ You forgot your visitor's backstory! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to buy premium disguise materials.",
+    "currency_penalty": 350
+   }
+  ]
+ },
+ {
+  "name": "Helicopter Rescue",
+  "attempt_text": "🚁 {user} signals their accomplice in a helicopter...",
+  "success_text": "🚁 Action movie style! {user} grabbed the rope ladder and soared away while the guards stood in awe. Someone's been watching too many movies!",
+  "fail_text": "🚁 Plot twist: It was actually a police helicopter. {user} just got featured on 'World's Most Embarrassing Prison Breaks'.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ Your pilot is an ex-stunt double! (+25% success chance)",
+    "chance_bonus": 0.25
+   },
+   {
+    "text": "⭐ Perfect weather conditions! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ You grabbed the prison's petty cash box!",
+    "currency_bonus": 400
+   },
+   {
+    "text": "⭐ The guards are watching an air show! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ Your pilot has gaming experience! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Found the warden's emergency fund!",
+    "currency_bonus": 600
+   },
+   {
+    "text": "⚠️ Anti-aircraft spotlight activated! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ High winds today! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ Had to pay the pilot's fuel costs.",
+    "currency_penalty": 200
+   },
+   {
+    "text": "⚠️ The prison installed anti-air defenses! (-30% success chance)",
+    "chance_penalty": 0.3
+   },
+   {
+    "text": "⚠️ Motion sickness kicks in! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to pay for helicopter maintenance.",
+    "currency_penalty": 450
+   }
+  ]
+ },
+ {
+  "name": "Drama Club Escape",
+  "attempt_text": "🎭 {user} uses the prison drama club performance as cover...",
+  "success_text": "🎭 Oscar-worthy performance! {user} played their role so well, they convinced everyone they were just an actor playing a prisoner. The reviews were stellar!",
+  "fail_text": "🎭 {user} forgot their lines and improvised a real escape attempt. The audience thought it was part of the show and gave a standing ovation as they were dragged back.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ You're starring in 'The Great Escape'! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ The audience is completely captivated! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ You found money in the prop cash box!",
+    "currency_bonus": 250
+   },
+   {
+    "text": "⭐ Broadway scout in the audience! (+25% success chance)",
+    "chance_bonus": 0.25
+   },
+   {
+    "text": "⭐ The spotlight malfunctioned! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ Won the drama competition prize!",
+    "currency_bonus": 450
+   },
+   {
+    "text": "⚠️ The guard is a theatre critic! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ Stage fright kicks in! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to bribe the stage manager.",
+    "currency_penalty": 200
+   },
+   {
+    "text": "⚠️ Method actor guard on duty! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ You're in the wrong costume! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to pay for premium props.",
+    "currency_penalty": 300
+   }
+  ]
+ },
+ {
+  "name": "Mail Room Mixup",
+  "attempt_text": "📦 {user} tries to mail themselves to freedom...",
+  "success_text": "📦 Special delivery! {user} was successfully shipped to freedom with Prime shipping. The 1-star review for 'uncomfortable packaging' was worth it!",
+  "fail_text": "📦 Return to sender! {user} forgot to put enough stamps on themselves. The postal service has strict policies about shipping prisoners.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ It's holiday rush season! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ You found a perfect-sized box! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ You discovered undelivered {currency} money orders!",
+    "currency_bonus": 275
+   },
+   {
+    "text": "⭐ New temp worker doesn't check labels! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ Found bubble wrap to hide in! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Discovered a misplaced Amazon package!",
+    "currency_bonus": 350
+   },
+   {
+    "text": "⚠️ Package inspection in progress! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ The box is too heavy! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to pay for express shipping.",
+    "currency_penalty": 225
+   },
+   {
+    "text": "⚠️ X-ray machine just got upgraded! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ You're not Prime eligible! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to pay for overnight shipping.",
+    "currency_penalty": 400
+   }
+  ]
+ },
+ {
+  "name": "Trash Compactor Gambit",
+  "attempt_text": "🗑️ {user} attempts to sneak out with the garbage...",
+  "success_text": "🗑️ One man's trash is another man's ticket to freedom! {user} made it out smelling like week-old fish sticks, but at least they're free!",
+  "fail_text": "🗑️ {user} was found when they couldn't hold in a sneeze. Turns out hiding in old pepper wasn't the best idea.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ The garbage truck driver is napping! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ It's extra stinky today - guards won't look! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ You found valuables in the trash!",
+    "currency_bonus": 225
+   },
+   {
+    "text": "⭐ It's recycling awareness day! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ Found a hazmat suit in the trash! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ Discovered the janitor's secret savings!",
+    "currency_bonus": 375
+   },
+   {
+    "text": "⚠️ Guard dog inspection day! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ The dumpster has holes in it! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to buy air fresheners.",
+    "currency_penalty": 175
+   },
+   {
+    "text": "⚠️ New waste management protocols! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ The compactor is malfunctioning! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ Had to bribe the garbage collector.",
+    "currency_penalty": 325
+   }
+  ]
+ },
+ {
+  "name": "Prison Band jailbreak",
+  "attempt_text": "🎸 {user} hides inside the prison band's bass drum...",
+  "success_text": "🎸 {user} rode the rhythm all the way to freedom! The band's encore performance was suspiciously lighter.",
+  "fail_text": "🎸 {user} ruined the big finale by sneezing during the drum solo. The critics were not impressed.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ The band is playing extra loud! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ You're in the back row! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ You found {currency} from the performance!",
+    "currency_bonus": 200
+   },
+   {
+    "text": "⭐ Famous musician visiting today! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ The acoustics are perfect! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Found the band's tip jar!",
+    "currency_bonus": 325
+   },
+   {
+    "text": "⚠️ The drum has a hole! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Guard requests a song! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to bribe the drummer.",
+    "currency_penalty": 175
+   },
+   {
+    "text": "⚠️ The warden is a music critic! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ You're rhythmically challenged! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to pay for instrument repairs.",
+    "currency_penalty": 275
+   }
+  ]
+ },
+ {
+  "name": "Prison Olympics",
+  "attempt_text": "🏃 {user} enters the prison's annual sports competition...",
+  "success_text": "🏃 {user} took gold in the 100-meter dash... right past the gates! A record-breaking performance!",
+  "fail_text": "🏃 {user} got disqualified for running in the wrong direction. The judges were not impressed.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ You're in peak condition! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ The crowd is cheering for you! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ You won the {currency} prize!",
+    "currency_bonus": 350
+   },
+   {
+    "text": "⭐ Olympic scout in attendance! (+25% success chance)",
+    "chance_bonus": 0.25
+   },
+   {
+    "text": "⭐ Performance enhancing snacks! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Found the betting pool money!",
+    "currency_bonus": 500
+   },
+   {
+    "text": "⚠️ Professional referee watching! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ You pulled a muscle! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Entry fee and equipment costs.",
+    "currency_penalty": 275
+   },
+   {
+    "text": "⚠️ Drug testing in progress! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ Forgot to stretch! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to buy premium running shoes.",
+    "currency_penalty": 350
+   }
+  ]
+ },
+ {
+  "name": "Prison Art Show",
+  "attempt_text": "🎨 {user} plans to escape during the prison art exhibition...",
+  "success_text": "🎨 {user} posed as a modern art installation and was shipped to a museum! Critics called it 'A moving piece about freedom.'",
+  "fail_text": "🎨 {user}'s 'Statue of Liberty' pose wasn't convincing enough. The art critics gave it zero stars.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ Your art got first place! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ The gallery is packed! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Someone bought your artwork!",
+    "currency_bonus": 275
+   },
+   {
+    "text": "⭐ Famous art collector visiting! (+25% success chance)",
+    "chance_bonus": 0.25
+   },
+   {
+    "text": "⭐ Abstract art exhibition - perfect cover! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ Won the People's Choice Award!",
+    "currency_bonus": 450
+   },
+   {
+    "text": "⚠️ The curator is suspicious! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Paint is still wet! (-10% success chance)",
+    "chance_penalty": 0.1
+   },
+   {
+    "text": "⚠️ Had to buy art supplies.",
+    "currency_penalty": 225
+   },
+   {
+    "text": "⚠️ Art authenticator on site! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ Your masterpiece is smudged! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to buy premium art materials.",
+    "currency_penalty": 375
+   }
+  ]
+ },
+ {
+  "name": "Prison Cooking Show",
+  "attempt_text": "👨‍🍳 {user} participates in the prison's cooking competition...",
+  "success_text": "👨‍🍳 {user}'s soufflé was so good, they were immediately hired by a 5-star restaurant... on the outside!",
+  "fail_text": "👨‍🍳 {user}'s escape plan fell flat like their failed soufflé. Back to the kitchen duty.",
+  "base_chance": 0.35,
+  "events": [
+   {
+    "text": "⭐ Your dish impressed Gordon Ramsay! (+20% success chance)",
+    "chance_bonus": 0.2
+   },
+   {
+    "text": "⭐ Kitchen is in chaos! (+15% success chance)",
+    "chance_bonus": 0.15
+   },
+   {
+    "text": "⭐ Won the {currency} prize!",
+    "currency_bonus": 300
+   },
+   {
+    "text": "⭐ Celebrity chef guest judge! (+25% success chance)",
+    "chance_bonus": 0.25
+   },
+   {
+    "text": "⭐ Found the secret recipe book! (+10% success chance)",
+    "chance_bonus": 0.1
+   },
+   {
+    "text": "⭐ Catering contract opportunity!",
+    "currency_bonus": 550
+   },
+   {
+    "text": "⚠️ Food critic is watching! (-20% success chance)",
+    "chance_penalty": 0.2
+   },
+   {
+    "text": "⚠️ Kitchen fire alert! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to buy premium ingredients.",
+    "currency_penalty": 250
+   },
+   {
+    "text": "⚠️ Health inspector surprise visit! (-25% success chance)",
+    "chance_penalty": 0.25
+   },
+   {
+    "text": "⚠️ Your sauce is too bland! (-15% success chance)",
+    "chance_penalty": 0.15
+   },
+   {
+    "text": "⚠️ Had to buy truffle ingredients.",
+    "currency_penalty": 400
+   }
+  ]
+ }
+]

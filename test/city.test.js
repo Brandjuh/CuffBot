@@ -250,6 +250,7 @@ test('cooldowns, jail time and bail all measure from the stored stamps', () => {
   assert.equal(jailLeft({ jailMs: HOUR, jailStartedAt: NOW }, NOW + 20 * MINUTE), 40 * MINUTE);
   assert.equal(jailLeft({ jailMs: HOUR, jailStartedAt: NOW }, NOW + 2 * HOUR), 0, 'served');
 
-  assert.equal(bailCost(30 * MINUTE), 48, '30 minutes × 1.6');
+  assert.equal(bailCost(30 * MINUTE), 48, 'int(1.6 × 30)');
+  assert.equal(bailCost(90_000), 2, "int(1.6 × 1.5) — the cog keeps the minutes fractional, so it is 2 and not 3");
   assert.equal(bailCost(0), 0);
 });

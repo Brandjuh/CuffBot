@@ -109,10 +109,14 @@ export function jailLeft(member, now) {
   return Math.max(0, member.jailStartedAt + member.jailMs - now);
 }
 
-/** Bail for the remaining sentence: the cog charges 1.6× the minutes left. */
+/**
+ * Bail for the remaining sentence — the cog's exact formula:
+ * `int(multiplier × (secondsLeft / 60))`, so the minutes are fractional and
+ * the truncation happens once, at the end. (jail.py falls back to 1.5 when
+ * the setting is missing; our defaults always supply the stored 1.6.)
+ */
 export function bailCost(remainingMs, settings = DEFAULT_CITY_SETTINGS) {
-  const minutes = Math.ceil(remainingMs / 60_000);
-  return Math.trunc(minutes * (settings.bailCostMultiplier ?? 1.6));
+  return Math.trunc((settings.bailCostMultiplier ?? 1.6) * (remainingMs / 60_000));
 }
 
 /**
