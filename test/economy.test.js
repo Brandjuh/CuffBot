@@ -463,3 +463,15 @@ test('runTimedHuntTick honors its gates: off, no intent, unpostable channel (S56
   setEconomyConfig(offGuildId, { huntTimerEnabled: false });
   assert.equal(await runTimedHuntTick(offGuild), 'off');
 });
+
+// ── S63: /pot view state + /crack-pot split ──────────────────────────────────
+
+test('hasPotTryToday flips after the daily attempt and resets next day (S63)', async () => {
+  const { hasPotTryToday } = await import('../src/modules/economy/service.js');
+  const guildId = freshGuildId();
+  const day1 = Date.UTC(2026, 6, 24, 10, 0);
+  assert.equal(hasPotTryToday(guildId, 'm1', day1), false);
+  tryPot(guildId, 'm1', { random: () => 0.9, now: day1 });
+  assert.equal(hasPotTryToday(guildId, 'm1', day1), true, 'today’s shot is used');
+  assert.equal(hasPotTryToday(guildId, 'm1', day1 + 24 * 60 * 60_000), false, 'fresh after midnight UTC');
+});

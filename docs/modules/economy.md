@@ -37,7 +37,7 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 - One attempt per **3-hour lay-low window** per thief (S48 owner decision — was 5 min; stamped on success and failure alike; the ephemeral refusal shows the remaining wait in hours + minutes). Self-theft and bots refused. Outcome messages name people but never ping.
 - House math: expected value per attempt is 0.3·500 − 0.7·500 = **−200 🍩** — stealing is a gamble, not an income.
 
-## The donut pot 🍯 — `/pot` (S41)
+## The donut pot 🍯 — `/pot` + `/crack-pot` (S41, split S63)
 
 - **Every lost donut lands in ONE pot:** a busted `/steal`, the escaping crook's pickpocketed loot, and any future game's losses (games call `addToPot`). Nothing vanishes from the economy.
 - The pot **grows +500 🍩 every day** on its own (lazy top-up — missed days catch up; day rollover at **midnight UTC**, early evening for the US community).
@@ -58,6 +58,9 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 - **/donut-board `[top]`** — richest officers, top 1–25 (default 10).
 - **/steal `target`** — the heist above.
 - **/pot `[try]`** — the donut pot above.
+- **/pot** — the pot view (S63): a tidy embed with the balance front and center, how the pot fills, whether YOUR daily shot is still open, and the odds. Ephemeral (in-channel no-ping reply as `!pot`).
+- **/crack-pot** — the daily attempt as its own command (S63; replaces the clunky `/pot try:True`): win = a loud JACKPOT embed (public), loss = one calm line (public), already-tried/disabled = short ephemeral notes.
+- **/steal outcomes (S63):** short embeds — green HEIST with the amount as a big line, red BUSTED with the confiscation and a one-line pot pointer; refusals (bot/self/cooldown/disabled) stay short ephemeral one-liners.
 - **/economy-config** (admin — Manage Server): `enabled` (master switch), `hunt` (hunts on/off), `earn` (donuts per message 0–100), `test-hunt` (channel — spawn a crook now), `hunt-timer` (timed hunts on/off, S56), `hunt-channel` (where timed hunts appear — text or announcement channel). Status shows every number, the timed-hunt line, plus the Message Content intent state.
 
 ## Design notes
@@ -101,3 +104,4 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | S50 | Game replies/refusals no longer DM on the `!` text path (owner rule: only important things in DM) — they answer in the channel as a no-ping reply; slash stays ephemeral. |
 | S55 | `/economy-config` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
 | S56 | Timed hunts: a crook also spawns in the owner's hunt channel (`412354971170897921`, committed default) at a random moment every 60–300 min, re-rolled per spawn; `/economy-config hunt-timer:`/`hunt-channel:` knobs; same primitives and Message Content gate as activity hunts. |
+| S63 | Steal + pot UX overhaul (owner: texts read as clutter; `/pot try:True` was clunky): `/pot` = clean view embed incl. your daily-shot state (`hasPotTryToday`); new `/crack-pot` command for the attempt; steal outcomes are short color-coded embeds. 55th command. |
