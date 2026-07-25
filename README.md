@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 31 modules, 69 commands (plus `city`, a staged port whose rules engine landed in S89 with no command surface yet). **CuffBot is text-only (S68): every command is a `!command`**, and config commands are Red-style groups (`!group sub <args>`, S69/S70 — type `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 32 modules, 70 commands (`city` is a staged port: playable since S90, with bail and jailbreak still to come). **CuffBot is text-only (S68): every command is a `!command`**, and config commands are Red-style groups (`!group sub <args>`, S69/S70 — type `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -33,6 +33,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Wordle** 🟩 | `!wordle play` — type your guesses; 🟩🟨⬛ show how close you are | [wordle](docs/modules/wordle.md) |
 | **Hammertime** ⏰ | `!ht in 2 hours` — timestamps that render right for every reader | [hammertime](docs/modules/hammertime.md) |
 | **Heist** 💰 | `!heist bank` — timed jobs, gear, police heat, jail, bail and 4-officer crews | [heist](docs/modules/heist.md) |
+| **City** 🌃 | `!crime bank` — pickpockets, muggings and heists with random events and streaks | [city](docs/modules/city.md) |
 | **Memorial** 🕯️ | `!memorial` group — fallen firefighters/officers tracker (RSS, role tags) | [memorial](docs/modules/memorial.md) |
 | **Starboard** ⭐ | `!starboard` group — ⭐-reactions repost highlights to the board | [starboard](docs/modules/starboard.md) |
 | **Chat starter** 💬 | `!chat-starter` group — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |
