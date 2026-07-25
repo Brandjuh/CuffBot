@@ -11,6 +11,7 @@ import { HEISTS, ITEMS, MATERIAL_ITEMS, RECIPES, fmt } from '../lib/tables.js';
 import { MAX_LEVEL, XP_TABLE, levelSuccessBonus, xpBar, xpProgress } from '../lib/leveling.js';
 import { FLAVOUR_MATERIAL, FLAVOUR_SHIELD, FLAVOUR_TOOL, heatBar, narrate } from '../lib/flavour.js';
 import { craftPlan } from '../lib/crafting.js';
+import { armHeistTimer, cancelHeistTimer } from '../scheduler.js';
 import {
   buyItem,
   cooldownLeft,
@@ -95,6 +96,8 @@ export function outcomeEmbed(outcome, displayName) {
 async function settleFirst(ctx) {
   const outcome = await settleActiveHeist(ctx.guild.id, ctx.user.id);
   if (outcome) {
+    // We beat the timer to it — drop the armed one so it cannot double-report.
+    cancelHeistTimer(ctx.guild.id, ctx.user.id);
     await ctx.reply({ embeds: [outcomeEmbed(outcome, ctx.member?.displayName ?? ctx.user.username)] });
   }
   return true;
@@ -196,6 +199,9 @@ export default {
           }
 
           const { endsAt } = startHeist(ctx.guild.id, ctx.user.id, type, ctx.channel.id, { taxAgreed });
+          // S87: the job now announces itself when the clock runs out; the
+          // lazy path stays as the fallback if that timer never fires.
+          armHeistTimer(ctx.client, ctx.guild.id, ctx.user.id, endsAt);
           const equipped = player.equipped;
           const toolLine =
             equipped.tool && ITEMS[equipped.tool]?.forHeist === type
