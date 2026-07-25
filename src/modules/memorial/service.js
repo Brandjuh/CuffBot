@@ -100,7 +100,7 @@ export async function fetchFeedItems(feed, fetchImpl = fetch) {
 /**
  * Live-check ANY candidate feed URL (S61): the owner is hunting for a real
  * fallen-firefighters source, and the Pi is the only place with open
- * internet — `/memorial-config probe:<url>` runs this there and shows what
+ * internet — `!memorial-config probe:<url>` runs this there and shows what
  * the feed actually contains before anything is committed.
  */
 export async function probeFeed(url, { fetchImpl = fetch } = {}) {

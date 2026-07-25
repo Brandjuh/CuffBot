@@ -19,7 +19,7 @@ import { enqueueQuestion, shouldQueue, waitStory } from './lib/queue.js';
 
 export const AI_CONFIG_KEY = 'aiConfig';
 // Owner decision S51: the detective only talks in this channel — committed as
-// product config (owner-defaults pattern). `/ai-config channel:` overrides;
+// product config (owner-defaults pattern). `!ai-config channel:` overrides;
 // `everywhere:True` stores channelId null to lift the restriction.
 export const DEFAULT_AI_CONFIG = { enabled: true, channelId: '412354971170897921' };
 
@@ -102,7 +102,7 @@ async function completeQuestion({ guildId, channelId, askerName, question, now, 
  */
 export async function askDetective({ guildId, channelId, askerName, question, userId = null, now = Date.now(), env = process.env, fetchImpl = fetch }) {
   if (!getAiConfig(guildId).enabled) {
-    return { ok: false, message: '🕵️ The detective is off duty — an admin can bring them back with `/ai-config enabled:True`.' };
+    return { ok: false, message: '🕵️ The detective is off duty — an admin can bring them back with `!ai-config enabled:True`.' };
   }
   const provider = pickProvider(env);
   if (!provider) {
@@ -114,7 +114,7 @@ export async function askDetective({ guildId, channelId, askerName, question, us
   }
   const clean = normalizeQuestion(question);
   if (!clean) {
-    return { ok: false, message: '🕵️ Ask me something, officer — e.g. `/ask question: who invented the traffic light?`' };
+    return { ok: false, message: '🕵️ Ask me something, officer — e.g. `!ask question: who invented the traffic light?`' };
   }
 
   // The GLOBAL limit (owner spec): 1 message per 7 s AND 62 per hour, shared

@@ -43,7 +43,7 @@ export default {
     await interaction.reply({
       content: result.delivered
         ? '🚨 Report filed with the force. Thank you — an officer will review it.'
-        : '🚨 Report received, but there is no evidence-locker channel configured, so the force may not see it. Ask an admin to run `/evidence-locker action:set`.',
+        : '🚨 Report received, but there is no evidence-locker channel configured, so the force may not see it. Ask an admin to run `!evidence-locker action:set`.',
       flags: MessageFlags.Ephemeral,
     });
   },

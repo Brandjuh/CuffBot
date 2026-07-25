@@ -12,7 +12,7 @@ export default {
     if (ladder.ranks.length === 0) {
       await interaction.reply({
         content:
-          '🚫 No rank ladder detected. An admin can point me at the header role with `/rank-setup header:@[LEVELER]`, then try again.',
+          '🚫 No rank ladder detected. An admin can point me at the header role with `!rank-setup header:@[LEVELER]`, then try again.',
         flags: 64,
       });
       return;
@@ -37,7 +37,7 @@ export default {
     ];
     const pinNote = isPinnedLadder(interaction.guild.id, ladder)
       ? ''
-      : '\n\n⚠️ Ladder not pinned — auto-promotions stay idle until an admin runs `/rank-setup`.';
+      : '\n\n⚠️ Ladder not pinned — auto-promotions stay idle until an admin runs `!rank-setup`.';
 
     const embed = new EmbedBuilder()
       .setColor(0xd4a24e)

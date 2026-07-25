@@ -1166,3 +1166,22 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 488 → **493** (defaults; the full evaluateClaim matrix incl. window edges and the percent-floor formula; per-interval stamping + legacy migration; claimAll first-ever/streak/nothing-ready; daily-through-engine). All pre-existing daily tests passed UNCHANGED through the new engine before the new tests were added. Manual economy.md; README 60 commands.
 
 **Retrospective:** no skill change — second straight session running purely on the S65 survey + established rules. 21 modules, 60 commands, 493 tests. Next: M16.3 (connect4).
+
+---
+
+## Session 68 — 2026-07-25
+
+**Goal:** owner mega-directive (verbatim): "Ik wil een nog veel grotere rewrite ik wil namelijk alles zonder slash commands en enkel in normale text commands met een !command" — plus, mid-session: some commands were de-facto slash-only; use ONE structure for everything, modeled on the Red-DiscordBot command structure of the S65 source cogs.
+
+**Done — the engine switch (CuffBot is text-only):**
+- `src/index.js`: the central InteractionCreate command router (chat-input + autocomplete) is GONE; the prefix router is the only command path. Component pumps (module-owned InteractionCreate listeners) are untouched — buttons are not slash commands.
+- `deploy-commands.js` now **DE-registers** (PUTs an empty guild roster). `scripts/update.sh` already runs it on every self-update, so the live Pi clears its slash commands automatically on the next update.
+- Doctor check **inverted**: zero registered application commands = healthy; anything registered = "stale slash command(s)" with the clear-it fix. `diffCommandSets` no longer used there.
+- `!help` renders text-only (single invocation form, text-only descriptions); radio-check/boot warnings now say ALL commands are off without Message Content (the intent is load-bearing; owner confirmed enabled, S57).
+- **Whitelist string sweep** across src: every backtick-quoted `/command` reply reference (28 files) became `!command`, driven by the live loader's command-name list — no false positives on URLs/regex.
+- `!patrol-wizard` (the one truly interaction-shaped command) temporarily points at the classic patrol commands; its text-only return is scoped into M17.3.
+- Tests 493/493 (six expectations updated to text-only phrasing — each the new intended behavior).
+
+**Owner directive recorded → M17 in ROADMAP:** the Red-style restructure (`!group subcommand args`, bare group = status) — framework first (M17.1), then worst-offender config commands, then everything + legacy-path retirement; full docs sweep rides along per module. M16 games resume after M17.1 so they land in the final structure.
+
+**Retrospective:** no skill change this session — the S9 adapter architecture made "remove slash" a subtraction instead of a rewrite (the seam paid for itself); the real structural work is scoped honestly as M17 rather than rushed into this diff.

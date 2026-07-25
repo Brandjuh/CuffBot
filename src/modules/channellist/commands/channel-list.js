@@ -7,9 +7,9 @@ const RESULTS = {
   edited: '📋 Channel list updated — the existing messages were edited in place.',
   posted: '📋 Channel list posted.',
   reposted: '📋 Channel list reposted.',
-  unconfigured: '⚠️ No list channel set yet — run `/channel-list action:post channel:#…` once.',
+  unconfigured: '⚠️ No list channel set yet — run `!channel-list action:post channel:#…` once.',
   'missing-channel':
-    '⚠️ The configured channel no longer exists — pick a new one with `/channel-list action:post channel:#…`.',
+    '⚠️ The configured channel no longer exists — pick a new one with `!channel-list action:post channel:#…`.',
   forbidden: '⚠️ I need permission to view and send messages in the configured channel.',
 };
 

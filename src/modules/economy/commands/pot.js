@@ -1,5 +1,5 @@
 // The pot VIEW (S63 owner request: the old text wall read as clutter, and
-// `/pot try:True` was clunky). Viewing and cracking are now two commands:
+// `!pot try:True` was clunky). Viewing and cracking are now two commands:
 // /pot shows the state, /crack-pot takes the daily shot.
 import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { getPot, hasPotTryToday } from '../service.js';
@@ -19,8 +19,8 @@ export default {
         [
           `# ${pot.balance.toLocaleString('en-US')} 🍩`,
           '',
-          '**How it fills** — busted `/steal` attempts, escaped crooks, and **+500** 🍩 every day.',
-          `**Your daily shot** — ${tried ? '❌ used for today (new chance after midnight UTC)' : '✅ still open: `/crack-pot`'}`,
+          '**How it fills** — busted `!steal` attempts, escaped crooks, and **+500** 🍩 every day.',
+          `**Your daily shot** — ${tried ? '❌ used for today (new chance after midnight UTC)' : '✅ still open: `!crack-pot`'}`,
           '**The odds** — 0.5%. Winner takes the whole pot.',
         ].join('\n'),
       );

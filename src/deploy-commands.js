@@ -1,45 +1,39 @@
-// Registers all module slash commands with Discord — guild-scoped to the home
-// precinct only. Guild-scoped registration is instant, and a one-precinct bot
-// has no reason to register commands globally.
+// S68 (owner mandate): CuffBot is TEXT-ONLY — every command is a `!command`.
+// This script now DE-registers: it PUTs an empty application-command roster
+// for the home guild so previously registered slash commands disappear from
+// Discord's UI. The self-update chain (scripts/update.sh) already runs this
+// on every update, so the live bot clears itself without manual steps.
 import { REST, Routes } from 'discord.js';
 import { loadEnvFile } from './core/env.js';
 import { loadConfig } from './core/config.js';
-import { discoverModules } from './core/loader.js';
 
 loadEnvFile();
 const config = loadConfig();
-const modules = await discoverModules();
-const commands = modules.flatMap((mod) => mod.commands.map((cmd) => cmd.data.toJSON()));
 
 const rest = new REST().setToken(config.token);
 const route = Routes.applicationGuildCommands(config.clientId, config.homeGuildId);
 const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${config.clientId}&scope=bot%20applications.commands&permissions=2048`;
 
-console.log(`Registering ${commands.length} command(s) in guild ${config.homeGuildId}…`);
+console.log(`Text-only mode (S68): clearing all application commands in guild ${config.homeGuildId}…`);
 try {
-  const result = await rest.put(route, { body: commands });
+  const result = await rest.put(route, { body: [] });
   console.log(
-    `Done — ${result.length} command(s) registered: ${result.map((c) => `/${c.name}`).join(', ')}`,
+    result.length === 0
+      ? 'Done — no slash commands registered. Every command runs as !command.'
+      : `Unexpected: ${result.length} command(s) still registered.`,
   );
 } catch (error) {
-  // Translate the three real-world failure modes into instructions; the raw
-  // error alone sent the first live deploy (S4) down the wrong path.
   const apiCode = error?.rawError?.code ?? error?.code;
   const status = error?.status;
   if (apiCode === 50001) {
     console.error(`\n❌ Missing Access: the bot is not a member of the home precinct (${config.homeGuildId}) yet.`);
-    console.error('   Invite it first (you need Manage Server in that guild), then re-run:');
-    console.error(`   ${inviteUrl}\n`);
+    console.error(`   Invite it first: ${inviteUrl}`);
   } else if (status === 401) {
-    console.error('\n❌ Unauthorized: Discord rejects DISCORD_TOKEN (or it does not belong to CLIENT_ID).');
-    console.error('   Run `npm run doctor` — it verifies the token against Discord and names the exact problem.\n');
-  } else if (apiCode === 10002) {
-    console.error('\n❌ Unknown application: CLIENT_ID does not match an application.');
-    console.error('   Use the Application ID from Developer Portal → General Information, and update .env.\n');
+    console.error('\n❌ Unauthorized: DISCORD_TOKEN is wrong or was rotated. Update .env and retry.');
+  } else if (status === 404) {
+    console.error('\n❌ Not Found: CLIENT_ID does not match this bot application. Check .env.');
   } else {
-    console.error('\n❌ Command registration failed with an unexpected error:');
-    console.error(error);
-    console.error(`\n   If the bot is not in the precinct yet, invite it first: ${inviteUrl}\n`);
+    console.error('\n❌ Clearing application commands failed:', error?.message ?? error);
   }
-  process.exit(1);
+  process.exitCode = 1;
 }

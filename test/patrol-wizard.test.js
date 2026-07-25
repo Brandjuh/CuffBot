@@ -183,7 +183,7 @@ test('a press on an expired wizard says so instead of erroring', async () => {
   assert.match(embedText(press.state.updates[0]), /expired/i);
 });
 
-test('the pump ignores foreign customIds and the text path points at slash', async () => {
+test('the pump ignores foreign customIds and the text path names the wizard command', async () => {
   const foreign = fakeComponent({ id: freshGuildId() }, 'admin', 'trivia:answer:1');
   await wizardPump.execute(foreign);
   assert.equal(foreign.state.updates.length, 0, 'not ours — untouched');
@@ -197,7 +197,7 @@ test('the pump ignores foreign customIds and the text path points at slash', asy
     reply: async (p) => text.replies.push(p),
   };
   await patrolWizard.execute(text);
-  assert.match(text.replies[0].content, /\/patrol-wizard/);
+  assert.match(text.replies[0].content, /text-only mode \(S69\)/);
 });
 
 test('cleanup helper', () => {

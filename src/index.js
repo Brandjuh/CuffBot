@@ -8,8 +8,8 @@ import { wirePrefixRouter } from './core/prefix/router.js';
 loadEnvFile();
 const config = loadConfig();
 
-// One error-wrapped executor shared by the slash and text routers, so both
-// invocation paths answer a crash with the same themed, ephemeral apology.
+// The error-wrapped executor for the text router (S68: the only command
+// path) — a crash answers with the same themed apology, never a stack trace.
 async function runCommand(command, interaction) {
   try {
     await command.execute(interaction);
@@ -27,31 +27,10 @@ async function runCommand(command, interaction) {
   }
 }
 
-function wireSlashRouter(client) {
-  client.on(Events.InteractionCreate, async (interaction) => {
-    // Autocomplete (S44): commands may export autocomplete(interaction) to
-    // serve typed-suggestion options (e.g. the birthday timezone picker —
-    // select menus cap at 25 options, autocomplete does not).
-    if (interaction.isAutocomplete()) {
-      const command = client.commands.get(interaction.commandName);
-      if (!command?.autocomplete) return;
-      try {
-        await command.autocomplete(interaction);
-      } catch (error) {
-        logger.warn(`Autocomplete for "/${interaction.commandName}" failed:`, error);
-        await interaction.respond([]).catch(() => {});
-      }
-      return;
-    }
-    if (!interaction.isChatInputCommand()) return;
-    const command = client.commands.get(interaction.commandName);
-    if (!command) {
-      logger.warn(`Unknown command "/${interaction.commandName}" — was deploy-commands run?`);
-      return;
-    }
-    await runCommand(command, interaction);
-  });
-}
+// S68 (owner mandate): CuffBot is TEXT-ONLY — no application commands. The
+// central InteractionCreate router is gone; module-owned component pumps
+// (buttons/selects/modals: trivia, patrol wizard, selfroles) keep their own
+// listeners — message components are not slash commands and stay.
 
 async function buildAndLogin(intents, { messageContent, memberEvents }) {
   // Partials let reaction events fire for messages sent before this boot
@@ -69,7 +48,6 @@ async function buildAndLogin(intents, { messageContent, memberEvents }) {
   client.memberEventsAvailable = memberEvents;
 
   await loadModules(client);
-  wireSlashRouter(client);
   if (messageContent) wirePrefixRouter(client, runCommand);
 
   try {
@@ -83,8 +61,9 @@ async function buildAndLogin(intents, { messageContent, memberEvents }) {
 
 // The Message Content intent is privileged: it must be enabled in the Developer
 // Portal or login fails. Rather than crash-loop (the systemd service restarts on
-// failure), we detect that specific failure and fall back to slash-only, keeping
-// the bot up while telling the owner exactly how to unlock text commands.
+// failure), we detect that specific failure and fall back so the process stays
+// up and can SAY what is wrong — in text-only mode (S68) commands are dead
+// without the intent, but a live process with a loud log beats a crash loop.
 function isDisallowedIntents(error) {
   return error?.code === 4014 || /disallowed intents/i.test(String(error?.message ?? ''));
 }
@@ -128,7 +107,7 @@ for (const attempt of ATTEMPTS) {
     started = true;
     if (!attempt.messageContent) {
       logger.warn(
-        'Message Content intent is NOT enabled — "!" text commands, patrol, and @mention AI replies are DISABLED (slash commands and XP work normally). ' +
+        'Message Content intent is NOT enabled — CuffBot is TEXT-ONLY (S68), so ALL "!" commands, patrol, and @mention AI replies are DISABLED until it is. ' +
           'Enable it: Developer Portal → your app → Bot → Privileged Gateway Intents → Message Content Intent, then restart.',
       );
     }

@@ -11,10 +11,11 @@ export default {
   async execute(interaction) {
     if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
     // Buttons/selects/modals need real component interactions — the text
-    // path has none, so point it at the slash form instead of half-working.
+    // path has none yet — the wizard gets its text-only shape in the Red-style
+    // restructure (S69, owner directive); until then the classic commands work.
     if (interaction.isTextCommand) {
       await interaction.reply({
-        content: '👮 The setup wizard is interactive — please run it as the slash command: `/patrol-wizard`.',
+        content: '👮 The interactive setup wizard is being rebuilt for text-only mode (S69). Meanwhile: `!patrol`, `!patrol-rule`, and `!patrol-term` configure everything.',
         flags: 64,
       });
       return;

@@ -44,7 +44,7 @@ export default {
           `**Desk pile (parked questions):** ${pendingCount()}`,
           `**Conversation memory:** last ${s.historyLimits.maxHistoryEntries} exchanges per channel, ${Math.round(s.historyLimits.historyTtlMs / 60000)} min`,
           '',
-          'Talk to the detective with `/ask`, `!ask …`, or by mentioning the bot in a message.',
+          'Talk to the detective with `!ask`, `!ask …`, or by mentioning the bot in a message.',
         ].join('\n'),
       );
     await interaction.reply({ embeds: [embed], flags: 64 });

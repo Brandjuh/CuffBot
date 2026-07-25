@@ -11,7 +11,7 @@ Core is the precinct's front desk: it proves the bot is alive (`/radio-check`) a
 
 ## Dual invocation: `/command` and `!command`
 
-Every CuffBot command works two ways: as a **slash command** (`/radio-check`) or as a **text command** (`!radio-check`). Text invocation is handled centrally (`src/core/prefix/`), so every current and future command gets it for free — nothing per-command to maintain.
+**S68 (owner mandate): CuffBot is TEXT-ONLY.** Every command is a text command (`!radio-check`) handled centrally by `src/core/prefix/` — slash commands are gone (the deploy script now clears the guild's application-command roster, and the doctor treats any registered slash command as stale). Message components (buttons/selects/modals) remain — they are not slash commands. NOTE: manuals still written before S68 may show `/command` examples; read them as `!command` until the M17 per-module conversion sweeps each one.
 
 - The prefix is `config.json → prefix` (default `!`).
 - Text arguments are positional and the last text option is greedy: `!detain @user 2h being a repeat offender` maps to `target`, `duration`, then `reason`.
@@ -144,3 +144,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S46 | Text-command DM failures diagnosed honestly: 50007 → per-server privacy-setting guidance; anything else → "failed on my end" + logged error code (was: every failure claimed "your DMs are closed"). |
 | S54 | Owner mandate "no DMs after a `!command`": the adapter's DM path is gone — every ephemeral answers in-channel as a no-ping reply (S46 diagnostics and the S50 `textInChannel` marker retired with it); `!help` pages post in-channel; slash stays ephemeral. |
 | S55 | Owner report "admin rights but can't post in a channel": every post-target picker was GuildText-only, making Announcement (news) channels unselectable — all pickers now take both; new `core/channels.js` `resolveSendableChannel` (cache → API fallback, send-capable check) backs every posting module; the text-path type error names both types. |
+| S68 | TEXT-ONLY (owner mandate): the slash router and registration are gone — every command is `!command`; deploy-commands de-registers; doctor inverted (zero registered = healthy); help renders text usage only; components stay. Red-style restructure queued as M17. |

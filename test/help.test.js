@@ -45,13 +45,13 @@ test('usageFor marks required <> and optional []', () => {
   assert.equal(usageFor('radio-check', []), 'radio-check');
 });
 
-test('buildHelp groups by module and lists both invocation forms', () => {
+test('buildHelp groups by module and lists the text invocation (S68 text-only)', () => {
   const model = buildHelp(MODULES, '!');
   assert.equal(model.groups.length, 2);
   const enforcement = model.groups.find((g) => g.title.includes('Enforcement'));
   const cite = enforcement.entries[0];
-  assert.match(cite.invocations, /\/cite/);
   assert.match(cite.invocations, /!cite/);
+  assert.ok(!cite.invocations.includes('/cite'), 'no slash form anymore');
   assert.match(cite.usage, /!cite <target> <reason> \[penalty\]/);
   assert.match(model.description, /2 commands/);
 });
@@ -77,7 +77,7 @@ test('buildCategorizedHelp groups by purpose in the defined order', () => {
   const titles = model.groups.map((g) => g.title);
   assert.deepEqual(titles, ['🛡️ Moderation', '🎮 Games & Economy', '🎉 Fun', '📻 Info', '⚙️ Setup & Admin']);
   const info = model.groups.find((g) => g.title === '📻 Info');
-  assert.match(info.entries[0].line, /^\*\*\/radio-check\*\* — Latency$/);
+  assert.match(info.entries[0].line, /^\*\*!radio-check\*\* — Latency$/);
   assert.match(model.description, /6 commands/);
 });
 
@@ -87,10 +87,10 @@ test('buildCategorizedHelp hides what the viewer cannot use', () => {
     isVisible: (cmd) => !cmd.defaultMemberPermissions && !RUNTIME_ADMIN_COMMANDS.has(cmd.name),
   });
   const flatNames = memberView.groups.flatMap((g) => g.entries.map((e) => e.line));
-  assert.ok(!flatNames.some((l) => l.includes('/cite')), 'moderation hidden');
-  assert.ok(!flatNames.some((l) => l.includes('/xp-config')), 'admin config hidden');
-  assert.ok(!flatNames.some((l) => l.includes('/update')), 'runtime-gated admin hidden');
-  assert.ok(flatNames.some((l) => l.includes('/trivia')), 'public commands stay');
+  assert.ok(!flatNames.some((l) => l.includes('!cite')), 'moderation hidden');
+  assert.ok(!flatNames.some((l) => l.includes('!xp-config')), 'admin config hidden');
+  assert.ok(!flatNames.some((l) => l.includes('!update')), 'runtime-gated admin hidden');
+  assert.ok(flatNames.some((l) => l.includes('!trivia')), 'public commands stay');
   assert.match(memberView.description, /3 commands/);
 });
 

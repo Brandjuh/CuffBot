@@ -50,7 +50,7 @@ export default {
     // state here so a silent welcomer is explainable in one glance.
     const intentLine = interaction.client.memberEventsAvailable
       ? '✅ Server Members Intent is active — joins are detected.'
-      : '⚠️ **Server Members Intent is OFF** — the bot cannot see joins! Enable it: Developer Portal → Bot → Privileged Gateway Intents → Server Members Intent, then `/restart`.';
+      : '⚠️ **Server Members Intent is OFF** — the bot cannot see joins! Enable it: Developer Portal → Bot → Privileged Gateway Intents → Server Members Intent, then `!restart`.';
 
     const preview = renderWelcome(config.message, {
       userMention: `<@${interaction.user.id}>`,

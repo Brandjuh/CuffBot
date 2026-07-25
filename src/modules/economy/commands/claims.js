@@ -40,19 +40,19 @@ export default {
     }
     const potLine = hasPotTryToday(guildId, userId)
       ? '❌ **Pot attempt** — used for today (midnight UTC resets it)'
-      : '✅ **Pot attempt** — still open: `/crack-pot`';
+      : '✅ **Pot attempt** — still open: `!crack-pot`';
 
     const embed = new EmbedBuilder()
       .setColor(0xe67e22)
       .setTitle('🍩 Your Claims')
       .setDescription(
         [
-          ...(lines.length ? lines : ['_No claim payouts are configured — an admin can enable them with `/claims-config`._']),
+          ...(lines.length ? lines : ['_No claim payouts are configured — an admin can enable them with `!claims-config`._']),
           potLine,
           ...(config.streakBonus > 0
             ? ['', `_Streaks: claim again within double the window for +${config.streakPercent ? `${Math.floor(config.streakBonus / 100)}× the base` : `${config.streakBonus} 🍩`}._`]
             : []),
-          ...(collectLine ? ['', collectLine] : ['', '_Collect everything at once: `/claims collect:True`_']),
+          ...(collectLine ? ['', collectLine] : ['', '_Collect everything at once: `!claims collect:True`_']),
         ].join('\n'),
       );
     await interaction.reply({ embeds: [embed], flags: 64 });

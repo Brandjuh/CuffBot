@@ -95,7 +95,7 @@ export function renderReview(draft) {
           ...summarizeDraft(draft),
           '',
           'On a violation: message deleted → member DM’d → rap-sheet record → evidence-locker log. Moderators are exempt.',
-          '**Save & turn ON** starts enforcement immediately; **Save, keep OFF** stores everything for later (`/patrol on`).',
+          '**Save & turn ON** starts enforcement immediately; **Save, keep OFF** stores everything for later (`!patrol on`).',
         ].join('\n'),
       ),
     ],
@@ -134,8 +134,8 @@ export function renderDone(config) {
           '',
           config.enabled
             ? 'Test it: post a banned term from a NON-moderator account — the message should vanish within a second.'
-            : 'Turn it on any time with `/patrol on` (or run this wizard again).',
-          'Adjust later: `/patrol`, `/patrol-rule`, `/patrol-term` — or simply re-run `/patrol-wizard`.',
+            : 'Turn it on any time with `!patrol on` (or run this wizard again).',
+          'Adjust later: `!patrol`, `!patrol-rule`, `!patrol-term` — or simply re-run `!patrol-wizard`.',
         ].join('\n'),
       ),
     ],
@@ -147,7 +147,7 @@ export function renderDone(config) {
 export function renderExpired() {
   return {
     embeds: [
-      embed('⏳ Wizard expired', 'This setup session timed out (10 min). Run `/patrol-wizard` again — nothing was saved.'),
+      embed('⏳ Wizard expired', 'This setup session timed out (10 min). Run `!patrol-wizard` again — nothing was saved.'),
     ],
     components: [],
   };
@@ -155,7 +155,7 @@ export function renderExpired() {
 
 export function renderCancelled() {
   return {
-    embeds: [embed('👮 Wizard closed', 'Nothing was saved. Run `/patrol-wizard` any time.')],
+    embeds: [embed('👮 Wizard closed', 'Nothing was saved. Run `!patrol-wizard` any time.')],
     components: [],
   };
 }

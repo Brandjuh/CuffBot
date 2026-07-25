@@ -65,7 +65,7 @@ export default {
     // Member events silently need the privileged intent — say so right here.
     const intentLine = interaction.client.memberEventsAvailable
       ? '✅ Server Members Intent active (joins/leaves/role changes visible).'
-      : '⚠️ **Server Members Intent OFF** — joins, leaves and role changes are INVISIBLE to me. Enable it: Developer Portal → Bot → Privileged Gateway Intents, then `/restart`.';
+      : '⚠️ **Server Members Intent OFF** — joins, leaves and role changes are INVISIBLE to me. Enable it: Developer Portal → Bot → Privileged Gateway Intents, then `!restart`.';
 
     const embed = new EmbedBuilder()
       .setColor(0x34495e)
