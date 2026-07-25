@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { PermissionFlagsBits } from 'discord.js';
 import { commandUsage, dispatchCommand } from '../src/core/prefix/command.js';
 import { permissionLabel, refusalFor } from '../src/core/prefix/permissions.js';
-import { resolveSubArgs } from '../src/core/prefix/group.js';
+import { resolveSubArgs, splitKeywordArgs } from '../src/core/prefix/group.js';
 import { fakeMessage, fakeUser } from './fixtures/fake-message.js';
 
 const MEMBER = '700000000000000042';
@@ -157,4 +157,84 @@ test('usage marks required vs optional and the greedy tail', () => {
   assert.equal(commandUsage('!', echo()), '!echo <text…>');
   assert.equal(commandUsage('!', { name: 'ping', args: [] }), '!ping');
   assert.equal(commandUsage('!', { name: 'x', args: [{ name: 'n', type: 'integer' }] }), '!x [n]');
+});
+
+// ── keyword args (S94) ───────────────────────────────────────────────────────
+// `!rank-setup header:@[LEVELER]` and `!evidence-locker action:set` are what
+// the manuals, STATE's owner-action list and the bot's own replies have told
+// people to type since S12 — while the text path was purely positional and
+// answered "`header` should be a mention or id".
+
+const keyed = {
+  args: [
+    { name: 'target', type: 'user', required: true },
+    { name: 'reason', type: 'string', required: true, greedy: true },
+    { name: 'penalty', type: 'string' },
+  ],
+};
+
+test('a keyword takes the rest of the line, so its value may have spaces', async () => {
+  const message = fakeMessage({ users: { [MEMBER]: fakeUser(MEMBER) } });
+  const { values, errors } = await resolveSubArgs(message, keyed, [
+    MEMBER, 'loud', 'music', 'penalty:FINAL', 'WARNING',
+  ]);
+  assert.deepEqual(errors, []);
+  assert.equal(values.reason, 'loud music');
+  assert.equal(values.penalty, 'FINAL WARNING');
+});
+
+test('an optional free-text arg is unreachable positionally — only by keyword', async () => {
+  // Every word "fits" a string, so a positional tail token would ambiguously
+  // steal the last word of the greedy reason. S93 had this bug; S94 fixed it.
+  const message = fakeMessage({ users: { [MEMBER]: fakeUser(MEMBER) } });
+  const { values } = await resolveSubArgs(message, keyed, [MEMBER, 'Donut', 'theft']);
+  assert.equal(values.reason, 'Donut theft');
+  assert.equal(values.penalty, undefined);
+});
+
+test('a keyword resolves entity args, which is what !rank-setup header: needs', async () => {
+  const ROLE = '701577807070756946';
+  const spec = { args: [{ name: 'header', type: 'role' }] };
+  const message = fakeMessage({ roles: { [ROLE]: { id: ROLE, name: '[LEVELER]' } } });
+  for (const token of [`header:<@&${ROLE}>`, `header:${ROLE}`, `<@&${ROLE}>`]) {
+    const { values, errors } = await resolveSubArgs(message, spec, [token]);
+    assert.deepEqual(errors, [], token);
+    assert.equal(values.header.id, ROLE, token);
+  }
+});
+
+test('a colon in ordinary text is not a keyword unless it names a declared arg', async () => {
+  const message = fakeMessage({ users: { [MEMBER]: fakeUser(MEMBER) } });
+  const { values } = await resolveSubArgs(message, keyed, [
+    MEMBER, 'posted', 'https://example.com/x', 'at', '10:30',
+  ]);
+  assert.equal(values.reason, 'posted https://example.com/x at 10:30');
+  assert.equal(values.penalty, undefined);
+});
+
+test('keywords may appear in any order and still bind by name', async () => {
+  const spec = {
+    args: [
+      { name: 'size', type: 'integer', min: 1, max: 25 },
+      { name: 'mode', type: 'string', choices: ['fast', 'slow'] },
+    ],
+  };
+  const message = fakeMessage();
+  const { values, errors } = await resolveSubArgs(message, spec, ['mode:slow', 'size:7']);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(values, { size: 7, mode: 'slow' });
+});
+
+test('a keyword still goes through validation — bounds and choices apply', async () => {
+  const spec = { args: [{ name: 'size', type: 'integer', min: 1, max: 25 }] };
+  const message = fakeMessage();
+  assert.match((await resolveSubArgs(message, spec, ['size:99'])).errors[0], /between 1 and 25/);
+});
+
+test('splitKeywordArgs leaves a keyword-free line completely alone', () => {
+  const specs = keyed.args;
+  assert.deepEqual(splitKeywordArgs(specs, ['a', 'b', 'c']), {
+    positional: ['a', 'b', 'c'],
+    keyed: {},
+  });
 });

@@ -1,10 +1,34 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ChannelType, MessageFlags, SlashCommandBuilder } from 'discord.js';
-import detain from '../src/modules/enforcement/commands/detain.js';
-import rankExclude from '../src/modules/academy/commands/rank-exclude.js';
 import { createMessageInteraction } from '../src/core/prefix/adapter.js';
 import { parseCommandLine } from '../src/core/prefix/parse.js';
+
+// Every fixture here is SYNTHETIC. Until S94 these tests borrowed real
+// commands (`detain`, `rank-exclude`), which meant converting those commands
+// broke the adapter suite even though the adapter itself was untouched. The
+// adapter is scheduled for deletion in M17.3 slice D and until then it must
+// keep working for whatever is still legacy — so its tests own their fixtures
+// and describe the adapter's contract, not any particular command's.
+const detainFixture = {
+  data: new SlashCommandBuilder()
+    .setName('detain')
+    .setDescription('adapter fixture: user + string + trailing greedy string')
+    .addUserOption((o) => o.setName('target').setDescription('x').setRequired(true))
+    .addStringOption((o) => o.setName('duration').setDescription('x').setRequired(true))
+    .addStringOption((o) => o.setName('reason').setDescription('x')),
+  textGreedyArg: 'reason',
+  execute: async () => {},
+};
+
+const rankExcludeFixture = {
+  data: new SlashCommandBuilder()
+    .setName('rank-exclude')
+    .setDescription('adapter fixture: role option followed by a string')
+    .addRoleOption((o) => o.setName('role').setDescription('x').setRequired(true))
+    .addStringOption((o) => o.setName('action').setDescription('x')),
+  execute: async () => {},
+};
 
 // Synthetic legacy command with a typed channel option (S70: the real config
 // commands became groups, which never pass through this adapter).
@@ -58,7 +82,7 @@ function fakeMessage(content) {
 test('adapter maps text args onto the interaction option getters', async () => {
   const { message } = fakeMessage(`!detain <@${TARGET_ID}> 1h30m being a repeat offender`);
   const parsed = parseCommandLine(message.content, '!');
-  const { errors, interaction } = await createMessageInteraction(message, detain, parsed);
+  const { errors, interaction } = await createMessageInteraction(message, detainFixture, parsed);
   assert.deepEqual(errors, []);
   assert.equal(interaction.options.getUser('target', true).id, TARGET_ID);
   assert.equal(interaction.options.getString('duration', true), '1h30m');
@@ -70,7 +94,7 @@ test('adapter maps text args onto the interaction option getters', async () => {
 test('adapter reports missing required args instead of building an interaction', async () => {
   const { message } = fakeMessage('!detain');
   const parsed = parseCommandLine(message.content, '!');
-  const { errors, interaction } = await createMessageInteraction(message, detain, parsed);
+  const { errors, interaction } = await createMessageInteraction(message, detainFixture, parsed);
   assert.ok(errors.length >= 1);
   assert.equal(interaction, null);
 });
@@ -78,7 +102,7 @@ test('adapter reports missing required args instead of building an interaction',
 test('adapter routes a normal reply to the channel', async () => {
   const { message, channelSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
   const parsed = parseCommandLine(message.content, '!');
-  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  const { interaction } = await createMessageInteraction(message, detainFixture, parsed);
   await interaction.reply('🚔 done');
   assert.equal(channelSends.length, 1);
   assert.equal(channelSends[0].content, '🚔 done');
@@ -88,7 +112,7 @@ test('adapter routes a normal reply to the channel', async () => {
 test('an ephemeral reply answers in the channel as a no-ping reply — never a DM (S54)', async () => {
   const { message, channelSends, dmSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
   const parsed = parseCommandLine(message.content, '!');
-  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  const { interaction } = await createMessageInteraction(message, detainFixture, parsed);
   await interaction.reply({ content: '🍩 Daily ration collected!', flags: MessageFlags.Ephemeral });
   assert.equal(dmSends.length, 0, 'owner rule: a !command never DMs');
   assert.equal(channelSends.length, 1);
@@ -101,7 +125,7 @@ test('an ephemeral reply answers in the channel as a no-ping reply — never a D
 test('ephemeral embeds arrive in-channel intact (S54)', async () => {
   const { message, channelSends, dmSends } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
   const parsed = parseCommandLine(message.content, '!');
-  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  const { interaction } = await createMessageInteraction(message, detainFixture, parsed);
   await interaction.reply({ embeds: [{ description: 'roster page' }], flags: MessageFlags.Ephemeral });
   assert.equal(dmSends.length, 0);
   assert.equal(channelSends[0].embeds[0].description, 'roster page');
@@ -110,7 +134,7 @@ test('ephemeral embeds arrive in-channel intact (S54)', async () => {
 test('adapter reply supports withResponse (for /radio-check style latency)', async () => {
   const { message } = fakeMessage(`!detain <@${TARGET_ID}> 10m`);
   const parsed = parseCommandLine(message.content, '!');
-  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  const { interaction } = await createMessageInteraction(message, detainFixture, parsed);
   const res = await interaction.reply({ content: '📻', withResponse: true });
   assert.ok(res.resource.message, 'withResponse returns a resource.message');
 });
@@ -120,7 +144,7 @@ test('adapter resolves a role option from a mention (non-trailing)', async () =>
   const role = { id: '555000000000000555', name: 'DJ' };
   message.guild.roles = { cache: new Map([[role.id, role]]), fetch: async () => role };
   const parsed = parseCommandLine(message.content, '!');
-  const { errors, interaction } = await createMessageInteraction(message, rankExclude, parsed);
+  const { errors, interaction } = await createMessageInteraction(message, rankExcludeFixture, parsed);
   assert.deepEqual(errors, []);
   assert.equal(interaction.options.getRole('role', true).id, role.id);
   assert.equal(interaction.options.getString('action'), 'add');
@@ -165,7 +189,7 @@ test('the adapter never even attempts author.send — reply, followUp, ephemeral
     throw new Error('author.send must never be called after S54');
   };
   const parsed = parseCommandLine(message.content, '!');
-  const { interaction } = await createMessageInteraction(message, detain, parsed);
+  const { interaction } = await createMessageInteraction(message, detainFixture, parsed);
   await interaction.reply({ content: 'rap sheet contents', flags: MessageFlags.Ephemeral });
   await interaction.followUp({ content: 'page two', flags: MessageFlags.Ephemeral });
   await interaction.followUp('plain channel note');

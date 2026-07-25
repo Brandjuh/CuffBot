@@ -1,7 +1,8 @@
 // Academy helpers that touch live Discord objects (role resolution, hierarchy
 // checks, applying role changes) — kept out of lib/ so lib/ stays pure.
-import { MessageFlags, PermissionFlagsBits } from 'discord.js';
+import { PermissionFlagsBits } from 'discord.js';
 import { getGuildData } from '../../core/store.js';
+import { replyEither } from '../../core/prefix/context.js';
 import { auditReason } from '../enforcement/lib/audit.js';
 import { buildLadder } from './lib/ladder.js';
 
@@ -12,8 +13,10 @@ export function getAcademyConfig(guildId) {
   return { ...DEFAULT_CONFIG, ...getGuildData(guildId, ACADEMY_CONFIG_KEY, {}) };
 }
 
-export async function replyEphemeral(interaction, content) {
-  await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+export async function replyEphemeral(source, content) {
+  // S94: works from a flat command's ctx as well as a legacy interaction —
+  // on the text path there is no ephemeral, only a no-ping in-channel reply.
+  await replyEither(source, content);
 }
 
 /** Guild roles ordered highest position first, as plain objects for lib/. */
@@ -31,9 +34,9 @@ export function ladderForGuild(guild) {
   return buildLadder(guildRolesDesc(guild), getAcademyConfig(guild.id));
 }
 
-/** Resolve the guild's rank ladder from an interaction. */
-export function resolveLadder(interaction) {
-  return ladderForGuild(interaction.guild);
+/** Resolve the guild's rank ladder from a ctx or an interaction. */
+export function resolveLadder(source) {
+  return ladderForGuild(source.guild);
 }
 
 /**
@@ -51,17 +54,17 @@ export function isPinnedLadder(guildId, ladder) {
 }
 
 /** Verify the bot can assign/remove the roles a rank change needs. */
-export async function ensureManageableRoles(interaction, roleIds) {
-  const me = interaction.guild.members.me;
+export async function ensureManageableRoles(source, roleIds) {
+  const me = source.guild.members.me;
   if (!me?.permissions?.has(PermissionFlagsBits.ManageRoles)) {
-    await replyEphemeral(interaction, '🚫 I can’t manage roles — grant CuffBot the **Manage Roles** permission.');
+    await replyEphemeral(source, '🚫 I can’t manage roles — grant CuffBot the **Manage Roles** permission.');
     return false;
   }
   for (const id of roleIds.filter(Boolean)) {
-    const role = interaction.guild.roles.cache.get(id);
+    const role = source.guild.roles.cache.get(id);
     if (role && role.editable === false) {
       await replyEphemeral(
-        interaction,
+        source,
         `🚫 The **${role.name}** role sits at or above my highest role, so I can’t assign it. Move the CuffBot role higher in Server Settings → Roles.`,
       );
       return false;
@@ -89,9 +92,9 @@ export function planErrorMessage(plan, target) {
     case 'no-rank-to-demote':
       return `🚫 ${target} holds no rank, so there is nothing to demote.`;
     case 'target-not-higher':
-      return `🚫 ${target} is already **${plan.current}**; that target is not a promotion. Use /demote to move down.`;
+      return `🚫 ${target} is already **${plan.current}**; that target is not a promotion. Use !demote to move down.`;
     case 'target-not-lower':
-      return `🚫 ${target} is **${plan.current}**; that target is not a demotion. Use /promote to move up.`;
+      return `🚫 ${target} is **${plan.current}**; that target is not a demotion. Use !promote to move up.`;
     case 'unknown-rank':
       return '🚫 That role is not one of the ranks. Run `!ranks` to see the ladder.';
     default:

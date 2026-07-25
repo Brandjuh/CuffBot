@@ -115,6 +115,53 @@ async function resolveArg(message, spec, raw) {
 }
 
 /**
+ * Split `name:value` keyword arguments off the tail (S94).
+ *
+ * A token is a keyword only when the part before its first colon names a
+ * DECLARED arg — so `https://…` and `10:30` are ordinary tokens. From the
+ * first keyword onward the line is read as keyword segments: each one takes
+ * every following token up to the next keyword, which is what makes
+ * `penalty:FINAL WARNING` work without that arg having to be the greedy one.
+ *
+ * This exists because the bot has been telling people to type this syntax for
+ * a long time — `!rank-setup header:@[LEVELER]`, `!evidence-locker action:set`
+ * — in manuals, in STATE's owner-action list, and in its own replies, while
+ * the text path only ever accepted positional args. Typing exactly what the
+ * bot instructed produced "`header` should be a mention or id" (S68 → S94).
+ *
+ * @returns {{ positional: string[], keyed: Record<string, string> }}
+ */
+export function splitKeywordArgs(specs, tokens) {
+  const names = new Set((specs ?? []).map((s) => s.name.toLowerCase()));
+  const isKeyword = (token) => {
+    const colon = token.indexOf(':');
+    return colon > 0 && names.has(token.slice(0, colon).toLowerCase());
+  };
+
+  const first = tokens.findIndex(isKeyword);
+  if (first === -1) return { positional: tokens, keyed: {} };
+
+  const keyed = {};
+  let name = null;
+  let parts = [];
+  const flush = () => {
+    if (name !== null) keyed[name] = parts.join(' ').trim();
+  };
+  for (const token of tokens.slice(first)) {
+    if (isKeyword(token)) {
+      flush();
+      const colon = token.indexOf(':');
+      name = token.slice(0, colon).toLowerCase();
+      parts = [token.slice(colon + 1)].filter(Boolean);
+    } else {
+      parts.push(token);
+    }
+  }
+  flush();
+  return { positional: tokens.slice(0, first), keyed };
+}
+
+/**
  * Slot the raw tokens into the arg specs, one raw string per spec.
  *
  * Positional, except for the greedy arg: it swallows every token that the
@@ -149,7 +196,16 @@ function slotTokens(specs, tokens) {
   return raws;
 }
 
-/** Cheap type sniff — enough to decide whether a tail token IS this arg. */
+/**
+ * Cheap type sniff — enough to decide whether a tail token IS this arg.
+ *
+ * A free-text STRING never qualifies (unless it has `choices`): every word
+ * "fits" it, so an optional trailing string would silently steal the last word
+ * of the greedy span — `!cite @x Donut theft` filing the reason as "Donut"
+ * with penalty "theft". Reach such an arg by keyword instead
+ * (`penalty:FINAL WARNING`), which is unambiguous. The legacy adapter had the
+ * same rule; S93 lost it and S94 put it back with a test.
+ */
 function looksLike(spec, token) {
   switch (spec.type) {
     case 'integer':
@@ -162,7 +218,7 @@ function looksLike(spec, token) {
     case 'channel':
       return /^(<[@#][!&]?\d+>|\d{15,21})$/.test(token);
     default:
-      return spec.choices ? spec.choices.includes(token.toLowerCase()) : true;
+      return spec.choices ? spec.choices.includes(token.toLowerCase()) : false;
   }
 }
 
@@ -174,14 +230,23 @@ export async function resolveSubArgs(message, sub, tokens) {
   const specs = sub.args ?? [];
   const values = {};
   const errors = [];
-  const raws = slotTokens(specs, tokens);
+  // Keywords are pulled out first; whatever is left fills the specs
+  // positionally, so `!cite @x loud music penalty:FINAL WARNING` and
+  // `!cite @x loud music` both read correctly.
+  const { positional, keyed } = splitKeywordArgs(specs, tokens);
+  const raws = slotTokens(
+    specs.filter((s) => !(s.name.toLowerCase() in keyed)),
+    positional,
+  );
+  let slot = 0;
   for (let i = 0; i < specs.length; i += 1) {
     const spec = specs[i];
     if (!TYPES.has(spec.type)) {
       errors.push(`bad arg spec ${spec.name}`);
       continue;
     }
-    const raw = raws[i];
+    const keyword = spec.name.toLowerCase() in keyed;
+    const raw = keyword ? keyed[spec.name.toLowerCase()] || null : (raws[slot++] ?? null);
     if (raw == null || raw === '') {
       if (spec.required) errors.push(`missing \`${spec.name}\``);
       continue;

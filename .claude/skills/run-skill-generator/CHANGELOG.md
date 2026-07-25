@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.23 — 2026-07-25 (Session 94)
+
+- `references/architecture.md` (Module pattern): extended the S93 conversion rule with its missing half — **before converting a command, grep the docs AND the bot's own replies for how it is advertised, then make that string work.**
+- Evidence: S94. `!rank-setup header:@[LEVELER]` is printed in four manuals, in STATE's owner-action list and in three of the bot's own command replies, and has been the owner's #1 pending action since S12 — and it had never worked on the text path. The legacy adapter was purely positional, so `header:<@&…>` answered "`header` should be a mention or id". S68 made the bot text-only; nobody re-checked the syntax the docs kept promising, and 26 sessions passed. A conversion is the one moment the promise and the parser are read side by side, so that is where the check belongs. Fixed generally: the framework now supports `name:value` keyword args.
+- Second evidence for the same rule, smaller: converting `!cite` surfaced an S93 regression where an optional trailing STRING claimed a token from the tail (`!cite @x Donut theft` → reason "Donut", penalty "theft"). The legacy parser had an explicit guard against it that the S93 rewrite dropped. Recorded in the reference so the next reimplementation keeps it.
+
 ## 0.5.22 — 2026-07-25 (Session 93)
 
 - `references/architecture.md` (Module pattern): documented the third command shape — flat `{ command }` for single-purpose commands — alongside groups and the shrinking legacy path, and added a conversion rule: **convert a command's TESTS to the real dispatch path, not just its code.**

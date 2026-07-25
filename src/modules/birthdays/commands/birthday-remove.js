@@ -1,17 +1,19 @@
-import { MessageFlags, SlashCommandBuilder } from 'discord.js';
+// S94 (M17.3 slice B): converted to the flat { command } shape.
 import { removeBirthday } from '../service.js';
 
 export default {
-  data: new SlashCommandBuilder()
-    .setName('birthday-remove')
-    .setDescription('Remove your stored birthday (no more announcements).'),
-  async execute(interaction) {
-    const existed = removeBirthday(interaction.guild.id, interaction.user.id);
-    await interaction.reply({
-      content: existed
-        ? '🗑️ Your birthday has been struck from the record. No cake, no candles, no announcement.'
-        : 'ℹ️ There was no birthday on file for you.',
-      flags: MessageFlags.Ephemeral,
-    });
+  command: {
+    name: 'birthday-remove',
+    description: 'Remove your stored birthday (no more announcements).',
+    emoji: '🗑️',
+    args: [],
+    async run(ctx) {
+      const existed = removeBirthday(ctx.guild.id, ctx.user.id);
+      await ctx.reply(
+        existed
+          ? '🗑️ Your birthday has been struck from the record. No cake, no candles, no announcement.'
+          : 'ℹ️ There was no birthday on file for you.',
+      );
+    },
   },
 };
