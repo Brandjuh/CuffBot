@@ -1302,3 +1302,25 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** the S74 implementation itself — shipped same-day against the owner's intent ("de eigenaar van de bot" was read as the guild owner via the S40 precedent; the owner meant the application owner). Corrected within the same window; both readings were structural, so no raw ids ever landed.
 
 **Retrospective:** no skill-file change, but a candidate lesson recorded in LEARNINGS: "owner"-words are ambiguous across THREE structural identities (guild owner / application owner / admin role) — when a request says "eigenaar", confirm WHICH, or pick the application owner for bot-level controls and the guild owner for server-level features, and say so in the report (the S74 report named the choice, which is exactly what let the owner correct it in one line).
+
+---
+
+## Session 76 — 2026-07-25
+
+**Goal:** owner report: "Update van de52cd0 → 2a881b7 faalt" — the Pi's self-update fails at the test gate (rollback worked; the Pi still serves S69).
+
+**Diagnosis from the container (the Pi is unreachable from here):**
+- Static scan of the whole de52cd0..2a881b7 diff for Node-version-gated APIs (toSorted/groupBy/withResolvers/fromAsync/Set-ops/…): none used — the range is `engines >=18`-clean (the S6 rule held).
+- Suite green 3× pinned to one core (Pi-slowness proxy) at 568/568 — no reproducible flake here.
+- **Prime suspect:** `test/boot-smoke.test.js` spawned the real entry points with a hard 30 s timeout; right after `npm install` the Pi's module cache is cold and the import graph (24 modules + discord.js, +3 modules since de52cd0) loads from SD I/O — a timeout kill produced `signal=SIGTERM, empty output`, which the old assertions reported misleadingly as "expected the friendly config error, got: <empty>". Second suspect: memory pressure from concurrently-run test files (34 files now) on the Pi's Node. Neither is CONFIRMED — the real evidence sits in `/tmp/cuffbot-update-tests.*.log` on the Pi, which update.sh kept but never surfaced.
+- **The S18-era blind spot named:** a red gate wrote its log to /tmp and told nobody what failed (violating the S6 "quote the underlying error" lesson at the system level).
+
+**Shipped:**
+- `scripts/update.sh`: on a red gate, the LAST 40 LINES of the test log now go into the journal, and the full log persists as `data/last-update-failure.log` (written/removed via `run` so timer-as-root never leaves root-owned files; cleared on the next green gate). Failure path exercised in a shell simulation (S7 dress-rehearsal rule).
+- `npm run doctor`: new check — when `data/last-update-failure.log` exists, it reports the rolled-back update loudly and prints the log tail with the exact next step.
+- `test/boot-smoke.test.js`: timeout 30 s → **120 s**, plus an explicit `res.signal === null` assertion so a timeout kill reads as "exceeded N ms (slow disk/CPU?)" instead of a bogus missing-message failure.
+- STATE.md: open problem recorded with both suspects, the chicken-and-egg note (these fixes reach the Pi only via a green gate — manual `bash scripts/update.sh` breaks the loop), and the owner ask.
+
+**Owner ask (also in the chat report):** paste `tail -n 40 /tmp/cuffbot-update-tests.*.log` from the Pi — that pins the root cause; alternatively run `bash scripts/update.sh` manually once after this merge.
+
+**Retrospective:** no skill change — S6's "failure summaries must quote the underlying error" existed as a lesson but had never been applied to the UNATTENDED path; the fix is in the product where it belongs. If the pasted log reveals a different root cause, the next session fixes it with evidence instead of suspicion.
