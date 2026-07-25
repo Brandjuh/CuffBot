@@ -35,6 +35,7 @@ const MODULE_BADGES = {
   splitorsteal: '🤝',
   guessthecandy: '🍬',
   rollout: '🎲',
+  memory: '🧠',
 };
 
 /**
@@ -131,6 +132,7 @@ export const COMMAND_CATEGORIES = {
   splitorsteal: 'games',
   guessthecandy: 'games',
   rollout: 'games',
+  memory: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',
