@@ -32,6 +32,28 @@ const MODULE_BADGES = {
 };
 
 /**
+ * Flatten one loaded command — legacy `{ data, execute }` or Red-style
+ * `{ group }` (S69) — into the `{ name, description, defaultMemberPermissions }`
+ * shape the help menu consumes. Group permissions are BigInt flags; String()
+ * yields the same decimal form as data.toJSON().default_member_permissions.
+ */
+export function summarizeCommand(cmd) {
+  if (cmd.group) {
+    return {
+      name: cmd.group.name,
+      description: cmd.group.description,
+      defaultMemberPermissions: cmd.group.permission != null ? String(cmd.group.permission) : null,
+    };
+  }
+  const json = cmd.data.toJSON();
+  return {
+    name: json.name,
+    description: json.description,
+    defaultMemberPermissions: json.default_member_permissions ?? null,
+  };
+}
+
+/**
  * Build the help model from loaded modules.
  * @param {Array<{name:string, description:string, commands:Array<{name,description,options}>}>} modules
  * @param {string} prefix

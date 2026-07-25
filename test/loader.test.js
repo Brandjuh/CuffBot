@@ -4,7 +4,7 @@
 // boot time on the owner's machine.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { discoverModules } from '../src/core/loader.js';
+import { discoverModules, validateGroup } from '../src/core/loader.js';
 
 test('every module manifest resolves and is well-formed', async () => {
   const modules = await discoverModules();
@@ -17,19 +17,27 @@ test('every module manifest resolves and is well-formed', async () => {
   }
 });
 
-test('every command has builder data and an execute function', async () => {
+test('every command is a well-formed group or legacy data/execute command', async () => {
   const modules = await discoverModules();
   for (const mod of modules) {
     for (const command of mod.commands) {
+      if (command.group) {
+        // Red-style group (S69): the loader's validateGroup throws on bad shape.
+        assert.doesNotThrow(
+          () => validateGroup(mod, command.group),
+          `group "${command.group?.name}" in "${mod.name}" is malformed`,
+        );
+        continue;
+      }
       assert.ok(command.data?.name, `command in "${mod.name}" needs data.name`);
       assert.ok(
         command.data?.description,
-        `command "/${command.data?.name}" needs a description`,
+        `command "!${command.data?.name}" needs a description`,
       );
       assert.equal(
         typeof command.execute,
         'function',
-        `command "/${command.data?.name}" needs execute()`,
+        `command "!${command.data?.name}" needs execute()`,
       );
     }
   }
@@ -37,7 +45,9 @@ test('every command has builder data and an execute function', async () => {
 
 test('command names are unique across all modules', async () => {
   const modules = await discoverModules();
-  const names = modules.flatMap((mod) => mod.commands.map((cmd) => cmd.data.name));
+  const names = modules.flatMap((mod) =>
+    mod.commands.map((cmd) => cmd.group?.name ?? cmd.data.name),
+  );
   assert.equal(new Set(names).size, names.length, `duplicate command names in: ${names}`);
 });
 

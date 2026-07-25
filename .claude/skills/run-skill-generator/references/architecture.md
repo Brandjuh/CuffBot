@@ -21,15 +21,16 @@ Re-verify environment facts (Node version, npm reachability) against `STATE.md` 
 CuffBot/
 ├── src/
 │   ├── index.js              # entry: builds client, loads modules, logs in
-│   ├── deploy-commands.js    # registers slash commands (guild-scoped in dev)
+│   ├── deploy-commands.js    # CLEARS the slash-command roster (S68: text-only bot)
 │   ├── core/
 │   │   ├── config.js         # reads .env + config.json, validates, exports config
 │   │   ├── logger.js         # leveled console logger (single place to change later)
-│   │   └── loader.js         # discovers modules, collects commands/events, wires client
+│   │   ├── loader.js         # discovers modules, collects commands/events, wires client
+│   │   └── prefix/           # !command parsing, group dispatch (group.js), legacy adapter
 │   └── modules/
 │       └── <module-name>/
 │           ├── index.js      # module manifest: { name, description, commands, events }
-│           ├── commands/     # one file per slash command
+│           ├── commands/     # one file per command (text-only since S68)
 │           ├── events/       # one file per event listener (optional)
 │           └── lib/          # pure logic, no discord.js imports (optional)
 ├── test/                     # *.test.js, run by `npm test` (node --test)
@@ -54,30 +55,33 @@ import arrest from './commands/arrest.js';
 export default {
   name: 'enforcement',
   description: 'Law-enforcement actions: citations, detainment, arrests.',
-  commands: [cite, arrest], // slash command objects (see below)
+  commands: [cite, arrest], // command objects (see below)
   events: [],               // { name, once?, execute } listeners
 };
 ```
 
-A command file exports `{ data, execute }` — `data` is a `SlashCommandBuilder`, `execute` receives the interaction:
+**CuffBot is TEXT-ONLY (S68 owner mandate): every command is `!command`; slash commands are gone** (deploy-commands.js clears the guild's roster; the doctor flags any that reappear). Commands come in two shapes:
+
+**The target shape (S69+, Red-DiscordBot style — use for ALL new and converted commands):** a group command file exports `{ group }`, dispatched by `src/core/prefix/group.js`. `!group sub <args>`; bare `!group` renders status + subcommand overview; the framework owns permission refusals, arg errors, and crash apologies — `run()` is happy-path only. Reference implementation: `src/modules/youtube/commands/youtube.js`; full contract in `docs/modules/core.md` § Group commands.
 
 ```js
-// src/modules/core/commands/radio-check.js
-import { SlashCommandBuilder } from 'discord.js';
-
 export default {
-  data: new SlashCommandBuilder()
-    .setName('radio-check')
-    .setDescription('Check that CuffBot is on the air (latency check).'),
-  async execute(interaction) {
-    const sent = await interaction.reply({ content: '📻 Radio check…', withResponse: true });
-    const latency = sent.resource.message.createdTimestamp - interaction.createdTimestamp;
-    await interaction.editReply(`📻 Loud and clear. Round-trip: ${latency} ms.`);
+  group: {
+    name: 'youtube', description: '…', emoji: '📺',
+    permission: PermissionFlagsBits.ManageGuild, // gates group + overview; subs may override
+    async status(ctx) { return ['**Enabled:** yes']; }, // bare-!group state lines
+    subcommands: [{
+      name: 'channel', description: '…',
+      args: [{ name: 'channel', type: 'channel', required: true }],
+      async run(ctx, { channel }) { /* setConfig…; */ await ctx.reply('✅ …'); },
+    }],
   },
 };
 ```
 
-The loader (`src/core/loader.js`) imports every `src/modules/*/index.js`, registers commands in a `Collection` keyed by command name, wires event listeners onto the client, and warns on duplicate command names. `deploy-commands.js` reuses the same discovery to push `data.toJSON()` to the API. Keep discovery logic in the loader only — modules never self-register.
+**The legacy shape (pre-S69, being migrated in M17):** `{ data, execute }` — `data` a `SlashCommandBuilder` (kept as the option/permission schema for the text adapter), `execute(interaction)` receives an adapter-built interaction from the parsed `!command` line. Don't write new commands this way; convert to a group when touching one materially.
+
+The loader (`src/core/loader.js`) imports every `src/modules/*/index.js`, registers both shapes in a `Collection` keyed by command/group name (validating group shape at boot), and wires event listeners. Keep discovery logic in the loader only — modules never self-register.
 
 **Pure logic goes in `lib/`.** Anything with rules worth testing (duration parsing, rap-sheet formatting, rank math) lives in `src/modules/<name>/lib/*.js` with **no discord.js imports**, so `test/` can exercise it without a token or network. Command files stay thin: parse options → call lib → reply.
 
@@ -106,10 +110,10 @@ Replies are short, in-character, and always in English. Emoji sparingly (🚔 �
 
 ## Conventions
 
-- **Errors:** every `execute` is wrapped by the loader in a try/catch that logs via `logger` and answers the user with an ephemeral in-theme apology ("📻 Dispatch, we have a malfunction…"). Commands still handle *expected* failures themselves (missing permissions, target not found) with specific messages.
-- **Permissions:** set `setDefaultMemberPermissions` on moderation commands *and* re-check at execute time (`interaction.memberPermissions`) — UI defaults can be overridden by server admins. Check the bot's own ability too (`member.moderatable` / `.bannable`) before acting, and reply honestly when the hierarchy blocks an action.
+- **Errors:** a crashing command answers an in-theme apology ("📻 Dispatch, we have a malfunction…") while the real error is logged — the group framework does this for `run()`, the legacy executor wrapper for `execute()`. Commands still handle *expected* failures themselves (missing permissions, target not found) with specific messages.
+- **Permissions:** groups declare `permission` (a `PermissionFlagsBits` flag) on the group and/or per subcommand — the framework refuses before `run()`. Legacy commands set `setDefaultMemberPermissions` *and* re-check at execute time (`interaction.memberPermissions`). Either way, check the bot's own ability too (`member.moderatable` / `.bannable`) before acting, and reply honestly when the hierarchy blocks an action. Replies never ping (S54): text replies are no-ping in-channel replies; group `ctx.reply` does this automatically.
 - **Config:** secrets (`DISCORD_TOKEN`, `CLIENT_ID`) come from `.env`; non-secret product settings come from committed `config.json` — most importantly `homeGuildId`. `config.js` validates on boot and fails fast with a clear message listing what is missing. Never log the token; never commit `.env`; keep `.env.example` in sync.
-- **Single-guild by design (owner decision, S1):** CuffBot serves exactly one precinct — `config.json → homeGuildId` (currently `411157175948541954`). Slash commands register guild-scoped there only (instant, no global registration), and the `core` module enforces jurisdiction: leave foreign guilds on join and sweep them at boot. New modules may assume home-precinct context; per-guild data structures still key by guild id so a future multi-guild pivot stays cheap.
+- **Single-guild by design (owner decision, S1):** CuffBot serves exactly one precinct — `config.json → homeGuildId` (currently `411157175948541954`). The `core` module enforces jurisdiction: leave foreign guilds on join and sweep them at boot. New modules may assume home-precinct context; per-guild data structures still key by guild id so a future multi-guild pivot stays cheap.
 - **Owner decisions become committed defaults (promoted S35):** when the owner names a concrete id or value in chat (a channel, a role, a timezone, an interval), commit it as the module's **code default** with a comment naming the session — never leave it as "configure after deploy". The feature then works the moment the Pi self-updates, with zero setup, and `/…-config` store overrides still win because config storage is sparse (store only what an admin explicitly set; defaults stay live in code, so improving a default later reaches every guild that never overrode it). Confirmed five times: memorial feeds (S21), chat-starter channel (S30), birthday channel (S31), welcome lobby (S34), logbook channels (S35).
 - **Storage (implemented S8):** modules read/write through `src/core/store.js`: `getGuildData` / `setGuildData` / `updateGuildData` (read-modify-write for compound state), JSON files under `data/<guildId>.json`, atomic write (temp file + rename), corrupt files moved aside as `*.corrupt-<ts>` and started fresh. `CUFFBOT_DATA_DIR` overrides the directory (tests use this — never let tests write the repo's `data/`).
 - **Cross-module calls (decided S8):** when module A needs module B's functionality, call **B's `lib/` API directly** (plain import) — never B's commands or manifest. The caller wraps the call in try/catch so a broken/missing auxiliary module degrades the reply (e.g. no case number) instead of blocking the primary action. Document the seam in both manuals. (Chosen over an event bus: explicit, greppable, and testable; revisit only if module count makes the import graph painful.)

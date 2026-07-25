@@ -3,29 +3,41 @@
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
 **Status:** stable
-**Last updated:** Session 1 · 2026-07-23
+**Last updated:** Session 69 · 2026-07-25
 
 ## Purpose
 
-Core is the precinct's front desk: it proves the bot is alive (`/radio-check`) and enforces CuffBot's single-precinct design — the bot serves exactly one guild (the *home precinct*, set in `config.json`) and automatically leaves any other server it is invited to. Every other module builds on the loader/config/logger plumbing this module exercises.
+Core is the precinct's front desk: it proves the bot is alive (`!radio-check`) and enforces CuffBot's single-precinct design — the bot serves exactly one guild (the *home precinct*, set in `config.json`) and automatically leaves any other server it is invited to. Every other module builds on the loader/config/logger plumbing this module exercises.
 
-## Dual invocation: `/command` and `!command`
+## Text invocation: `!command` and `!group sub`
 
 **S68 (owner mandate): CuffBot is TEXT-ONLY.** Every command is a text command (`!radio-check`) handled centrally by `src/core/prefix/` — slash commands are gone (the deploy script now clears the guild's application-command roster, and the doctor treats any registered slash command as stale). Message components (buttons/selects/modals) remain — they are not slash commands. NOTE: manuals still written before S68 may show `/command` examples; read them as `!command` until the M17 per-module conversion sweeps each one.
 
 - The prefix is `config.json → prefix` (default `!`).
 - Text arguments are positional and the last text option is greedy: `!detain @user 2h being a repeat offender` maps to `target`, `duration`, then `reason`.
-- **A `!command` never answers by DM (S54, owner mandate).** Replies that are ephemeral as a slash command answer **in the channel** on the text path, as a reply to the invoking message that pings nobody (`allowedMentions: { repliedUser: false }`). This replaced the S9→S50 DM routing (and with it the S46 DM-failure diagnostics and the S50 `textInChannel` marker — there is no DM path left to diagnose or mark). Consequence: output that is private via slash (rap sheets, admin config views) is **visible in the channel** when invoked as `!command` — use the slash form for privacy. Deliberate moderation DMs (citation copy to the offender, patrol removal notice) are separate features and unaffected.
-- **Text commands need the Message Content intent** (privileged). If it is not enabled in the Developer Portal, the bot still boots and runs slash commands; text commands and patrol stay disabled and a startup warning explains how to enable it (Bot → Privileged Gateway Intents → Message Content Intent). See Troubleshooting.
+- **A `!command` never answers by DM (S54, owner mandate).** Every reply lands **in the channel**, as a reply to the invoking message that pings nobody (`allowedMentions: { repliedUser: false }`). Deliberate moderation DMs (citation copy to the offender, patrol removal notice) are separate features and unaffected. Consequence: formerly-ephemeral output (rap sheets, admin config views) is visible in the channel.
+- **Text commands need the Message Content intent** (privileged). Without it the bot boots but can read no messages, so **ALL commands are off** — a startup warning and `npm run doctor` both name the fix (Bot → Privileged Gateway Intents → Message Content Intent). See Troubleshooting.
+
+### Group commands (S69, Red-style — the M17 target structure)
+
+New and converted commands use the group structure of the Red-DiscordBot cogs the owner pointed at: one `!group` command with subcommands, instead of one command with many optional options.
+
+- `!group` (bare) → a status + subcommand overview embed. `!group unknownsub` → the same overview with an "unknown subcommand" footer.
+- `!group sub <args>` → runs exactly one subcommand. Subcommand names match case-insensitively; aliases are supported (`!youtube follow` = `!youtube add`).
+- A group command file exports `{ group: { name, description, emoji?, permission?, status(ctx)?, subcommands[] } }` instead of `{ data, execute }`. Each subcommand is `{ name, aliases?, description, permission?, args: [{ name, type, required?, greedy?, choices? }], run(ctx, values) }`.
+- Arg types: `string`, `integer`, `number`, `boolean` (accepts true/yes/on/ja/1 and false/no/off/nee/0), `user`, `role`, `channel` (mention or raw id; cache first, API fetch fallback). The last `string` arg may be `greedy` and absorbs the rest of the line. `choices` validate case-insensitively.
+- `permission` (a `PermissionFlagsBits` flag) on the group gates everything including the overview; on a subcommand it overrides the group's gate for that sub. Refusals, arg errors (with a usage line), and crashes (the standard 📻 malfunction apology) are all handled by the framework — `run()` only implements the happy path.
+- `ctx` = `{ message, client, guild, channel, member, user, prefix, reply() }`; `reply()` is the S54 no-ping in-channel reply and falls back to `channel.send` when the invoking message was deleted. Because its `allowedMentions` names no `parse` list, role/user mentions in confirmations render but never ping.
+- The reference conversion is `src/modules/youtube/commands/youtube.js`; M17.2/M17.3 convert the remaining commands module by module.
 
 ## Commands
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| `/radio-check` | Confirms the bot is on the air and reports round-trip latency | none | Everyone | `/radio-check` |
-| `/help` | Shows every loaded command (grouped by module) and how to use it | none | Everyone | `/help` |
-| `/update` | Updates the bot from GitHub with live status in Discord; restarts only when the tests pass | none | Administrators / guild owner | `/update` |
-| `/restart` | Restarts the bot to reload `.env`/configuration, reports back when on duty | none | Administrators / guild owner | `/restart` |
+| `!radio-check` | Confirms the bot is on the air and reports round-trip latency | none | Everyone | `!radio-check` |
+| `!help` | Shows every command the viewer can use, grouped by category | none | Everyone | `!help` |
+| `!update` | Updates the bot from GitHub with live status in Discord; restarts only when the tests pass | none | Administrators / guild owner | `!update` |
+| `!restart` | Restarts the bot to reload `.env`/configuration, reports back when on duty | none | Administrators / guild owner | `!restart` |
 
 ### /radio-check
 
@@ -84,9 +96,9 @@ Boot fails fast with a named-variable error message when required settings are m
 
 1. `src/index.js` loads config (fail-fast), creates the client with the `Guilds` intent, exposes config as `client.config`, and asks the loader to wire everything.
 2. `src/core/loader.js` scans `src/modules/*/index.js`, validates each manifest (`{ name, description, commands[], events[] }`), registers commands into a `Collection`, and attaches event handlers with an error-logging wrapper. Duplicate command names fail the boot on purpose.
-3. The interaction router in `index.js` dispatches slash commands and answers any crash with an ephemeral in-theme apology while logging the real error.
+3. The prefix router (`src/core/prefix/router.js`) parses each message once; group commands (S69) dispatch through `src/core/prefix/group.js`, legacy flat commands run their `execute()` through the interaction adapter. Both paths answer any crash with an in-theme apology while logging the real error.
 4. Pure logic lives in `lib/` (`precinct.js` jurisdiction check, `radio.js` latency verdicts) with no discord.js imports, so tests run without a token.
-5. `src/deploy-commands.js` reuses the same module discovery and registers all commands **guild-scoped to the home precinct** — instant propagation, and consistent-by-construction with what the loader loads.
+5. `src/deploy-commands.js` now **clears** the guild's application-command roster (S68) — text-only means zero registered slash commands, and `npm run doctor` flags any that reappear as stale.
 
 ## Files
 
@@ -98,8 +110,9 @@ Boot fails fast with a named-variable error message when required settings are m
 | `src/modules/core/commands/update.js` | `/update` — manual self-update (admin-only) |
 | `src/modules/core/events/on-duty.js` | Ready log + offline-invite sweep |
 | `src/modules/core/events/guild-lockdown.js` | Live jurisdiction enforcement |
-| `src/core/prefix/{parse,adapter,router}.js` | Dual invocation: text (`!command`) support |
-| `src/core/help.js` | Pure help-roster construction (used by `/help`) |
+| `src/core/prefix/{parse,adapter,router}.js` | Text (`!command`) parsing, legacy option adapter, MessageCreate router |
+| `src/core/prefix/group.js` | Red-style group commands (S69): overview, arg resolution, permission gates, dispatch |
+| `src/core/help.js` | Pure help-roster construction (used by `!help`; `summarizeCommand` flattens groups and legacy commands alike) |
 | `src/modules/core/lib/precinct.js` | Pure: home-guild check |
 | `src/modules/core/lib/radio.js` | Pure: latency verdict formatting |
 | `src/core/{config,logger,loader}.js` | Plumbing exercised by this module |
@@ -145,3 +158,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S54 | Owner mandate "no DMs after a `!command`": the adapter's DM path is gone — every ephemeral answers in-channel as a no-ping reply (S46 diagnostics and the S50 `textInChannel` marker retired with it); `!help` pages post in-channel; slash stays ephemeral. |
 | S55 | Owner report "admin rights but can't post in a channel": every post-target picker was GuildText-only, making Announcement (news) channels unselectable — all pickers now take both; new `core/channels.js` `resolveSendableChannel` (cache → API fallback, send-capable check) backs every posting module; the text-path type error names both types. |
 | S68 | TEXT-ONLY (owner mandate): the slash router and registration are gone — every command is `!command`; deploy-commands de-registers; doctor inverted (zero registered = healthy); help renders text usage only; components stay. Red-style restructure queued as M17. |
+| S69 | Red-style group commands (M17.1): new `src/core/prefix/group.js` (`!group sub <args>`, bare `!group` = status+overview embed, typed args incl. greedy/choices, per-group and per-sub permission gates, framework-owned errors); loader accepts `{ group }` commands and validates their shape; router dispatches groups before the legacy adapter; `help.js summarizeCommand` puts groups in the menu; `!youtube` converted as the reference. |
