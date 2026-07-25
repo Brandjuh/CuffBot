@@ -1529,3 +1529,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2/6):** one real port error, caught by my own test. I had split a targeted crime's payout into "stolen from the victim" and "credits from thin air" — the cog withdraws the **whole** transfer, event credit effects included, from the target. Fixed in the resolver (not in the test) and documented in the manual.
 
 **Retrospective:** the dump-don't-transcribe trick deserves promoting the next time it holds. S85 dumped the source tables to a fixture and diffed a hand transcription against it; here I skipped the transcription entirely and shipped the dump as the module's data file. That is strictly better whenever the data is pure data — no diff to maintain, nothing to drift. Recorded as a LEARNINGS candidate; it needs one more confirmation (slice C's scenarios are the obvious test) before it goes into architecture.md.
+
+## Session 90 — 2026-07-25
+
+**Goal:** M16.13 **slice B** — storage and the `!crime` surface, so city is playable. Chained straight on from S89 without stopping (owner: "waarom ga je niet zelf verder?!").
+
+**Done:**
+- **`service.js`:** the criminal record over the store (cooldowns, jail, streak, and the cog's eight lifetime stats) plus guild `citySettings`. `canAttempt` applies the cog's gate order — jailed → cooling down → target checks, where a targeted crime refuses bots, yourself, and any mark holding less than `max(minStealBalance, the crime's minReward)`. `commitCrime` resolves the attempt, **clamps a steal to what the victim actually holds**, pays both sides through the economy seam and writes both records (the victim's `stolenBy` included).
+- **`!crime` group** (alias `!city`, public): `pickpocket @member`, `mug @member`, `store`, `bank`, `stats [@member]`; bare shows the board with per-crime cooldowns, the streak line and jail status. The result card fills in the events' `{credits_bonus}` / `{currency}` placeholders and prints the resolver's reward steps, so a win shows its own arithmetic.
+- **Honest gap:** jail has no exit yet. A sentence runs its clock until slice C adds bail and jailbreak — the manual and the troubleshooting table say so plainly rather than pretending.
+- Tests 697 → **708** (11 new). Docs: manual rewritten for a playable module, index, README (32 modules / 70 commands), ROADMAP, STATE resume → slice C with the two dumps it needs.
+
+**Corrections (Step 2/6):** one test assumption of mine was wrong in an interesting way. I wrote a test expecting a steal to overshoot the victim's balance, and it could not: a steal is a *percentage* of that same balance, so the intended transfer is always well under it. The clamp is therefore defensive, not a live path — the test now forces an oversized draw deliberately and says in a comment why. Better to prove a guard on purpose than to leave a test that quietly asserts nothing.
+
+**Retrospective:** no skill change. The A→B rhythm from heist is holding: slice A's pure resolver meant this slice was storage, gates and rendering only, with no rules to re-derive — and the one bug that surfaced (the targeted-transfer split in S89) had already been caught by slice A's own tests before any of this was wired.
