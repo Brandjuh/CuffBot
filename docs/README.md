@@ -6,6 +6,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 |---|---|---|
 | core | [`modules/core.md`](modules/core.md) | stable (S1) |
 | enforcement | [`modules/enforcement.md`](modules/enforcement.md) | stable (S7) |
+| hangman | [`modules/hangman.md`](modules/hangman.md) | stable (S72) |
 | records | [`modules/records.md`](modules/records.md) | stable (S8) |
 | dispatch | [`modules/dispatch.md`](modules/dispatch.md) | stable (S11) |
 | academy | [`modules/academy.md`](modules/academy.md) | stable (S12) |

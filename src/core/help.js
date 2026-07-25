@@ -30,6 +30,7 @@ const MODULE_BADGES = {
   selfroles: '🎭',
   hunting: '🦹',
   connect4: '🔴',
+  hangman: '🪢',
 };
 
 /**
@@ -121,6 +122,7 @@ export const COMMAND_CATEGORIES = {
   'hunt-stats': 'games',
   'hunt-board': 'games',
   connect4: 'games',
+  hangman: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',

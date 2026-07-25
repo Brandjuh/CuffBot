@@ -1236,3 +1236,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — state matched reality (85f26df, 528/528 at session start).
 
 **Retrospective:** no skill change — third consecutive session running on the S65 survey + the group framework; the S71 fallback extension was anticipated by exactly the "game invocations" need the survey listed. The S70 LEARNINGS candidate (two-surface stale sweep) did not apply (new module, nothing renamed). Next: M16.4 hangman (gallows frames byte-for-byte from the cloned cog — re-clone FlameCogs if the scratchpad copy is gone).
+
+---
+
+## Session 72 — 2026-07-25
+
+**Goal:** M16.4 — hangman (FlameCogs port). Owner: "Ga AUTOMATISCH verder" (full-auto).
+
+**Done:**
+- **Module `hangman`, cog-faithful:** `lib/game.js` carries the cog's seven gallows frames and `_get_message` mask format **byte-for-byte** (trailing spaces, literal backslashes, the `(wrong letters)` suffix), the guess machine (free repeats, 6 wrong = loss, auto-revealed non-letters, case-folded input), the exact win/lose/timeout lines, and the bundled 4,554-word list verbatim (`data/words.txt`; the S24 packaging test caught the unstaged copy immediately — worked as designed). Service: one RAM game per channel, per-guess 60 s timer, `doEdit` config (default true). Watcher on MessageCreate: starter-only single a–z letters; edit mode deletes the guess after ~200 ms with silent permission failures (cog behavior). Group `!hangman`: `play`/`start`, `stop`/`giveup` (starter only), admin `edit <on|off>` (per-sub permission gate — first real use of that framework feature).
+- **Recorded deviations:** `stop` sub added (our engine is event-driven; the cog's inline wait_for could not be walked away from as cheaply); custom-wordlist management not ported (no owner-facing file-drop channel on the Pi); admin gate Manage Server instead of guild-owner (house convention).
+- Tests 541 → **554**: frame integrity (all seven, exact joints), mask matrix, guess machine (repeats/case/six-wrong/apostrophe words), isLetter accept check, board end-states, full wordlist load + pick bounds, service one-per-channel, watcher end-to-end (stranger + multi-letter ignored, reveal, repeat note, wrong-list, win, Game Over), group shape (public play/stop, admin edit) + play refusals (busy, missing intent) + starter-only stop.
+- Docs: manual `hangman.md`, docs index, README (23 modules / 61 commands), ROADMAP M16.4 ✔, STATE.md (bullet + resume point → M16.5 russian-roulette).
+
+**Corrections (Step 2):** none — state matched reality (37e699c, 541/541 at session start). Environment note: the S65 scratchpad clones SURVIVED into this session (same container, conversation continued) — the FlameCogs source was read directly; the resume point still tells future sessions to re-clone if gone.
+
+**Retrospective:** no skill change — fourth consecutive survey-driven port with zero surprises; the S24 packaging test proved itself again (caught the untracked words.txt at first `npm test`). Next: M16.5 russian-roulette (AAA3A).
