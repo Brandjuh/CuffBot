@@ -8,7 +8,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | enforcement | [`modules/enforcement.md`](modules/enforcement.md) | stable (S7) |
 | guessthecandy | [`modules/guessthecandy.md`](modules/guessthecandy.md) | stable (S80) |
 | hammertime | [`modules/hammertime.md`](modules/hammertime.md) | stable (S84) |
-| heist | [`modules/heist.md`](modules/heist.md) | 🚧 staged — playable, slices A+B+C (S87) |
+| heist | [`modules/heist.md`](modules/heist.md) | stable (S88) |
 | hangman | [`modules/hangman.md`](modules/hangman.md) | stable (S72) |
 | memory | [`modules/memory.md`](modules/memory.md) | stable (S82) |
 | records | [`modules/records.md`](modules/records.md) | stable (S8) |

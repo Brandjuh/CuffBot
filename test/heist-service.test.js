@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
+import { PermissionFlagsBits } from 'discord.js';
 import { HEISTS } from '../src/modules/heist/lib/tables.js';
 import { XP_TABLE } from '../src/modules/heist/lib/leveling.js';
 import {
@@ -341,15 +342,32 @@ test('the outcome embed reports the money, the gear and the arrest', () => {
   assert.match(busted.description, /Level up! 1 → 2/);
 });
 
-test('!heist group shape: public subs, play fallback, no crew job yet', () => {
+test('!heist group shape: public play, admin gated on Manage Server', () => {
   const group = heistCommand.group;
   assert.equal(group.name, 'heist');
-  assert.equal(group.permission, undefined, 'the whole game is public');
+  assert.equal(group.permission, undefined, 'the game itself is public');
   assert.equal(group.fallback, 'play');
   assert.deepEqual(
     group.subcommands.map((s) => s.name),
-    ['play', 'jobs', 'shop', 'buy', 'equip', 'unequip', 'inventory', 'sell', 'craft', 'bail', 'paydebt', 'level'],
+    [
+      'play',
+      'jobs',
+      'shop',
+      'buy',
+      'equip',
+      'unequip',
+      'inventory',
+      'sell',
+      'craft',
+      'bail',
+      'paydebt',
+      'crew',
+      'admin',
+      'level',
+    ],
   );
-  assert.ok(group.subcommands.every((s) => s.permission === undefined), 'no admin gates in slice B');
+  const gated = group.subcommands.filter((s) => s.permission !== undefined).map((s) => s.name);
+  assert.deepEqual(gated, ['admin'], 'only the tuning surface is gated');
+  assert.equal(group.subcommands.find((s) => s.name === 'admin').permission, PermissionFlagsBits.ManageGuild);
   assert.deepEqual(group.subcommands.find((s) => s.name === 'unequip').args[0].choices, ['shield', 'tool']);
 });

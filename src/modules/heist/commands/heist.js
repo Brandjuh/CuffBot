@@ -6,15 +6,42 @@
 // Slice B resolves a finished job LAZILY: the next heist command you run
 // settles it and shows the result (the cog's own fallback path). Slice C adds
 // the timer that announces it unprompted.
-import { EmbedBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { HEISTS, ITEMS, MATERIAL_ITEMS, RECIPES, fmt } from '../lib/tables.js';
 import { MAX_LEVEL, XP_TABLE, levelSuccessBonus, xpBar, xpProgress } from '../lib/leveling.js';
-import { FLAVOUR_MATERIAL, FLAVOUR_SHIELD, FLAVOUR_TOOL, heatBar, narrate } from '../lib/flavour.js';
+import {
+  CREW_FLAVOUR_CAUGHT,
+  CREW_FLAVOUR_FAIL,
+  CREW_FLAVOUR_SUCCESS,
+  FLAVOUR_MATERIAL,
+  FLAVOUR_SHIELD,
+  FLAVOUR_TOOL,
+  heatBar,
+  narrate,
+} from '../lib/flavour.js';
 import { craftPlan } from '../lib/crafting.js';
 import { armHeistTimer, cancelHeistTimer } from '../scheduler.js';
 import {
+  CREW_LEVEL_REQUIREMENT,
+  CREW_LOBBY_TIMEOUT_MS,
+  CREW_SIZE,
+  armCrewLobbyTimer,
   buyItem,
+  closeCrewLobby,
   cooldownLeft,
+  createCrewLobby,
+  eventMultiplier,
+  getCrewLobby,
+  getHeistSettings,
+  getItemCost,
+  listHeistOverrides,
+  resetHeistOverrides,
+  setHeistOverride,
+  setItemPrice,
+  startCrewHeist,
+  startHeistEvent,
+  stopHeistEvent,
+  TUNABLE_FIELDS,
   craftItem,
   equipItem,
   getPlayer,
@@ -88,6 +115,68 @@ export function outcomeEmbed(outcome, displayName) {
     .setFooter({ text: displayName });
 }
 
+
+/** The crew result card: one shared headline, then every officer's outcome. */
+export function crewOutcomeEmbed(outcome, names = {}) {
+  const pool = outcome.anyCaught ? CREW_FLAVOUR_CAUGHT : outcome.success ? CREW_FLAVOUR_SUCCESS : CREW_FLAVOUR_FAIL;
+  let status = outcome.success ? '✅ Success' : '❌ Failed';
+  if (outcome.anyCaught) status += ' - 🚨 Some Caught';
+
+  const headline = outcome.success
+    ? `**Total haul:** ${money(outcome.totalReward)} 🍩 split ${outcome.members.length} ways\n**Per member:** ~${money(outcome.perMemberReward)} 🍩` +
+      (outcome.eventMultiplier > 1 ? `\n-# 🎉 ${outcome.eventMultiplier}× event active!` : '')
+    : `**Total loss:** ${money(outcome.totalLoss)} 🍩 split ${outcome.members.length} ways`;
+
+  const blocks = outcome.members.map((result) => {
+    const lines = [`**${names[result.userId] ?? `<@${result.userId}>`}**`];
+    if (outcome.success) lines.push(`+${money(result.reward)} 🍩`);
+    else if (result.lossPaid > 0) lines.push(`−${money(result.lossPaid)} 🍩`);
+    else if (result.debtAdded > 0) lines.push(`Debt +${money(result.debtAdded)} 🍩`);
+    else lines.push('No losses — the shield held.');
+    lines.push(result.caught ? `🚨 Caught — jail until ${relative(result.jail.endsAt)}, bail ${money(result.jail.bailTotal)} 🍩` : '✅ Got away clean');
+    if (result.materialDrop) lines.push(`-# Found ${result.materialDrop.qty}× ${fmt(result.materialDrop.item)}`);
+    lines.push(result.caught ? '-# 🎓 No XP earned (caught)' : `-# 🎓 +${result.xpGained} XP · Lv.${result.newLevel}${result.newLevel > result.oldLevel ? ' · Level up! 🎉' : ''}`);
+    return lines.join('\n');
+  });
+
+  return new EmbedBuilder()
+    .setColor(outcome.anyCaught ? 0xff0000 : outcome.success ? 0xa020f0 : 0xff6600)
+    .setTitle(`👥 Crew Robbery — ${status}`)
+    .setDescription(`*${pool[0]}*\n\n${headline}\n\n**Individual results:**\n\n${blocks.join('\n\n')}`);
+}
+
+/** The lobby card + its buttons (the cog's slot list). */
+export function crewLobbyEmbed(lobby, heist, expiresAt) {
+  const slots = Array.from({ length: CREW_SIZE }, (_, i) =>
+    i < lobby.members.length ? `**${i + 1}.** <@${lobby.members[i]}> ✅` : `**${i + 1}.** *Waiting…*`,
+  );
+  return new EmbedBuilder()
+    .setColor(CRIME)
+    .setTitle('👥 Crew Robbery — Lobby')
+    .setDescription(
+      `Need ${CREW_SIZE} officers to begin. Lobby closes ${relative(expiresAt)}.\n\n` +
+        `**Potential haul:** ${money(heist.minReward)}–${money(heist.maxReward)} 🍩\n` +
+        `**Split:** ~${money(Math.trunc(heist.minReward / CREW_SIZE))}–${money(Math.trunc(heist.maxReward / CREW_SIZE))} each\n` +
+        `**Police chance:** ${Math.round(heist.policeChance * 100)}% per officer\n\n${slots.join('\n')}`,
+    );
+}
+
+export function crewLobbyComponents(lobby, { disabled = false } = {}) {
+  const full = lobby.members.length >= CREW_SIZE;
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`hst:join:${lobby.id}`).setEmoji('🎭').setLabel('Join Crew').setStyle(ButtonStyle.Success).setDisabled(disabled || full),
+      new ButtonBuilder().setCustomId(`hst:leave:${lobby.id}`).setLabel('Leave').setStyle(ButtonStyle.Secondary).setDisabled(disabled),
+      new ButtonBuilder()
+        .setCustomId(`hst:begin:${lobby.id}`)
+        .setLabel(`Begin Heist (${lobby.members.length}/${CREW_SIZE})`)
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(disabled || !full),
+      new ButtonBuilder().setCustomId(`hst:cancel:${lobby.id}`).setEmoji('✖️').setStyle(ButtonStyle.Danger).setDisabled(disabled),
+    ),
+  ];
+}
+
 /**
  * Settle a finished job before doing anything else and post its result — the
  * cog checks the same thing at the top of every command.
@@ -98,7 +187,10 @@ async function settleFirst(ctx) {
   if (outcome) {
     // We beat the timer to it — drop the armed one so it cannot double-report.
     cancelHeistTimer(ctx.guild.id, ctx.user.id);
-    await ctx.reply({ embeds: [outcomeEmbed(outcome, ctx.member?.displayName ?? ctx.user.username)] });
+    const embed = outcome.members
+      ? crewOutcomeEmbed(outcome)
+      : outcomeEmbed(outcome, ctx.member?.displayName ?? ctx.user.username);
+    await ctx.reply({ embeds: [embed], allowedMentions: { parse: [] } });
   }
   return true;
 }
@@ -138,7 +230,8 @@ export default {
       const player = getPlayer(ctx.guild.id, ctx.user.id);
       const progress = xpProgress(player.xp);
       const jail = jailStatus(player);
-      const ready = readyJobs(player).length;
+      const ready = readyJobs(player, Date.now(), ctx.guild.id).length;
+      const multiplier = eventMultiplier(ctx.guild.id);
       const total = Object.keys(HEISTS).filter((type) => !HEISTS[type].crewSize).length;
       const bonus = levelSuccessBonus(progress.level);
       return [
@@ -147,6 +240,7 @@ export default {
         `**Level ${progress.level}**/${MAX_LEVEL} ${xpBar(progress.pct)}${bonus > 0 ? ` · +${Math.round(bonus * 100)}% success` : ''}`,
         `**Heat:** ${heatBar(player.heat)}`,
         `**Record:** ✅ ${player.stats.success} · ❌ ${player.stats.fail} · 🚨 ${player.stats.caught}`,
+        multiplier > 1 ? `**🎉 Event:** payouts are **${multiplier}×** right now` : null,
         player.debt > 0 ? `**💸 Debt:** ${money(player.debt)} 🍩 — \`${ctx.prefix}heist paydebt\`` : null,
         jail.jailed
           ? `**🚨 In jail** until ${relative(jail.endsAt)} — bail ${money(jail.total)} 🍩`
@@ -167,7 +261,7 @@ export default {
         async run(ctx, { job, confirm }) {
           await settleFirst(ctx);
           const type = normalizeId(job);
-          const heist = HEISTS[type];
+          const heist = getHeistSettings(ctx.guild.id, type);
           if (!heist) {
             await ctx.reply(`🚫 No such job. \`${ctx.prefix}heist jobs\` lists them all.`);
             return;
@@ -179,7 +273,7 @@ export default {
           if (await blocked(ctx, { checkDebt: true })) return;
 
           const player = getPlayer(ctx.guild.id, ctx.user.id);
-          const left = cooldownLeft(player, type);
+          const left = cooldownLeft(player, type, Date.now(), heist.cooldownMs);
           if (left > 0) {
             await ctx.reply(`⏱️ ${fmt(type)} is still cooling down — ready ${relative(Date.now() + left)}.`);
             return;
@@ -231,11 +325,12 @@ export default {
         async run(ctx) {
           const player = getPlayer(ctx.guild.id, ctx.user.id);
           const now = Date.now();
-          const rows = Object.entries(HEISTS)
+          const rows = Object.keys(HEISTS)
+            .map((type) => [type, getHeistSettings(ctx.guild.id, type)])
             .filter(([, heist]) => !heist.crewSize)
             .sort((a, b) => a[1].maxReward - b[1].maxReward)
             .map(([type, heist]) => {
-              const left = cooldownLeft(player, type, now);
+              const left = cooldownLeft(player, type, now, heist.cooldownMs);
               const pays = ITEMS[type]?.type === 'loot' ? `a ${fmt(type)}` : `${money(heist.minReward)}–${money(heist.maxReward)} 🍩`;
               const state = left > 0 ? `⏱️ ${relative(now + left)}` : '✅ ready';
               return `${heist.emoji} **${fmt(type)}** — ${pays} · ${heist.minSuccess}–${heist.maxSuccess}% · ${state}`;
@@ -498,6 +593,176 @@ export default {
               ? `💸 Paid **${money(result.paid)} 🍩** — **${money(result.remaining)}** still outstanding.`
               : `✅ Paid **${money(result.paid)} 🍩**. Debt cleared — back to work.`,
           );
+        },
+      },
+      {
+        name: 'crew',
+        description: `Organise a ${CREW_SIZE}-officer crew robbery (needs level ${CREW_LEVEL_REQUIREMENT}).`,
+        args: [],
+        async run(ctx) {
+          await settleFirst(ctx);
+          if (await blocked(ctx, { checkDebt: true })) return;
+          const player = getPlayer(ctx.guild.id, ctx.user.id);
+          const level = xpProgress(player.xp).level;
+          if (level < CREW_LEVEL_REQUIREMENT) {
+            await ctx.reply(`🚫 You must be **level ${CREW_LEVEL_REQUIREMENT}** or higher to organise a crew robbery (you are ${level}).`);
+            return;
+          }
+          const left = cooldownLeft(player, 'crew_robbery', Date.now(), getHeistSettings(ctx.guild.id, 'crew_robbery').cooldownMs);
+          if (left > 0) {
+            await ctx.reply(`⏱️ Crew robbery is still cooling down for you — ready ${relative(Date.now() + left)}.`);
+            return;
+          }
+          const result = createCrewLobby(ctx.channel.id, ctx.guild.id, ctx.user.id);
+          if (result.error === 'busy') {
+            await ctx.reply('🚫 A crew is already forming in this channel — one at a time.');
+            return;
+          }
+          const lobby = result.lobby;
+          const heist = getHeistSettings(ctx.guild.id, 'crew_robbery');
+          const expiresAt = Date.now() + CREW_LOBBY_TIMEOUT_MS;
+          const message = await ctx.reply({
+            embeds: [crewLobbyEmbed(lobby, heist, expiresAt)],
+            components: crewLobbyComponents(lobby),
+          });
+          if (!message) {
+            closeCrewLobby(ctx.channel.id);
+            return;
+          }
+          lobby.message = message;
+          armCrewLobbyTimer(lobby, async () => {
+            closeCrewLobby(lobby.channelId);
+            await message
+              .edit({
+                embeds: [crewLobbyEmbed(lobby, heist, expiresAt).setTitle('👥 Crew Robbery — lobby expired')],
+                components: crewLobbyComponents(lobby, { disabled: true }),
+              })
+              .catch(() => {});
+          });
+        },
+      },
+      {
+        name: 'admin',
+        description: 'Tune the job table, item prices and payout events.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [
+          { name: 'action', type: 'string', required: false },
+          { name: 'target', type: 'string', required: false },
+          { name: 'field', type: 'string', required: false },
+          { name: 'value', type: 'string', required: false },
+        ],
+        async run(ctx, { action, target, field, value }) {
+          const verb = normalizeId(action ?? 'show');
+          const overrides = listHeistOverrides(ctx.guild.id);
+
+          if (verb === 'show') {
+            const lines = Object.entries(overrides).flatMap(([job, fields]) =>
+              Object.entries(fields).map(([key, stored]) => {
+                const spec = TUNABLE_FIELDS[key];
+                const shown = spec?.seconds ? `${stored / 1000}s` : stored;
+                return `**${fmt(job)}** · ${key} = ${shown}`;
+              }),
+            );
+            const multiplier = eventMultiplier(ctx.guild.id);
+            await ctx.reply({
+              embeds: [
+                new EmbedBuilder()
+                  .setColor(TEAL)
+                  .setTitle('⚙️ Heist tuning')
+                  .setDescription(
+                    (lines.length ? lines.join('\n') : 'No overrides — every job runs on the ported defaults.') +
+                      (multiplier > 1 ? `\n\n🎉 **Event active:** ${multiplier}× payouts` : ''),
+                  )
+                  .setFooter({
+                    text: `${ctx.prefix}heist admin set <job> <field> <value> · fields: ${Object.keys(TUNABLE_FIELDS).join(', ')}`,
+                  }),
+              ],
+            });
+            return;
+          }
+
+          if (verb === 'set') {
+            if (!target || !field || value === undefined) {
+              await ctx.reply(`🚫 Usage: \`${ctx.prefix}heist admin set <job> <field> <value>\``);
+              return;
+            }
+            const result = setHeistOverride(ctx.guild.id, normalizeId(target), field, value);
+            if (result.error === 'unknown-job') {
+              await ctx.reply(`🚫 No such job — see \`${ctx.prefix}heist jobs\`.`);
+              return;
+            }
+            if (result.error === 'unknown-field') {
+              await ctx.reply(`🚫 Tunable fields: ${Object.keys(TUNABLE_FIELDS).join(', ')}.`);
+              return;
+            }
+            if (result.error === 'not-a-number') {
+              await ctx.reply('🚫 That value is not a number.');
+              return;
+            }
+            if (result.error === 'out-of-range') {
+              await ctx.reply(`🚫 ${TUNABLE_FIELDS[field].label} must be ${result.min}–${result.max}.`);
+              return;
+            }
+            await ctx.reply(`✅ **${fmt(normalizeId(target))}** · ${field} is now **${value}**${TUNABLE_FIELDS[field].seconds ? ' seconds' : ''}.`);
+            return;
+          }
+
+          if (verb === 'reset') {
+            const job = target ? normalizeId(target) : null;
+            if (job && !HEISTS[job]) {
+              await ctx.reply('🚫 No such job.');
+              return;
+            }
+            const cleared = resetHeistOverrides(ctx.guild.id, job);
+            await ctx.reply(
+              cleared === 0
+                ? 'Nothing to reset — no overrides were set.'
+                : `♻️ Cleared **${cleared}** override${cleared === 1 ? '' : 's'}${job ? ` on ${fmt(job)}` : ' across every job'}.`,
+            );
+            return;
+          }
+
+          if (verb === 'price') {
+            if (!target || field === undefined) {
+              await ctx.reply(`🚫 Usage: \`${ctx.prefix}heist admin price <item> <cost>\``);
+              return;
+            }
+            const itemId = normalizeId(target);
+            const result = setItemPrice(ctx.guild.id, itemId, Number.parseInt(field, 10));
+            if (result.error === 'not-for-sale') {
+              await ctx.reply('🚫 That item is not sold in the shop.');
+              return;
+            }
+            if (result.error === 'out-of-range') {
+              await ctx.reply('🚫 A price must be a whole number between 0 and 10,000,000.');
+              return;
+            }
+            await ctx.reply(`✅ ${itemLabel(itemId)} now costs **${money(result.cost)} 🍩** (was ${money(ITEMS[itemId].cost)}).`);
+            return;
+          }
+
+          if (verb === 'event') {
+            if (normalizeId(target ?? '') === 'stop') {
+              stopHeistEvent(ctx.guild.id);
+              await ctx.reply('✅ Payout event stopped.');
+              return;
+            }
+            const multiplier = Number.parseInt(target ?? '', 10);
+            const hours = Number(field ?? 1);
+            const result = startHeistEvent(ctx.guild.id, multiplier, hours);
+            if (result.error === 'bad-multiplier') {
+              await ctx.reply('🚫 The multiplier must be a whole number 2–5.');
+              return;
+            }
+            if (result.error === 'bad-duration') {
+              await ctx.reply('🚫 The duration must be 0–168 hours.');
+              return;
+            }
+            await ctx.reply(`🎉 **${multiplier}× payouts** until ${relative(result.endsAt)}. Stop early with \`${ctx.prefix}heist admin event stop\`.`);
+            return;
+          }
+
+          await ctx.reply(`🚫 Unknown action. Try: show, set, reset, price, event — e.g. \`${ctx.prefix}heist admin show\`.`);
         },
       },
       {

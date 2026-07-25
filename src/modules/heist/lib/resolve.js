@@ -234,3 +234,163 @@ export function resolveHeist(
     },
   };
 }
+
+/**
+ * Resolve a crew robbery (S88 = slice D, the cog's `resolve_crew_heist`).
+ * Also pure. Two things differ from a solo job and both are load-bearing:
+ *
+ *   1. ONE shared success roll decides for the whole crew, and it uses the
+ *      raw drawn percentage — no tool boost, no level bonus.
+ *   2. Per member the police roll comes BEFORE the material drop (a solo job
+ *      does it the other way round), and a material drop is 1–2 either way.
+ *
+ * The haul (or the loss) is drawn once and split `total // crew`, so a bigger
+ * crew means a thinner cut. There is no loot item and nothing is confiscated.
+ *
+ * @param {object} input
+ * @param {Array<{userId:string, player:object, balance:number, taxAgreed?:boolean}>} input.members
+ * @returns {object} the shared result plus a per-member breakdown
+ */
+export function resolveCrewHeist(
+  { heistType, heist, members, eventMultiplier = 1, now },
+  rng = defaultRng,
+) {
+  const baseSuccess = rng.int(heist.minSuccess, heist.maxSuccess);
+  const successChance = baseSuccess / 100;
+  const success = rng.float() < successChance;
+
+  let totalReward = 0;
+  let totalLoss = 0;
+  if (success) totalReward = rng.int(heist.minReward, heist.maxReward) * eventMultiplier;
+  else totalLoss = rng.int(heist.minLoss, heist.maxLoss);
+
+  const crewSize = members.length;
+  const perMemberReward = success ? Math.trunc(totalReward / crewSize) : 0;
+  const perMemberLoss = success ? 0 : Math.trunc(totalLoss / crewSize);
+
+  const results = members.map(({ userId, player, balance, taxAgreed = false }) => {
+    const inventory = { ...player.inventory };
+    const equipped = { ...player.equipped };
+    const stats = { success: 0, fail: 0, caught: 0, ...player.stats };
+    let debt = player.debt ?? 0;
+
+    // Faithful but currently unreachable: no tool in the cog's table names
+    // crew_robbery as its heist, so this branch never fires today.
+    let toolBoost = 0;
+    let toolUsed = null;
+    const equippedTool = equipped.tool;
+    if (equippedTool && countOf(inventory, equippedTool) > 0 && ITEMS[equippedTool]?.forHeist === heistType) {
+      toolBoost = ITEMS[equippedTool].boost ?? 0;
+      toolUsed = equippedTool;
+      if (removeOne(inventory, equippedTool) === 0) equipped.tool = null;
+    }
+
+    let reward = 0;
+    let loss = 0;
+    let lossPaid = 0;
+    let debtAdded = 0;
+    let debtTax = 0;
+    let shieldUsed = null;
+    let shieldReduction = 0;
+
+    if (success) {
+      reward = toolBoost > 0 ? Math.trunc(perMemberReward * (1 + toolBoost)) : perMemberReward;
+    } else {
+      loss = perMemberLoss;
+      const equippedShield = equipped.shield;
+      if (equippedShield && countOf(inventory, equippedShield) > 0) {
+        shieldReduction = ITEMS[equippedShield]?.reduction ?? 0;
+        shieldUsed = equippedShield;
+        if (removeOne(inventory, equippedShield) === 0) equipped.shield = null;
+      }
+      loss = Math.trunc(loss * (1 - shieldReduction));
+      if (balance >= loss) {
+        lossPaid = loss;
+      } else {
+        debtAdded = loss;
+        if (taxAgreed) {
+          debtTax = Math.trunc(loss * 0.2);
+          debtAdded += debtTax;
+        }
+        debt += debtAdded;
+      }
+    }
+
+    const heat = (player.heat ?? 0) + 1;
+    let finalHeat = heat;
+
+    // Police BEFORE materials — the crew path's order, not the solo one's.
+    let caught = false;
+    let jail = null;
+    const policeChance = Math.min((heist.policeChance ?? 0) + heat * 0.02, 0.9);
+    if (rng.float() < policeChance) {
+      caught = true;
+      finalHeat = 0;
+      const bail = Math.trunc(heist.maxLoss * rng.uniform(0.5, 1.0));
+      jail = { endsAt: now + heist.jailMs, bail, bailTax: Math.trunc(bail * 0.15), bailTotal: bailTotal(bail) };
+    }
+
+    let materialHeat = (player.materialHeat ?? 0) + 1;
+    let materialDrop = null;
+    const dropChance = Math.min((heist.materialDropChance ?? 0) + materialHeat * 0.04, 0.9);
+    if (rng.float() < dropChance) {
+      materialHeat = 0;
+      const pool = heist.materialTiers ?? MATERIAL_ITEMS;
+      if (pool.length > 0) {
+        const item = rng.pick(pool);
+        const qty = rng.int(1, 2); // crew drops are always 1–2, win or lose
+        inventory[item] = countOf(inventory, item) + qty;
+        materialDrop = { item, qty };
+      }
+    }
+
+    if (caught) stats.caught += 1;
+    else if (success) stats.success += 1;
+    else stats.fail += 1;
+
+    const gained = xpGain(heistType, success, caught);
+    const { oldLevel, newLevel, newXp } = applyXp(player.xp ?? 0, gained);
+
+    return {
+      userId,
+      reward,
+      loss,
+      lossPaid,
+      debtAdded,
+      debtTax,
+      shieldUsed,
+      toolUsed,
+      toolBoost,
+      caught,
+      jail,
+      materialDrop,
+      xpGained: gained,
+      oldLevel,
+      newLevel,
+      balanceDelta: reward - lossPaid,
+      nextState: {
+        inventory,
+        equipped,
+        heat: finalHeat,
+        heatLastSet: now,
+        materialHeat,
+        debt,
+        xp: newXp,
+        stats,
+      },
+    };
+  });
+
+  return {
+    heistType,
+    success,
+    baseSuccess,
+    totalReward,
+    totalLoss,
+    perMemberReward,
+    perMemberLoss,
+    eventMultiplier,
+    anyCaught: results.some((result) => result.caught),
+    members: results,
+  };
+}
