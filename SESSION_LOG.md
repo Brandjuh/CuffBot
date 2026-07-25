@@ -1269,3 +1269,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — state matched reality (8d17457, 554/554 at session start).
 
 **Retrospective:** no skill change — the io-injected engine pattern (first used here) made a five-second-buttons party game fully testable without Discord; candidate-worthy only after a second game needs it. One test lesson absorbed inline: an `unref`'d timer that a test awaits needs an explicit event-loop keep-alive, or node:test cancels the whole file ("Promise resolution is still pending").
+
+---
+
+## Session 74 — 2026-07-25
+
+**Goal:** owner mid-session request (verbatim): "Voeg een maintenance mode in waarbij de eigenaar van de bot wel iets kan uitvoeren maar de rest krijgt een 'In onderhoud' melding (engels)".
+
+**Done:**
+- **`src/core/maintenance.js`:** `maintenanceConfig` {enabled:false, message:null} + `maintenanceNotice(guild, userId)` — the notice to send, or null when maintenance is off or the invoker is the **precinct owner** (`guild.ownerId`, the S40 structural-handle rule — no raw id committed). Default notice (English, per the request): "🚧 CuffBot is under maintenance. Only the precinct owner can use commands right now — back on duty soon."
+- **Router gate:** in `src/core/prefix/router.js` AFTER command lookup, BEFORE both dispatch paths (groups and legacy) — a real command from a non-owner answers the notice (no-ping reply) instead of running; unknown `!words` stay silent, so chatter never triggers notice spam. Scope deliberately commands-only: events, sweeps, and component pumps (running games) continue — documented in core.md.
+- **`!maintenance` group** (core module): Administrator-gated for help visibility, **owner-only at runtime** for every sub (`on`, `off`, `message <text…>` greedy/clamped 500, `nomessage`) — the operate-gate matches the exemption exactly, so an admin can never switch it on and lock themselves out.
+- Tests 563 → **567**: the gate matrix (off/on/owner/custom/reset), a **router-integration test** (fake client through `wirePrefixRouter`: legacy blocked, group blocked, unknown silent, owner passes both paths, no-ping notice), and the group (admin-not-owner refused without a write; owner on/off/message/nomessage; status lines).
+- Docs: core.md (commands table row, `!maintenance` section, files row, changelog), STATE.md (bullet + resume point back to M16.6 split-or-steal), this entry.
+
+**Corrections (Step 2):** none — mid-marathon session, state was own-verified (94f00d5, 563/563).
+
+**Retrospective:** no skill change — the request landed cleanly on three existing rails: the S40 structural-owner rule decided WHO is exempt, the S69 group framework shaped the command, and the single router choke-point (S68's text-only consolidation) made the gate one insertion. That the architecture absorbs a brand-new cross-cutting feature at this cost is the system working; nothing new to record.

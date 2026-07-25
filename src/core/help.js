@@ -144,6 +144,7 @@ export const COMMAND_CATEGORIES = {
   help: 'info',
   update: 'admin',
   restart: 'admin',
+  maintenance: 'admin',
   selfroles: 'admin',
   hunting: 'admin',
   dispatch: 'admin',
