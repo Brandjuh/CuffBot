@@ -1324,3 +1324,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Owner ask (also in the chat report):** paste `tail -n 40 /tmp/cuffbot-update-tests.*.log` from the Pi — that pins the root cause; alternatively run `bash scripts/update.sh` manually once after this merge.
 
 **Retrospective:** no skill change — S6's "failure summaries must quote the underlying error" existed as a lesson but had never been applied to the UNATTENDED path; the fix is in the product where it belongs. If the pasted log reveals a different root cause, the next session fixes it with evidence instead of suspicion.
+
+---
+
+## Session 77 — 2026-07-25
+
+**Goal:** follow-up on S76 — the owner ran the requested `tail` and got 37× "Permission denied": every `/tmp/cuffbot-update-tests.*.log` is root-owned 0600, because the timer invokes update.sh as root and `mktemp` ran OUTSIDE the `run` (as-user) wrapper. Thirty-seven accumulated logs also means the gate has been red for many runs.
+
+**Shipped:**
+- `scripts/update.sh`: the test log is now created **as the user** (`run mktemp`) so it is always readable by the owner; stale `/tmp/cuffbot-update-tests.*.log` files are swept at each run start; after the evidence is persisted to `data/last-update-failure.log` the /tmp copy is removed (one canonical evidence location). `bash -n` clean; suite 568/568.
+- Owner instructions updated (chat): first check whether the Pi already healed (`git log --oneline -1` showing 3edfd1d or newer — the S76 boot-smoke timeout fix rides the same gate it fixes); if still red, `sudo tail -n 40 "$(sudo ls -t /tmp/cuffbot-update-tests.*.log | head -1)"` reads the newest root-owned log, or `cd ~/CuffBot && bash scripts/update.sh` runs the gate as the user and prints everything.
+
+**Corrections (Step 2):** sharpened the S76 chicken-and-egg note — while the gate stays red, the RUNNING update.sh is always the old checkout's copy, so the S76/S77 evidence plumbing never executes until one gate passes (or the owner runs the script manually). STATE updated accordingly.
+
+**Retrospective:** no skill change — this is the S6 lesson's second-order case (the evidence existed but was unreadable); the root-owned-files hazard was even documented in update.sh's own comment ("root-owned files in the checkout would break later manual pulls") and stopped at the checkout boundary instead of covering /tmp. Fix is where it belongs.

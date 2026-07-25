@@ -45,7 +45,12 @@ if ! run npm install --no-fund --no-audit --loglevel=error; then
   exit 1
 fi
 
-TEST_LOG="$(mktemp /tmp/cuffbot-update-tests.XXXXXX.log)"
+# The log is created AS THE USER (S77): when the timer runs this as root, a
+# bare mktemp left root-owned 0600 files the owner could not read — 37 of
+# them piled up unreadable. Old runs' logs are swept; evidence now lives in
+# data/last-update-failure.log anyway.
+rm -f /tmp/cuffbot-update-tests.*.log 2>/dev/null || true
+TEST_LOG="$(run mktemp /tmp/cuffbot-update-tests.XXXXXX.log)"
 if ! run npm test >"$TEST_LOG" 2>&1; then
   say "TESTS FAILED on $REMOTE — rolling back to $LOCAL"
   # The failure evidence must reach the operator, not die in /tmp (S76):
@@ -53,12 +58,13 @@ if ! run npm test >"$TEST_LOG" 2>&1; then
   # finds it (data/ is gitignored — survives the rollback below).
   say "---- last 40 lines of the failing test run ----"
   tail -n 40 "$TEST_LOG" | while IFS= read -r line; do say "  $line"; done
-  say "---- end of test log (full log: $TEST_LOG) ----"
+  say "---- end of test log (evidence saved to data/last-update-failure.log) ----"
   run mkdir -p "$REPO_DIR/data"
   {
     echo "failed update: $LOCAL -> $REMOTE at $(date -u +%FT%TZ)"
     cat "$TEST_LOG"
   } | run tee "$REPO_DIR/data/last-update-failure.log" >/dev/null 2>&1 || true
+  rm -f "$TEST_LOG"
   run git reset --hard --quiet "$LOCAL"
   run npm install --no-fund --no-audit --loglevel=error
   exit 1
