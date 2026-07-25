@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.21 — 2026-07-25 (Session 92)
+
+- `references/architecture.md` (porting rule): sharpened the data-table clause — extract mechanically, and when the data is inert, ship the dump AS the module's data file instead of transcribing and diffing; resolve named constants during the dump.
+- Evidence: S89 (96 crime events dumped straight into `data/crime-events.json`) and S91 (46 scenarios + 14 prison-break scripts, whose numbers were module constants that `literal_eval` refused — a small AST walk resolved them). Three tables, zero transcription, zero drift risk; S85's fixture-diff grade stays documented for data that also wants to be code.
+
 ## 0.5.20 — 2026-07-25 (Session 85)
 
 - `references/architecture.md` (Module pattern): promoted the twice-confirmed porting rule — transcribe the source runtime's SEMANTICS (including float/int artifacts) and pin them in tests before wiring, plus the large-port corollary: dump the original's data tables by executing it and commit the dump as a fixture.

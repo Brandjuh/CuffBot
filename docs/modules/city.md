@@ -2,8 +2,8 @@
 
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
-**Status:** 🚧 staged port — **slices A+B+C landed (S91): playable, with bail, jailbreaks and 46 one-off scores**
-**Last updated:** Session 91 · 2026-07-25
+**Status:** stable — **the staged port is complete (S89–S92)**
+**Last updated:** Session 92 · 2026-07-25
 
 ## Purpose
 
@@ -16,9 +16,9 @@ The cog is ~7,000 lines, so it lands in slices, using the shape that worked for 
 | **A** | Crime table, the 96 events, the pure resolver | ✅ S89 |
 | **B** | Storage + the `!crime` command surface | ✅ S90 |
 | **C** | Jail, bail, jailbreak + the 46 random scenarios | ✅ S91 |
-| **D** | Black market, leaderboards, admin surface | planned |
+| **D** | Black market, leaderboards, admin surface | ✅ S92 |
 
-**Slices A, B and C are in.** Four crimes plus 46 one-off scores, random events, streaks, fines, sentences, bail and a one-shot jailbreak. Only the black market, the leaderboards and the admin surface (slice D) are still to come.
+All four slices are in: four crimes plus 46 one-off scores, random events, streaks, fines, sentences, bail, a one-shot jailbreak, a black market, six leaderboards and an admin surface.
 
 ## Commands
 
@@ -37,11 +37,17 @@ The cog is ~7,000 lines, so it lands in slices, using the shape that worked for 
 | `!crime random` (aliases `lucky`, `scenario`) | One of **46 one-off jobs**, each with its own odds, payout, sentence and story |
 | `!crime bail` | Buy your way out — the price tracks what is *left* of your sentence |
 | `!crime jailbreak` (aliases `break`, `escape`) | One shot per sentence: walk free, or add 30% to your time |
-| `!crime stats [@member]` (alias `record`) | The criminal record: jobs, success rate, earnings, fines, what you took and lost, streaks |
+| `!crime market` (aliases `blackmarket`, `shop`) | The black market: a permanent lighter sentence, or a card straight out of a cell |
+| `!crime buy <item>` | Buy from it |
+| `!crime usepass` (alias `pass`) | Burn a Get Out of Jail Free card |
+| `!crime leaderboard [category]` (aliases `board`, `top`) | Six boards: earned, biggest, jobs, stolen, fines, streak |
+| `!crime admin [setting] [value]` | **Manage Server:** bail on/off, bail price, steal limits (bare = show) |
+| `!crime stats [@member]` (alias `record`) | The criminal record: jobs, success rate, earnings, fines, what you took and lost, streaks, and your kit |
 
 - **The gates fire in the cog's order:** jailed → cooling down → target checks. A targeted crime refuses a bot, yourself, and anyone carrying less than `max(minStealBalance, the crime's minReward)` — the cog will not let you rob someone who has nothing worth taking.
 - **Every attempt draws events** (one guaranteed, then 75% / 50% / 10%) that shift the odds, multiply the take, stretch or shorten the sentence, or hand you loose change. They are all printed on the result card, and a win shows the arithmetic step by step.
 - **Money is real:** payouts, fines and steals all move donuts through the economy. A steal is capped at what the victim actually holds, and both sides' records are updated.
+- **The black market** sells two things. **Reduced Sentence** (20,000 🍩) is a permanent perk that takes 20% off every sentence *as it is handed down*; **Get Out of Jail Free** (1,000 🍩) is a card that ends a sentence on the spot and restores your jailbreak attempt. **Recorded deviation:** the cog's third item — a 10,000-credit "ping me when I'm released" perk — is **not** sold, because our jail has no release timer at all (a sentence is evaluated whenever you next act), so it would take money for nothing.
 - **Getting out:** bail costs `int(1.6 × minutes left)`, so waiting makes it cheaper, and it clears your record's cell. A jailbreak draws one of 14 scripts whose events all apply — they shift the odds and can cost or pay a little — then one roll decides: free, or **30% added to whatever was left**. You get exactly one attempt per sentence, claimed before the roll so a crash cannot buy you a second.
 
 ## Events
@@ -66,6 +72,7 @@ None — the crime resolves the moment you run the command.
 - `data/crime-events.json` — the **96 events, 24 per crime, dumped straight out of the Python source** rather than retyped. There is no transcription step to get wrong; the test validates the shape (every event has display text and at least one real effect, and only known effect keys appear).
 - `service.js` (slice B) — the criminal record over the store, the gates (`jailState`, `cooldownFor`, `canAttempt` in the cog's order) and `commitCrime`, which resolves an attempt, clamps a steal to the victim's balance, moves the donuts both ways and writes both records.
 - `commands/crime.js` — the group and the result card, which fills in the events' `{credits_bonus}` / `{currency}` placeholders and prints the reward steps the resolver returns.
+- `lib/market.js` (slice D) — the two items and `applySentenceReduction`, the cog's 20% shave; `service.js` adds `buyMarketItem`, `useJailPass`, the perk/consumable inventory on the member record, and `cityLeaderboard` over six categories.
 - `lib/scenarios.js` (slice C) — the **46 random-crime scenarios and 14 prison-break scripts, both dumped from the Python** like the events. The cog wrote their numbers as module constants (`RISK_MEDIUM`, `SUCCESS_RATE_LOW`…), so the dump resolved those names first. `scenarioToCrime` maps a scenario onto the crime shape the resolver already accepts — it overrides reward range, odds, sentence and fine, and keeps the `random` crime's cooldown. `resolveJailbreak` is pure: **every** event in a break script applies (there is no probability draw, unlike a crime), then one roll.
 - `lib/resolve.js` — pure. `drawEvents` (first guaranteed, then 75% / 50% / 10%, drawn without replacement), `applyEvents` (chance bonuses clamp at 100%, penalties at the cog's 5% floor; jail multiplies cumulatively with truncation at each step; direct credit effects sum separately), `nextStreak`/`streakBonus` (+5% a step, capped at +25%, wiped after 24 idle hours), `stolenAmount` (a random slice of the victim capped by the settings *and* the crime's own ceiling, floored at its minimum when the victim can cover it), and `resolveCrime`, which ties it together.
   - **The rounding order is the behavior**: on a success the cog rounds after the streak multiplier and then again after *every* event multiplier — not once at the end — so the port does the same, and reports each step for the result card slice B will draw.
@@ -81,6 +88,7 @@ src/modules/city/
   lib/resolve.js           the pure resolver: draw → fold → roll → pay or jail
   service.js               the record, the gates, the money, bail + jailbreak
   lib/scenarios.js         46 scenarios + 14 prison breaks, and their resolvers
+  lib/market.js            the black market's two items + the sentence perk
   commands/crime.js        the !crime group and its result card
   data/crime-events.json   96 events, dumped verbatim from the source
   data/scenarios.json      46 one-off crimes, dumped (constants resolved)
@@ -102,6 +110,8 @@ test/city-service.test.js  record, gates, payouts, victim clamp, card, group sha
   6. `!crime bail` → the price shown in `!crime` is what you pay, and you walk.
   7. Get caught again → `!crime jailbreak` → a story, the odds after its events, and either freedom or +30%; a second attempt is refused.
   8. `!crime random` → a titled one-off job with its own flavour text.
+  9. `!crime market` → `!crime buy jail_pass` → get caught → `!crime usepass` walks you out.
+  10. `!crime leaderboard streak` → the board for best streaks; `!crime admin` → the four knobs.
 
 ## Troubleshooting
 
@@ -116,6 +126,7 @@ test/city-service.test.js  record, gates, payouts, victim clamp, card, group sha
 
 | Session | Change |
 |---|---|
+| S92 | **Slice D — M16.13 complete**: the black market (the permanent −20% sentence perk and the get-out-of-jail card, with an inventory on the member record), six leaderboards, and `!crime admin` (Manage Server) for bail and steal limits. The cog's third market item is deliberately not sold — see the deviation above. |
 | S91 | **Slice C**: the ways out of a cell and the 46 one-off scores. `!crime bail` (the cog's exact `int(multiplier × minutes left)` — slice A's formula was rounding the minutes up first, corrected), `!crime jailbreak` (one attempt per sentence, claimed before the roll; a drawn script's events all apply; a failure adds 30% of what was left), and `!crime random` (46 scenarios overriding the `random` crime's numbers). Both scenario tables dumped from the Python with their module constants resolved. |
 | S90 | **Slice B**: storage (`cityMembers`, `citySettings`), the `!crime` group (pickpocket/mug/store/bank/stats) with the cog's gate order, real money through the economy seam, the victim clamp, and a result card that prints the event lines and the reward arithmetic. Jail is a timer with no exit yet — bail lands in slice C. |
 | S89 | Created (M16.13 **slice A**): the five crimes with the cog's numbers, the 96 random events dumped verbatim from the Python source, and the pure resolver — event draw (100/75/50/10, no repeats), the modifier pipeline with its clamps, streaks (+5% a step, +25% cap, 24 h expiry), the cog's step-by-step reward rounding, targeted-steal maths, fines, and the broke-crook double sentence. No commands, events or storage yet. |
