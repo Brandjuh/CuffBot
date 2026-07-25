@@ -1404,3 +1404,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — state matched reality (de46ed1, 585/585 at session start).
 
 **Retrospective (skill 0.5.18 → 0.5.19):** two LEARNINGS candidates promoted to architecture.md on their second/third confirmation — the io-injected engine (S73/S79/S81) and the unref'd-timer test keep-alive (the "Promise resolution is still pending" cascade hit S73 and S81 identically; now a documented rule instead of a re-discovery).
+
+## Session 82 — 2026-07-25
+
+**Goal:** M16.9 — Memory (AAA3A memorygame port). Owner: full throttle continues ("Gas erop").
+
+**Done:**
+- **Module `memory`:** single-player pairs, cog-faithful — the three exact board layouts (4/8/12 pairs from the verbatim 12-emoji pool, disabled invisible `\u200c` center tile on 3x3/5x5), reveal-in-place first pick, green matches, **1 s red mismatch flash then re-hide**, the same-tile-twice-is-a-wrong-match quirk kept, 10-minute silent idle lock (the cog's View timeout), parallel boards keyed by game id, starter-only presses (the cog's exact refusal line). `!memory 3x3` works via the play fallback, `!memorygame` as the group alias.
+- **Prize bit-for-bit:** base = maxPrize scaled with Python int() order (`int(5000/3*2)` = 3333, NOT `floor(5000/3)*2` = 3332 — pinned in a test), then `max(int((base − s·perSecond − wrong·perWrong)·(n/5)), 0)`. Score+wins on the scoreboard; `!memory economy on` also pays 🍩 through the adjustBalance seam. Admin knobs: `maxwrong` (0–50, 0 = no limit), `maxprize` (1000–50000), `decay <perSecond> <perWrong>` (0–30 each), `resetleaderboard`; rollout-style top-15 leaderboard.
+- **The known cog bug NOT ported (recorded deviation):** its lose() incremented `games` a second time (already counted at start) — we count once, pinned in the loss test. Two more recorded deviations: the bot-owner press backdoor dropped; a `locked` flag drops presses during the flash instead of the cog's asyncio queue.
+- `pressTile` is a synchronous state machine (ended flips before any await — S22 claim rule); the flash timing lives in the pump, so no engine loop and no timer-driven tests were needed.
+- Tests 595 → **604**: board layouts, the formula pins (incl. the truncation-order case), the press machine (select/match/mismatch/blank/found/busy/quirk), a clock-injected full 3x3 win (65 s → prize 804) with stats, the loss path proving games count once, the real-donuts payout, config defaults/overrides, reset, group shape.
+- Docs: manual `memory.md`, docs index, README (28 modules / 66 commands), ROADMAP M16.9 ✔, STATE.md (resume → M16.10 wordle with the survey notes), help badge 🧠.
+
+**Corrections (Step 2/6):** STATE's discovery-smoke expectation had drifted from reality (listed `patrol` before `hunting`; actual readdir is alphabetical — `hunting` sorts after `hangman`). Corrected to the real output while adding `memory`.
+
+**Retrospective:** one new LEARNINGS candidate — *porting Python math: preserve the exact expression, not the intent* (the `int(a/3*2) ≠ floor(a/3)*2` off-by-one; transcribe token-for-token and pin asymmetric cases). No skill-file edits, so no version bump. The S80/S81 reactive-game pattern (synchronous press machine + pump-owned timing) carried this port with zero surprises.
