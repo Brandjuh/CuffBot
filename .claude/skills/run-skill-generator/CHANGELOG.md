@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.17 — 2026-07-25 (Session 69)
+
+- `references/architecture.md`: brought in line with the S68/S69 reality — text-only bot (deploy-commands CLEARS the roster), the Red-style `{ group }` command shape documented as the target pattern (with example, permission/error conventions, and the youtube reference pointer), legacy `{ data, execute }` marked as migration-only; stale "registers slash commands" lines fixed.
+- Evidence: S69 — while building M17.1 the reference still described the pre-S68 slash architecture; an M17.2 session following it verbatim would write the wrong command shape.
+
 ## 0.5.16 — 2026-07-25 (Session 65)
 
 - `LEARNINGS.md`: new candidate — batch "like X" intakes: clone all public sources via the git proxy, survey with parallel read-only agents on a fixed questionnaire, persist the survey under docs/porting/ (the scratchpad is ephemeral; the survey is the porting reference).

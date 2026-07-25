@@ -1,5 +1,10 @@
 import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { RUNTIME_ADMIN_COMMANDS, buildCategorizedHelp, paginateHelp } from '../../../core/help.js';
+import {
+  RUNTIME_ADMIN_COMMANDS,
+  buildCategorizedHelp,
+  paginateHelp,
+  summarizeCommand,
+} from '../../../core/help.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -7,15 +12,10 @@ export default {
     .setDescription('Show the commands YOU can use, sorted by category (only you see the reply).'),
   async execute(interaction) {
     const prefix = interaction.client.config?.prefix ?? '!';
+    // summarizeCommand understands both legacy { data } commands and S69
+    // { group } commands, so groups appear in the menu automatically.
     const commands = (interaction.client.moduleList ?? []).flatMap((mod) =>
-      mod.commands.map((cmd) => {
-        const json = cmd.data.toJSON();
-        return {
-          name: json.name,
-          description: json.description,
-          defaultMemberPermissions: json.default_member_permissions ?? null,
-        };
-      }),
+      mod.commands.map(summarizeCommand),
     );
 
     // Only show what this viewer can actually run (S43): commands declaring

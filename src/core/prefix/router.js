@@ -1,8 +1,10 @@
-// Wires text ("!command") invocation onto MessageCreate, reusing the exact
-// same command.execute() as the slash router via the interaction adapter.
+// Wires text ("!command") invocation onto MessageCreate. Red-style group
+// commands (S69) dispatch through core/prefix/group.js; legacy flat commands
+// reuse command.execute() via the interaction adapter.
 import { Events } from 'discord.js';
 import { parseCommandLine, usageFor } from './parse.js';
 import { createMessageInteraction } from './adapter.js';
+import { dispatchGroup } from './group.js';
 
 /**
  * @param {import('discord.js').Client} client
@@ -18,6 +20,11 @@ export function wirePrefixRouter(client, runCommand) {
     if (!parsed) return;
     const command = client.commands.get(parsed.name);
     if (!command) return;
+
+    if (command.group) {
+      await dispatchGroup(command.group, message, parsed.tokens, prefix);
+      return;
+    }
 
     const { errors, interaction, usage } = await createMessageInteraction(message, command, parsed);
     if (errors.length > 0) {

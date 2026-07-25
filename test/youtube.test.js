@@ -257,3 +257,96 @@ test('removeCreator works by id and by name', async () => {
   assert.equal(removeCreator(guildId, UC), null, 'already gone');
   assert.deepEqual(getCreators(guildId), {});
 });
+
+// ── the !youtube group command (S69 reference conversion) ────────────────────
+
+const { default: youtubeCommand } = await import('../src/modules/youtube/commands/youtube.js');
+const { getYouTubeConfig } = await import('../src/modules/youtube/service.js');
+const group = youtubeCommand.group;
+const sub = (name) => group.subcommands.find((s) => s.name === name);
+
+function fakeCtx(guildId, { channels = {} } = {}) {
+  const replies = [];
+  return {
+    replies,
+    prefix: '!',
+    guild: {
+      id: guildId,
+      channels: { cache: new Map(Object.entries(channels)), fetch: async (id) => channels[id] ?? null },
+    },
+    channel: { sendTyping: async () => {} },
+    reply: async (p) => replies.push(typeof p === 'string' ? { content: p } : p),
+  };
+}
+
+test('!youtube is a Manage-Server group with the full subcommand roster', () => {
+  assert.equal(group.name, 'youtube');
+  assert.equal(group.permission, 32n, 'ManageGuild gates the whole group');
+  assert.deepEqual(
+    group.subcommands.map((s) => s.name),
+    ['on', 'off', 'channel', 'add', 'remove', 'preview', 'pingrole', 'noping'],
+  );
+});
+
+test('youtube on/off flip the master switch', async () => {
+  const guildId = freshGuildId();
+  const ctx = fakeCtx(guildId);
+  await sub('off').run(ctx);
+  assert.equal(getYouTubeConfig(guildId).enabled, false);
+  assert.match(ctx.replies[0].content, /off/);
+  await sub('on').run(ctx);
+  assert.equal(getYouTubeConfig(guildId).enabled, true);
+});
+
+test('youtube channel accepts text/announcement channels, refuses others', async () => {
+  const guildId = freshGuildId();
+  const ctx = fakeCtx(guildId);
+  await sub('channel').run(ctx, { channel: { id: 'chan-9', type: 2 } }); // GuildVoice
+  assert.match(ctx.replies[0].content, /text or announcement channel/);
+  assert.equal(getYouTubeConfig(guildId).channelId, null, 'refused → unchanged');
+
+  await sub('channel').run(ctx, { channel: { id: 'chan-9', type: 5 } }); // GuildAnnouncement
+  assert.equal(getYouTubeConfig(guildId).channelId, 'chan-9');
+});
+
+test('youtube pingrole/noping set and clear the ping role', async () => {
+  const guildId = freshGuildId();
+  const ctx = fakeCtx(guildId);
+  await sub('pingrole').run(ctx, { role: { id: '625326875442675763' } });
+  assert.equal(getYouTubeConfig(guildId).pingRoleId, '625326875442675763');
+  await sub('noping').run(ctx);
+  assert.equal(getYouTubeConfig(guildId).pingRoleId, null);
+});
+
+test('youtube remove unfollows through the group sub', async () => {
+  const guildId = freshGuildId();
+  await addCreator(guildId, UC, {
+    fetchImpl: async () => okResponse(feedXml([], 'Precinct TV')),
+  });
+  const ctx = fakeCtx(guildId);
+  await sub('remove').run(ctx, { creator: 'precinct tv' });
+  assert.match(ctx.replies[0].content, /Stopped following \*\*Precinct TV\*\*/);
+  assert.deepEqual(getCreators(guildId), {});
+});
+
+test('youtube status reports enabled/channel/roster with the S55 probe', async () => {
+  const guildId = freshGuildId();
+  await addCreator(guildId, UC, {
+    fetchImpl: async () => okResponse(feedXml([], 'Precinct TV')),
+  });
+  const sendable = { id: 'news-1', send: async () => {} };
+
+  const unset = await group.status(fakeCtx(guildId));
+  assert.match(unset[1], /not set — nothing posts/);
+
+  await sub('channel').run(fakeCtx(guildId, { channels: { 'news-1': sendable } }), {
+    channel: { id: 'news-1', type: 0 },
+  });
+  const lines = await group.status(fakeCtx(guildId, { channels: { 'news-1': sendable } }));
+  assert.match(lines[0], /\*\*Enabled:\*\* yes/);
+  assert.match(lines[1], /<#news-1>/);
+  assert.match(lines.join('\n'), /Precinct TV/);
+
+  const broken = await group.status(fakeCtx(guildId)); // channel gone from cache+API
+  assert.match(broken[1], /can't post there/);
+});

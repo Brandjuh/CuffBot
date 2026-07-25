@@ -11,6 +11,33 @@ import { logger } from './logger.js';
 const modulesDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'modules');
 
 /**
+ * Validate a Red-style group command's shape (S69) and return its name.
+ * Failing the boot beats a group that silently swallows its subcommands.
+ */
+export function validateGroup(mod, group) {
+  if (!group?.name || !group.description || !Array.isArray(group.subcommands)) {
+    throw new Error(
+      `Module "${mod.name}" has a malformed group: needs { name, description, subcommands[] }.`,
+    );
+  }
+  const seen = new Set();
+  for (const sub of group.subcommands) {
+    if (!sub?.name || !sub.description || typeof sub.run !== 'function') {
+      throw new Error(
+        `Group "${group.name}" (module "${mod.name}") has a subcommand without name/description/run.`,
+      );
+    }
+    for (const alias of [sub.name, ...(sub.aliases ?? [])]) {
+      if (seen.has(alias)) {
+        throw new Error(`Group "${group.name}" reuses subcommand name/alias "${alias}".`);
+      }
+      seen.add(alias);
+    }
+  }
+  return group.name;
+}
+
+/**
  * Import every src/modules/<name>/index.js manifest and validate its shape.
  * @returns {Promise<Array<{ name: string, description: string, commands: any[], events: any[] }>>}
  */
@@ -49,15 +76,20 @@ export async function loadModules(client) {
 
   for (const mod of modules) {
     for (const command of mod.commands) {
-      const commandName = command?.data?.name;
-      if (!commandName || typeof command.execute !== 'function') {
-        throw new Error(`Module "${mod.name}" has a command without data or execute.`);
+      // S69 (M17.1): a command is either a Red-style group ({ group }) or a
+      // legacy flat command ({ data, execute }). Groups are dispatched by
+      // core/prefix/group.js; the router picks the path per command.
+      const commandName = command?.group ? validateGroup(mod, command.group) : null;
+      const legacyName = command?.data?.name;
+      if (!commandName && (!legacyName || typeof command.execute !== 'function')) {
+        throw new Error(`Module "${mod.name}" has a command without group or data/execute.`);
       }
-      if (client.commands.has(commandName)) {
-        throw new Error(`Duplicate command name "/${commandName}" (module "${mod.name}").`);
+      const name = commandName ?? legacyName;
+      if (client.commands.has(name)) {
+        throw new Error(`Duplicate command name "${name}" (module "${mod.name}").`);
       }
       command.module = mod.name; // for help grouping
-      client.commands.set(commandName, command);
+      client.commands.set(name, command);
     }
 
     for (const event of mod.events) {

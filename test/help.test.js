@@ -12,6 +12,7 @@ import {
   paginateHelp,
   renderGroupChunks,
   renderHelpText,
+  summarizeCommand,
   usageFor,
 } from '../src/core/help.js';
 
@@ -105,12 +106,33 @@ test('every REAL command is categorized and every category key is valid', async 
   const validKeys = new Set(HELP_CATEGORIES.map((c) => c.key));
   for (const mod of modules) {
     for (const cmd of mod.commands) {
-      const name = cmd.data.toJSON().name;
+      const { name } = summarizeCommand(cmd); // handles { data } and { group } (S69)
       const key = COMMAND_CATEGORIES[name];
-      assert.ok(key, `command /${name} has no category — add it to COMMAND_CATEGORIES in core/help.js`);
-      assert.ok(validKeys.has(key), `command /${name} maps to unknown category "${key}"`);
+      assert.ok(key, `command !${name} has no category — add it to COMMAND_CATEGORIES in core/help.js`);
+      assert.ok(validKeys.has(key), `command !${name} maps to unknown category "${key}"`);
     }
   }
+});
+
+test('summarizeCommand flattens groups and legacy commands to one shape (S69)', () => {
+  const legacy = {
+    data: { toJSON: () => ({ name: 'cite', description: 'Ticket', default_member_permissions: '8192' }) },
+  };
+  assert.deepEqual(summarizeCommand(legacy), {
+    name: 'cite',
+    description: 'Ticket',
+    defaultMemberPermissions: '8192',
+  });
+  const group = {
+    group: { name: 'youtube', description: 'Uploads', permission: 32n, subcommands: [] },
+  };
+  assert.deepEqual(summarizeCommand(group), {
+    name: 'youtube',
+    description: 'Uploads',
+    defaultMemberPermissions: '32',
+  });
+  const openGroup = { group: { name: 'open', description: 'X', subcommands: [] } };
+  assert.equal(summarizeCommand(openGroup).defaultMemberPermissions, null);
 });
 
 test('renderGroupChunks splits oversized groups at entry boundaries', () => {
