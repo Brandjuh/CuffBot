@@ -72,12 +72,13 @@ export default {
 - **Reply:** visible to the channel (not ephemeral). Verdict bands: under 150 ms "Loud and clear", under 400 ms "Reading you with a bit of static", otherwise "Signal is rough out there" — always with the measured milliseconds.
 - **Failure modes:** none specific. If the bot does not respond at all, it is offline or commands were never registered — see Troubleshooting.
 
-### /help
+### !help
 
-- **Options:** none.
-- **What happens:** generates the command roster from the modules that are actually loaded (never a hand-maintained list), grouped by module, showing both the `/name` and `!name` forms plus a usage hint.
-- **Paged & private (S39, routing updated S54):** the roster no longer fits one embed — Discord caps an embed at **6000 characters in total** (title+description+fields combined). The menu splits into numbered embed pages (each ≤25 fields), sent **ephemerally** so only the asker sees them; the `!help` text path posts the pages in the channel as no-ping replies (never DM — S54). Use `/help` for the only-visible-to-you version.
-- **Categorized & viewer-filtered (S43):** commands are grouped by PURPOSE — 🛡️ Moderation, 🎮 Games & Economy, 🎉 Fun, 📈 Ranks & XP, 🎂 Community, 📻 Info, ⚙️ Setup & Admin — not by module, one clear line per command. The menu only lists what the viewer can actually use: commands declaring `default_member_permissions` the member lacks are hidden, as are the runtime-gated admin commands (`/update`, `/restart`). The category map lives in `core/help.js` (`COMMAND_CATEGORIES`); a loader-walking test fails the build when a new command is left uncategorized.
+- **Args:** none.
+- **What happens:** generates the command roster from the modules that are actually loaded (never a hand-maintained list) and posts **one message with a button per category** (S98, owner request). The landing view names each category with a count, so the buttons explain themselves; pressing one swaps the embed to that category's commands, and the open category's button is disabled — that is how the menu shows where you are without spending a line of text on it. A `↩ All categories` button goes back.
+- **This replaced the paged form (S39 → S98).** The roster does not fit one embed — Discord caps an embed at **6000 characters in total** — so `!help` used to post several embeds back to back. One message with buttons is the same information without the wall.
+- **Categorized & viewer-filtered (S43):** commands are grouped by PURPOSE — 🛡️ Moderation, 🎮 Games & Economy, 🎉 Fun, 📈 Ranks & XP, 🎂 Community, 📻 Info, ⚙️ Setup & Admin — not by module, one clear line per command. The menu only lists what the viewer can actually use: commands declaring permissions the member lacks are hidden, as are the runtime-gated admin commands (`!update`, `!restart`, whose gate lives inside `run()`). **The filter also decides which BUTTONS you are offered**, so the menu never advertises a category you would find empty. The category map lives in `core/help.js` (`COMMAND_CATEGORIES`); a loader-walking test fails the build when a new command is left uncategorized.
+- **Anyone may press (S98).** A help message is public, and the roster is per-viewer, so the pump distinguishes two cases: the person who asked gets the message **updated in place** (it is their menu), and anyone else gets **their own filtered view, privately**, with buttons keyed to them so they can keep browsing. Editing the shared message for a stranger would rewrite what the asker is reading; showing them the asker's roster would leak which commands that member can use. A component interaction can still be ephemeral — only `!command` replies lost that (S54/S68) — so the private answer is genuinely private.
 
 ### /update
 
@@ -99,6 +100,14 @@ One switch that closes the command desk: with maintenance ON, every `!command` f
 
 - `!maintenance on` / `off` — the switch. **Bot-owner-only at runtime** (anyone else who could enable it would lock themselves out, since only the bot owner is exempt — the gate matches the exemption exactly). The group is Administrator-gated for visibility, so regular members never see it in `!help`.
 - `!maintenance message <text…>` — a custom notice (greedy, clamped 500); `nomessage` restores the default: *"🚧 CuffBot is under maintenance. Only the bot owner can use commands right now — back on duty soon."*
+- **The bot's STATUS says which mode it is in (S98 = M22, owner request),** so nobody has to run a command to find out:
+
+  | Mode | Presence |
+  |---|---|
+  | Normal duty | 🟢 Online · *Watching the precinct 🚔* |
+  | Maintenance | ⛔ Do Not Disturb · *🔧 Maintenance — bot owner only* |
+
+  The status is set on every `on`/`off` **and at boot** — read from **storage**, not from a variable, so a bot that restarts while in maintenance still looks like it. Maintenance is stored per guild but a presence is per BOT and global; CuffBot serves exactly one precinct by design (S1), so the home guild's state is the whole truth. Setting a presence is cosmetic and never throws: a gateway hiccup logs a warning and leaves the toggle itself successful.
 - Config: `maintenanceConfig` `{ enabled: false, message: null }` in the guild store (`src/core/maintenance.js`). The owner lookup runs only while maintenance is ON (one application fetch, cached on success, retried on failure — a transient API error can never permanently lock the owner out).
 
 ## Events
@@ -149,7 +158,10 @@ Boot fails fast with a named-variable error message when required settings are m
 | `src/core/prefix/{context,permissions}.js` | The shared `ctx` both dispatchers build, and the permission gate + label map |
 | `src/core/prefix/group.js` | Red-style group commands (S69): overview, arg resolution, permission gates, dispatch |
 | `src/core/maintenance.js` | Maintenance mode (S74/S75): the bot-owner-exempt command gate + config |
-| `src/core/help.js` | Pure help-roster construction (used by `!help`; `summarizeCommand` flattens both command shapes) |
+| `src/core/help.js` | Pure help-roster construction and the two menu views (`helpOverview`, `helpCategory`) — no discord.js |
+| `src/modules/core/lib/help-menu.js` | Turning a view into an embed + button rows, and the shared per-viewer filter |
+| `src/modules/core/events/help-buttons.js` | The `help:` component pump |
+| `src/modules/core/lib/presence.js` · `service-presence.js` | The two bot statuses (pure) and the one call that applies them |
 | `src/modules/core/lib/precinct.js` | Pure: home-guild check |
 | `src/modules/core/lib/radio.js` | Pure: latency verdict formatting |
 | `src/core/{config,logger,loader}.js` | Plumbing exercised by this module |
@@ -201,3 +213,4 @@ Boot fails fast with a named-variable error message when required settings are m
 | S74 | Maintenance mode (owner request): `src/core/maintenance.js` + a router gate before both dispatch paths — with the switch on, only the exempt owner runs commands; everyone else gets the (customizable) English notice. `!maintenance` group: admin-visible, owner-only to operate (on/off/message/nomessage). Events/sweeps/components unaffected. |
 | S75 | Owner correction: the exempt party is the **BOT owner** (`client.application.owner`, team members included), NOT the guild owner — the guild owner is now gated like everyone else. Owner ids cached on first successful application fetch, retried on failure. |
 | S96 | **M17.3 complete.** The last four legacy commands (`!radio-check`, `!restart`, `!update`, `!help`) converted to the flat shape, then the legacy path deleted: `prefix/adapter.js` (167 lines), `assignOptions` and the slash-option machinery in `prefix/parse.js` (172 → 47 lines), the router's and loader's legacy branches, `index.js`'s `runCommand` wrapper, `summarizeCommand`'s `cmd.data` branch, the shape-agnostic `replyEither` shim and `ensureInvokerPermission`. `!restart`/`!update` keep a hand-written gate because it admits the GUILD OWNER, which a `permission` flag cannot express — that is now the shared `isAdminOrOwner`. |
+| S98 | `!help` is **one message with a button per category** (M19, owner request) instead of sequential embed pages — the S43 viewer filter now also decides which buttons you are offered, the asker's presses edit the message in place and anyone else gets their own filtered view privately. Plus M22: **maintenance mode shows in the bot's status** (Online · Watching the precinct ↔ Do Not Disturb · 🔧 Maintenance), set on every toggle and at boot from storage so it survives a restart. |

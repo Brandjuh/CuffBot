@@ -66,52 +66,92 @@ test('the ops gate admits the guild owner even without the Administrator flag', 
   assert.equal(isAdminOrOwner(opsCtx().ctx), false, 'neither');
 });
 
-test('help builds the categorized menu, hiding what the viewer cannot use (S43)', async () => {
-  const moduleList = [
-    {
-      name: 'core',
-      description: 'core',
-      commands: [
-        { command: { name: 'radio-check', description: 'ping', args: [] } },
-        { command: { name: 'update', description: 'self-update', args: [] } },
-      ],
-    },
-    {
-      name: 'enforcement',
-      description: 'enf',
-      commands: [
-        {
-          command: {
-            name: 'cite',
-            description: 'ticket',
-            permission: PermissionFlagsBits.ModerateMembers,
-            args: [],
-          },
+// S98 (M19): !help is ONE message with a button per category now, not a
+// sequence of embed pages. The S43 viewer filter still decides what a member
+// sees — and now also which buttons they are offered.
+
+const HELP_MODULES = [
+  {
+    name: 'core',
+    description: 'core',
+    commands: [
+      { command: { name: 'radio-check', description: 'ping', args: [] } },
+      { command: { name: 'update', description: 'self-update', args: [] } },
+    ],
+  },
+  {
+    name: 'enforcement',
+    description: 'enf',
+    commands: [
+      {
+        command: {
+          name: 'cite',
+          description: 'ticket',
+          permission: PermissionFlagsBits.ModerateMembers,
+          args: [],
         },
-      ],
-    },
-  ];
-  const run = async (hasPerms) => {
+      },
+    ],
+  },
+];
+
+async function runHelp(hasPerms) {
+  const message = fakeMessage({ perms: hasPerms });
+  message.client.config = { prefix: '!' };
+  message.client.moduleList = HELP_MODULES;
+  const { buildCtx } = await import('../src/core/prefix/context.js');
+  await help.command.run(buildCtx(message, '!'), {});
+  return message.sent;
+}
+
+const payloadText = (payload) =>
+  JSON.stringify({
+    embeds: payload.embeds.map((e) => e.toJSON?.() ?? e),
+    components: payload.components.map((c) => c.toJSON?.() ?? c),
+  });
+
+test('help posts ONE message with a button per category (S98)', async () => {
+  const sent = await runHelp(true);
+  assert.equal(sent.length, 1, 'one message — the page spam is gone');
+  const embed = sent[0].embeds[0];
+  assert.match(embed.data?.title ?? embed.title, /Command Menu/);
+  assert.ok(sent[0].components.length >= 1, 'at least one button row');
+
+  const text = payloadText(sent[0]);
+  // The landing view names the categories and their counts, so the buttons
+  // are self-explanatory rather than a row of unlabelled guesses.
+  assert.ok(text.includes('Moderation'), 'moderation category offered to an admin');
+  assert.ok(text.includes('Setup & Admin'), 'admin category offered to an admin');
+});
+
+test('the buttons a viewer is offered follow the S43 filter', async () => {
+  const memberText = payloadText((await runHelp(false))[0]);
+  assert.ok(!memberText.includes('Moderation'), 'no button for a category they cannot use');
+
+  const adminText = payloadText((await runHelp(true))[0]);
+  assert.ok(adminText.includes('Moderation'), 'admins get the moderation button');
+});
+
+test('a category view lists that category’s commands, filtered per viewer', async () => {
+  const { helpCategory } = await import('../src/core/help.js');
+  const { buildViewerHelp } = await import('../src/modules/core/lib/help-menu.js');
+  const { buildCtx } = await import('../src/core/prefix/context.js');
+
+  const view = async (hasPerms, key) => {
     const message = fakeMessage({ perms: hasPerms });
     message.client.config = { prefix: '!' };
-    message.client.moduleList = moduleList;
-    const { buildCtx } = await import('../src/core/prefix/context.js');
-    await help.command.run(buildCtx(message, '!'), {});
-    return message.sent;
+    const model = buildViewerHelp(buildCtx(message, '!'), '!', HELP_MODULES);
+    return helpCategory(model, key);
   };
 
-  const memberView = await run(false);
-  const memberEmbed = memberView[0].embeds[0];
-  assert.match(memberEmbed.data?.title ?? memberEmbed.title, /Command Menu/);
-  const memberText = JSON.stringify(memberView.map((r) => r.embeds[0].toJSON?.() ?? r.embeds[0]));
-  assert.ok(memberText.includes('!radio-check'), 'public command visible');
-  assert.ok(!memberText.includes('!cite'), 'moderation hidden from regular members');
-  assert.ok(!memberText.includes('!update'), 'runtime-gated admin command hidden');
+  const adminMod = await view(true, 'moderation');
+  assert.match(JSON.stringify(adminMod.fields), /!cite/);
 
-  const adminText = JSON.stringify((await run(true)).map((r) => r.embeds[0].toJSON?.() ?? r.embeds[0]));
-  assert.ok(adminText.includes('!cite'), 'admins see moderation');
-  assert.ok(adminText.includes('!update'), 'admins see runtime-gated commands');
-  assert.ok(adminText.includes('Setup & Admin'), 'admin category present');
+  assert.equal(await view(false, 'moderation'), null, 'a member has no moderation view at all');
+
+  const memberInfo = await view(false, 'info');
+  assert.match(JSON.stringify(memberInfo.fields), /!radio-check/);
+  assert.doesNotMatch(JSON.stringify(memberInfo.fields), /!update/, 'runtime-gated stays hidden');
 });
 
 test('radio-check reports the text-command channel state (S26)', async () => {

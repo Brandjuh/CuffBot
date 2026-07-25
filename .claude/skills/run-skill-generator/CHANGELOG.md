@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.27 — 2026-07-25 (Session 98)
+
+- `references/architecture.md`: recorded the **non-originator press** rule for public component messages — three honest answers (update in place / answer privately / refuse visibly), chosen by whether the content is per-viewer, and never a silent mutation of someone else's message.
+- Evidence: S98 built the button help menu and had to answer this from scratch even though S95 had answered it for the patrol wizard weeks of sessions earlier. Help is permission-filtered per viewer, so a stranger's press must not edit the asker's message (it would rewrite what they are reading) and must not show them the asker's roster (it would leak which commands that member can use) — hence the private, keyed-to-them view. CuffBot now has four component features (trivia, patrol wizard, selfroles, help); two independent arrivals at the same question is what makes it worth writing down.
+
 ## 0.5.26 — 2026-07-25 (Session 97)
 
 - `references/architecture.md`: named the **published-post pattern** — a bot-owned message the bot edits in place — with its four hard parts (tracked id ARRAY, surplus deletion, re-post on a failed fetch, old-channel cleanup on a move) plus the per-guild lock.
