@@ -29,6 +29,7 @@ const MODULE_BADGES = {
   youtube: '📺',
   selfroles: '🎭',
   hunting: '🦹',
+  connect4: '🔴',
 };
 
 /**
@@ -119,6 +120,7 @@ export const COMMAND_CATEGORIES = {
   'crack-pot': 'games',
   'hunt-stats': 'games',
   'hunt-board': 'games',
+  connect4: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',

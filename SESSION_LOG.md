@@ -1219,3 +1219,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — state matched reality (de52cd0, 515/515 at session start). Discovered along the way: README had missed the S68 text-only sweep entirely (fixed here); `!claims collect:True` was documented but unparseable on the text path (fixed to the positional form until M17.3 converts claims itself).
 
 **Retrospective (no skill-file change; 1 LEARNINGS candidate):** the S69 architecture.md update proved itself immediately — this session followed the documented `{ group }` shape without re-derivation. New candidate recorded in LEARNINGS: conversion waves must sweep BOTH src strings and the manuals' live guidance (checklists/troubleshooting), where stale invocation forms actively mislead the owner — changelog rows are history and stay. Next: M16.3 (connect4, as a group) or M17.3 (the rest + legacy-path retirement).
+
+---
+
+## Session 71 — 2026-07-25
+
+**Goal:** M16.3 — Connect 4 (phen-cogs port), the first game to land in the finished group structure. Owner: "Ga gewoon verder" (full-auto).
+
+**Done:**
+- **Framework (small, needed by every game):** group `fallback` — a group may designate one sub to receive the WHOLE token list when the first token matches no subcommand, so `!connect4 @user` plays immediately instead of showing "unknown subcommand". Named subs always win; bare `!group` stays the overview; the loader boot-fails on a fallback that names no real sub.
+- **Module `connect4`** (survey-faithful): `!connect4 @officer` (alias `!c4`) → challenge embed pinging exactly the challenged member, Accept/Decline buttons, 60 s expiry (challenger can withdraw); accept converts the message into the 7×6 emoji board (header 1️⃣–7️⃣, ⚪🔴🔵) with 7 column buttons + Forfeit 🏳️; challenger first, alternating turns, in-place edits, 120 s inactivity forfeits the player on turn; ≥4 in any direction wins, full board ties. `!connect4 stats` = precinct scoreboard (played/ties, top-3 by wins with medals, your W/L/T). One game per channel, RAM-only (restart forfeits — trivia rule), stats persist (`connect4Stats`).
+- **Both upstream bugs fixed as planned in the S65 survey:** a full-column press is a quiet ephemeral refusal that does NOT consume the turn (the cog crashed unhandled); ties are persisted for the guild counter AND both players (the cog wrote a wrong key — its tie stat never moved).
+- Tests 528 → **541**: board rules (stacking, full/out-of-range refusal, all four win directions, no-false-positives incl. interrupted runs, render, full-board), service state machine (one-per-channel, turn order, stranger refusal, full-column keeps turn, win/tie), tie persistence, top-players ordering, group shape (public + fallback), play-sub refusal matrix + scoped challenge ping, stats/status rendering, and the framework fallback matrix in group.test.js.
+- Docs: manual `connect4.md` (template-complete), docs/README.md index row, root README (22 modules, 60 commands, table row), ROADMAP M16.3 ✔, core.md (fallback documented + changelog), STATE.md (bullet, framework note, resume point → M16.4 hangman).
+
+**Corrections (Step 2):** none — state matched reality (85f26df, 528/528 at session start).
+
+**Retrospective:** no skill change — third consecutive session running on the S65 survey + the group framework; the S71 fallback extension was anticipated by exactly the "game invocations" need the survey listed. The S70 LEARNINGS candidate (two-surface stale sweep) did not apply (new module, nothing renamed). Next: M16.4 hangman (gallows frames byte-for-byte from the cloned cog — re-clone FlameCogs if the scratchpad copy is gone).

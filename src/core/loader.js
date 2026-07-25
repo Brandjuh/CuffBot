@@ -25,6 +25,10 @@ export function validateGroup(mod, group) {
   if (group.aliases && !group.aliases.every((a) => typeof a === 'string' && a.length > 0)) {
     throw new Error(`Group "${group.name}" (module "${mod.name}") has a non-string alias.`);
   }
+  // S71: `fallback` routes unmatched first tokens into a designated sub.
+  if (group.fallback && !group.subcommands.some((s) => s?.name === group.fallback)) {
+    throw new Error(`Group "${group.name}" names fallback "${group.fallback}" but has no such subcommand.`);
+  }
   const seen = new Set();
   for (const sub of group.subcommands) {
     if (!sub?.name || !sub.description || typeof sub.run !== 'function') {

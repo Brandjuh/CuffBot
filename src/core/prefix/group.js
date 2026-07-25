@@ -176,9 +176,18 @@ export async function dispatchGroup(group, message, tokens, prefix) {
   };
 
   const subName = tokens[0]?.toLowerCase() ?? null;
-  const sub =
+  let sub =
     subName &&
     group.subcommands.find((s) => s.name === subName || (s.aliases ?? []).includes(subName));
+
+  // S71: a group may name a `fallback` sub that receives the WHOLE token list
+  // when the first token matches no subcommand — so game invocations read
+  // naturally (`!connect4 @user` = `!connect4 play @user`).
+  let subTokens = tokens.slice(1);
+  if (!sub && subName && group.fallback) {
+    sub = group.subcommands.find((s) => s.name === group.fallback);
+    if (sub) subTokens = tokens;
+  }
 
   if (!sub) {
     if (!hasPermission(ctx, group.permission)) {
@@ -204,7 +213,7 @@ export async function dispatchGroup(group, message, tokens, prefix) {
     return 'refused';
   }
 
-  const { values, errors } = await resolveSubArgs(message, sub, tokens.slice(1));
+  const { values, errors } = await resolveSubArgs(message, sub, subTokens);
   if (errors.length > 0) {
     await ctx.reply(`🚫 ${errors.join('; ')}\nUsage: \`${subUsage(prefix, group.name, sub)}\``);
     return 'usage-error';

@@ -259,6 +259,20 @@ test('a per-subcommand permission overrides the open group', async () => {
   assert.equal(await dispatchGroup(group, denied, ['volume', '3'], '!'), 'ran', 'open sub still runs');
 });
 
+test('a group fallback sub receives the whole token list (S71)', async () => {
+  const group = makeGroup({ fallback: 'volume' });
+  const message = fakeMessage();
+  assert.equal(await dispatchGroup(group, message, ['8'], '!'), 'ran');
+  assert.equal(message.sent[0].content, 'vol 8', '`!signal 8` routed into volume');
+
+  const named = fakeMessage();
+  assert.equal(await dispatchGroup(group, named, ['on'], '!'), 'ran');
+  assert.equal(named.sent[0].content, 'on!', 'a named sub still wins over the fallback');
+
+  const bare = fakeMessage();
+  assert.equal(await dispatchGroup(group, bare, [], '!'), 'overview', 'bare stays the overview');
+});
+
 test('a crashing run() answers the standard malfunction apology', async () => {
   const group = makeGroup();
   group.subcommands[0].run = async () => {

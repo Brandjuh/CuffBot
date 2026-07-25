@@ -19,6 +19,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | starboard | [`modules/starboard.md`](modules/starboard.md) | stable (S22) |
 | channellist | [`modules/channellist.md`](modules/channellist.md) | stable (S36) |
 | chat-starter | [`modules/chat-starter.md`](modules/chat-starter.md) | stable (S23) |
+| connect4 | [`modules/connect4.md`](modules/connect4.md) | stable (S71) |
 | logbook | [`modules/logbook.md`](modules/logbook.md) | stable (S35) |
 | welcome | [`modules/welcome.md`](modules/welcome.md) | stable (S35) |
 | economy | [`modules/economy.md`](modules/economy.md) | stable (S38) |

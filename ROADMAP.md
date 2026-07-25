@@ -69,7 +69,7 @@ The owner requested 12 new game modules ported from Red-DiscordBot cogs, plus tw
 
 **New games (scoping from the S65 survey; order = suggested build order, small → large):**
 
-- [ ] **M16.3 — Connect 4** 🔴🔵 *(phen-cogs/connect4; small)* — challenge → accept (60 s) → 7×6 emoji board with digit buttons, ≥4-run win scan, 120 s inactivity forfeit, guild stats + top-3 medals. Fixes over the cog: full-column click handled, tie stats persisted (wrong key upstream).
+- [x] **M16.3 — Connect 4** 🔴🔵 (S71, phen-cogs port) — `!connect4 @officer` (group, alias `!c4`, fallback sub `play`): challenge → accept (60 s) → 7×6 emoji board with digit buttons, ≥4-run win scan, 120 s inactivity forfeit, guild stats + top-3 medals (`!connect4 stats`). Both cog fixes shipped: full-column press politely refused (turn kept), ties actually persisted. Framework grew group `fallback` subs. Module `connect4`, manual `connect4.md`.
 - [ ] **M16.4 — Hangman** 🪢 *(FlameCogs/hangman; small)* — typed single-letter guesses (60 s each), 7-frame ASCII gallows copied byte-for-byte, 6 misses = loss, bundled 4,554-word list, edit-in-place mode.
 - [ ] **M16.5 — Russian roulette** 🔫 *(AAA3A; small)* — lobby (min 2/max 30, mod-start, 1 game per channel), shuffled turn order, 5 s Shoot button per turn (timeout = the bot shoots you), 90% self / 10% misfire-kills-random at the bullet, last alive wins.
 - [ ] **M16.6 — Split or Steal** 🤝 *(AAA3A; small)* — 60 s join window, two random joiners, secret Split/Steal buttons (60 s), classic matrix (both split = both win; both steal = both lose; else the stealer wins).
