@@ -1650,3 +1650,23 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Retrospective (skill 0.5.24 → 0.5.25):** architecture.md's module-pattern section described three command shapes; it now describes two, with the legacy paragraph replaced by one line of history so a future session does not go looking for an adapter that no longer exists. The rule earned this session is about **deletion**: a migration is not finished when the last caller is converted — it is finished when the scaffolding is gone, and the test-count going DOWN is the evidence. Recorded so a future large migration plans its slice D from the start instead of leaving a dead layer behind.
 
 **Handoff:** M18 (rules poster) is the next task; ROADMAP has its acceptance criteria. Ask the owner M20's channel-scope question when you get there, and bring M21 an options list rather than code.
+
+## Session 97 — 2026-07-25
+
+**Goal:** M18 — the rules poster, first of the owner's new batch. Chained straight on from S96.
+
+**Done:**
+- **Module `rules`.** The `!rules` group: `show` (public), `add`, `edit`, `remove`, `move`, `clear`, `channel`, `title`, `intro`, `outro`, `publish`, `preview`, `export`. Reading is open to everyone; every mutation is Manage Server.
+- **The published post is EDITED in place**, which is the whole feature: the precinct's rules keep one stable link instead of fragmenting across the channel. This is not new machinery — selfroles (S59/S64) solved the identical problem, so the publish loop reuses that shape: track the message ids, edit each in place, post what is missing, delete surplus pages when the rulebook shrinks, and clean up the old channel after a move so the precinct is never left with two rulebooks. A per-guild promise lock keeps two commands landing together from racing into duplicate posts.
+- **Numbering is positional, not stored.** Rule 2 is whatever sits second — which is what a rules list means (1..N, no gaps) and makes `remove` and `move` renumber for free. The surprising half is stated in the reply rather than left for the admin to discover: "Rule 2 removed — 6 left. Rules 2–6 moved up one."
+- **Pagination breaks only between rules**, never mid-rule, at 3800 characters against Discord's 4096 cap. The title sits on page one only and a `Page 2 of 3` footer appears once there is more than one, so a long rulebook reads as one document rather than N documents with the same name. A single rule longer than a page is emitted whole rather than silently truncated — I would rather Discord reject an oversized embed loudly than have the bot quietly eat half a rule.
+- Every published payload carries `allowedMentions: { parse: [] }`. Rule text is admin-supplied and gets re-posted on every edit, so an `@everyone` inside a rule must render as text and notify nobody.
+- Tests **769 → 790** (21 in `test/rules.test.js`). Manual, docs index and README updated; README's counts corrected to 33 modules / 72 commands (verified against the loader, not counted by hand).
+
+**Owner requests during the session:** two more arrived while this was building and are written into `ROADMAP.md` with acceptance criteria — **M22** (maintenance mode visible in the bot's *presence*, so nobody has to type anything to know) and **M23** (Connect4 solo mode against the bot). M23's note says the important part: the board, win detection and button pump already exist from S71, so the work is a pure `chooseMove(board, disc)` in `lib/` that can be tested with fixed boards, plus one entry point.
+
+**Corrections (Step 2/6):** none — S96's state matched reality. Two of my own test slips, both caught before shipping: I wrote a local `PermissionFlagsBits = { ManageGuild: 32n }` in the gate test, which would have passed even if the real constant changed, so it now imports the real one; and `fakeCtx(world, guildId)` took a parameter it never used.
+
+**Retrospective (skill 0.5.25 → 0.5.26):** the reusable idea here was not the rules feature but the **published-post pattern** — a bot-owned message the bot re-edits, with tracked ids, surplus deletion, hand-deletion recovery and channel-move cleanup. Two modules now implement it (selfroles S59/S64, rules S97) and a third is plausible any time the owner wants "one tidy post that stays current". Recorded in architecture.md as a named pattern with its four hard parts, so the next session recognises it instead of rediscovering it — the S97 build took minutes precisely because S64 had already found the edge cases.
+
+**Handoff:** M19 (help menu with category buttons) is next, then M22 (small), M20 (chat kill counter — needs one owner question) and M23. M21 (speech-to-text) still must not start without an owner decision on dependencies.

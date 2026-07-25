@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.26 — 2026-07-25 (Session 97)
+
+- `references/architecture.md`: named the **published-post pattern** — a bot-owned message the bot edits in place — with its four hard parts (tracked id ARRAY, surplus deletion, re-post on a failed fetch, old-channel cleanup on a move) plus the per-guild lock.
+- Evidence: S97 built the M18 rules publisher and found it was the same problem selfroles solved in S59/S64 — tracked ids, growing past one embed, a human deleting the bot's message, a channel move leaving two copies. Reusing that shape made the build minutes rather than a session, and each listed edge case exists because it bit once. A third instance is plausible any time the owner asks for "one tidy post that stays current", so the pattern is worth recognising rather than rediscovering.
+
 ## 0.5.25 — 2026-07-25 (Session 96)
 
 - `references/architecture.md` (Module pattern): the command-shape section now describes **two** shapes, not three — the legacy `{ data, execute }` paragraph is replaced by one line of history. Added the deletion rule: **a migration is not finished when the last caller is converted; it is finished when the scaffolding is gone**, and plan that final slice from the start.

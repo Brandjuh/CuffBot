@@ -40,6 +40,7 @@ const MODULE_BADGES = {
   hammertime: '⏰',
   heist: '💰',
   city: '🌃',
+  rules: '📜',
 };
 
 /**
@@ -141,6 +142,7 @@ export const COMMAND_CATEGORIES = {
   wordle: 'games',
   heist: 'games',
   crime: 'games',
+  rules: 'info',
   daily: 'games',
   claims: 'games',
   fine: 'fun',
