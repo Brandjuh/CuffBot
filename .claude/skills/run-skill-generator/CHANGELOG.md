@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.28 — 2026-07-25 (Session 99)
+
+- No rule added. Recording the confirmation instead: S99 built the chat kill counter — a feature whose entire substance is a 30-second timing rule — and the existing guidance carried it unchanged. Pure logic in `lib/` with an injected `now`, plus injectable timers, meant all 27 tests run instantly rather than a suite that would take minutes and flake. Those rules came from S73/S79/S81 (the io-injected game engine) and needed no adjustment for a non-game feature, which is evidence they generalised correctly.
+- Kept as an entry because SKILL.md is right that finding nothing is suspicious: the check ran, and this is the reason it came back empty.
+
 ## 0.5.27 — 2026-07-25 (Session 98)
 
 - `references/architecture.md`: recorded the **non-originator press** rule for public component messages — three honest answers (update in place / answer privately / refuse visibly), chosen by whether the content is per-viewer, and never a silent mutation of someone else's message.

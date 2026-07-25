@@ -41,6 +41,7 @@ const MODULE_BADGES = {
   heist: '💰',
   city: '🌃',
   rules: '📜',
+  killcounter: '💀',
 };
 
 /**
@@ -143,6 +144,7 @@ export const COMMAND_CATEGORIES = {
   heist: 'games',
   crime: 'games',
   rules: 'info',
+  killcounter: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',
