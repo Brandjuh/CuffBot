@@ -1,105 +1,87 @@
-import {
-  AttachmentBuilder,
-  MessageFlags,
-  PermissionFlagsBits,
-  SlashCommandBuilder,
-} from 'discord.js';
+// S94 (M17.3 slice B): converted to the flat { command } shape.
+//
+// The penalty used to be slash-only: two free-text fields cannot be split
+// positionally, and the adapter could make only ONE of them greedy. It is
+// reachable from text for the first time since S68 via the framework's
+// `name:value` keyword args (S94) — `!cite @x loud music penalty:FINAL
+// WARNING`.
+import { AttachmentBuilder, PermissionFlagsBits } from 'discord.js';
 import { renderCitationGif } from '../lib/citation-card.js';
-import { ensureInvokerPermission, ensureSensibleTarget } from '../guards.js';
+import { ensureSensibleTarget } from '../guards.js';
 import { addRecord } from '../../records/lib/api.js';
 import { logEnforcement } from '../../dispatch/lib/api.js';
 import { logger } from '../../../core/logger.js';
 
 export default {
-  data: new SlashCommandBuilder()
-    .setName('cite')
-    .setDescription('Issue a formal citation (warning) — delivered as a Papers-Please-style ticket.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-    .addUserOption((option) =>
-      option.setName('target').setDescription('Who receives the citation').setRequired(true),
-    )
-    .addStringOption((option) =>
-      option
-        .setName('reason')
-        .setDescription('The violation being cited')
-        .setRequired(true)
-        .setMaxLength(200),
-    )
-    .addStringOption((option) =>
-      option
-        .setName('penalty')
-        .setDescription('Penalty text on the ticket (default: OFFICIAL WARNING)')
-        .setMaxLength(100),
-    ),
-  // Text invocation: everything after the target is the reason (penalty is
-  // slash-only, since two free-text fields can't be split positionally).
-  textGreedyArg: 'reason',
-  async execute(interaction) {
-    if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ModerateMembers, 'Moderate Members'))) return;
-    const target = interaction.options.getUser('target', true);
-    if (!(await ensureSensibleTarget(interaction, target))) return;
+  command: {
+    name: 'cite',
+    description: 'Issue a formal citation (warning) — delivered as a Papers-Please-style ticket.',
+    emoji: '📋',
+    permission: PermissionFlagsBits.ModerateMembers,
+    args: [
+      { name: 'target', type: 'user', required: true },
+      { name: 'reason', type: 'string', required: true, greedy: true, maxLength: 300 },
+      { name: 'penalty', type: 'string', maxLength: 100 }, // penalty:FINAL WARNING
+    ],
+    async run(ctx, { target, reason, penalty }) {
+      if (!(await ensureSensibleTarget(ctx, target))) return;
 
-    const reason = interaction.options.getString('reason', true);
-    const penalty = interaction.options.getString('penalty') ?? undefined;
-
-    const { gif } = renderCitationGif({
-      to: target.displayName ?? target.username,
-      reason,
-      penalty,
-      officer: interaction.user.displayName ?? interaction.user.username,
-      date: new Date().toISOString().slice(0, 10),
-      badgeSeed: target.id,
-    });
-
-    // File the case before announcing it, so the reply can carry the number.
-    // Records being unavailable must never block a citation (see
-    // architecture.md → Cross-module calls).
-    let caseNumber = null;
-    try {
-      caseNumber = addRecord(interaction.guild.id, {
-        type: 'citation',
-        userId: target.id,
-        officerId: interaction.user.id,
+      const { gif } = renderCitationGif({
+        to: target.displayName ?? target.username,
         reason,
-        meta: penalty ? { penalty } : {},
-      }).caseNumber;
-    } catch (error) {
-      logger.warn('Records unavailable — citation not filed:', error);
-    }
-
-    await interaction.reply({
-      content: `📋 Citation issued to ${target}${caseNumber ? ` (Case #${caseNumber})` : ''}. Reason: ${reason}`,
-      files: [new AttachmentBuilder(gif, { name: 'citation.gif' })],
-      // Reason is user text — only let the target ping, never @everyone/roles.
-      allowedMentions: { users: [target.id] },
-    });
-
-    // Best-effort DM copy — closed DMs are common and not an error.
-    const dmDelivered = await target
-      .send({
-        content: `📋 You received a citation in **${interaction.guild.name}**.`,
-        files: [new AttachmentBuilder(gif, { name: 'citation.gif' })],
-      })
-      .then(() => true)
-      .catch(() => false);
-    if (!dmDelivered) {
-      await interaction.followUp({
-        content: '(No DM copy delivered — their DMs are closed.)',
-        flags: MessageFlags.Ephemeral,
-      }).catch(() => {});
-    }
-
-    try {
-      await logEnforcement(interaction.guild, {
-        type: 'citation',
-        subject: `${target}`,
-        officer: `${interaction.user}`,
-        reason,
-        caseNumber,
-        fields: penalty ? [{ name: 'Penalty', value: penalty, inline: true }] : [],
+        penalty,
+        officer: ctx.user.displayName ?? ctx.user.username,
+        date: new Date().toISOString().slice(0, 10),
+        badgeSeed: target.id,
       });
-    } catch (error) {
-      logger.warn('Evidence-locker log failed (citation):', error);
-    }
+
+      // File the case before announcing it, so the reply can carry the number.
+      // Records being unavailable must never block a citation (see
+      // architecture.md → Cross-module calls).
+      let caseNumber = null;
+      try {
+        caseNumber = addRecord(ctx.guild.id, {
+          type: 'citation',
+          userId: target.id,
+          officerId: ctx.user.id,
+          reason,
+          meta: penalty ? { penalty } : {},
+        }).caseNumber;
+      } catch (error) {
+        logger.warn('Records unavailable — citation not filed:', error);
+      }
+
+      await ctx.reply({
+        content: `📋 Citation issued to ${target}${caseNumber ? ` (Case #${caseNumber})` : ''}. Reason: ${reason}`,
+        files: [new AttachmentBuilder(gif, { name: 'citation.gif' })],
+        // Reason is user text — only let the target ping, never @everyone/roles.
+        allowedMentions: { users: [target.id] },
+      });
+
+      // Best-effort DM copy — closed DMs are common and not an error.
+      const dmDelivered = await target
+        .send({
+          content: `📋 You received a citation in **${ctx.guild.name}**.`,
+          files: [new AttachmentBuilder(gif, { name: 'citation.gif' })],
+        })
+        .then(() => true)
+        .catch(() => false);
+      if (!dmDelivered) {
+        await ctx.reply('(No DM copy delivered — their DMs are closed.)');
+      }
+
+      try {
+        await logEnforcement(ctx.guild, {
+          type: 'citation',
+          subject: `${target}`,
+          officer: `${ctx.user}`,
+          reason,
+          caseNumber,
+          fields: penalty ? [{ name: 'Penalty', value: penalty, inline: true }] : [],
+        });
+      } catch (error) {
+        logger.warn('Evidence-locker log failed (citation):', error);
+      }
+    },
   },
 };
