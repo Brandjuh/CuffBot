@@ -2,14 +2,14 @@
 
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
-**Status:** 🚧 staged port — **slices A+B+C landed (S87): playable, results announce themselves**
-**Last updated:** Session 87 · 2026-07-25
+**Status:** stable — **the staged port is complete (S85–S88)**
+**Last updated:** Session 88 · 2026-07-25
 
 ## Purpose
 
 The other side of the badge: Heist, ported from maxcogs/heist (owner request, S65 batch → M16.12) — a long-form crime economy where officers-turned-crooks run timed jobs, spend tools and shields, build police heat, land in jail, and grind materials into better gear across 120 levels.
 
-At 4,442 lines the cog is far too large for one session, so it lands in slices (the plan is in `ROADMAP.md`). **Slice A** (S85) built the rules engine, **slice B** (S86) added storage and the `!heist` command surface, and **slice C** (S87) made a finished job announce itself — including after a restart. What is left is slice D: the four-officer crew robbery and the owner-tunable job table.
+At 4,442 lines the cog was far too large for one session, so it landed in four: **A** (S85) the rules engine, **B** (S86) storage and the `!heist` surface, **C** (S87) the self-announcing scheduler, **D** (S88) crew robbery and the tunable job table. All four are in.
 
 ## Commands
 
@@ -31,27 +31,42 @@ At 4,442 lines the cog is far too large for one session, so it lands in slices (
 | `!heist craft [recipe]` | Bare lists all 28 recipes (✅ = affordable); with a name, crafts it |
 | `!heist bail [@member]` | Pay bail for yourself or someone else |
 | `!heist paydebt` | Pay down what you owe, as far as your balance reaches |
+| `!heist crew` | Organise a **4-officer crew robbery** (needs level 20) — a button lobby, 3 minutes to fill |
+| `!heist admin …` | **Manage Server:** tune the job table, item prices and payout events (see below) |
 | `!heist level [@member]` | Level, XP bar and the success bonus it buys |
 
 - **Running a job:** the gates fire in the cog's order — jail, then debt, then an already-running job, then the cooldown. Item and job names accept spaces or underscores (`bank drill` = `bank_drill`).
 - **The debt consent (deviation):** the cog popped a confirm button when your balance could not cover the job's worst case. The text-only version refuses once, explains that the shortfall becomes **debt + 20% tax**, and asks you to repeat the command with `confirm` — `!heist play bank confirm`.
 - **Results:** when the clock runs out the bot posts the cog's result card in the channel you started from — status line, a flavour line, the money or loot, shield/tool notes, any material drop, and on an arrest the jail clock plus bail — pinging exactly you. If that announcement can't happen (channel deleted, bot restarted at the wrong moment), the job stays pending and settles the next time you run **any** `!heist` command, so a result is never lost.
-- **Crew robbery** is recognised but refused with a pointer — it needs a four-officer lobby (slice D).
+- **Crew robbery** (`!heist crew`): only a level-20+ officer may organise one. The lobby holds exactly **4** and closes after 3 minutes; the organiser is in by default and cancels with ✖️ rather than leaving. Everyone is re-checked at launch — jailed, indebted or already-working officers block the start. Then **one shared success roll decides for the whole crew** (no tool boost, no level bonus — the cog's rule), the haul or the loss is drawn once and split `total ÷ 4`, each officer's own shield protects their own share, and **the police roll is per officer**, so some walk while others sit in a cell. One settlement covers all four: whoever's command or timer gets there first, everybody's result lands in the same card.
+
+### !heist admin (Manage Server)
+
+| Form | Does |
+|---|---|
+| `!heist admin show` | Every override in force, plus any running event |
+| `!heist admin set <job> <field> <value>` | Override one field — `minReward`, `maxReward`, `minSuccess`, `maxSuccess`, `policeChance`, `risk`, `cooldownMs`, `durationMs`, `jailMs` (the three time fields are typed in **seconds**) |
+| `!heist admin reset [job]` | Clear one job's overrides, or all of them |
+| `!heist admin price <item> <cost>` | Reprice a shop item (the cog's `get_item_cost`) |
+| `!heist admin event <2–5> [hours]` / `!heist admin event stop` | Multiply every payout for a window |
+
+Overrides are sparse: only what you set is stored, so improving a default later still reaches this precinct. Values are range-checked against the cog's `_PARAM_META` bounds.
 
 ## Events
 
 - `ClientReady` (once) — the boot catch-up: every stored job that was still running is re-armed, and every one whose clock ran out while the bot was down settles immediately.
+- `InteractionCreate` — the `hst:` crew-lobby pump (join / leave / begin / cancel).
 
 ## Configuration
 
-- `heistPlayers` in the guild store, keyed by member: `{ inventory, equipped {shield,tool}, heat, heatLastSet, materialHeat, debt, jail {endsAt,bail}, xp, stats {success,fail,caught}, cooldowns {job: startedAt}, activeHeist {type,endsAt,channelId,taxAgreed} }`.
-- No admin surface yet — the job table is the cog's, unmodified. Owner tuning lands in slice D.
+- `heistPlayers` in the guild store, keyed by member: `{ inventory, equipped {shield,tool}, heat, heatLastSet, materialHeat, debt, jail {endsAt,bail}, xp, stats {success,fail,caught}, cooldowns {job: startedAt}, activeHeist {type,endsAt,channelId,taxAgreed,crew?,leader?} }`.
+- `heistSettings`: `{ jobs: {job: {field: value}}, prices: {item: cost}, event: {multiplier, endsAt} }` — all sparse, all set through `!heist admin`.
 
 ## Permissions & safety
 
-- **Member permissions:** the whole game is public, like the cog.
+- **Member permissions:** the game is public, like the cog; only `!heist admin` is gated (Manage Server — the cog made it bot-owner-only, but a precinct admin is the right level here).
 - **Economy:** every payment goes through the economy module's `adjustBalance` seam with a lazy import and a try/catch (the S8 rule) — a disabled economy degrades the game instead of breaking it.
-- **Pings:** none; profiles and levels render mentions without notifying.
+- **Pings:** one scoped ping when your job lands (the whole crew on a crew job); everything else renders mentions without notifying.
 - **Storage:** per member, per guild. **A restart mid-job costs nothing:** timers live in RAM, but `activeHeist` (type, `endsAt`, `channelId`) is on disk, so boot re-arms the pending ones and settles the overdue ones. If even that fails, the lazy path still reports on the player's next command.
 
 ## How it works
@@ -68,6 +83,8 @@ At 4,442 lines the cog is far too large for one session, so it lands in slices (
 - `lib/flavour.js` — the cog's narration lines, verbatim (crew lines carried for slice D), plus its heat bar.
 - `service.js` (slice B) — the store layer and the gates: `getPlayer` (normalized, heat already decayed), `startHeist`, `settleActiveHeist` (runs the pure resolver, applies `nextState`, pays `balanceDelta`, clears the job), `buyItem`/`sellItem`/`equipItem`/`craftItem`, `payDebt`, `payBail`, plus `jailStatus`/`cooldownLeft`/`readyJobs`. **Deviation:** heat decay is computed at read time from `(heat, heatLastSet)` rather than written back on every read — same schedule (one point per two idle hours), but it spares the Pi's SD card and stops the decay depending on how often you look.
 - `commands/heist.js` — the group. Each of the cog's select-menu views became a named subcommand, and every command settles a finished job before doing anything else.
+- `lib/resolve.js → resolveCrewHeist` (slice D) — the crew's own pure resolver. Two differences from the solo path are load-bearing and preserved: the shared roll uses the raw drawn percentage (no tool or level bonus), and per officer the **police roll comes before the material drop** (a solo job does it the other way round), with crew drops always 1–2.
+- `events/buttons.js` — the crew lobby pump; the leader's record carries `crew` and `leader`, which is how four officers produce exactly one settlement.
 - `scheduler.js` (slice C) — `armHeistTimer` (unref'd, replaces any existing timer for that player so a job can never announce twice), `fireHeist` (settle → post → ping the owner), `rearmAllHeists` (the boot walk over stored players), `cancelHeistTimer`. **A missing channel means the job is deliberately NOT settled** — leaving the record intact is what keeps the outcome recoverable instead of vanishing into a dead channel.
 
 **Deviations recorded so far:** our economy has no maximum balance, so the cog's "balance already at maximum" branch is dropped. Everything else in slice A is faithful, *including float artifacts*: `trunc(1000 × (1 − 0.07))` is **929**, not 930, in both Python and here — the port preserves the expression, not the intent (see `.claude/skills/run-skill-generator/references/architecture.md`).
@@ -84,11 +101,13 @@ src/modules/heist/
   lib/flavour.js         the cog's narration lines + heat bar
   service.js             storage, gates, settlement, economy seam
   scheduler.js           job timers, announcement, boot re-arm
-  commands/heist.js      the !heist group and its result card
+  commands/heist.js      the !heist group, result cards, crew lobby, admin
   events/ready.js        boot catch-up hook
+  events/buttons.js      hst: crew lobby pump
 test/heist.test.js         fixture diff, table invariants, XP curve, resolver, crafting
 test/heist-service.test.js storage, gates, settlement, shop/sell/craft/bail, group shape
 test/heist-scheduler.test.js firing, arming, cancelling, boot catch-up
+test/heist-crew.test.js    crew resolver, lobby, one-settlement rule, admin tuning
 test/fixtures/heist-source-tables.json   the cog's tables, dumped from Python
 ```
 
@@ -105,6 +124,8 @@ test/fixtures/heist-source-tables.json   the cog's tables, dumped from Python
   4. `!heist shop` → `!heist buy crowbar` → `!heist equip crowbar` → `!heist atm_smash` → the start card names the tool bonus.
   5. Run jobs until materials drop, then `!heist craft` → craft whatever shows ✅.
   6. Get arrested → any `!heist play` refuses with the jail line → `!heist bail` frees you.
+  7. At level 20+: `!heist crew` → three colleagues press **Join Crew** → **Begin Heist** → one card lands for all four, and some of you may be in a cell while others are not.
+  8. `!heist admin set vending_machine durationMs 5` then `!heist vending_machine` → it lands in five seconds; `!heist admin reset` puts it back.
 
 ## Troubleshooting
 
@@ -120,6 +141,7 @@ test/fixtures/heist-source-tables.json   the cog's tables, dumped from Python
 
 | Session | Change |
 |---|---|
+| S88 | **Slice D — M16.12 complete**: crew robbery (level-20 organiser, 4-seat button lobby with a 3-minute clock, one shared success roll, haul split four ways, per-officer shields and police rolls, a single settlement driven by the leader's record) and the admin surface — `!heist admin show/set/reset/price/event` with the cog's range guards, sparse overrides layered over the ported defaults, item repricing, and payout events that finally make the resolver's `eventMultiplier` live. |
 | S87 | **Slice C**: the job scheduler — `armHeistTimer`/`fireHeist`/`cancelHeistTimer` plus a `ClientReady` boot catch-up that re-arms running jobs and settles the ones that finished while the bot was down. Results now announce themselves in the channel the job started from, pinging exactly the officer. A missing channel deliberately leaves the job unsettled so the lazy path can still report it; the lazy path cancels the armed timer so nothing reports twice. |
 | S86 | **Slice B**: storage (`heistPlayers`), the `!heist` group (play/jobs/shop/buy/equip/unequip/inventory/sell/craft/bail/paydebt/level — each of the cog's select views became a subcommand), the cog's gate order, the result card with its flavour lines, and the economy seam. A finished job settles lazily on the player's next command (the cog's own fallback). Deviations: a text `confirm` token replaces the debt-consent button; heat decays at read time instead of being rewritten on every read. |
 | S85 | Created (M16.12 **slice A**): the cog's 74 items / 28 recipes / 24 jobs transcribed verbatim and machine-diffed against the Python source (fixture committed so the check is permanent), the 120-level XP curve, the pure `resolveHeist` (tools, shields, debt + tax, heat, material pity counter, police roll, jail + bail, confiscation, XP) and crafting. No commands, events or storage yet — the manifest is empty on purpose. Corrections to the S65 survey: the cog has **24** jobs and **74** items, not 25 and ~75. |

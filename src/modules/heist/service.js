@@ -10,11 +10,13 @@ import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js
 import { logger } from '../../core/logger.js';
 import { HEISTS, ITEMS } from './lib/tables.js';
 import { craftPlan } from './lib/crafting.js';
-import { bailTotal, decayedHeat, defaultRng, resolveHeist } from './lib/resolve.js';
+import { bailTotal, decayedHeat, defaultRng, resolveCrewHeist, resolveHeist } from './lib/resolve.js';
 
 export const HEIST_PLAYERS_KEY = 'heistPlayers';
 
-export const CREW_LEVEL_REQUIREMENT = 20; // the cog's gate for crew_robbery (slice D)
+export const CREW_LEVEL_REQUIREMENT = 20; // the cog's gate to ORGANISE a crew
+export const CREW_SIZE = HEISTS.crew_robbery.crewSize; // 4
+export const CREW_LOBBY_TIMEOUT_MS = 180_000; // the cog's LOBBY_TIMEOUT
 
 const emptyPlayer = () => ({
   inventory: {},
@@ -111,17 +113,23 @@ export function jailStatus(player, now = Date.now()) {
   };
 }
 
-/** Milliseconds left on a job's cooldown (0 = ready). */
-export function cooldownLeft(player, heistType, now = Date.now()) {
+/** Milliseconds left on a job's cooldown (0 = ready). Pass `cooldownMs` to
+ * respect an admin override; omitting it uses the cog default. */
+export function cooldownLeft(player, heistType, now = Date.now(), cooldownMs = null) {
   const startedAt = player.cooldowns[heistType];
   if (!startedAt) return 0;
-  const cooldownMs = HEISTS[heistType]?.cooldownMs ?? 0;
-  return Math.max(0, startedAt + cooldownMs - now);
+  const window = cooldownMs ?? HEISTS[heistType]?.cooldownMs ?? 0;
+  return Math.max(0, startedAt + window - now);
 }
 
-/** Jobs a player can start right now (crew jobs are slice D, excluded here). */
-export function readyJobs(player, now = Date.now()) {
-  return Object.keys(HEISTS).filter((type) => !HEISTS[type].crewSize && cooldownLeft(player, type, now) === 0);
+/** Solo jobs a player can start right now (crew robbery has its own lobby).
+ * Pass `guildId` to measure against this precinct's tuned cooldowns. */
+export function readyJobs(player, now = Date.now(), guildId = null) {
+  return Object.keys(HEISTS).filter(
+    (type) =>
+      !HEISTS[type].crewSize &&
+      cooldownLeft(player, type, now, guildId ? getHeistSettings(guildId, type).cooldownMs : null) === 0,
+  );
 }
 
 // ── running a job ────────────────────────────────────────────────────────────
@@ -131,7 +139,7 @@ export function readyJobs(player, now = Date.now()) {
  * has already cleared the gates.
  */
 export function startHeist(guildId, userId, heistType, channelId, { taxAgreed = false, now = Date.now() } = {}) {
-  const heist = HEISTS[heistType];
+  const heist = getHeistSettings(guildId, heistType);
   const endsAt = now + heist.durationMs;
   updatePlayer(
     guildId,
@@ -160,7 +168,15 @@ export async function settleActiveHeist(guildId, userId, { now = Date.now(), rng
   const active = player.activeHeist;
   if (!active) return null;
   if (!force && now < active.endsAt) return null;
-  const heist = HEISTS[active.type];
+  // A crew job belongs to its leader: one settlement covers all four, so a
+  // member's own command delegates instead of resolving a second time.
+  if (active.crew) {
+    if (active.leader && active.leader !== userId) {
+      return settleCrewHeist(guildId, active.leader, { now, rng });
+    }
+    return settleCrewHeist(guildId, userId, { now, rng });
+  }
+  const heist = getHeistSettings(guildId, active.type);
   if (!heist) {
     updatePlayer(guildId, userId, (p) => ({ ...p, activeHeist: null }), now);
     return null;
@@ -208,7 +224,7 @@ export async function buyItem(guildId, userId, itemId, amount = 1, now = Date.no
   const item = ITEMS[itemId];
   if (!item || typeof item.cost !== 'number') return { ok: false, error: 'not-for-sale' };
   if (!Number.isInteger(amount) || amount < 1 || amount > 100) return { ok: false, error: 'bad-amount' };
-  const cost = item.cost * amount;
+  const cost = getItemCost(guildId, itemId) * amount;
   const balance = await heistBalance(guildId, userId);
   if (balance < cost) return { ok: false, error: 'poor', need: cost, have: balance };
   await heistAdjustBalance(guildId, userId, -cost);
@@ -311,4 +327,238 @@ export async function payBail(guildId, payerId, jailedId, now = Date.now()) {
   await heistAdjustBalance(guildId, payerId, -status.total);
   updatePlayer(guildId, jailedId, (current) => ({ ...current, jail: null, heat: 0, materialHeat: 0, heatLastSet: now }), now);
   return { ok: true, total: status.total };
+}
+
+// ── admin-tunable job table + events (S88 = slice D) ─────────────────────────
+
+export const HEIST_SETTINGS_KEY = 'heistSettings'; // { jobs: {type: {field: value}}, prices: {item: cost}, event: {multiplier, endsAt} }
+
+/** Fields an admin may override, with the cog's `_PARAM_META` ranges. */
+export const TUNABLE_FIELDS = {
+  minReward: { label: 'Min reward', min: 0, max: 100_000_000 },
+  maxReward: { label: 'Max reward', min: 0, max: 100_000_000 },
+  minSuccess: { label: 'Min success %', min: 0, max: 100 },
+  maxSuccess: { label: 'Max success %', min: 0, max: 100 },
+  policeChance: { label: 'Police chance (0–1)', min: 0, max: 1, float: true },
+  risk: { label: 'Risk (0–1)', min: 0, max: 1, float: true },
+  cooldownMs: { label: 'Cooldown (seconds)', min: 0, max: 604_800, seconds: true },
+  durationMs: { label: 'Duration (seconds)', min: 5, max: 86_400, seconds: true },
+  jailMs: { label: 'Jail time (seconds)', min: 0, max: 604_800, seconds: true },
+};
+
+const rawSettings = (guildId) => getGuildData(guildId, HEIST_SETTINGS_KEY, {});
+
+/** One job's live settings: the cog's defaults with this guild's overrides on top. */
+export function getHeistSettings(guildId, heistType) {
+  const base = HEISTS[heistType];
+  if (!base) return null;
+  return { ...base, ...(rawSettings(guildId).jobs?.[heistType] ?? {}) };
+}
+
+/** @returns {{ok:true, value:number}|{ok:false, error:string, min?:number, max?:number}} */
+export function setHeistOverride(guildId, heistType, field, rawValue) {
+  if (!HEISTS[heistType]) return { ok: false, error: 'unknown-job' };
+  const spec = TUNABLE_FIELDS[field];
+  if (!spec) return { ok: false, error: 'unknown-field' };
+  const parsed = spec.float ? Number(rawValue) : Number.parseInt(rawValue, 10);
+  if (!Number.isFinite(parsed)) return { ok: false, error: 'not-a-number' };
+  if (parsed < spec.min || parsed > spec.max) return { ok: false, error: 'out-of-range', min: spec.min, max: spec.max };
+  // Time fields are typed in seconds and stored in milliseconds.
+  const value = spec.seconds ? parsed * 1000 : parsed;
+  updateGuildData(
+    guildId,
+    HEIST_SETTINGS_KEY,
+    (all) => ({
+      ...all,
+      jobs: { ...(all.jobs ?? {}), [heistType]: { ...(all.jobs?.[heistType] ?? {}), [field]: value } },
+    }),
+    {},
+  );
+  return { ok: true, value };
+}
+
+/** Drop overrides for one job, or for every job when `heistType` is null. */
+export function resetHeistOverrides(guildId, heistType = null) {
+  let cleared = 0;
+  updateGuildData(
+    guildId,
+    HEIST_SETTINGS_KEY,
+    (all) => {
+      const jobs = { ...(all.jobs ?? {}) };
+      if (heistType) {
+        cleared = jobs[heistType] ? Object.keys(jobs[heistType]).length : 0;
+        delete jobs[heistType];
+      } else {
+        cleared = Object.values(jobs).reduce((n, fields) => n + Object.keys(fields).length, 0);
+        for (const key of Object.keys(jobs)) delete jobs[key];
+      }
+      return { ...all, jobs };
+    },
+    {},
+  );
+  return cleared;
+}
+
+/** Every override currently in force, for the admin overview. */
+export function listHeistOverrides(guildId) {
+  return rawSettings(guildId).jobs ?? {};
+}
+
+/** An item's price with the guild's override applied (the cog's get_item_cost). */
+export function getItemCost(guildId, itemId) {
+  const override = rawSettings(guildId).prices?.[itemId];
+  return typeof override === 'number' ? override : ITEMS[itemId]?.cost;
+}
+
+export function setItemPrice(guildId, itemId, cost) {
+  const item = ITEMS[itemId];
+  if (!item || typeof item.cost !== 'number') return { ok: false, error: 'not-for-sale' };
+  if (!Number.isInteger(cost) || cost < 0 || cost > 10_000_000) return { ok: false, error: 'out-of-range' };
+  updateGuildData(guildId, HEIST_SETTINGS_KEY, (all) => ({ ...all, prices: { ...(all.prices ?? {}), [itemId]: cost } }), {});
+  return { ok: true, cost };
+}
+
+/**
+ * The reward multiplier of a running event (the cog's `get_event_multiplier`).
+ * An expired event simply reads as 1 — nothing to clean up.
+ */
+export function eventMultiplier(guildId, now = Date.now()) {
+  const event = rawSettings(guildId).event;
+  if (!event || now > event.endsAt) return 1;
+  return event.multiplier;
+}
+
+export function startHeistEvent(guildId, multiplier, hours, now = Date.now()) {
+  if (!Number.isInteger(multiplier) || multiplier < 2 || multiplier > 5) return { ok: false, error: 'bad-multiplier' };
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 168) return { ok: false, error: 'bad-duration' };
+  const endsAt = now + hours * 3_600_000;
+  updateGuildData(guildId, HEIST_SETTINGS_KEY, (all) => ({ ...all, event: { multiplier, endsAt } }), {});
+  return { ok: true, endsAt };
+}
+
+export function stopHeistEvent(guildId) {
+  updateGuildData(guildId, HEIST_SETTINGS_KEY, (all) => ({ ...all, event: null }), {});
+}
+
+// ── crew robbery (S88 = slice D) ─────────────────────────────────────────────
+
+const crewLobbies = new Map(); // channelId → lobby
+
+let crewSeq = 0;
+
+export const getCrewLobby = (channelId) => crewLobbies.get(channelId) ?? null;
+
+export function createCrewLobby(channelId, guildId, hostId) {
+  if (crewLobbies.has(channelId)) return { error: 'busy' };
+  crewSeq += 1;
+  const lobby = {
+    id: `${Date.now().toString(36)}-${crewSeq}`,
+    channelId,
+    guildId,
+    hostId,
+    members: [hostId], // the organiser is in by definition (cog behavior)
+    message: null,
+    timer: null,
+  };
+  crewLobbies.set(channelId, lobby);
+  return { lobby };
+}
+
+export function joinCrewLobby(lobby, userId) {
+  if (lobby.members.includes(userId)) return 'already';
+  if (lobby.members.length >= CREW_SIZE) return 'full';
+  lobby.members.push(userId);
+  return 'joined';
+}
+
+export function leaveCrewLobby(lobby, userId) {
+  if (userId === lobby.hostId) return 'organiser';
+  const index = lobby.members.indexOf(userId);
+  if (index === -1) return 'not-joined';
+  lobby.members.splice(index, 1);
+  return 'left';
+}
+
+export function closeCrewLobby(channelId) {
+  const lobby = crewLobbies.get(channelId);
+  if (lobby?.timer) clearTimeout(lobby.timer);
+  crewLobbies.delete(channelId);
+  return lobby ?? null;
+}
+
+/** Arm the cog's 3-minute lobby expiry. */
+export function armCrewLobbyTimer(lobby, callback, ms = CREW_LOBBY_TIMEOUT_MS) {
+  if (lobby.timer) clearTimeout(lobby.timer);
+  lobby.timer = setTimeout(callback, ms);
+  lobby.timer.unref?.();
+}
+
+/** Test seam. */
+export function clearAllCrewLobbies() {
+  for (const channelId of [...crewLobbies.keys()]) closeCrewLobby(channelId);
+}
+
+/**
+ * Send the crew on the job: every member gets the same activeHeist record,
+ * tagged with the crew and its leader so only ONE settlement runs.
+ */
+export function startCrewHeist(guildId, memberIds, channelId, { now = Date.now() } = {}) {
+  const heist = getHeistSettings(guildId, 'crew_robbery');
+  const endsAt = now + heist.durationMs;
+  const leader = memberIds[0];
+  for (const userId of memberIds) {
+    updatePlayer(
+      guildId,
+      userId,
+      (player) => ({
+        ...player,
+        cooldowns: { ...player.cooldowns, crew_robbery: now },
+        activeHeist: { type: 'crew_robbery', endsAt, channelId, taxAgreed: false, crew: [...memberIds], leader },
+      }),
+      now,
+    );
+  }
+  return { endsAt, leader };
+}
+
+/**
+ * Settle a whole crew at once. Only the leader's record drives this; the
+ * other members' records are cleared in the same pass.
+ */
+export async function settleCrewHeist(guildId, leaderId, { now = Date.now(), rng = defaultRng } = {}) {
+  const leaderPlayer = getPlayer(guildId, leaderId, now);
+  const active = leaderPlayer.activeHeist;
+  if (!active?.crew) return null;
+  if (now < active.endsAt) return null;
+
+  const heist = getHeistSettings(guildId, 'crew_robbery');
+  const members = [];
+  for (const userId of active.crew) {
+    // eslint-disable-next-line no-await-in-loop -- four members, one settlement
+    const balance = await heistBalance(guildId, userId);
+    members.push({ userId, player: getPlayer(guildId, userId, now), balance, taxAgreed: false });
+  }
+
+  const outcome = resolveCrewHeist(
+    { heistType: 'crew_robbery', heist, members, eventMultiplier: eventMultiplier(guildId, now), now },
+    rng,
+  );
+
+  for (const result of outcome.members) {
+    // eslint-disable-next-line no-await-in-loop -- four members, one settlement
+    await heistAdjustBalance(guildId, result.userId, result.balanceDelta);
+    updatePlayer(
+      guildId,
+      result.userId,
+      (current) => ({
+        ...current,
+        ...result.nextState,
+        cooldowns: current.cooldowns,
+        jail: result.jail ? { endsAt: result.jail.endsAt, bail: result.jail.bail } : current.jail,
+        activeHeist: null,
+      }),
+      now,
+    );
+  }
+  return { ...outcome, channelId: active.channelId };
 }
