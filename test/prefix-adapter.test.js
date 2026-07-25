@@ -1,10 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MessageFlags } from 'discord.js';
+import { ChannelType, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import detain from '../src/modules/enforcement/commands/detain.js';
 import rankExclude from '../src/modules/academy/commands/rank-exclude.js';
 import { createMessageInteraction } from '../src/core/prefix/adapter.js';
 import { parseCommandLine } from '../src/core/prefix/parse.js';
+
+// Synthetic legacy command with a typed channel option (S70: the real config
+// commands became groups, which never pass through this adapter).
+const postTarget = {
+  data: new SlashCommandBuilder()
+    .setName('post-target')
+    .setDescription('adapter fixture')
+    .addChannelOption((o) =>
+      o
+        .setName('announce')
+        .setDescription('x')
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
+    ),
+  execute: async () => {},
+};
 
 const TARGET_ID = '411157175948541954';
 
@@ -112,38 +127,34 @@ test('adapter resolves a role option from a mention (non-trailing)', async () =>
 });
 
 test('adapter rejects a channel of the wrong type per addChannelTypes (audit S16 #5)', async () => {
-  const { default: xpConfig } = await import('../src/modules/leveling/commands/xp-config.js');
   const CHAN = '666000000000000666';
-  // !xp-config enabled sync msg-xp voice-xp cooldown announce — six positional args.
-  const { message } = fakeMessage(`!xp-config true true 15 10 60 <#${CHAN}>`);
+  const { message } = fakeMessage(`!post-target <#${CHAN}>`);
   const category = { id: CHAN, type: 4, name: 'A Category' }; // GuildCategory
   message.guild.channels = { cache: new Map([[CHAN, category]]), fetch: async () => category };
   const parsed = parseCommandLine(message.content, '!');
-  const { errors, interaction } = await createMessageInteraction(message, xpConfig, parsed);
+  const { errors, interaction } = await createMessageInteraction(message, postTarget, parsed);
   assert.equal(interaction, null);
   assert.ok(errors.some((e) => /must be a text or announcement channel/.test(e)), `got: ${errors}`);
 });
 
 test('adapter accepts a text channel where addChannelTypes allows it', async () => {
-  const { default: xpConfig } = await import('../src/modules/leveling/commands/xp-config.js');
   const CHAN = '666000000000000667';
-  const { message } = fakeMessage(`!xp-config true true 15 10 60 <#${CHAN}>`);
+  const { message } = fakeMessage(`!post-target <#${CHAN}>`);
   const text = { id: CHAN, type: 0, name: 'announcements' }; // GuildText
   message.guild.channels = { cache: new Map([[CHAN, text]]), fetch: async () => text };
   const parsed = parseCommandLine(message.content, '!');
-  const { errors, interaction } = await createMessageInteraction(message, xpConfig, parsed);
+  const { errors, interaction } = await createMessageInteraction(message, postTarget, parsed);
   assert.deepEqual(errors, []);
   assert.equal(interaction.options.getChannel('announce').id, CHAN);
 });
 
 test('adapter accepts an Announcement (news) channel as a post target (S55)', async () => {
-  const { default: xpConfig } = await import('../src/modules/leveling/commands/xp-config.js');
   const CHAN = '411629357082345472'; // the owner's channel that started S55
-  const { message } = fakeMessage(`!xp-config true true 15 10 60 <#${CHAN}>`);
+  const { message } = fakeMessage(`!post-target <#${CHAN}>`);
   const news = { id: CHAN, type: 5, name: 'server-news' }; // GuildAnnouncement
   message.guild.channels = { cache: new Map([[CHAN, news]]), fetch: async () => news };
   const parsed = parseCommandLine(message.content, '!');
-  const { errors, interaction } = await createMessageInteraction(message, xpConfig, parsed);
+  const { errors, interaction } = await createMessageInteraction(message, postTarget, parsed);
   assert.deepEqual(errors, []);
   assert.equal(interaction.options.getChannel('announce').id, CHAN);
 });

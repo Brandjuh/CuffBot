@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Purpose** | Owner request (S34): "ik wil alles loggen" — log everything Discord exposes |
-| **Commands** | `/logbook` (admin) — also as `!logbook` |
+| **Commands** | `!logbook` group (admin; S70) |
 | **Events** | 19 handlers across messages / members / moderation / voice / server / invites |
 | **Data** | `logbookConfig` (enabled, per-category channels + booleans, optional single-channel override) in the guild store |
 | **Default channels** | The owner's live log channels, committed per category (S35) — table below; overrides win |
@@ -15,12 +15,19 @@
 
 ## Commands
 
-### /logbook (admin — Manage Server)
+### !logbook (admin — Manage Server; S70 group command)
 
-- **Options:** `enabled` (master switch), `channel` (ONE channel for every category — overrides the per-category defaults), one boolean per category (`messages` … `invites`), and one channel per category (`messages-channel` … `invites-channel`). None given = status view showing where each category lands.
+Bare `!logbook` = the status view showing every toggle + target channel (and an intent warning when member events are invisible). Subcommands:
+
+| Subcommand | Does |
+|---|---|
+| `!logbook on` / `!logbook off` | Master switch for all logging |
+| `!logbook toggle <category> <on\|off>` | One category on/off (`messages`, `members`, `moderation`, `voice`, `server`, `invites`) |
+| `!logbook route <category> <#channel>` | Send one category to its own channel |
+| `!logbook channel <#channel>` | ONE channel for every category (overrides the per-category defaults) |
+
 - **All categories default ON** and the owner's live log channels are committed per-category defaults (S35) — the logbook works the moment the bot updates, zero setup.
-- **Channel precedence per category:** explicit `<category>-channel:` → explicit `channel:` (single-channel override) → committed default.
-- The status embed shows every toggle + target channel and warns when the Server Members Intent is off (member events invisible).
+- **Channel precedence per category:** explicit `route` target → explicit `channel` (single-channel override) → committed default.
 
 ## What gets logged
 
@@ -70,3 +77,4 @@
 | S34 | Created: six-category server logging with per-category toggles, honest partials, no-recursion guard, intent-aware status. |
 | S35 | Owner's four log channels committed as per-category defaults (voice→Member logs, invites→Server logs); per-category `…-channel` overrides + single-channel override; recursion guard covers every log channel. |
 | S55 | Log-channel pickers accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
+| S70 | Converted to a Red-style group (M17.2): `!logbook on/off`, `toggle <category> <on|off>`, `route <category> <#channel>`, `channel <#channel>` — replaces the 14-option flat command. |

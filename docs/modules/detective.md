@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Purpose** | AI conversation (owner request, M9): members can ask the bot questions and get real answers |
-| **Commands** | `/ask` (everyone), `/ai-config` (admin) — both also as `!ask` / `!ai-config` |
+| **Commands** | `!ask` (everyone), `!ai` group (admin, S70; alias `!ai-config`) |
 | **Events** | `MessageCreate` — replies when the bot is @mentioned (needs Message Content intent) |
 | **Provider** | Groq (`GROQ_API_KEY`) or Google Gemini (`GEMINI_API_KEY`) — free tiers; picked automatically by which key exists |
 | **Rate limit** | **Server-wide, everyone combined:** 1 question / 7 s **and** 62 / rolling hour (owner spec) **and** the provider's free-tier caps (owner dashboards): requests/day (Gemini 20, Groq 14 400 — `CUFFBOT_AI_DAILY_LIMIT` overrides) **and (S33) estimated tokens** — Groq: 6 K/min + 500 K/day; Gemini: 250 K/min. Tokens are estimated at ~4 chars each with the 400-token output reserved, checked BEFORE any call |
@@ -24,7 +24,7 @@
    GROQ_API_KEY=gsk_...        # or: GEMINI_API_KEY=...
    ```
 3. `sudo systemctl restart cuffbot`
-4. `/ai-config` must show the provider and model. Done.
+4. `!ai` must show the provider and model. Done.
 
 Without a key everything else keeps working; AI commands reply "not configured". Optional env overrides: `CUFFBOT_AI_PROVIDER` (`groq`/`gemini`, when both keys exist), `CUFFBOT_AI_MODEL` (defaults: `llama-3.1-8b-instant` / **`gemini-2.5-flash-lite`** — owner decision S27), and `CUFFBOT_AI_DAILY_LIMIT` (bot-side daily cap protecting the provider's RPD quota; defaults gemini 20, groq 14 400 — its free-tier RPD, recorded S28; the 7 s cooldown already keeps RPM far under both providers' limits).
 
@@ -37,10 +37,15 @@ Without a key everything else keeps working; AI commands reply "not configured".
 - **Reply:** public `🕵️ <answer>`. **Rate-limited questions are not lost (S29, owner request):** a cooldown- or hourly-refused question is **parked on the desk pile** — the reply tells a little story ("The detective is mid-interrogation — two suspects, one donut…") plus your case number and ETA, and the answer arrives **automatically** in the same channel (pinging you, echoing your question) as soon as budget frees up. Nobody retypes anything. Pile rules: max 5 parked cases, one per member (a newer question replaces your parked one), waits ≤ 1 h only. **Daily**-budget refusals don't park (an answer half a day later helps nobody): "Come back tomorrow, officer." A provider-side HTTP 429 gets its own "free-tier quota tapped out" message.
 - **Failure modes:** provider/network error → "phone line dropped" message (logged with the real error in `journalctl`); never a crash, never a hanging "thinking…".
 
-### /ai-config (admin — Manage Server)
+### !ai (admin — Manage Server; S70 group command, alias `!ai-config`)
 
-- **Options:** `enabled` (bool, optional; omit to view).
-- **Reply (ephemeral; in-channel no-ping reply for `!ai-config` — S54):** enabled, detected provider + model (⚠️ warning when keyless), the rate limit (hour + day), questions used this hour/today, the desk-pile size, and the conversation-memory settings.
+Bare `!ai` = the status view: enabled, detected provider + model (⚠️ warning when keyless), the rate limit (hour + day), questions used this hour/today, the desk-pile size, and the conversation-memory settings. Subcommands:
+
+| Subcommand | Does |
+|---|---|
+| `!ai on` / `!ai off` | Detective on/off duty |
+| `!ai channel <#channel>` | The ONLY channel where !ask and mention-replies work (S51) |
+| `!ai everywhere` | Lift the channel restriction |
 
 ## Mention replies
 
@@ -65,32 +70,32 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 ## Testing
 
 - `test/detective-lib.test.js` — limiter (7 s edge, 62-cap, rolling-window aging, usage), prompt (trim/cut/TTL/name-folding/`@everyone` neutering), providers against **fake fetch** (request shape, auth headers, role mapping, HTTP + malformed-body errors), `pickProvider` matrix.
-- `test/detective-commands.test.js` — pipeline happy path incl. conversation memory across calls, keyless/config/disabled/empty/cooldown/provider-error branches, `/ask` defer→edit, `/ai-config` toggle+status, mention stripping, mention-event gates (@everyone, no-mention, missing intent, bots, prefix collision).
+- `test/detective-commands.test.js` — pipeline happy path incl. conversation memory across calls, keyless/config/disabled/empty/cooldown/provider-error branches, `/ask` defer→edit, the `!ai` group's off-toggle + status, mention stripping, mention-event gates (@everyone, no-mention, missing intent, bots, prefix collision).
 - **No test ever touches the network**; ambient `GROQ_API_KEY`/`GEMINI_API_KEY` are deleted at suite start so results are machine-independent.
 - **Manual (live server) checklist:**
-  1. Without a key: `/ask question: test` → "not configured" message. `/ai-config` shows ⚠️ none.
-  2. Add the key, restart, `/ai-config` → provider + model shown.
+  1. Without a key: `!ask test` → "not configured" message. `!ai` shows ⚠️ none.
+  2. Add the key, restart, `!ai` → provider + model shown.
   3. `/ask question: wat is een 10-4?` → Dutch answer, in character.
   4. `@Cuffbot hoe werkt een portofoon?` → channel reply.
   5. Ask twice within 7 s (second person) → cooldown refusal mentioning ~seconds.
   6. `!ask does the text path work` → same behavior as slash.
   7. Follow-up question in the same channel → the answer shows it remembered the previous exchange.
-  8. `/ai-config enabled:False` → "off duty" refusals; `enabled:True` restores.
+  8. `!ai off` → "off duty" refusals; `!ai on` restores.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| "No AI provider is configured" | Key missing/typo'd in `.env`, or not restarted | Check `.env` line, `sudo systemctl restart cuffbot`, `/ai-config` |
+| "No AI provider is configured" | Key missing/typo'd in `.env`, or not restarted | Check `.env` line, `sudo systemctl restart cuffbot`, `!ai` |
 | "phone line dropped" every time | Invalid/revoked key, provider outage, or model name typo | `journalctl -u cuffbot -n 50` shows the real HTTP error; regenerate the key or unset `CUFFBOT_AI_MODEL` |
 | Mentioning the bot does nothing | Message Content intent off | `/ask` still works; enable the intent (see `operations/raspberry-pi.md`) and restart |
-| Constant hourly-budget refusals | 62/h is genuinely spent, or a member is farming | It resets on a rolling hour; `/ai-config` shows usage. Limits are owner-spec — changing them is a code change (`lib/ratelimit.js DEFAULT_LIMITS`) |
+| Constant hourly-budget refusals | 62/h is genuinely spent, or a member is farming | It resets on a rolling hour; `!ai` shows usage. Limits are owner-spec — changing them is a code change (`lib/ratelimit.js DEFAULT_LIMITS`) |
 | Answers in the wrong language | Model quirk | Re-ask explicitly ("antwoord in het Nederlands") — the persona already requests the asker's language |
 
 ## The detective's desk (S51)
 
 - The AI only answers in **one channel** — committed default `412354971170897921` (owner decision). `/ask` elsewhere gets an ephemeral redirect (in-channel no-ping reply on the `!` path); a bot-mention elsewhere gets a short pointer ("You'll find my desk in #…") **without spending any AI budget**.
-- Change the desk with `/ai-config channel:#other`; lift the restriction entirely with `/ai-config everywhere:True`. The status embed shows the current desk.
+- Change the desk with `!ai channel #other`; lift the restriction entirely with `!ai everywhere`. The status view shows the current desk.
 - The desk-pile flusher is unaffected: questions can only enter the pile from the desk, so parked answers always land there too.
 
 ## Changelog
@@ -103,3 +108,4 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 | S33 | Token budgets enforced (owner's Groq dashboard: RPM 30 / RPD 14.4K / TPM 6K / TPD 500K): estimated-token windows in the limiter (minute + day), token-aware history trimming, `/ai-config` shows token usage. Token-day refusals don't park. |
 | S51 | The detective answers only at his desk: channel `412354971170897921` (committed default; `/ai-config channel:`/`everywhere:` override). Mentions elsewhere get a budget-free pointer. |
 | S55 | `/ai-config` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
+| S70 | `/ai-config` became the `!ai` group (M17.2; alias `!ai-config`): on/off, channel, everywhere; bare `!ai` = the full status view. |

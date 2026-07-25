@@ -43,12 +43,35 @@ test('every command is a well-formed group or legacy data/execute command', asyn
   }
 });
 
-test('command names are unique across all modules', async () => {
+test('command names and group aliases are unique across all modules', async () => {
   const modules = await discoverModules();
   const names = modules.flatMap((mod) =>
-    mod.commands.map((cmd) => cmd.group?.name ?? cmd.data.name),
+    mod.commands.flatMap((cmd) =>
+      cmd.group ? [cmd.group.name, ...(cmd.group.aliases ?? [])] : [cmd.data.name],
+    ),
   );
   assert.equal(new Set(names).size, names.length, `duplicate command names in: ${names}`);
+});
+
+test('group aliases resolve to the same command as the primary name (S70)', async () => {
+  const { loadModules } = await import('../src/core/loader.js');
+  const client = { on: () => {}, once: () => {} };
+  await loadModules(client);
+  for (const [alias, primary] of [
+    ['memorial-config', 'memorial'],
+    ['economy-config', 'economy'],
+    ['xp-config', 'xp'],
+    ['ai-config', 'ai'],
+    ['birthday-config', 'birthday'],
+    ['chat-starter-config', 'chat-starter'],
+    ['starboard-config', 'starboard'],
+    ['welcome-config', 'welcome'],
+    ['channel-list-config', 'channel-list'],
+  ]) {
+    const viaAlias = client.commands.get(alias);
+    assert.ok(viaAlias, `alias "${alias}" is registered`);
+    assert.equal(viaAlias, client.commands.get(primary), `"${alias}" reaches !${primary}`);
+  }
 });
 
 test('every event has a name and an execute function', async () => {

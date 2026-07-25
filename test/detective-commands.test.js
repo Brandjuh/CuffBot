@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { askDetective, forgetAllConversations, setAiConfig } from '../src/modules/detective/service.js';
 import ask from '../src/modules/detective/commands/ask.js';
-import aiConfig from '../src/modules/detective/commands/ai-config.js';
+import aiConfig from '../src/modules/detective/commands/ai.js';
 import mentionReply, { stripBotMention } from '../src/modules/detective/events/mention-reply.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-detective-'));
@@ -138,18 +138,15 @@ test('/ask defers, then edits in the pipeline result', async () => {
   assert.deepEqual(state.edited.allowedMentions, { parse: [] });
 });
 
-test('/ai-config toggles the switch and reports status', async () => {
+test('the !ai group (S70) toggles the switch and reports status', async () => {
   const guildId = freshGuildId();
+  const group = aiConfig.group;
+  assert.equal(group.name, 'ai');
+  assert.ok(group.aliases.includes('ai-config'), 'the retired name stays as an alias');
   const replies = [];
-  const ix = (enabled) => ({
-    guild: { id: guildId },
-    memberPermissions: { has: () => true },
-    options: { getBoolean: () => enabled, getChannel: () => null },
-    reply: async (p) => replies.push(p),
-  });
-  await aiConfig.execute(ix(false));
-  await aiConfig.execute(ix(null)); // view
-  const desc = replies[1].embeds[0].toJSON().description;
+  const ctx = { guild: { id: guildId }, prefix: '!', reply: async (p) => replies.push(p) };
+  await group.subcommands.find((s) => s.name === 'off').run(ctx);
+  const desc = group.status(ctx).join('\n');
   assert.match(desc, /\*\*Enabled:\*\* no/);
   assert.match(desc, /1 question \/ 7 s · max 62 \/ hour/);
   assert.match(desc, /⚠️ none/, 'keyless environment shows the provider warning');

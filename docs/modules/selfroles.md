@@ -11,10 +11,19 @@ Owner request (S59): a self-service role list. The bot posts a list in the self-
 
 ## Commands
 
-### /selfroles (admin — Manage Server)
+### !selfroles (admin — Manage Server; S70 group command)
 
-- **Options:** `enabled` (bool), `channel` (text or announcement channel — where the list lives), `post` (bool — post the list now, or refresh the existing one), `role` + `info` (set the text shown next to that role; greedy in `!selfroles` text form) + `emoji` (shown on the role's line AND its button), `clear-info` (bool, with `role`). None given = setup view.
-- **Reply:** ephemeral setup embed — enabled/channel/header state, the detected self-assignable roles (with their configured emoji and a 📝 mark when info text exists), every skipped role **with the reason**, and the outcome of a `post:`/info change.
+Bare `!selfroles` = the setup view: enabled/channel/header state, the detected self-assignable roles (with their configured emoji and a 📝 mark when info text exists), and every skipped role **with the reason**. Subcommands:
+
+| Subcommand | Does |
+|---|---|
+| `!selfroles on` / `!selfroles off` | Self-roles on/off |
+| `!selfroles channel <#channel>` | Where the button list lives (text or announcement) |
+| `!selfroles post` (alias `refresh`) | Post the list now, or refresh the existing one |
+| `!selfroles info <@role> <text…>` | Info text shown next to that role (greedy — the rest of the line) |
+| `!selfroles emoji <@role> <emoji>` | Emoji shown on the role's line AND its button |
+| `!selfroles clearinfo <@role>` | Remove the stored info/emoji for that role |
+
 - Setting or clearing info auto-refreshes the posted list; members never touch this command — they use the buttons.
 
 ## Events
@@ -40,7 +49,7 @@ Per-role info in `selfrolesInfo` (`{ [roleId]: { text?, emoji? } }`); the posted
 ## Permissions & safety
 
 - **Bot permissions:** Manage Roles, with CuffBot's role **above** the self-assignable roles; Send Messages in the list channel.
-- **Member permissions:** none — the buttons are the whole point. `/selfroles` itself requires Manage Server.
+- **Member permissions:** none — the buttons are the whole point. The `!selfroles` group itself requires Manage Server.
 - **Safety rails:**
   - **Elevated roles are never self-assignable.** A role under the header carrying Administrator, Manage Server/Roles/Channels/Messages/Webhooks, Moderate/Kick/Ban Members, or Mention Everyone is skipped and listed under "Skipped" with the reason — a self-service moderator role is a security hole, not a feature.
   - Managed (integration/bot) roles and `@everyone` are skipped; the section ends at the next divider-looking role (same rule as the academy ladder). Sanity cap: **125 roles** (S64 — five messages of 25 buttons); overflow is listed under "Skipped".
@@ -94,3 +103,4 @@ src/modules/selfroles/
 |---|---|
 | S59 | Created: button-toggle self roles from the role-list section under the `self-roles` header, posted in `625276074833608705` (committed owner default); per-role info/emoji via `/selfroles`; self-updating tracked message (role-event debounce + boot catch-up); elevated/managed roles refused with visible reasons. |
 | S64 | The list spans multiple messages (owner request: support well beyond 20 roles): one message per 25 buttons, cap raised 25 → 125; tracked `messageIds[]` with per-chunk edit/post/delete and legacy single-id migration. |
+| S70 | Converted to a Red-style group (M17.2): `!selfroles on/off/channel/post/info/emoji/clearinfo`; bare `!selfroles` = the setup view. Info/emoji edits keep auto-refreshing the posted list. |

@@ -128,6 +128,19 @@ test('resolveSubArgs: missing required, bad types, choices', async () => {
   assert.ok(!('count' in optionalSkipped.values));
 });
 
+test('a postable channel arg refuses categories/voice, accepts text + news (S70)', async () => {
+  const sub = { name: 'x', args: [{ name: 'channel', type: 'channel', required: true, postable: true }] };
+  const run = async (type) => {
+    const chan = { id: '451095508560379934', type };
+    const message = fakeMessage({ channels: { [chan.id]: chan } });
+    return resolveSubArgs(message, sub, [`<#${chan.id}>`]);
+  };
+  assert.match((await run(4)).errors[0], /must be a text or announcement channel/, 'category refused');
+  assert.match((await run(2)).errors[0], /must be a text or announcement channel/, 'voice refused');
+  assert.deepEqual((await run(0)).errors, [], 'text accepted');
+  assert.deepEqual((await run(5)).errors, [], 'announcement accepted (S55)');
+});
+
 test('resolveSubArgs resolves role/channel/user mentions and raw ids', async () => {
   const role = { id: '625326875442675763', name: 'Squad' };
   const chan = { id: '451095508560379934', name: 'memorial' };

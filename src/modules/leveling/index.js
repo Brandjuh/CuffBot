@@ -1,6 +1,6 @@
 import level from './commands/level.js';
 import leaderboard from './commands/leaderboard.js';
-import xpConfig from './commands/xp-config.js';
+import xpConfig from './commands/xp.js';
 import xpLadder from './commands/xp-ladder.js';
 import messageXp from './events/message-xp.js';
 import voiceSweep from './events/voice-sweep.js';

@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Purpose** | Owner request (S38): an economy with donuts — earn by being active, win/lose via games; first game: the crook hunt |
-| **Commands** | `/donuts`, `/donut-board`, `/steal`, `/pot` (everyone), `/economy-config` (admin) — also as `!` commands |
+| **Commands** | `!donuts`, `!donut-board`, `!steal`, `!pot`, `!claims`, `!daily`, `!crack-pot` (everyone), `!economy` + `!claims-config` groups (admin, S70) |
 | **Events** | One `MessageCreate` watcher (earnings + hunt spawn/catch); expiry via timer; `ClientReady` random-gap timer for timed hunts (S56) |
 | **Data** | `economyUsers` (balance, lastEarnAt per member), `economyConfig` (sparse overrides) |
 | **Intents** | Earnings work event-only; **the hunt needs the Message Content intent** (it must hear "STOP POLICE") — without it hunts don't spawn at all |
@@ -54,15 +54,15 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 - **/pot** — the pot view (S63): a tidy embed with the balance front and center, how the pot fills, whether YOUR daily shot is still open, and the odds. Ephemeral (in-channel no-ping reply as `!pot`).
 - **/crack-pot** — the daily attempt as its own command (S63; replaces the clunky `/pot try:True`): win = a loud JACKPOT embed (public), loss = one calm line (public), already-tried/disabled = short ephemeral notes.
 - **/steal outcomes (S63):** short embeds — green HEIST with the amount as a big line, red BUSTED with the confiscation and a one-line pot pointer; refusals (bot/self/cooldown/disabled) stay short ephemeral one-liners.
-- **/economy-config** (admin — Manage Server): `enabled` (master switch), `earn` (donuts per message 0–100). The hunt options moved to `/hunting` in S66; claim payouts live in `/claims-config`.
-- **/claims** (everyone, S67): one embed with every enabled claim interval (ready ✅ / exact wait ⏳), your crack-pot attempt state, and `collect:True` to claim everything available at once (totals incl. streak bonus).
-- **/claims-config** (admin, S67): payday-port knobs — `hourly`/`daily`/`weekly`/`monthly`/`quarterly`/`yearly` amounts (0 = off; committed defaults keep S49: daily 25, rest off) plus `streak-bonus` and `streak-percent`. **Streak rule (exact cog semantics):** claiming within [window, 2×window) earns the bonus — flat, or in percent mode `base × floor(bonus/100)`; letting it lapse past double the window pays base only. `/daily` = the day interval through the same engine (legacy `lastDailyAt` stamps migrate silently).
+- **!economy** (admin — Manage Server; S70 group, alias `!economy-config`): bare = the status view; subs `on` / `off` (master switch) and `earn <amount>` (donuts per message 0–100). The hunt options moved to `!hunting` in S66; claim payouts live in `!claims-config`.
+- **/claims** (everyone, S67): one embed with every enabled claim interval (ready ✅ / exact wait ⏳), your crack-pot attempt state, and `!claims true` to claim everything available at once (totals incl. streak bonus).
+- **!claims-config** (admin, S67; S70 group): bare = every interval + streak status; subs `hourly`/`daily`/`weekly`/`monthly`/`quarterly`/`yearly <amount>` (0 = off; committed defaults keep S49: daily 25, rest off), `streak <amount>` (0 = streaks off), `streakmode <flat|percent>`. **Streak rule (exact cog semantics):** claiming within [window, 2×window) earns the bonus — flat, or in percent mode `base × floor(bonus/100)`; letting it lapse past double the window pays base only. `!daily` = the day interval through the same engine (legacy `lastDailyAt` stamps migrate silently).
 
 ## Design notes
 
 - Pure rules in `lib/bank.js` (cooldown pay, activity window, spawn roll, 5–20 s duration, reward/steal ranges, the STOP-POLICE matcher, victim pick) — every random draw takes an injectable `random`, so tests pin outcomes.
 - `service.js` owns the store and the RAM hunt state; one watcher event (`economy-watch.js`) handles earn → catch → spawn in that order, so a STOP POLICE shout never doubles as activity that spawns the next crook.
-- **Hunts are gated on the Message Content intent**: without it the shout is invisible and the game unwinnable, so spawning is disabled (activity tracking still runs — enabling the intent starts the game instantly). `/economy-config` says exactly this.
+- **Hunts are gated on the Message Content intent**: without it the shout is invisible and the game unwinnable, so spawning is disabled (activity tracking still runs — enabling the intent starts the game instantly). `!hunting` says exactly this.
 - Victims come from the member cache (humans), falling back to existing accounts; stealing from a fresh member correctly dips into their implicit starting 10k.
 - All game messages name members without pinging (`allowedMentions: { parse: [] }`) — S35 house rule.
 
@@ -72,7 +72,7 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 - **Manual (live server) checklist:**
   1. `/donuts` → 10,000 🍩 before you ever chat.
   2. Send a message, `/donuts` again → +5.
-  3. `/economy-config test-hunt:#general` → crook appears; shout **STOP POLICE** within the window → GOTCHA + bounty.
+  3. `!hunting spawn #general` → crook appears; shout **STOP POLICE** within the window → GOTCHA + bounty.
   4. Test again and stay silent → escape message naming a member who lost donuts.
   5. Chat actively with two people for a few minutes → a crook eventually appears on its own.
   6. On a member's birthday → announcement includes "50,000 donuts", `/donuts member:` confirms.
@@ -81,11 +81,11 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Crooks never appear | Message Content intent off (hunts disabled by design), hunts off, or the channel isn't active enough | `/economy-config` shows the intent state and the activity rules |
-| Timed hunts never appear | Timer off, hunt channel unpostable, or Message Content intent off | `/economy-config` shows the timed-hunt line; the boot log names the intent case |
+| Crooks never appear | Message Content intent off (hunts disabled by design), hunts off, or the channel isn't in the hunt list | `!hunting` shows the intent state, channels, and timing |
+| Timed hunts never appear | Hunt off, hunt channel unpostable, or Message Content intent off | `!hunting` shows channels, timing, and the intent line; the boot log names the intent case |
 | STOP POLICE does nothing | No open hunt (it fled already), or the shout didn't lead the message | Shout faster, shout first |
-| No activity pay | Economy disabled, or you're inside the 60 s cooldown | `/economy-config` |
-| Birthday came without donuts | Economy disabled at sweep time | `/economy-config enabled:True` |
+| No activity pay | Economy disabled, or you're inside the 60 s cooldown | `!economy` |
+| Birthday came without donuts | Economy disabled at sweep time | `!economy on` |
 
 ## Changelog
 
@@ -102,3 +102,4 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 | S63 | Steal + pot UX overhaul (owner: texts read as clutter; `/pot try:True` was clunky): `/pot` = clean view embed incl. your daily-shot state (`hasPotTryToday`); new `/crack-pot` command for the attempt; steal outcomes are short color-coded embeds. 55th command. |
 | S66 | The crook hunt moved to the new `hunting` module (M16.1 vrt port) — hunt options/events/tests left economy; `/economy-config` slimmed to enabled+earn; the pot keeps receiving escape steals and undercover fines. |
 | S67 | Claims rework (M16.2, YamiCogs/payday port): six claim intervals with per-interval amounts, the exact [T,2T) streak rule (flat/percent-floor), `/claims` overview incl. pot-attempt + collect-all, `/claims-config`; `/daily` swapped onto the engine with silent legacy migration; `dailyAmount`/`dailyCooldownMs` config keys retired (deviation: fixed cog hour-windows replace the free cooldown knob). |
+| S70 | Config commands became groups (M17.2): `!economy` (alias `economy-config`) with on/off/earn, and `!claims-config` with one sub per interval + streak/streakmode. |

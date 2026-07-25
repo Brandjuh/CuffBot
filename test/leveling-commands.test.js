@@ -9,7 +9,7 @@ import { thresholdsFor } from '../src/modules/leveling/lib/xp.js';
 import { getUserXp, getXpConfig, setXpConfig } from '../src/modules/leveling/service.js';
 import level, { progressBar } from '../src/modules/leveling/commands/level.js';
 import leaderboardCmd from '../src/modules/leveling/commands/leaderboard.js';
-import xpConfigCmd from '../src/modules/leveling/commands/xp-config.js';
+import xpConfigCmd from '../src/modules/leveling/commands/xp.js';
 import messageXpEvent from '../src/modules/leveling/events/message-xp.js';
 import { sweepGuild } from '../src/modules/leveling/events/voice-sweep.js';
 
@@ -165,60 +165,68 @@ test('/leaderboard with no data explains how XP starts', async () => {
   assert.match(embedDesc(replies[0]), /No XP on the books yet/);
 });
 
-// ---- /xp-config ----
+// ---- the !xp group (S70) ----
 
-function configInteraction(guild, opts = {}, perms = [PermissionFlagsBits.ManageGuild]) {
+const xpGroup = xpConfigCmd.group;
+const xpSub = (name) => xpGroup.subcommands.find((s) => s.name === name);
+
+function groupCtx(guild) {
   const replies = [];
   return {
     replies,
     guild,
-    memberPermissions: { has: (f) => perms.includes(f) },
-    options: {
-      getBoolean: (n) => opts[n] ?? null,
-      getInteger: (n) => opts[n] ?? null,
-      getNumber: (n) => opts[n] ?? null,
-      getChannel: (n) => opts[n] ?? null,
-    },
-    reply: async (p) => replies.push(p),
+    prefix: '!',
+    reply: async (p) => replies.push(typeof p === 'string' ? { content: p } : p),
   };
 }
 
-test('/xp-config requires Manage Server', async () => {
-  const guild = fakeGuild(freshGuildId());
-  const ix = configInteraction(guild, {}, []);
-  await xpConfigCmd.execute(ix);
-  assert.match(ix.replies[0].content, /Manage Server/);
+test('!xp is a Manage-Server group with the settings roster (S70)', () => {
+  assert.equal(xpGroup.name, 'xp');
+  assert.ok(xpGroup.aliases.includes('xp-config'), 'the retired name stays as an alias');
+  assert.equal(xpGroup.permission, PermissionFlagsBits.ManageGuild);
+  assert.deepEqual(
+    xpGroup.subcommands.map((s) => s.name),
+    ['on', 'off', 'sync', 'message', 'voice', 'cooldown', 'announce', 'noannounce', 'base', 'exponent'],
+  );
 });
 
-test('/xp-config patches settings and shows thresholds per rank', async () => {
+test('!xp subs patch settings; status shows thresholds per rank', async () => {
   const guild = fakeGuild(freshGuildId());
-  const ix = configInteraction(guild, { 'message-xp': 25, cooldown: 30, announce: { id: 'chan-1' } });
-  await xpConfigCmd.execute(ix);
+  const ctx = groupCtx(guild);
+  await xpSub('message').run(ctx, { amount: 25 });
+  await xpSub('cooldown').run(ctx, { seconds: 30 });
+  await xpSub('announce').run(ctx, { channel: { id: 'chan-1' } });
   const saved = getXpConfig(guild.id);
   assert.equal(saved.messageXp, 25);
   assert.equal(saved.messageCooldownMs, 30_000);
   assert.equal(saved.announceChannelId, 'chan-1');
-  const desc = embedDesc(ix.replies[0]);
+  const desc = xpGroup.status(groupCtx(guild)).join('\n');
   assert.match(desc, /r-legend/);
   assert.match(desc, new RegExp(T[3].toLocaleString('en-US')), 'top rank threshold shown');
   assert.match(desc, /seeded with the XP of the rank they already hold/i);
   assert.match(desc, /\*\*Ladder pinned:\*\* yes/, 'pinned status shown');
 });
 
-test('/xp-config clear-announce resets the announce channel (audit #6)', async () => {
+test('!xp rejects out-of-range values without saving (S70 range guards)', async () => {
   const guild = fakeGuild(freshGuildId());
-  await xpConfigCmd.execute(configInteraction(guild, { announce: { id: 'chan-1' } }));
+  const ctx = groupCtx(guild);
+  await xpSub('message').run(ctx, { amount: 500 });
+  assert.match(ctx.replies[0].content, /must be 1–100/);
+  assert.equal(getXpConfig(guild.id).messageXp, 15, 'default untouched');
+});
+
+test('!xp noannounce resets the announce channel (audit #6)', async () => {
+  const guild = fakeGuild(freshGuildId());
+  await xpSub('announce').run(groupCtx(guild), { channel: { id: 'chan-1' } });
   assert.equal(getXpConfig(guild.id).announceChannelId, 'chan-1');
-  await xpConfigCmd.execute(configInteraction(guild, { 'clear-announce': true }));
+  await xpSub('noannounce').run(groupCtx(guild), {});
   assert.equal(getXpConfig(guild.id).announceChannelId, null);
 });
 
-test('/xp-config warns when the ladder is not pinned', async () => {
+test('!xp status warns when the ladder is not pinned', async () => {
   const guild = fakeGuild(freshGuildId());
   setGuildData(guild.id, 'academyConfig', { headerRoleId: null, excludedRoleIds: [] });
-  const ix = configInteraction(guild);
-  await xpConfigCmd.execute(ix);
-  assert.match(embedDesc(ix.replies[0]), /\*\*Ladder pinned:\*\* ⚠️ no/);
+  assert.match(xpGroup.status(groupCtx(guild)).join('\n'), /\*\*Ladder pinned:\*\* ⚠️ no/);
 });
 
 // ---- message XP event ----

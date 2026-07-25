@@ -1,64 +1,90 @@
-// Admin knobs for the payday-style claims (S67 = M16.2). Six interval
-// amounts (0 = off), one streak bonus, and the percent-mode toggle.
-import { EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { ensureInvokerPermission } from '../../enforcement/guards.js';
+// Admin knobs for the payday-style claims (S67 = M16.2; group since S70).
+// One sub per interval amount (0 = off), plus the streak bonus and its mode.
+import { PermissionFlagsBits } from 'discord.js';
 import { CLAIM_INTERVALS } from '../lib/bank.js';
 import { getEconomyConfig, setEconomyConfig } from '../service.js';
 
-export default {
-  data: new SlashCommandBuilder()
-    .setName('claims-config')
-    .setDescription('Configure the claim payouts: amounts per interval and the streak bonus (admin).')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addIntegerOption((o) => o.setName('hourly').setDescription('Donuts per hourly claim (0 = off)').setMinValue(0).setMaxValue(1_000_000))
-    .addIntegerOption((o) => o.setName('daily').setDescription('Donuts per daily claim (0 = off)').setMinValue(0).setMaxValue(1_000_000))
-    .addIntegerOption((o) => o.setName('weekly').setDescription('Donuts per weekly claim (0 = off)').setMinValue(0).setMaxValue(1_000_000))
-    .addIntegerOption((o) => o.setName('monthly').setDescription('Donuts per monthly claim (0 = off)').setMinValue(0).setMaxValue(1_000_000))
-    .addIntegerOption((o) => o.setName('quarterly').setDescription('Donuts per quarterly claim (0 = off)').setMinValue(0).setMaxValue(1_000_000))
-    .addIntegerOption((o) => o.setName('yearly').setDescription('Donuts per yearly claim (0 = off)').setMinValue(0).setMaxValue(1_000_000))
-    .addIntegerOption((o) => o.setName('streak-bonus').setDescription('Streak bonus (0 = streaks off)').setMinValue(0).setMaxValue(1_000_000))
-    .addBooleanOption((o) => o.setName('streak-percent').setDescription('Bonus = base × floor(bonus/100) instead of a flat amount')),
-  async execute(interaction) {
-    if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
-    const guildId = interaction.guild.id;
+const INTERVAL_KEYS = {
+  hourly: 'claimHour',
+  daily: 'claimDay',
+  weekly: 'claimWeek',
+  monthly: 'claimMonth',
+  quarterly: 'claimQuarter',
+  yearly: 'claimYear',
+};
 
-    const patch = {};
-    const optionToKey = {
-      hourly: 'claimHour',
-      daily: 'claimDay',
-      weekly: 'claimWeek',
-      monthly: 'claimMonth',
-      quarterly: 'claimQuarter',
-      yearly: 'claimYear',
-      'streak-bonus': 'streakBonus',
-    };
-    for (const [opt, key] of Object.entries(optionToKey)) {
-      const value = interaction.options.getInteger(opt);
-      if (value !== null) patch[key] = value;
+const amountSub = (name, label) => ({
+  name,
+  description: `Donuts per ${label} claim (0 = off).`,
+  args: [{ name: 'amount', type: 'integer', required: true }],
+  async run(ctx, { amount }) {
+    if (amount < 0 || amount > 1_000_000) {
+      await ctx.reply('🚫 The amount must be 0–1000000 (0 turns the interval off).');
+      return;
     }
-    const percent = interaction.options.getBoolean('streak-percent');
-    if (percent !== null) patch.streakPercent = percent;
-    const config = Object.keys(patch).length
-      ? setEconomyConfig(guildId, patch)
-      : getEconomyConfig(guildId);
+    setEconomyConfig(ctx.guild.id, { [INTERVAL_KEYS[name]]: amount });
+    await ctx.reply(
+      amount > 0
+        ? `✅ The ${label} claim pays **${amount.toLocaleString('en-US')} 🍩**.`
+        : `📴 The ${label} claim is **off**.`,
+    );
+  },
+});
 
-    const amountKey = (key) => `claim${key[0].toUpperCase()}${key.slice(1)}`;
-    const rows = CLAIM_INTERVALS.map((i) => {
-      const amount = config[amountKey(i.key)];
-      return `**${i.label}:** ${amount > 0 ? `${amount.toLocaleString('en-US')} 🍩` : 'off'}`;
-    });
-    const embed = new EmbedBuilder()
-      .setColor(0xe67e22)
-      .setTitle('🍩 Claims — configuration')
-      .setDescription(
-        [
-          ...rows,
-          '',
-          `**Streak bonus:** ${config.streakBonus > 0 ? `${config.streakBonus}${config.streakPercent ? ` → base × ${Math.floor(config.streakBonus / 100)} (percent mode)` : ' 🍩 flat'} — earned by claiming within double the window` : 'off'}`,
-          '',
-          '_Members use `!claims` (overview + collect-all) or `!daily`._',
-        ].join('\n'),
-      );
-    await interaction.reply({ embeds: [embed], flags: 64 });
+export default {
+  group: {
+    name: 'claims-config',
+    description: 'Claim payouts: amounts per interval and the streak bonus (admin).',
+    emoji: '🍩',
+    permission: PermissionFlagsBits.ManageGuild,
+    status(ctx) {
+      const config = getEconomyConfig(ctx.guild.id);
+      const amountKey = (key) => `claim${key[0].toUpperCase()}${key.slice(1)}`;
+      const rows = CLAIM_INTERVALS.map((i) => {
+        const amount = config[amountKey(i.key)];
+        return `**${i.label}:** ${amount > 0 ? `${amount.toLocaleString('en-US')} 🍩` : 'off'}`;
+      });
+      return [
+        ...rows,
+        '',
+        `**Streak bonus:** ${config.streakBonus > 0 ? `${config.streakBonus}${config.streakPercent ? ` → base × ${Math.floor(config.streakBonus / 100)} (percent mode)` : ' 🍩 flat'} — earned by claiming within double the window` : 'off'}`,
+        '',
+        `_Members use \`${ctx.prefix}claims\` (overview + collect-all) or \`${ctx.prefix}daily\`._`,
+      ];
+    },
+    subcommands: [
+      amountSub('hourly', 'hourly'),
+      amountSub('daily', 'daily'),
+      amountSub('weekly', 'weekly'),
+      amountSub('monthly', 'monthly'),
+      amountSub('quarterly', 'quarterly'),
+      amountSub('yearly', 'yearly'),
+      {
+        name: 'streak',
+        description: 'Streak bonus for claiming within double the window (0 = streaks off).',
+        args: [{ name: 'amount', type: 'integer', required: true }],
+        async run(ctx, { amount }) {
+          if (amount < 0 || amount > 1_000_000) {
+            await ctx.reply('🚫 The bonus must be 0–1000000 (0 turns streaks off).');
+            return;
+          }
+          setEconomyConfig(ctx.guild.id, { streakBonus: amount });
+          await ctx.reply(amount > 0 ? `✅ Streak bonus set to **${amount.toLocaleString('en-US')}**.` : '📴 Streaks are **off**.');
+        },
+      },
+      {
+        name: 'streakmode',
+        description: 'flat = bonus donuts as-is; percent = base × floor(bonus/100).',
+        args: [{ name: 'mode', type: 'string', required: true, choices: ['flat', 'percent'] }],
+        async run(ctx, { mode }) {
+          setEconomyConfig(ctx.guild.id, { streakPercent: mode === 'percent' });
+          await ctx.reply(
+            mode === 'percent'
+              ? '✅ Streak mode: **percent** — bonus = base × floor(bonus/100).'
+              : '✅ Streak mode: **flat** — the bonus is added as-is.',
+          );
+        },
+      },
+    ],
   },
 };

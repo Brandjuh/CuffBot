@@ -12,7 +12,7 @@ export const BIRTHDAY_USERS_KEY = 'birthdayUsers';
 export const BIRTHDAY_ROLE_HOLDERS_KEY = 'birthdayRoleHolders';
 // Owner decision 2026-07-24 (S31): birthday announcements land in this channel
 // by default — committed as product config (same pattern as the chat starter
-// and the memorial feeds). /birthday-config overrides still win.
+// and the memorial feeds). `!birthday` overrides still win.
 // birthdayRoleId (S58 owner decision): celebrants wear this role for their
 // whole local birthday; the sweep adds and removes it.
 export const DEFAULT_BIRTHDAY_CONFIG = {

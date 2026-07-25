@@ -1,7 +1,7 @@
 import birthdaySet from './commands/birthday-set.js';
 import birthdayRemove from './commands/birthday-remove.js';
 import birthdays from './commands/birthdays.js';
-import birthdayConfig from './commands/birthday-config.js';
+import birthdayConfig from './commands/birthday.js';
 import birthdaySweep from './events/birthday-sweep.js';
 
 export default {

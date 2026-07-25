@@ -13,14 +13,27 @@ The crook hunt, rebuilt in S66 (M16.1) on the model of vrt-cogs/hunting — the 
 
 | Command | What it does | Who |
 |---|---|---|
-| `/hunting` | Config + status: channels, timing, mode, rewards, test spawn | Admin (Manage Server) |
-| `/hunt-stats [member]` | A hunter's arrest record per crook type | Everyone |
-| `/hunt-board` | Top 25 hunters by total catches | Everyone |
+| `!hunting` | Config group + status: channels, timing, mode, rewards, test spawn | Admin (Manage Server) |
+| `!hunt-stats [member]` | A hunter's arrest record per crook type | Everyone |
+| `!hunt-board` | Top 25 hunters by total catches | Everyone |
 
-### /hunting (admin)
+### !hunting (admin — Manage Server; S70 group command)
 
-- **Options:** `enabled`, `add-channel`/`remove-channel` (the hunt-channel list; text or announcement), `mode` (words = STOP POLICE / reaction = 🚨), `show-time` (append the response time to catches), `undercover` (the salute special on/off), `reward-min`/`reward-max` (bounty range), `interval-min`/`interval-max` (seconds between crooks; floors 60/120), `timeout` (seconds before escape; floor 10), `test-spawn` (channel — one crook right now).
-- **Reply:** ephemeral status — channels, timing, catch mode + bounty, undercover state, when the next crook can appear, the wanted board, and the intent line.
+Bare `!hunting` = the status view: channels, timing, catch mode + bounty, undercover state, when the next crook can appear, the wanted board, and the intent line. Subcommands:
+
+| Subcommand | Does |
+|---|---|
+| `!hunting on` / `!hunting off` | Master switch |
+| `!hunting add <#channel>` / `remove <#channel>` | The hunt-channel list (text or announcement) |
+| `!hunting mode <words\|reaction>` | words = STOP POLICE shouts · reaction = press 🚨 |
+| `!hunting showtime <on\|off>` | Append the response time to catches |
+| `!hunting undercover <on\|off>` | The salute special |
+| `!hunting rewards <min> <max>` | Bounty range (0–100000, min ≤ max) |
+| `!hunting interval <min> <max>` | Seconds between crooks (floors 60/120) |
+| `!hunting timeout <seconds>` | Seconds before escape (10–600) |
+| `!hunting spawn [#channel]` (alias `test-spawn`) | One crook right now — in the given channel, or here |
+
+Out-of-range values are refused with the valid range; nothing is saved on a refusal.
 
 ## Events
 
@@ -49,7 +62,7 @@ Scores per member under `huntingScores` (`{ total, byCrook }`).
 
 ## Permissions & safety
 
-- **Intents:** words mode needs **Message Content** (without it, spawning is disabled outright — an uncatchable crook is an unwinnable game, S38 rule — and `/hunting` names the fix); **reaction mode works without it** (the degrade path).
+- **Intents:** words mode needs **Message Content** (without it, spawning is disabled outright — an uncatchable crook is an unwinnable game, S38 rule — and `!hunting` names the fix); **reaction mode works without it** (the degrade path).
 - Every outbound line sets `allowedMentions: { parse: [] }`; economy money moves through the `adjustBalance`/`addToPot` seams wrapped in try/catch — a broken economy never breaks the hunt message.
 - The undercover fine and the escape steal both land in the **donut pot** (owner's lost-donuts rule) — recorded deviation from the cog, which just withdraws/ends.
 
@@ -66,7 +79,7 @@ src/modules/hunting/
   index.js            manifest (3 commands, 2 events)
   service.js          scheduler, active hunts, resolution, scores
   lib/hunt.js         pure rules (board, fumble, delays, outcomes)
-  commands/hunting.js /hunting (admin)
+  commands/hunting.js !hunting (admin group)
   commands/hunt-stats.js · commands/hunt-board.js
   events/watch.js     shouts + scheduler
   events/reactions.js reaction-mode catches
@@ -76,19 +89,19 @@ src/modules/hunting/
 
 - `test/hunting.test.js`: committed defaults (channel, vrt timings), crook board + undercover gating, the exact 2/17 fumble boundaries, spawn-delay bounds, salute matching, the full resolveShout matrix, scheduler states (armed/waiting/scheduled/busy/off/unavailable), words-vs-reaction availability, catch end-to-end (pay + score + close), undercover fine-to-pot and salute-pays, fumble-without-pay, ignored-salute-keeps-hunt-open, escape-steal-to-pot (and the officer stealing nothing), leaderboard ordering.
 - **Manual (live server) checklist:**
-  1. `/hunting` → status shows the hunt channel and "words" mode.
-  2. `/hunting test-spawn:#channel` → a crook appears; shout **STOP POLICE** → GOTCHA + bounty.
-  3. Test the officer: `/hunting test-spawn:` until 🕵️ appears → salute 🫡 → reward; (or cuff them → fine).
+  1. `!hunting` → status shows the hunt channel and "words" mode.
+  2. `!hunting spawn #channel` → a crook appears; shout **STOP POLICE** → GOTCHA + bounty.
+  3. Test the officer: `!hunting spawn` until 🕵️ appears → salute 🫡 → reward; (or cuff them → fine).
   4. `/hunt-stats` and `/hunt-board` show the catch.
-  5. `/hunting mode:reaction` → next crook gets a 🚨 reaction; pressing it cuffs.
+  5. `!hunting mode reaction` → next crook gets a 🚨 reaction; pressing it cuffs.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| No crooks ever appear | Words mode without Message Content, disabled, or no channels | `/hunting` status names all three |
+| No crooks ever appear | Words mode without Message Content, disabled, or no channels | `!hunting` status names all three |
 | Crooks appear very rarely | The vrt clock: two random intervals pass between hunts | Lower `interval-min`/`interval-max` |
-| STOP POLICE does nothing | No open hunt (escaped already), or reaction mode is on | `/hunting` shows the mode |
+| STOP POLICE does nothing | No open hunt (escaped already), or reaction mode is on | `!hunting` shows the mode |
 | Cuffing the 🕵️ cost donuts | By design — salute the undercover officer | `🫡` or the word "salute" |
 
 ## Changelog
@@ -96,3 +109,4 @@ src/modules/hunting/
 | Session | Change |
 |---|---|
 | S66 | Created (M16.1): the vrt-cogs/hunting port, precinct edition — crook variety + undercover-officer salute special, 2/17 fumble, words/reaction modes, multi-channel vrt scheduling (900–3600 s, 20 s window), per-type scores + leaderboard. Replaces the S38 activity hunt and S56 timed hunt; escape/fine donuts land in the pot (recorded deviation). |
+| S70 | Converted to a Red-style group (M17.2): `!hunting on/off/add/remove/mode/showtime/undercover/rewards/interval/timeout/spawn`; out-of-range values are refused with the valid range (was builder-enforced). |

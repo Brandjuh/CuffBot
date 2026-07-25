@@ -1,6 +1,6 @@
 // Greets every new member. GuildMemberAdd only fires when the privileged
 // Server Members Intent is enabled in the Developer Portal — without it this
-// handler simply never runs (the /welcome-config status warns about that).
+// handler simply never runs (the `!welcome` status warns about that).
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { postWelcome } from '../service.js';

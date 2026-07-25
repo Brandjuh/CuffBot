@@ -20,6 +20,11 @@ export function validateGroup(mod, group) {
       `Module "${mod.name}" has a malformed group: needs { name, description, subcommands[] }.`,
     );
   }
+  // S70: group-level aliases keep retired command names working (the owner's
+  // muscle memory: !memorial-config still reaches !memorial).
+  if (group.aliases && !group.aliases.every((a) => typeof a === 'string' && a.length > 0)) {
+    throw new Error(`Group "${group.name}" (module "${mod.name}") has a non-string alias.`);
+  }
   const seen = new Set();
   for (const sub of group.subcommands) {
     if (!sub?.name || !sub.description || typeof sub.run !== 'function') {
@@ -84,12 +89,16 @@ export async function loadModules(client) {
       if (!commandName && (!legacyName || typeof command.execute !== 'function')) {
         throw new Error(`Module "${mod.name}" has a command without group or data/execute.`);
       }
-      const name = commandName ?? legacyName;
-      if (client.commands.has(name)) {
-        throw new Error(`Duplicate command name "${name}" (module "${mod.name}").`);
+      // A group registers under its name AND its aliases (S70) — every key
+      // resolves to the same command object; help shows only the primary name.
+      const names = commandName ? [commandName, ...(command.group.aliases ?? [])] : [legacyName];
+      for (const name of names) {
+        if (client.commands.has(name)) {
+          throw new Error(`Duplicate command name "${name}" (module "${mod.name}").`);
+        }
+        client.commands.set(name, command);
       }
       command.module = mod.name; // for help grouping
-      client.commands.set(name, command);
     }
 
     for (const event of mod.events) {

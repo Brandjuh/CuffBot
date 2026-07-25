@@ -19,8 +19,8 @@ import { enqueueQuestion, shouldQueue, waitStory } from './lib/queue.js';
 
 export const AI_CONFIG_KEY = 'aiConfig';
 // Owner decision S51: the detective only talks in this channel — committed as
-// product config (owner-defaults pattern). `!ai-config channel:` overrides;
-// `everywhere:True` stores channelId null to lift the restriction.
+// product config (owner-defaults pattern). `!ai channel` overrides;
+// `!ai everywhere` stores channelId null to lift the restriction.
 export const DEFAULT_AI_CONFIG = { enabled: true, channelId: '412354971170897921' };
 
 export function getAiConfig(guildId) {
@@ -102,7 +102,7 @@ async function completeQuestion({ guildId, channelId, askerName, question, now, 
  */
 export async function askDetective({ guildId, channelId, askerName, question, userId = null, now = Date.now(), env = process.env, fetchImpl = fetch }) {
   if (!getAiConfig(guildId).enabled) {
-    return { ok: false, message: '🕵️ The detective is off duty — an admin can bring them back with `!ai-config enabled:True`.' };
+    return { ok: false, message: '🕵️ The detective is off duty — an admin can bring them back with `!ai on`.' };
   }
   const provider = pickProvider(env);
   if (!provider) {
@@ -208,7 +208,7 @@ export async function flushQueue(client, { now = Date.now(), env = process.env, 
   }
 }
 
-/** Status line data for /ai-config. */
+/** Status line data for the !ai status view. */
 export function detectiveStatus(guildId, now = Date.now(), env = process.env) {
   const provider = pickProvider(env);
   const use = limiter.usage(now, { maxPerDay: dailyLimitFor(provider, env) });

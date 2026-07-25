@@ -9,7 +9,7 @@ export const WELCOME_CONFIG_KEY = 'welcomeConfig';
 export const DEFAULT_WELCOME_CONFIG = {
   enabled: true,
   channelId: '411609312037961729', // owner's lobby (S34)
-  // {user} → mention, {server} → guild name. Editable via /welcome-config.
+  // {user} → mention, {server} → guild name. Editable via `!welcome message`.
   message:
     '🚔 **Welcome to the precinct, {user}!** Report to the front desk, grab a coffee ☕ and a donut 🍩 — and enjoy your stay at **{server}**.',
 };

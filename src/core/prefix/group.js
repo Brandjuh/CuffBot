@@ -79,7 +79,13 @@ async function resolveArg(message, spec, raw) {
       const channel =
         message.guild.channels.cache.get(id) ??
         (await message.guild.channels.fetch(id).catch(() => null));
-      return channel ? { value: channel } : { error: `could not find channel \`${id}\`` };
+      if (!channel) return { error: `could not find channel \`${id}\`` };
+      // S70: `postable: true` centralizes the S55 rule — post targets must be
+      // text or announcement channels (never categories/voice/forums).
+      if (spec.postable && channel.type !== 0 && channel.type !== 5) {
+        return { error: `\`${spec.name}\` must be a text or announcement channel` };
+      }
+      return { value: channel };
     }
     default:
       return { error: `unknown arg type ${spec.type}` };
