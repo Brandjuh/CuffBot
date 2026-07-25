@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.20 — 2026-07-25 (Session 85)
+
+- `references/architecture.md` (Module pattern): promoted the twice-confirmed porting rule — transcribe the source runtime's SEMANTICS (including float/int artifacts) and pin them in tests before wiring, plus the large-port corollary: dump the original's data tables by executing it and commit the dump as a fixture.
+- Evidence: S82 (`int(5000/3*2)` = 3333, not 3332) and S85 (`int(1000*(1-0.07))` = 929, not 930 — my naive test expectation failed against faithful code, and Python confirmed 929). S84 supplied the library-replacement half (dateutil/pytz → Intl: weekday resolution, fuzzy token-skipping, wall-clock timedelta). S85's fixture diff caught nothing today but makes the 74/28/24-entry transcription permanently checkable after the scratchpad clone is gone.
+
 ## 0.5.19 — 2026-07-25 (Session 81)
 
 - `references/architecture.md` (Module pattern): promoted two twice/thrice-proven LEARNINGS candidates — the io-injected engine for timed multiplayer games (S73 russian roulette, S79 split-or-steal, S81 rollout), and the unref'd-timer test keep-alive rule (the "Promise resolution is still pending" cascade bit S73 and S81 identically).
