@@ -8,6 +8,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | enforcement | [`modules/enforcement.md`](modules/enforcement.md) | stable (S7) |
 | hangman | [`modules/hangman.md`](modules/hangman.md) | stable (S72) |
 | records | [`modules/records.md`](modules/records.md) | stable (S8) |
+| russianroulette | [`modules/russianroulette.md`](modules/russianroulette.md) | stable (S73) |
 | dispatch | [`modules/dispatch.md`](modules/dispatch.md) | stable (S11) |
 | academy | [`modules/academy.md`](modules/academy.md) | stable (S12) |
 | patrol | [`modules/patrol.md`](modules/patrol.md) | stable (S13) |

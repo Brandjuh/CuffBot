@@ -1252,3 +1252,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — state matched reality (37e699c, 541/541 at session start). Environment note: the S65 scratchpad clones SURVIVED into this session (same container, conversation continued) — the FlameCogs source was read directly; the resume point still tells future sessions to re-clone if gone.
 
 **Retrospective:** no skill change — fourth consecutive survey-driven port with zero surprises; the S24 packaging test proved itself again (caught the untracked words.txt at first `npm test`). Next: M16.5 russian-roulette (AAA3A).
+
+---
+
+## Session 73 — 2026-07-25
+
+**Goal:** M16.5 — russian roulette (AAA3A port). Owner: full-auto ("Ga AUTOMATISCH verder"); mid-session the owner queued the next request (maintenance mode → S74).
+
+**Done:**
+- **Module `russianroulette`:** `!rr play` (mod-gate Manage Messages per-sub — the cog's `mod_or_permissions`) opens the cog's lobby verbatim (join/leave/view-players/start/cancel buttons, max 30, host auto-joined, start needs ≥2 + host-or-ManageGuild). Rounds cog-faithfully: shuffled order, one chamber (`randint`), 5 s Shoot! turns (timeout = "I got tired of waiting…"), the exact 90/10 roll (`random() >= 0.1`), misfire hits a random OTHER player, "Click. Nothing happened." for the rest, winner embed + ping.
+- **Engine design:** `runGame(game, io)` talks to Discord only through an injected `{ say, askShot, sleep }` — the button pump resolves `awaitShot` promises. Whole games run scripted + seeded in tests.
+- **Two upstream bugs fixed (recorded deviations):** the cog's mid-iteration `players.remove` silently SKIPPED the player after every AFK death → we iterate a snapshot; everyone-AFK crashed the cog on the winner lookup → the round now stops at 1 alive (you win by outliving; a survivor never faces a pointless solo turn). Ping deviation: only turn prompts + winner ping (scoped); death/click lines render mentions without notifying.
+- Tests 554 → **563**: pure draws (seeded shuffle, chamber bounds, the exact 0.1 boundary, victim excludes shooter), lobby matrix (auto-join/dupe/30-cap/leave/one-per-channel), the shot bridge (right presser/wrong presser/timeout — with an event-loop keep-alive around the unref'd timer), four scripted whole games (clean kill, misfire victim, the skip-bug fix asserting the next player IS asked, chamber-AFK consumes the bullet, last-survivor-wins), group shape.
+- Docs: manual `russianroulette.md`, docs index, README (24 modules / 62 commands), ROADMAP M16.5 ✔, STATE.md (bullet + resume point → S74 maintenance mode per the owner's mid-session request).
+
+**Corrections (Step 2):** none — state matched reality (8d17457, 554/554 at session start).
+
+**Retrospective:** no skill change — the io-injected engine pattern (first used here) made a five-second-buttons party game fully testable without Discord; candidate-worthy only after a second game needs it. One test lesson absorbed inline: an `unref`'d timer that a test awaits needs an explicit event-loop keep-alive, or node:test cancels the whole file ("Promise resolution is still pending").
