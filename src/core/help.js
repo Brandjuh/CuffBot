@@ -300,6 +300,65 @@ export function paginateHelp(
   }));
 }
 
+// ── S98 (M19): the button menu ───────────────────────────────────────────────
+// The owner asked for buttons per category instead of the sequential pages
+// S39/S43 produced. These build the two VIEWS a help message can be in —
+// still pure, still no discord.js: the command file turns a view into an embed
+// and a button row.
+
+/** The category key a group title belongs to, for button custom ids. */
+export function categoryKeyOf(title) {
+  return HELP_CATEGORIES.find((c) => c.title === title)?.key ?? 'other';
+}
+
+/**
+ * The landing view: what the menu shows before any button is pressed. Lists
+ * the categories the VIEWER can use with a count each, so the buttons are
+ * self-explanatory rather than a row of unlabelled guesses.
+ *
+ * @returns {{ title, description, fields, buttons: Array<{key,title,count}> }}
+ */
+export function helpOverview(model) {
+  const buttons = model.groups.map((group) => ({
+    key: categoryKeyOf(group.title),
+    title: group.title,
+    count: group.entries.length,
+  }));
+  return {
+    title: model.title,
+    description: model.description,
+    fields: buttons.length
+      ? [
+          {
+            name: 'Pick a category',
+            value: buttons.map((b) => `${b.title} — **${b.count}**`).join('\n'),
+          },
+        ]
+      : [{ name: 'Nothing to show', value: '_You cannot use any commands here._' }],
+    buttons,
+  };
+}
+
+/**
+ * One category's view. Returns null when the key names a category this viewer
+ * has nothing in — the pump turns that into an honest refusal rather than an
+ * empty embed.
+ */
+export function helpCategory(model, key, { fieldLimit = EMBED_FIELD_LIMIT, maxFields = EMBED_MAX_FIELDS } = {}) {
+  const group = model.groups.find((g) => categoryKeyOf(g.title) === key);
+  if (!group) return null;
+  const chunks = renderGroupChunks(group, fieldLimit).slice(0, maxFields);
+  return {
+    title: `${model.title} — ${group.title}`,
+    description: `${group.entries.length} command(s). Use the buttons to switch category.`,
+    fields: chunks.map((value, index) => ({
+      name: index === 0 ? group.title : `${group.title} (continued)`,
+      value,
+    })),
+    buttons: helpOverview(model).buttons,
+  };
+}
+
 /**
  * Render the help model to plain text (used by the text-command path and by
  * tests). Kept under Discord's 2000-char message limit by truncating with a note.

@@ -1,15 +1,12 @@
-// S96 (M17.3 slice D): converted to the flat { command } shape — the last
-// legacy command in the bot, and the one that reads every OTHER command's
-// shape. With this conversion `summarizeCommand` only ever sees `{ group }`
-// and `{ command }`, so its legacy branch could go with the adapter.
-import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import {
-  RUNTIME_ADMIN_COMMANDS,
-  buildCategorizedHelp,
-  paginateHelp,
-  summarizeCommand,
-} from '../../../core/help.js';
-import { hasPermission } from '../../../core/prefix/permissions.js';
+// S98 (M19, owner request: "Help menu: Buttons per categorie"): `!help` posts
+// ONE message with a button per category instead of the sequential embed pages
+// S39/S43 produced. Pressing a button swaps the embed.
+//
+// S96 converted this to the flat { command } shape — it is the command that
+// reads every OTHER command's shape, so its conversion is what let
+// `summarizeCommand` drop its legacy branch.
+import { buildViewerHelp, helpPayload } from '../lib/help-menu.js';
+import { helpOverview } from '../../../core/help.js';
 
 export default {
   command: {
@@ -18,37 +15,10 @@ export default {
     emoji: '📻',
     args: [],
     async run(ctx) {
-      const prefix = ctx.prefix;
-      const commands = (ctx.client.moduleList ?? []).flatMap((mod) =>
-        mod.commands.map(summarizeCommand),
-      );
-
-      // Only show what this viewer can actually run (S43): commands declaring
-      // permissions the member lacks are hidden, as are the runtime-gated
-      // admin commands (!update, !restart), whose gate is inside run().
-      const isAdmin = hasPermission(ctx, PermissionFlagsBits.ManageGuild);
-      const isVisible = (cmd) => {
-        if (RUNTIME_ADMIN_COMMANDS.has(cmd.name)) return isAdmin;
-        if (!cmd.defaultMemberPermissions) return true;
-        try {
-          return hasPermission(ctx, BigInt(cmd.defaultMemberPermissions));
-        } catch {
-          return true; // an unparsable bitfield must never hide the whole menu
-        }
-      };
-
-      // Paged (S39): the roster exceeds one embed's 6000-character total.
-      // Every page is an in-channel no-ping reply — S54 removed DMs, S68
-      // removed the ephemeral form these used to take.
-      const pages = paginateHelp(buildCategorizedHelp(commands, prefix, { isVisible }));
-      for (const page of pages) {
-        const embed = new EmbedBuilder()
-          .setColor(0x8a5a6a)
-          .setTitle(page.title)
-          .addFields(page.fields);
-        if (page.description) embed.setDescription(page.description);
-        await ctx.reply({ embeds: [embed] });
-      }
+      // Filtered for THIS viewer (S43): the buttons only offer categories the
+      // member has something in, so the menu never advertises a dead end.
+      const model = buildViewerHelp(ctx, ctx.prefix, ctx.client.moduleList ?? []);
+      await ctx.reply(helpPayload(helpOverview(model), ctx.user.id));
     },
   },
 };

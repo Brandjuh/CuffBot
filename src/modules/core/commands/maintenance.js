@@ -9,6 +9,8 @@ import {
   isBotOwner,
   setMaintenance,
 } from '../../../core/maintenance.js';
+import { syncPresence } from '../service-presence.js';
+import { presenceLabel } from '../lib/presence.js';
 
 async function requireBotOwner(ctx) {
   if (await isBotOwner(ctx.client, ctx.user.id)) return true;
@@ -29,6 +31,7 @@ export default {
         `**Notice:** ${config.message ?? `_(default)_ ${DEFAULT_MAINTENANCE_MESSAGE}`}`,
         '',
         '_Only the bot owner can flip the switch; events, sweeps, and running games are not affected — only commands are gated._',
+        `**Bot status:** ${presenceLabel(Boolean(getMaintenance(ctx.guild.id).enabled))}`,
       ];
     },
     subcommands: [
@@ -39,7 +42,12 @@ export default {
         async run(ctx) {
           if (!(await requireBotOwner(ctx))) return;
           setMaintenance(ctx.guild.id, { enabled: true });
-          await ctx.reply('🚧 Maintenance mode is **ON** — everyone except you now gets the maintenance notice.');
+          // S98 (M22): the bot's own status says which mode it is in, so
+          // nobody has to run a command to find out.
+          syncPresence(ctx.client);
+          await ctx.reply(
+            `🚧 Maintenance mode is **ON** — everyone except you now gets the maintenance notice.\nMy status now reads: _${presenceLabel(true)}_.`,
+          );
         },
       },
       {
@@ -49,7 +57,10 @@ export default {
         async run(ctx) {
           if (!(await requireBotOwner(ctx))) return;
           setMaintenance(ctx.guild.id, { enabled: false });
-          await ctx.reply('✅ Maintenance mode is **OFF** — CuffBot is back on duty for everyone.');
+          syncPresence(ctx.client);
+          await ctx.reply(
+            `✅ Maintenance mode is **OFF** — CuffBot is back on duty for everyone.\nMy status now reads: _${presenceLabel(false)}_.`,
+          );
         },
       },
       {

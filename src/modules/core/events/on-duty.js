@@ -4,12 +4,18 @@
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { isHomeGuild } from '../lib/precinct.js';
+import { syncPresence } from '../service-presence.js';
+import { presenceLabel } from '../lib/presence.js';
 
 export default {
   name: Events.ClientReady,
   once: true,
   async execute(client) {
     logger.info(`🚔 CuffBot on duty as ${client.user.tag}.`);
+    // S98 (M22): the status is read from STORAGE, not from a variable — a bot
+    // that restarts while in maintenance must still look like it.
+    const maintenance = syncPresence(client);
+    logger.info(`Bot status: ${presenceLabel(maintenance)}`);
     const { homeGuildId } = client.config;
     for (const guild of client.guilds.cache.values()) {
       if (isHomeGuild(guild.id, homeGuildId)) continue;
