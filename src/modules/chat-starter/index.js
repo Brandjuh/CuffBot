@@ -1,4 +1,4 @@
-import chatStarterConfig from './commands/chat-starter-config.js';
+import chatStarterConfig from './commands/chat-starter.js';
 import activityWatch from './events/activity-watch.js';
 import starterSweep from './events/starter-sweep.js';
 

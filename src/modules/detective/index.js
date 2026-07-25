@@ -1,5 +1,5 @@
 import ask from './commands/ask.js';
-import aiConfig from './commands/ai-config.js';
+import aiConfig from './commands/ai.js';
 import mentionReply from './events/mention-reply.js';
 import queueFlush from './events/queue-flush.js';
 

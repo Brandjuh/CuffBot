@@ -12,7 +12,7 @@ export const MEMORIAL_CONFIG_KEY = 'memorialConfig';
 export const MEMORIAL_SEEN_KEY = 'memorialSeen';
 // S60 (owner request): each feed can have its OWN channel — `<feedId>ChannelId`
 // wins over the shared `channelId` fallback. No ids invented: the owner sets
-// them via /memorial-config officers-channel: / firefighters-channel:.
+// them via `!memorial officers-channel` / `firefighters-channel`.
 export const DEFAULT_MEMORIAL_CONFIG = {
   enabled: true,
   channelId: null,
@@ -100,7 +100,7 @@ export async function fetchFeedItems(feed, fetchImpl = fetch) {
 /**
  * Live-check ANY candidate feed URL (S61): the owner is hunting for a real
  * fallen-firefighters source, and the Pi is the only place with open
- * internet — `!memorial-config probe:<url>` runs this there and shows what
+ * internet — `!memorial probe <url>` runs this there and shows what
  * the feed actually contains before anything is committed.
  */
 export async function probeFeed(url, { fetchImpl = fetch } = {}) {

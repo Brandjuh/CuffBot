@@ -1,4 +1,4 @@
-import starboardConfig from './commands/starboard-config.js';
+import starboardConfig from './commands/starboard.js';
 import starWatch from './events/star-watch.js';
 
 export default {

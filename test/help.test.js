@@ -68,7 +68,7 @@ const FLAT = [
   { name: 'cite', description: 'Issue a citation', defaultMemberPermissions: '8192' },
   { name: 'trivia', description: 'Quiz round', defaultMemberPermissions: null },
   { name: 'wanted', description: 'Poster', defaultMemberPermissions: null },
-  { name: 'xp-config', description: 'XP settings', defaultMemberPermissions: '32' },
+  { name: 'xp', description: 'XP settings', defaultMemberPermissions: '32' },
   { name: 'update', description: 'Self-update', defaultMemberPermissions: null },
   { name: 'radio-check', description: 'Latency', defaultMemberPermissions: null },
 ];

@@ -1,5 +1,6 @@
-import { ChannelType, EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { ensureInvokerPermission } from '../../enforcement/guards.js';
+// The crook-hunt admin group (S70 = M17.2): channels, timing, catch mode,
+// rewards, and the instant test spawn. Bare `!hunting` = the precinct status.
+import { PermissionFlagsBits } from 'discord.js';
 import { CROOKS } from '../lib/hunt.js';
 import {
   getHuntingConfig,
@@ -11,137 +12,167 @@ import {
 import { formatWaitMs } from '../../economy/lib/bank.js';
 
 export default {
-  data: new SlashCommandBuilder()
-    .setName('hunting')
-    .setDescription('The crook hunt: channels, timing, catch mode, rewards (admin).')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addBooleanOption((o) => o.setName('enabled').setDescription('Master switch for the hunt'))
-    .addChannelOption((o) =>
-      o
-        .setName('add-channel')
-        .setDescription('Start hunting in this channel')
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-    )
-    .addChannelOption((o) =>
-      o
-        .setName('remove-channel')
-        .setDescription('Stop hunting in this channel')
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-    )
-    .addStringOption((o) =>
-      o
-        .setName('mode')
-        .setDescription('How crooks are caught')
-        .addChoices(
-          { name: 'words — shout STOP POLICE', value: 'words' },
-          { name: 'reaction — press 🚨', value: 'reaction' },
-        ),
-    )
-    .addBooleanOption((o) => o.setName('show-time').setDescription('Show the response time on catches'))
-    .addBooleanOption((o) =>
-      o.setName('undercover').setDescription('The undercover-officer special (salute, don’t cuff)'),
-    )
-    .addIntegerOption((o) =>
-      o.setName('reward-min').setDescription('Minimum donuts per catch').setMinValue(0).setMaxValue(100000),
-    )
-    .addIntegerOption((o) =>
-      o.setName('reward-max').setDescription('Maximum donuts per catch').setMinValue(0).setMaxValue(100000),
-    )
-    .addIntegerOption((o) =>
-      o.setName('interval-min').setDescription('Minimum seconds between crooks (≥60)').setMinValue(60).setMaxValue(86400),
-    )
-    .addIntegerOption((o) =>
-      o.setName('interval-max').setDescription('Maximum seconds between crooks (≥120)').setMinValue(120).setMaxValue(86400),
-    )
-    .addIntegerOption((o) =>
-      o.setName('timeout').setDescription('Seconds before the crook escapes (≥10)').setMinValue(10).setMaxValue(600),
-    )
-    .addChannelOption((o) =>
-      o
-        .setName('test-spawn')
-        .setDescription('Spawn one crook RIGHT NOW in this channel (test)')
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-    ),
-  async execute(interaction) {
-    if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
-    const guildId = interaction.guild.id;
-    const notes = [];
-
-    const patch = {};
-    const enabled = interaction.options.getBoolean('enabled');
-    if (enabled !== null) patch.enabled = enabled;
-    const mode = interaction.options.getString('mode');
-    if (mode) patch.mode = mode;
-    const showTime = interaction.options.getBoolean('show-time');
-    if (showTime !== null) patch.showTime = showTime;
-    const undercover = interaction.options.getBoolean('undercover');
-    if (undercover !== null) patch.undercover = undercover;
-    for (const [opt, key] of [
-      ['reward-min', 'rewardMin'],
-      ['reward-max', 'rewardMax'],
-      ['interval-min', 'intervalMinS'],
-      ['interval-max', 'intervalMaxS'],
-      ['timeout', 'catchTimeoutS'],
-    ]) {
-      const value = interaction.options.getInteger(opt);
-      if (value !== null) patch[key] = value;
-    }
-
-    const current = getHuntingConfig(guildId);
-    const addChannel = interaction.options.getChannel('add-channel');
-    if (addChannel) {
-      patch.channels = current.channels.includes(addChannel.id)
-        ? current.channels
-        : [...current.channels, addChannel.id];
-      notes.push(
-        current.channels.includes(addChannel.id)
-          ? `ℹ️ Already hunting in <#${addChannel.id}>.`
-          : `✅ The hunt is on in <#${addChannel.id}>.`,
-      );
-    }
-    const removeChannel = interaction.options.getChannel('remove-channel');
-    if (removeChannel) {
-      const base = patch.channels ?? current.channels;
-      patch.channels = base.filter((id) => id !== removeChannel.id);
-      notes.push(`🛑 Hunt stopped in <#${removeChannel.id}>.`);
-    }
-    const config = Object.keys(patch).length ? setHuntingConfig(guildId, patch) : current;
-
-    const testChannel = interaction.options.getChannel('test-spawn');
-    if (testChannel) {
-      const target = interaction.guild.channels.cache.get(testChannel.id);
-      const spawned = target ? await spawnCrook(target, {}) : null;
-      notes.push(
-        spawned
-          ? `🧪 A crook just appeared in <#${testChannel.id}> — go get them!`
-          : '⚠️ Test spawn failed (no send access, or a hunt is already open there).',
-      );
-    }
-
-    const wait = nextSpawnInfo(guildId);
-    const intentLine = huntingAvailable(interaction.client, config)
-      ? config.mode === 'words'
-        ? '✅ Words mode — STOP POLICE shouts are heard.'
-        : '✅ Reaction mode — 🚨 presses count (works without Message Content).'
-      : '⚠️ **Words mode needs the Message Content intent** — no crooks will spawn. Switch `mode:` to reaction, or enable the intent.';
-
-    const embed = new EmbedBuilder()
-      .setColor(0x1f8b4c)
-      .setTitle('🦹 The Crook Hunt')
-      .setDescription(
-        [
-          `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
-          `**Hunting in:** ${config.channels.length ? config.channels.map((id) => `<#${id}>`).join(' ') : '_no channels — add one with `add-channel:`_'}`,
-          `**Between crooks:** ${Math.round(config.intervalMinS / 60)}–${Math.round(config.intervalMaxS / 60)} min · **escape after:** ${config.catchTimeoutS} s`,
-          `**Catch:** ${config.mode === 'words' ? 'shout **STOP POLICE**' : 'press 🚨'} · **bounty:** ${config.rewardMin}–${config.rewardMax} 🍩`,
-          `**Undercover officer:** ${config.undercover ? 'on the beat — salute 🫡, don’t cuff' : 'off'} · **response time:** ${config.showTime ? 'shown' : 'hidden'}`,
-          `**Next crook:** ${wait === null ? 'the clock arms on the next message in a hunt channel' : wait === 0 ? 'any moment now' : `~${formatWaitMs(wait)}`}`,
-          '',
-          `**Wanted board:** ${CROOKS.map((c) => c.emoji).join(' ')}`,
-          intentLine,
-          ...(notes.length ? ['', ...notes] : []),
-        ].join('\n'),
-      );
-    await interaction.reply({ embeds: [embed], flags: 64, allowedMentions: { parse: [] } });
+  group: {
+    name: 'hunting',
+    description: 'The crook hunt: channels, timing, catch mode, rewards (admin).',
+    emoji: '🦹',
+    permission: PermissionFlagsBits.ManageGuild,
+    status(ctx) {
+      const config = getHuntingConfig(ctx.guild.id);
+      const wait = nextSpawnInfo(ctx.guild.id);
+      const intentLine = huntingAvailable(ctx.client, config)
+        ? config.mode === 'words'
+          ? '✅ Words mode — STOP POLICE shouts are heard.'
+          : '✅ Reaction mode — 🚨 presses count (works without Message Content).'
+        : `⚠️ **Words mode needs the Message Content intent** — no crooks will spawn. Switch with \`${ctx.prefix}hunting mode reaction\`, or enable the intent.`;
+      return [
+        `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
+        `**Hunting in:** ${config.channels.length ? config.channels.map((id) => `<#${id}>`).join(' ') : `_no channels — add one with \`${ctx.prefix}hunting add\`_`}`,
+        `**Between crooks:** ${Math.round(config.intervalMinS / 60)}–${Math.round(config.intervalMaxS / 60)} min · **escape after:** ${config.catchTimeoutS} s`,
+        `**Catch:** ${config.mode === 'words' ? 'shout **STOP POLICE**' : 'press 🚨'} · **bounty:** ${config.rewardMin}–${config.rewardMax} 🍩`,
+        `**Undercover officer:** ${config.undercover ? 'on the beat — salute 🫡, don’t cuff' : 'off'} · **response time:** ${config.showTime ? 'shown' : 'hidden'}`,
+        `**Next crook:** ${wait === null ? 'the clock arms on the next message in a hunt channel' : wait === 0 ? 'any moment now' : `~${formatWaitMs(wait)}`}`,
+        '',
+        `**Wanted board:** ${CROOKS.map((c) => c.emoji).join(' ')}`,
+        intentLine,
+      ];
+    },
+    subcommands: [
+      {
+        name: 'on',
+        description: 'Turn the crook hunt on.',
+        args: [],
+        async run(ctx) {
+          setHuntingConfig(ctx.guild.id, { enabled: true });
+          await ctx.reply('✅ The hunt is **on**.');
+        },
+      },
+      {
+        name: 'off',
+        description: 'Turn the crook hunt off.',
+        args: [],
+        async run(ctx) {
+          setHuntingConfig(ctx.guild.id, { enabled: false });
+          await ctx.reply('📴 The hunt is **off**.');
+        },
+      },
+      {
+        name: 'add',
+        description: 'Start hunting in a channel.',
+        args: [{ name: 'channel', type: 'channel', required: true, postable: true }],
+        async run(ctx, { channel }) {
+          const current = getHuntingConfig(ctx.guild.id);
+          if (current.channels.includes(channel.id)) {
+            await ctx.reply(`ℹ️ Already hunting in <#${channel.id}>.`);
+            return;
+          }
+          setHuntingConfig(ctx.guild.id, { channels: [...current.channels, channel.id] });
+          await ctx.reply(`✅ The hunt is on in <#${channel.id}>.`);
+        },
+      },
+      {
+        name: 'remove',
+        description: 'Stop hunting in a channel.',
+        args: [{ name: 'channel', type: 'channel', required: true, postable: true }],
+        async run(ctx, { channel }) {
+          const current = getHuntingConfig(ctx.guild.id);
+          setHuntingConfig(ctx.guild.id, {
+            channels: current.channels.filter((id) => id !== channel.id),
+          });
+          await ctx.reply(`🛑 Hunt stopped in <#${channel.id}>.`);
+        },
+      },
+      {
+        name: 'mode',
+        description: 'How crooks are caught: shout STOP POLICE, or press 🚨.',
+        args: [{ name: 'mode', type: 'string', required: true, choices: ['words', 'reaction'] }],
+        async run(ctx, { mode }) {
+          setHuntingConfig(ctx.guild.id, { mode });
+          await ctx.reply(
+            mode === 'words'
+              ? '✅ Words mode — crooks are caught by shouting **STOP POLICE**.'
+              : '✅ Reaction mode — crooks are caught by pressing 🚨.',
+          );
+        },
+      },
+      {
+        name: 'showtime',
+        description: 'Show (or hide) the response time on catches.',
+        args: [{ name: 'state', type: 'boolean', required: true }],
+        async run(ctx, { state }) {
+          setHuntingConfig(ctx.guild.id, { showTime: state });
+          await ctx.reply(state ? '⏱️ Response times are **shown** on catches.' : '⏱️ Response times are **hidden**.');
+        },
+      },
+      {
+        name: 'undercover',
+        description: 'The undercover-officer special (salute 🫡, don’t cuff).',
+        args: [{ name: 'state', type: 'boolean', required: true }],
+        async run(ctx, { state }) {
+          setHuntingConfig(ctx.guild.id, { undercover: state });
+          await ctx.reply(state ? '🕶️ The undercover officer is **on the beat**.' : '🕶️ The undercover officer is **off duty**.');
+        },
+      },
+      {
+        name: 'rewards',
+        description: 'Bounty range per catch, in donuts.',
+        args: [
+          { name: 'min', type: 'integer', required: true },
+          { name: 'max', type: 'integer', required: true },
+        ],
+        async run(ctx, { min, max }) {
+          if (min < 0 || max > 100_000 || min > max) {
+            await ctx.reply('🚫 Give a range like `100 300` — min ≥ 0, max ≤ 100000, min ≤ max.');
+            return;
+          }
+          setHuntingConfig(ctx.guild.id, { rewardMin: min, rewardMax: max });
+          await ctx.reply(`💰 Bounty set to **${min}–${max} 🍩** per catch.`);
+        },
+      },
+      {
+        name: 'interval',
+        description: 'Seconds between crooks (random within the range).',
+        args: [
+          { name: 'min', type: 'integer', required: true },
+          { name: 'max', type: 'integer', required: true },
+        ],
+        async run(ctx, { min, max }) {
+          if (min < 60 || max > 86_400 || min > max) {
+            await ctx.reply('🚫 Give a range in seconds like `900 3600` — min ≥ 60, max ≤ 86400, min ≤ max.');
+            return;
+          }
+          setHuntingConfig(ctx.guild.id, { intervalMinS: min, intervalMaxS: max });
+          await ctx.reply(`⏲️ A crook appears every **${Math.round(min / 60)}–${Math.round(max / 60)} min**.`);
+        },
+      },
+      {
+        name: 'timeout',
+        description: 'Seconds before an uncaught crook escapes (10–600).',
+        args: [{ name: 'seconds', type: 'integer', required: true }],
+        async run(ctx, { seconds }) {
+          if (seconds < 10 || seconds > 600) {
+            await ctx.reply('🚫 The escape window must be 10–600 seconds.');
+            return;
+          }
+          setHuntingConfig(ctx.guild.id, { catchTimeoutS: seconds });
+          await ctx.reply(`🏃 Crooks escape after **${seconds} s**.`);
+        },
+      },
+      {
+        name: 'spawn',
+        aliases: ['test-spawn'],
+        description: 'Spawn one crook RIGHT NOW (in the given channel, or here).',
+        args: [{ name: 'channel', type: 'channel', required: false, postable: true }],
+        async run(ctx, { channel }) {
+          const target = channel ?? ctx.channel;
+          const spawned = await spawnCrook(target, {});
+          await ctx.reply(
+            spawned
+              ? `🧪 A crook just appeared in <#${target.id}> — go get them!`
+              : '⚠️ Test spawn failed (no send access, or a hunt is already open there).',
+          );
+        },
+      },
+    ],
   },
 };

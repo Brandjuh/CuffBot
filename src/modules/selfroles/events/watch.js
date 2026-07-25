@@ -42,7 +42,7 @@ export const onBootCatchUp = {
   execute: guard('boot catch-up', async (client) => {
     const guild = client.guilds.cache.get(client.config.homeGuildId);
     if (!guild) return;
-    // Only once a list was posted: /selfroles post:True is the owner's
+    // Only once a list was posted: `!selfroles post` is the owner's
     // explicit go-live moment; before that the bot posts nothing on its own.
     const tracked = getGuildData(guild.id, SELFROLES_MESSAGE_KEY, null);
     if (!(Array.isArray(tracked?.messageIds) ? tracked.messageIds.length : tracked?.messageId)) return;

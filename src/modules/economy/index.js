@@ -1,6 +1,6 @@
 import donuts from './commands/donuts.js';
 import donutBoard from './commands/donut-board.js';
-import economyConfig from './commands/economy-config.js';
+import economyConfig from './commands/economy.js';
 import steal from './commands/steal.js';
 import pot from './commands/pot.js';
 import crackPot from './commands/crack-pot.js';

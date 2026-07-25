@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 21 modules, 60 commands. **Every command works as both `/command` and `!command`** (type `/help` or `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 21 modules, 59 commands. **CuffBot is text-only (S68): every command is a `!command`**, and config commands are Red-style groups (`!group sub <args>`, S69/S70 — type `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -10,27 +10,27 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 
 | Area | Commands | Manual |
 |---|---|---|
-| **Core** 📻 | `/radio-check`, `/help`, `/update`, `/restart` | [core](docs/modules/core.md) |
-| **Selfroles** 🎭 | `/selfroles` (button list: press to get a role, press again to remove) | [selfroles](docs/modules/selfroles.md) |
-| **Hunting** 🦹 | `/hunting`, `/hunt-stats`, `/hunt-board` — STOP POLICE crook hunt with the undercover officer | [hunting](docs/modules/hunting.md) |
-| **Enforcement** 🚨 | `/cite` (animated ticket), `/fine` (fun), `/detain`, `/release`, `/arrest` | [enforcement](docs/modules/enforcement.md) |
-| **Records** 📋 | `/rapsheet`, `/expunge` | [records](docs/modules/records.md) |
-| **Dispatch** 🗄️ | `/evidence-locker`, `/dispatch` | [dispatch](docs/modules/dispatch.md) |
-| **Academy** 🎖️ | `/promote`, `/demote`, `/ranks`, `/rank-setup`, `/rank-exclude` | [academy](docs/modules/academy.md) |
-| **Patrol** 👮 | `/patrol-wizard` (guided setup), `/patrol`, `/patrol-rule`, `/patrol-term` (automod) | [patrol](docs/modules/patrol.md) |
-| **Public Affairs** 🍩 | `/badge`, `/wanted`, `/donut`, `/911` | [public-affairs](docs/modules/public-affairs.md) |
-| **Leveling** 🎖️ | `/level`, `/leaderboard`, `/xp-config` — message + voice XP, auto-rank | [leveling](docs/modules/leveling.md) |
-| **Detective** 🕵️ | `/ask`, `/ai-config` — talk to the bot (AI, or just @mention it) | [detective](docs/modules/detective.md) |
-| **Birthdays** 🎂 | `/birthday-set`, `/birthday-remove`, `/birthdays`, `/birthday-config` | [birthdays](docs/modules/birthdays.md) |
-| **Trivia** ❓ | `/trivia`, `/trivia-scores`, `/trivia-sets` — buttoned quiz rounds | [trivia](docs/modules/trivia.md) |
-| **Memorial** 🕯️ | `/memorial-config` — fallen firefighters/officers tracker (RSS, role tags) | [memorial](docs/modules/memorial.md) |
-| **Starboard** ⭐ | `/starboard-config` — ⭐-reactions repost highlights to the board | [starboard](docs/modules/starboard.md) |
-| **Chat starter** 💬 | `/chat-starter-config` — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |
-| **Channel list** 🗂️ | `/channel-list` — self-updating directory of all categories & channels | [channellist](docs/modules/channellist.md) |
-| **Economy** 💰 | `/donuts`, `/daily`, `/claims`, `/steal`, `/pot`, `/crack-pot` — donut balances, rations, heists, and the STOP POLICE crook hunt | [economy](docs/modules/economy.md) |
-| **Logbook** 📔 | `/logbook` — log everything: messages, members, moderation, voice, server, invites | [logbook](docs/modules/logbook.md) |
-| **Welcome** 👋 | `/welcome-config` — greet every newcomer in the lobby | [welcome](docs/modules/welcome.md) |
-| **YouTube** 📺 | `/youtube` — announce creators' new uploads in a channel | [youtube](docs/modules/youtube.md) |
+| **Core** 📻 | `!radio-check`, `!help`, `!update`, `!restart` | [core](docs/modules/core.md) |
+| **Selfroles** 🎭 | `!selfroles` group (button list: press to get a role, press again to remove) | [selfroles](docs/modules/selfroles.md) |
+| **Hunting** 🦹 | `!hunting` group, `!hunt-stats`, `!hunt-board` — STOP POLICE crook hunt with the undercover officer | [hunting](docs/modules/hunting.md) |
+| **Enforcement** 🚨 | `!cite` (animated ticket), `!fine` (fun), `!detain`, `!release`, `!arrest` | [enforcement](docs/modules/enforcement.md) |
+| **Records** 📋 | `!rapsheet`, `!expunge` | [records](docs/modules/records.md) |
+| **Dispatch** 🗄️ | `!evidence-locker`, `!dispatch` | [dispatch](docs/modules/dispatch.md) |
+| **Academy** 🎖️ | `!promote`, `!demote`, `!ranks`, `!rank-setup`, `!rank-exclude` | [academy](docs/modules/academy.md) |
+| **Patrol** 👮 | `!patrol-wizard` (guided setup), `!patrol`, `!patrol-rule`, `!patrol-term` (automod) | [patrol](docs/modules/patrol.md) |
+| **Public Affairs** 🍩 | `!badge`, `!wanted`, `!donut`, `!911` | [public-affairs](docs/modules/public-affairs.md) |
+| **Leveling** 🎖️ | `!level`, `!leaderboard`, `!xp` group — message + voice XP, auto-rank | [leveling](docs/modules/leveling.md) |
+| **Detective** 🕵️ | `!ask`, `!ai` group — talk to the bot (AI, or just @mention it) | [detective](docs/modules/detective.md) |
+| **Birthdays** 🎂 | `!birthday-set`, `!birthday-remove`, `!birthdays`, `!birthday` group | [birthdays](docs/modules/birthdays.md) |
+| **Trivia** ❓ | `!trivia`, `!trivia-scores`, `!trivia-sets` — buttoned quiz rounds | [trivia](docs/modules/trivia.md) |
+| **Memorial** 🕯️ | `!memorial` group — fallen firefighters/officers tracker (RSS, role tags) | [memorial](docs/modules/memorial.md) |
+| **Starboard** ⭐ | `!starboard` group — ⭐-reactions repost highlights to the board | [starboard](docs/modules/starboard.md) |
+| **Chat starter** 💬 | `!chat-starter` group — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |
+| **Channel list** 🗂️ | `!channel-list` group — self-updating directory of all categories & channels | [channellist](docs/modules/channellist.md) |
+| **Economy** 💰 | `!donuts`, `!daily`, `!claims`, `!steal`, `!pot`, `!crack-pot` + the `!economy`/`!claims-config` groups — donut balances, rations, heists | [economy](docs/modules/economy.md) |
+| **Logbook** 📔 | `!logbook` group — log everything: messages, members, moderation, voice, server, invites | [logbook](docs/modules/logbook.md) |
+| **Welcome** 👋 | `!welcome` group — greet every newcomer in the lobby | [welcome](docs/modules/welcome.md) |
+| **YouTube** 📺 | `!youtube` group — announce creators' new uploads in a channel | [youtube](docs/modules/youtube.md) |
 
 Enforcement actions flow into the rap sheet and the evidence locker automatically. The bot **self-updates** from `main` (test-gated) and is operated from a Raspberry Pi — see [operations](docs/README.md#operations).
 
@@ -53,7 +53,7 @@ Prerequisites: Node.js ≥ 18 and a Discord account that can add bots to the hom
    https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot%20applications.commands&permissions=2048
    ```
    You need *Manage Server* in that guild to add it.
-5. **Register the slash commands** (guild-scoped, instant):
+5. **Clear any stale slash commands** (CuffBot is text-only since S68 — this empties the guild's application-command roster):
    ```bash
    npm run deploy-commands
    ```

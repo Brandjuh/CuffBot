@@ -52,7 +52,7 @@ export default {
           ...(config.streakBonus > 0
             ? ['', `_Streaks: claim again within double the window for +${config.streakPercent ? `${Math.floor(config.streakBonus / 100)}× the base` : `${config.streakBonus} 🍩`}._`]
             : []),
-          ...(collectLine ? ['', collectLine] : ['', '_Collect everything at once: `!claims collect:True`_']),
+          ...(collectLine ? ['', collectLine] : ['', '_Collect everything at once: `!claims true`_']),
         ].join('\n'),
       );
     await interaction.reply({ embeds: [embed], flags: 64 });

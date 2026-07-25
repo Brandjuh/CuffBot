@@ -1,4 +1,4 @@
-import welcomeConfig from './commands/welcome-config.js';
+import welcomeConfig from './commands/welcome.js';
 import memberJoin from './events/member-join.js';
 
 export default {

@@ -33,7 +33,7 @@ export const DEFAULT_LOGBOOK_CONFIG = {
 /**
  * Which channel receives a category's entries. Precedence: an admin's explicit
  * per-category choice, then an admin's explicit single-channel override
- * (`!logbook channel:`), then the committed per-category default.
+ * (`!logbook channel`), then the committed per-category default.
  */
 export function resolveLogChannelId(guildId, category) {
   const stored = getGuildData(guildId, LOGBOOK_CONFIG_KEY, {});

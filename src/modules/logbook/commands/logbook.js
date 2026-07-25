@@ -1,5 +1,7 @@
-import { ChannelType, EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import { ensureInvokerPermission } from '../../enforcement/guards.js';
+// The station-logbook admin group (S70 = M17.2): master switch, per-category
+// toggles (`toggle`), and log routing (`route` / `channel`). Bare `!logbook`
+// shows every category with its live destination.
+import { PermissionFlagsBits } from 'discord.js';
 import { CATEGORIES } from '../lib/logformat.js';
 import { channelKey, getLogbookConfig, resolveLogChannelId, setLogbookConfig } from '../service.js';
 
@@ -12,73 +14,86 @@ const CATEGORY_HELP = {
   invites: 'invite creates/deletes',
 };
 
-function buildData() {
-  const builder = new SlashCommandBuilder()
-    .setName('logbook')
-    .setDescription('View or change the station logbook — logs server events to a channel (admin).')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addBooleanOption((o) => o.setName('enabled').setDescription('Master switch for all logging'))
-    .addChannelOption((o) =>
-      o
-        .setName('channel')
-        .setDescription('ONE channel for every category (overrides the per-category defaults)')
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-    );
-  for (const category of CATEGORIES) {
-    builder.addBooleanOption((o) => o.setName(category).setDescription(`Log ${CATEGORY_HELP[category]}`));
-  }
-  for (const category of CATEGORIES) {
-    builder.addChannelOption((o) =>
-      o
-        .setName(`${category}-channel`)
-        .setDescription(`Channel for ${category} logs only`)
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement),
-    );
-  }
-  return builder;
-}
-
 export default {
-  data: buildData(),
-  async execute(interaction) {
-    if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
-
-    const patch = {};
-    const enabled = interaction.options.getBoolean('enabled');
-    const channel = interaction.options.getChannel('channel');
-    if (enabled !== null) patch.enabled = enabled;
-    if (channel) patch.channelId = channel.id;
-    for (const category of CATEGORIES) {
-      const value = interaction.options.getBoolean(category);
-      if (value !== null) patch[category] = value;
-      const categoryChannel = interaction.options.getChannel(`${category}-channel`);
-      if (categoryChannel) patch[channelKey(category)] = categoryChannel.id;
-    }
-    const config = Object.keys(patch).length
-      ? setLogbookConfig(interaction.guild.id, patch)
-      : getLogbookConfig(interaction.guild.id);
-
-    const categoryLines = CATEGORIES.map((c) => {
-      const target = resolveLogChannelId(interaction.guild.id, c);
-      return `${config[c] ? '✅' : '❌'} **${c}** → ${target ? `<#${target}>` : '⚠️ no channel'} — ${CATEGORY_HELP[c]}`;
-    });
-    // Member events silently need the privileged intent — say so right here.
-    const intentLine = interaction.client.memberEventsAvailable
-      ? '✅ Server Members Intent active (joins/leaves/role changes visible).'
-      : '⚠️ **Server Members Intent OFF** — joins, leaves and role changes are INVISIBLE to me. Enable it: Developer Portal → Bot → Privileged Gateway Intents, then `!restart`.';
-
-    const embed = new EmbedBuilder()
-      .setColor(0x34495e)
-      .setTitle('📔 Station Logbook')
-      .setDescription(
-        [
-          `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
-          '',
-          ...categoryLines,
-          '',
-          intentLine,
-        ].join('\n'),
-      );
-    await interaction.reply({ embeds: [embed], flags: 64 });
+  group: {
+    name: 'logbook',
+    description: 'The station logbook — logs server events to channels (admin).',
+    emoji: '📔',
+    permission: PermissionFlagsBits.ManageGuild,
+    status(ctx) {
+      const config = getLogbookConfig(ctx.guild.id);
+      const categoryLines = CATEGORIES.map((c) => {
+        const target = resolveLogChannelId(ctx.guild.id, c);
+        return `${config[c] ? '✅' : '❌'} **${c}** → ${target ? `<#${target}>` : '⚠️ no channel'} — ${CATEGORY_HELP[c]}`;
+      });
+      // Member events silently need the privileged intent — say so right here.
+      const intentLine = ctx.client.memberEventsAvailable
+        ? '✅ Server Members Intent active (joins/leaves/role changes visible).'
+        : '⚠️ **Server Members Intent OFF** — joins, leaves and role changes are INVISIBLE to me. Enable it: Developer Portal → Bot → Privileged Gateway Intents, then `!restart`.';
+      return [
+        `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
+        '',
+        ...categoryLines,
+        '',
+        intentLine,
+      ];
+    },
+    subcommands: [
+      {
+        name: 'on',
+        description: 'Turn all logging on (master switch).',
+        args: [],
+        async run(ctx) {
+          setLogbookConfig(ctx.guild.id, { enabled: true });
+          await ctx.reply('✅ The logbook is **open** — events are being logged.');
+        },
+      },
+      {
+        name: 'off',
+        description: 'Turn all logging off (master switch).',
+        args: [],
+        async run(ctx) {
+          setLogbookConfig(ctx.guild.id, { enabled: false });
+          await ctx.reply('📴 The logbook is **closed** — nothing is logged.');
+        },
+      },
+      {
+        name: 'toggle',
+        description: 'Turn one category of logs on or off.',
+        args: [
+          { name: 'category', type: 'string', required: true, choices: [...CATEGORIES] },
+          { name: 'state', type: 'boolean', required: true },
+        ],
+        async run(ctx, { category, state }) {
+          setLogbookConfig(ctx.guild.id, { [category]: state });
+          await ctx.reply(
+            state
+              ? `✅ **${category}** logs are on (${CATEGORY_HELP[category]}).`
+              : `❌ **${category}** logs are off.`,
+          );
+        },
+      },
+      {
+        name: 'route',
+        description: 'Send one category of logs to its own channel.',
+        args: [
+          { name: 'category', type: 'string', required: true, choices: [...CATEGORIES] },
+          { name: 'channel', type: 'channel', required: true, postable: true },
+        ],
+        async run(ctx, { category, channel }) {
+          setLogbookConfig(ctx.guild.id, { [channelKey(category)]: channel.id });
+          await ctx.reply(`✅ **${category}** logs now go to <#${channel.id}>.`);
+        },
+      },
+      {
+        name: 'channel',
+        description: 'Send EVERY category to one channel (overrides the per-category defaults).',
+        args: [{ name: 'channel', type: 'channel', required: true, postable: true }],
+        async run(ctx, { channel }) {
+          setLogbookConfig(ctx.guild.id, { channelId: channel.id });
+          await ctx.reply(`✅ All logs now go to <#${channel.id}> (explicit \`route\` targets still win).`);
+        },
+      },
+    ],
   },
 };

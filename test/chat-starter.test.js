@@ -266,27 +266,21 @@ test('postStarter posts immediately and disarms the monologue guard (S30)', asyn
   assert.equal(activityFor('quiet-chan').humanSinceStarter, false, 'test shot counts as a starter');
 });
 
-test('the test option arms a shot only when a channel is configured (S30)', async () => {
-  const { default: cmd } = await import('../src/modules/chat-starter/commands/chat-starter-config.js');
+test('the test sub arms a shot only when a channel is configured (S30, group since S70)', async () => {
+  const { default: cmd } = await import('../src/modules/chat-starter/commands/chat-starter.js');
   const guildId = freshGuildId();
+  const testSub = cmd.group.subcommands.find((s) => s.name === 'test');
   setStarterConfig(guildId, { channelId: 'quiet-chan' });
   const replies = [];
-  const ix = (opts) => ({
+  const ctx = {
     guild: { id: guildId, channels: { cache: new Map() } },
-    memberPermissions: { has: () => true },
-    options: {
-      getBoolean: (n) => opts[n] ?? null,
-      getChannel: () => null,
-      getInteger: () => null,
-    },
-    reply: async (p) => replies.push(p),
-    deferReply: async () => {},
-    editReply: async (p) => replies.push(p),
-  });
-  await cmd.execute(ix({ test: true }));
-  assert.match(replies[0].embeds[0].toJSON().description, /Test armed:.*in ~30 seconds/s);
+    prefix: '!',
+    reply: async (p) => replies.push(typeof p === 'string' ? p : p.content),
+  };
+  await testSub.run(ctx);
+  assert.match(replies[0], /Test armed:.*in ~30 seconds/s);
 
   setStarterConfig(guildId, { channelId: null });
-  await cmd.execute(ix({ test: true }));
-  assert.match(replies[1].embeds[0].toJSON().description, /no channel configured/);
+  await testSub.run(ctx);
+  assert.match(replies[1], /no channel configured/i);
 });
