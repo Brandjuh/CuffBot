@@ -1354,3 +1354,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** the S76 prime-suspect analysis (boot-smoke timeout) was wrong — the evidence plumbing it shipped is what found the truth. The S6 lesson compounds: the error had to be QUOTED (readable) before it could be diagnosed; 37 root-owned logs hid it for hours.
 
 **Retrospective (skill 0.5.17 → 0.5.18):** the one-line rule went into the reference read before writing tests. Meta-lesson also visible: a version-skewed runtime between the dev container and production means "green here" ≠ "green there" — the test gate on the Pi is the ONLY true gate, and its evidence must always be readable (now guaranteed by S77).
+
+---
+
+## Session 79 — 2026-07-25
+
+**Goal:** M16.6 — Split or Steal (AAA3A port). Owner: "Ga autonoom verder" (the Pi is confirmed live at b32ac8d since S78 — verified by the owner's own `git log`).
+
+**Done:**
+- **Module `splitorsteal`, cog-faithful:** fixed 60 s join lobby (never ends early — the cog sleeps the full window), two contestants drawn with the cog's exact choice-remove-choice, secret Split/Steal buttons (quiet confirmations, original echoed on a repeat press, spectators get the cog's exact refusal line), the classic matrix, 60 s choice timeout with the cog's line. The cog's 1 s `check_conditions` polling became an **event-driven choice bridge** (`chooseSos` resolves the runner's pending promise when the second choice lands). io-injected runner (`runSosGame`) — second consumer of the S73 engine pattern.
+- **Recorded deviations:** the cog's "loose" typo → "lose"; pings limited to the contestant announcement (scoped); result lines render mentions without notifying.
+- Tests 568 → **577**: the matrix, the seeded draw (input untouched), join/choose state-machine codes, and four whole scripted matches (not-enough after the fixed window, both-split win with a 3-joiner draw, steal-beats-split + timestamp pass-through, silent-contestant timeout with the unref'd-timer keep-alive), plus group shape + busy refusal.
+- Docs: manual `splitorsteal.md`, docs index, README (25 modules / 63 commands), ROADMAP M16.6 ✔, STATE.md (bullet + resume point → M16.7 guess-the-candy with the license flag carried forward).
+
+**Corrections (Step 2):** none — state matched reality (b32ac8d, 568/568 at session start; the S78 fix held).
+
+**Retrospective:** no skill-file change — the io-injected engine pattern carried its second game with zero friction (S73's candidate is now twice-proven; promotion to architecture.md is warranted the next time the skill file is edited, noted in LEARNINGS). The static-import test rule (0.5.18) was applied from the start this session.
