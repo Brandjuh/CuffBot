@@ -24,6 +24,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | economy | [`modules/economy.md`](modules/economy.md) | stable (S38) |
 | youtube | [`modules/youtube.md`](modules/youtube.md) | stable (S52) |
 | selfroles | [`modules/selfroles.md`](modules/selfroles.md) | stable (S59) |
+| hunting | [`modules/hunting.md`](modules/hunting.md) | stable (S66) |
 
 ## Operations
 

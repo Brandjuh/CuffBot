@@ -19,16 +19,9 @@
 - **Birthday gift (S38):** on their birthday a member receives **50,000 🍩**, announced inside the birthday message itself (seam from the birthdays module; if the economy is disabled the gift and the line are skipped).
 - **Balances never go below 0** — the crook can only steal what someone actually has.
 
-## The crook hunt 🦹
+## The crook hunt 🦹 → moved (S66)
 
-1. When a channel is **active** (≥4 messages from ≥2 humans within 3 minutes), every further message rolls a 3% chance to spawn a crook — at most one hunt per channel per 10 minutes, one open hunt per channel.
-2. The crook **lingers 5–20 seconds** (random).
-3. First member to shout **STOP POLICE** in time (leading the message; case/punctuation don't matter — "stop police!!!" works, "please stop police" does not) cuffs them and earns **100–300 🍩**.
-4. Nobody in time? **The crook escapes and pickpockets 50–250 🍩 from a random member** — announced in the channel (name shown, never pinged).
-5. Admins can test instantly: `/economy-config test-hunt:#channel` spawns one crook right there.
-6. **Timed hunts (S56, owner request):** independent of chat activity, a crook also appears in the hunt channel — owner default `412354971170897921` — at a **random moment every 60–300 minutes** (the gap is re-rolled after every spawn, so times never form a pattern). Same flee window, bounty, and escape-steal; the same "one open hunt per channel" guard applies, and without the Message Content intent timed hunts stay off too (with one boot log line saying why). `/economy-config hunt-timer:False` turns them off, `hunt-channel:#…` moves them.
-
-A restart forfeits any open hunt (RAM only) — the next busy conversation simply spawns a new one.
+The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)** — crook variety, the undercover officer, words/reaction modes, per-type scores, and the leaderboard. Escaped crooks still pickpocket into the donut pot below.
 
 ## The heist 🕶️ — `/steal target:@member` (S40, revised S41)
 
@@ -61,7 +54,7 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 - **/pot** — the pot view (S63): a tidy embed with the balance front and center, how the pot fills, whether YOUR daily shot is still open, and the odds. Ephemeral (in-channel no-ping reply as `!pot`).
 - **/crack-pot** — the daily attempt as its own command (S63; replaces the clunky `/pot try:True`): win = a loud JACKPOT embed (public), loss = one calm line (public), already-tried/disabled = short ephemeral notes.
 - **/steal outcomes (S63):** short embeds — green HEIST with the amount as a big line, red BUSTED with the confiscation and a one-line pot pointer; refusals (bot/self/cooldown/disabled) stay short ephemeral one-liners.
-- **/economy-config** (admin — Manage Server): `enabled` (master switch), `hunt` (hunts on/off), `earn` (donuts per message 0–100), `test-hunt` (channel — spawn a crook now), `hunt-timer` (timed hunts on/off, S56), `hunt-channel` (where timed hunts appear — text or announcement channel). Status shows every number, the timed-hunt line, plus the Message Content intent state.
+- **/economy-config** (admin — Manage Server): `enabled` (master switch), `earn` (donuts per message 0–100). The hunt options moved to `/hunting` in S66 — this status now covers balances, pay, heist, daily, and pot only.
 
 ## Design notes
 
@@ -105,3 +98,4 @@ A restart forfeits any open hunt (RAM only) — the next busy conversation simpl
 | S55 | `/economy-config` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
 | S56 | Timed hunts: a crook also spawns in the owner's hunt channel (`412354971170897921`, committed default) at a random moment every 60–300 min, re-rolled per spawn; `/economy-config hunt-timer:`/`hunt-channel:` knobs; same primitives and Message Content gate as activity hunts. |
 | S63 | Steal + pot UX overhaul (owner: texts read as clutter; `/pot try:True` was clunky): `/pot` = clean view embed incl. your daily-shot state (`hasPotTryToday`); new `/crack-pot` command for the attempt; steal outcomes are short color-coded embeds. 55th command. |
+| S66 | The crook hunt moved to the new `hunting` module (M16.1 vrt port) — hunt options/events/tests left economy; `/economy-config` slimmed to enabled+earn; the pot keeps receiving escape steals and undercover fines. |

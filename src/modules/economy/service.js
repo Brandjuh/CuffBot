@@ -1,25 +1,16 @@
-// Economy service: donut balances in the guild store, activity earnings, and
-// the live crook-hunt game (spawn → catch/expire). Pure rules live in
-// lib/bank.js; this file owns store access, the RAM hunt state, and Discord
-// sends. Other modules award donuts through adjustBalance/grantBirthdayBonus
-// (cross-module seam, always wrapped in try/catch by the caller).
+// Economy service: donut balances in the guild store, activity earnings, the
+// pot, /steal, and /daily. Pure rules live in lib/bank.js. The crook hunt
+// moved to the hunting module in S66 (M16.1) — it spends and pays donuts
+// through adjustBalance/addToPot like every other game (cross-module seam,
+// always wrapped in try/catch by the caller).
 import { getGuildData, updateGuildData } from '../../core/store.js';
-import { logger } from '../../core/logger.js';
-import { resolveSendableChannel } from '../../core/channels.js';
 import {
   DEFAULT_ECONOMY_CONFIG,
-  catchReward,
-  channelIsActive,
   dayString,
   daysBetween,
   earnGain,
   heistSucceeds,
-  huntDurationMs,
-  pickVictim,
   potTryWins,
-  shouldSpawnHunt,
-  stealAmount,
-  trackActivity,
 } from './lib/bank.js';
 
 export const ECONOMY_CONFIG_KEY = 'economyConfig';
@@ -277,157 +268,4 @@ export function topBalances(guildId, limit = 10) {
     .map(([userId, rec]) => ({ userId, balance: rec.balance }))
     .sort((a, b) => b.balance - a.balance)
     .slice(0, max);
-}
-
-// ── the crook hunt (RAM state; a restart simply forfeits the open hunt) ──────
-
-const activityState = new Map(); // channelId → recent human messages
-const lastHuntAt = new Map(); // channelId → timestamp of the last spawn
-const activeHunts = new Map(); // channelId → {guildId, expiresAt, reward, timer, messageId}
-
-export function activeHunt(channelId) {
-  return activeHunts.get(channelId) ?? null;
-}
-
-/** Test hook: clear all RAM hunt state. */
-export function resetHuntState() {
-  for (const hunt of activeHunts.values()) clearTimeout(hunt.timer);
-  activeHunts.clear();
-  activityState.clear();
-  lastHuntAt.clear();
-}
-
-/**
- * Track a human message and maybe spawn a crook in this channel. Returns true
- * when a hunt spawned. Requires the Message Content intent — without it the
- * "STOP POLICE" shout is invisible, so spawning would be a rigged game.
- */
-export async function noteActivityAndMaybeSpawn(message, { random = Math.random, now = Date.now() } = {}) {
-  const config = getEconomyConfig(message.guild.id);
-  if (!config.enabled || !config.huntEnabled) return false;
-  const channelId = message.channel.id;
-  // Track always (harmless, and the game starts instantly once the intent is
-  // enabled) — but never SPAWN without Message Content: the bot couldn't hear
-  // "STOP POLICE", making the hunt unwinnable.
-  trackActivity(activityState, channelId, message.author.id, now, config);
-  if (!message.client.messageContentAvailable) return false;
-  if (activeHunts.has(channelId)) return false;
-  const active = channelIsActive(activityState, channelId, now, config);
-  if (!shouldSpawnHunt({ active, lastHuntAt: lastHuntAt.get(channelId), now, config, random })) {
-    return false;
-  }
-  return spawnHunt(message.channel, { random, now });
-}
-
-/**
- * One timed-hunt tick (S56 owner request): spawn a crook in the configured
- * hunt channel regardless of chat activity — the random schedule replaces the
- * activity roll; everything else (flee window, bounty, escape-steal) is the
- * same live primitive. Guards mirror the activity path: never a second hunt
- * in the channel, never a spawn without Message Content (the shout would be
- * inaudible → unwinnable), S55 channel resolution.
- * @returns {Promise<'spawned'|'off'|'no-intent'|'busy'|'no-channel'|'failed'>}
- */
-export async function runTimedHuntTick(guild, { random = Math.random, now = Date.now() } = {}) {
-  const config = getEconomyConfig(guild.id);
-  if (!config.enabled || !config.huntEnabled || !config.huntTimerEnabled || !config.huntTimerChannelId) {
-    return 'off';
-  }
-  if (!guild.client?.messageContentAvailable) return 'no-intent';
-  if (activeHunts.has(config.huntTimerChannelId)) return 'busy';
-  const channel = await resolveSendableChannel(guild, config.huntTimerChannelId);
-  if (!channel) return 'no-channel';
-  return (await spawnHunt(channel, { random, now })) ? 'spawned' : 'failed';
-}
-
-/** Post the crook and arm the 5–20 s flee timer. */
-export async function spawnHunt(channel, { random = Math.random, now = Date.now(), durationMs = null } = {}) {
-  const guild = channel.guild;
-  const config = getEconomyConfig(guild.id);
-  const lingerMs = durationMs ?? huntDurationMs(config, random);
-  const reward = catchReward(config, random);
-  try {
-    const posted = await channel.send({
-      content:
-        '🦹 **A crook is sprinting through this channel!** First officer to shout **STOP POLICE** cuffs them and pockets the bounty. Quick — they won’t stick around!',
-      allowedMentions: { parse: [] },
-    });
-    const hunt = {
-      guildId: guild.id,
-      channelId: channel.id,
-      reward,
-      expiresAt: now + lingerMs,
-      messageId: posted?.id ?? null,
-      timer: setTimeout(() => {
-        activeHunts.delete(channel.id);
-        expireHunt(channel, { random }).catch((error) =>
-          logger.warn('Economy: hunt expiry failed:', error),
-        );
-      }, lingerMs),
-    };
-    hunt.timer.unref?.();
-    activeHunts.set(channel.id, hunt);
-    lastHuntAt.set(channel.id, now);
-    return true;
-  } catch (error) {
-    logger.warn('Economy: could not spawn a hunt:', error);
-    return false;
-  }
-}
-
-/**
- * A message arrived in a channel with an open hunt and shouted the phrase:
- * cuff the crook, pay the officer. Returns the reward, or null if the hunt
- * was already gone (raced the flee timer).
- */
-export async function resolveCatch(message, { now = Date.now() } = {}) {
-  const hunt = activeHunts.get(message.channel.id);
-  if (!hunt || now >= hunt.expiresAt) return null;
-  clearTimeout(hunt.timer);
-  activeHunts.delete(message.channel.id);
-  const { balance } = adjustBalance(hunt.guildId, message.author.id, hunt.reward);
-  const officer = message.member?.displayName ?? message.author.username ?? 'An officer';
-  await message.channel
-    .send({
-      content: `🚔 **GOTCHA!** ${officer} cuffed the crook and earned **${hunt.reward.toLocaleString('en-US')} donuts** 🍩 (balance: ${balance.toLocaleString('en-US')}).`,
-      allowedMentions: { parse: [] },
-    })
-    .catch(() => {});
-  return hunt.reward;
-}
-
-/** The crook fled: steal donuts from a random member and announce it. */
-export async function expireHunt(channel, { random = Math.random } = {}) {
-  const guild = channel.guild;
-  const config = getEconomyConfig(guild.id);
-
-  // Victim pool: real (non-bot) members from the cache; fall back to everyone
-  // with a donut account. The victim's account materializes on the write, so
-  // stealing from a fresh member correctly dips into their starting 10k.
-  let candidates = [...(guild.members?.cache?.values() ?? [])]
-    .filter((m) => !m.user?.bot)
-    .map((m) => m.id);
-  if (candidates.length === 0) candidates = Object.keys(getAccounts(guild.id));
-  const victimId = pickVictim(candidates, random);
-
-  if (!victimId) {
-    await channel
-      .send({ content: '💨 The crook got away — nothing in their pockets this time.', allowedMentions: { parse: [] } })
-      .catch(() => {});
-    return null;
-  }
-
-  const wanted = stealAmount(config, random);
-  const { applied } = adjustBalance(guild.id, victimId, -wanted);
-  const stolen = Math.abs(applied);
-  // Lost donuts never vanish — the crook stashes them in the donut pot (S41).
-  const potBalance = stolen > 0 ? addToPot(guild.id, stolen) : null;
-  const victimName =
-    guild.members?.cache?.get(victimId)?.displayName ?? `<@${victimId}>`;
-  const line =
-    stolen > 0
-      ? `💨 **The crook got away…** and pickpocketed **${stolen.toLocaleString('en-US')} donuts** 🍩 from **${victimName}** — stashed in the donut pot (now **${potBalance.toLocaleString('en-US')}** 🍩, try \`/pot\`). Next time, shout STOP POLICE!`
-      : `💨 **The crook got away…** they tried to rob **${victimName}**, but found only crumbs.`;
-  await channel.send({ content: line, allowedMentions: { parse: [] } }).catch(() => {});
-  return { victimId, stolen };
 }

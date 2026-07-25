@@ -28,6 +28,7 @@ const MODULE_BADGES = {
   economy: '💰',
   youtube: '📺',
   selfroles: '🎭',
+  hunting: '🦹',
 };
 
 /**
@@ -95,6 +96,8 @@ export const COMMAND_CATEGORIES = {
   steal: 'games',
   pot: 'games',
   'crack-pot': 'games',
+  'hunt-stats': 'games',
+  'hunt-board': 'games',
   daily: 'games',
   fine: 'fun',
   wanted: 'fun',
@@ -114,6 +117,7 @@ export const COMMAND_CATEGORIES = {
   update: 'admin',
   restart: 'admin',
   selfroles: 'admin',
+  hunting: 'admin',
   dispatch: 'admin',
   'evidence-locker': 'admin',
   'rank-setup': 'admin',
