@@ -73,6 +73,7 @@ For "the bot maintains a list in a channel" features (channel directory, self-ro
 - **Debounce change events** (~15 s): channel/role edits arrive in bursts; collapse to one refresh.
 - **Boot catch-up** (~20 s after ready, unref'ed): offline changes can't leave the list stale. Gate it on "a list was posted" — the explicit `post:` command is go-live; the bot never posts a list on its own first.
 - Content derives from LIVE guild state on every render, never from a stored copy.
+- **Outgrowing one message** (S64): a message caps at 25 buttons (5×5) — track `messageIds[]` instead of one id; per chunk edit-in-place, post the missing, delete the surplus when content shrinks; keep recognizing the old single-id record so live guilds migrate silently.
 
 ## Mentions & pings (S53)
 

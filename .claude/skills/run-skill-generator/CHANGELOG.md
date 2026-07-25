@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.15 — 2026-07-25 (Session 64)
+
+- `discord-reference.md` → self-updating posted messages: the multi-message variant (25-button cap per message → tracked `messageIds[]`, per-chunk edit/post/delete-surplus, legacy single-id records keep working).
+- Evidence: S64 — the selfroles board outgrew one message the moment the owner planned 20+ roles; the extension slotted into the existing S36/S59 pattern without touching callers.
+
 ## 0.5.14 — 2026-07-24 (Session 61)
 
 - `LEARNINGS.md`: new candidate — unverifiable external resources get a probe surface in the bot, not a committed guess (session containers have no open internet; the bot host does).

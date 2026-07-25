@@ -43,7 +43,7 @@ Per-role info in `selfrolesInfo` (`{ [roleId]: { text?, emoji? } }`); the posted
 - **Member permissions:** none — the buttons are the whole point. `/selfroles` itself requires Manage Server.
 - **Safety rails:**
   - **Elevated roles are never self-assignable.** A role under the header carrying Administrator, Manage Server/Roles/Channels/Messages/Webhooks, Moderate/Kick/Ban Members, or Mention Everyone is skipped and listed under "Skipped" with the reason — a self-service moderator role is a security hole, not a feature.
-  - Managed (integration/bot) roles and `@everyone` are skipped; the section ends at the next divider-looking role (same rule as the academy ladder).
+  - Managed (integration/bot) roles and `@everyone` are skipped; the section ends at the next divider-looking role (same rule as the academy ladder). Sanity cap: **125 roles** (S64 — five messages of 25 buttons); overflow is listed under "Skipped".
   - Every press is validated against the **live** section — a role that was moved out (or gained dangerous permissions) after posting is refused and the stale list refreshes itself.
   - Role writes carry audit reasons; toggle failures answer honestly ("my role probably sits below it").
   - The list embed and all button replies never ping (`allowedMentions: { parse: [] }`).
@@ -51,7 +51,7 @@ Per-role info in `selfrolesInfo` (`{ [roleId]: { text?, emoji? } }`); the posted
 ## How it works
 
 - `lib/selfroles.js` (pure): header matching (decorations and case ignored), section selection under the header (skip managed/elevated/@everyone, stop at the next divider — `isSectionDivider` shared with the academy), the 25-button cap (Discord: 5 buttons × 5 rows), list-line rendering, button-label clamping (80 chars).
-- `service.js`: live detection over `guild.roles.cache` (elevated = permission check, precomputed for the pure lib), the list payload (one embed + button rows), the **tracked message** (edit in place; deleted → repost and re-track — the bot can always adjust its own list), a per-guild refresh lock, the 15 s debounced auto-refresh, and the toggle.
+- `service.js`: live detection over `guild.roles.cache` (elevated = permission check, precomputed for the pure lib), the list payloads (S64: **one message per 25 roles** — Discord's button cap — each with its own embed section and buttons; the first carries the intro, later ones say "(continued)"), the **tracked message list** (`messageIds[]`, pre-S64 single-id records still recognized; per chunk: edit in place, post missing, delete surplus when the roster shrinks, best-effort cleanup when the list moves channels), a per-guild refresh lock, the 15 s debounced auto-refresh, and the toggle.
 - Toggle = add when missing, remove when held — one button, both directions (owner spec).
 - The channel resolves via `core/channels.js` (S55): announcement channels work, cache misses fall back to the API.
 
@@ -86,10 +86,11 @@ src/modules/selfroles/
 | A role is missing from the list | It sits above the header, below a divider, is managed, or has elevated permissions | `/selfroles` shows every skipped role with the reason |
 | Button says it can't toggle | CuffBot's role sits below the self-role | Move CuffBot's role above the self-assignable roles |
 | List is stale | Refresh failed (channel perms) | `/selfroles post:True` reposts; check Send Messages in the channel |
-| More than 25 roles under the header | Discord allows 25 buttons per message | The overflow is listed under "Skipped" — trim the section |
+| More than 125 roles under the header | The sanity cap (five messages of 25 buttons, S64) | The overflow is listed under "Skipped" — trim the section |
 
 ## Changelog
 
 | Session | Change |
 |---|---|
 | S59 | Created: button-toggle self roles from the role-list section under the `self-roles` header, posted in `625276074833608705` (committed owner default); per-role info/emoji via `/selfroles`; self-updating tracked message (role-event debounce + boot catch-up); elevated/managed roles refused with visible reasons. |
+| S64 | The list spans multiple messages (owner request: support well beyond 20 roles): one message per 25 buttons, cap raised 25 → 125; tracked `messageIds[]` with per-chunk edit/post/delete and legacy single-id migration. |
