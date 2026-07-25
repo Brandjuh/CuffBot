@@ -94,6 +94,7 @@ export const COMMAND_CATEGORIES = {
   'donut-board': 'games',
   steal: 'games',
   pot: 'games',
+  'crack-pot': 'games',
   daily: 'games',
   fine: 'fun',
   wanted: 'fun',

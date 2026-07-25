@@ -1,14 +1,15 @@
-import { SlashCommandBuilder } from 'discord.js';
+// /steal (S40, cooldown S48, pot S41). S63 owner request: outcomes are now
+// short, clean embeds instead of run-on text — one bold fact per line.
+import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
 import { formatWaitMs } from '../lib/bank.js';
 import { attemptHeist, getEconomyConfig } from '../service.js';
 
-const noPing = { allowedMentions: { parse: [] } };
-const donuts = (n) => `**${n.toLocaleString('en-US')} donuts** 🍩`;
+const gold = (n) => `${n.toLocaleString('en-US')} 🍩`;
 
 export default {
   data: new SlashCommandBuilder()
     .setName('steal')
-    .setDescription('Attempt to steal donuts from another officer (30% odds — get caught and the chief collects).')
+    .setDescription('Attempt to steal donuts from another officer (30% odds — get busted and you pay the pot).')
     .addUserOption((o) =>
       o.setName('target').setDescription('Whose donuts you are after').setRequired(true),
     ),
@@ -30,34 +31,47 @@ export default {
         return;
       case 'self':
         await interaction.reply({
-          content: '🪞 Stealing from yourself? That’s just moving donuts between pockets.',
+          content: '🪞 Stealing from yourself is just moving donuts between pockets.',
           flags: 64,
         });
         return;
-      case 'cooldown': {
+      case 'cooldown':
         await interaction.reply({
-          content: `🕶️ Lay low — the heat is still on. Try again in ~${formatWaitMs(result.waitMs)}.`,
+          content: `🕶️ Lay low — the heat is still on. Next attempt in ~${formatWaitMs(result.waitMs)}.`,
           flags: 64,
         });
         return;
-      }
       case 'success': {
-        const line =
-          result.amount > 0
-            ? `🕶️ **HEIST!** ${thief} slipped past ${victim} and lifted ${donuts(result.amount)}${
-                result.amount < config.heistAmount ? ' — that was everything they had on them' : ''
-              }!`
-            : `🕶️ ${thief} picked ${victim}’s pocket flawlessly… and found it completely empty.`;
-        await interaction.reply({ content: line, ...noPing });
+        const embed = new EmbedBuilder()
+          .setColor(0x2ecc71)
+          .setTitle('🕶️ HEIST!')
+          .setDescription(
+            result.amount > 0
+              ? [
+                  `**${thief}** slipped past **${victim}**.`,
+                  `# +${gold(result.amount)}`,
+                  ...(result.amount < config.heistAmount ? ['_That was everything they carried._'] : []),
+                ].join('\n')
+              : `**${thief}** picked **${victim}**’s pocket flawlessly… and found it empty.`,
+          );
+        await interaction.reply({ embeds: [embed], allowedMentions: { parse: [] } });
         return;
       }
       case 'failure':
       default: {
-        const line =
-          result.amount > 0
-            ? `🚨 **BUSTED!** ${thief} got caught red-handed robbing ${victim} — ${donuts(result.amount)} confiscated into the **donut pot** 🍯 (now holding ${donuts(result.potBalance)}; crack it with \`/pot\`).`
-            : `🚨 **BUSTED!** ${thief} got caught robbing ${victim}, but their own pockets were already empty. The pot sighs.`;
-        await interaction.reply({ content: line, ...noPing });
+        const embed = new EmbedBuilder()
+          .setColor(0xe74c3c)
+          .setTitle('🚨 BUSTED!')
+          .setDescription(
+            result.amount > 0
+              ? [
+                  `**${thief}** got caught robbing **${victim}**.`,
+                  `# −${gold(result.amount)}`,
+                  `_Confiscated into the donut pot — now **${gold(result.potBalance)}**. Your shot: \`/crack-pot\`._`,
+                ].join('\n')
+              : `**${thief}** got caught robbing **${victim}** — with already-empty pockets. The pot sighs.`,
+          );
+        await interaction.reply({ embeds: [embed], allowedMentions: { parse: [] } });
       }
     }
   },

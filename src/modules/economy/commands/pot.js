@@ -1,55 +1,29 @@
-import { SlashCommandBuilder } from 'discord.js';
-import { getPot, tryPot } from '../service.js';
-
-const donuts = (n) => `**${n.toLocaleString('en-US')} donuts** 🍩`;
-const noPing = { allowedMentions: { parse: [] } };
+// The pot VIEW (S63 owner request: the old text wall read as clutter, and
+// `/pot try:True` was clunky). Viewing and cracking are now two commands:
+// /pot shows the state, /crack-pot takes the daily shot.
+import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import { getPot, hasPotTryToday } from '../service.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('pot')
-    .setDescription('The donut pot: every lost donut lands here (+500/day). One crack attempt per day, 0.5%.')
-    .addBooleanOption((o) =>
-      o.setName('try').setDescription('Take your daily shot at cracking the pot open'),
-    ),
+    .setDescription('The donut pot: how much is in it, and whether your daily crack attempt is still open.'),
   async execute(interaction) {
     const guildId = interaction.guild.id;
-    const who = interaction.member?.displayName ?? interaction.user.username;
-
-    if (interaction.options.getBoolean('try') !== true) {
-      const pot = getPot(guildId);
-      await interaction.reply({
-        content:
-          `🍯 **The donut pot holds ${donuts(pot.balance)}.**\n` +
-          'It collects every lost donut (busted `/steal`s, escaped crooks) and grows **+500** 🍩 every day. ' +
-          'Once a day you may try to crack it — **0.5%** odds, winner takes ALL: `/pot try:True` (resets at midnight UTC).',
-        flags: 64,
-      });
-      return;
-    }
-
-    const result = tryPot(guildId, interaction.user.id);
-    switch (result.code) {
-      case 'disabled':
-        await interaction.reply({ content: '🍩 The economy is currently disabled.', flags: 64 });
-        return;
-      case 'already':
-        await interaction.reply({
-          content: '🍯 You already rattled the pot today — new chance after midnight UTC.',
-          flags: 64,
-        });
-        return;
-      case 'win':
-        await interaction.reply({
-          content: `💥🍯 **JACKPOT!!** ${who} cracked the donut pot wide open and walks away with ${donuts(result.amount)}! The pot starts over at zero.`,
-          ...noPing,
-        });
-        return;
-      case 'lose':
-      default:
-        await interaction.reply({
-          content: `🍯 ${who} rattled the pot… it didn’t budge. It keeps its ${donuts(result.balance)}. Better luck tomorrow!`,
-          ...noPing,
-        });
-    }
+    const pot = getPot(guildId);
+    const tried = hasPotTryToday(guildId, interaction.user.id);
+    const embed = new EmbedBuilder()
+      .setColor(0xf1c40f)
+      .setTitle('🍯 The Donut Pot')
+      .setDescription(
+        [
+          `# ${pot.balance.toLocaleString('en-US')} 🍩`,
+          '',
+          '**How it fills** — busted `/steal` attempts, escaped crooks, and **+500** 🍩 every day.',
+          `**Your daily shot** — ${tried ? '❌ used for today (new chance after midnight UTC)' : '✅ still open: `/crack-pot`'}`,
+          '**The odds** — 0.5%. Winner takes the whole pot.',
+        ].join('\n'),
+      );
+    await interaction.reply({ embeds: [embed], flags: 64 });
   },
 };

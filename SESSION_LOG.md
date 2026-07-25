@@ -1093,3 +1093,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Retrospective:** no skill change — S62 is the S60 override pattern applied to roles; the deeper lesson (committed ids can rot on the live server → every committed id needs a config override + a status probe) is emerging across S55/S61/S62 but is not yet distinct enough from existing candidates to record separately; revisit if it recurs.
 
 **Handoff:** owner must still (a) run `/memorial-config enabled:True`, (b) probe the USFA URL, (c) supply the firefighters channel + role (now self-serve via options).
+
+---
+
+## Session 63 — 2026-07-25
+
+**Goal:** owner: the /steal and /pot texts read as clutter ("rommelig"), and the pot-crack interface (`/pot try:True`) is unpleasant — make it all better.
+
+**Done:**
+- **`/pot` is now a view:** one tidy embed — the balance as a big headline, how the pot fills, **whether YOUR daily shot is still open** (new read-only `hasPotTryToday`), and the odds. The `try:` option is gone.
+- **`/crack-pot` (55th command):** the daily attempt as its own command. Win = loud green JACKPOT embed (public); loss = one calm gold line (public); already-tried/disabled = short ephemeral notes.
+- **`/steal` outcomes are short color-coded embeds:** green **HEIST!** with the haul as a big `# +N 🍩` line (plus an italic "that was everything they carried" when capped), red **BUSTED!** with the confiscation and a one-line pot pointer. Refusals stay one-line ephemerals. All embeds ping nobody.
+- Tests 481 → **482** (hasPotTryToday day-flip). Manual economy.md; README 55 commands + economy row; help category `crack-pot: games` (completeness test green).
+
+**Retrospective:** no skill change — a wording/layout pass plus the S63 command split; no new generalizable mechanism (the "view and act are separate commands" idea is worth watching — if a third case appears after /pot–/crack-pot, record it).

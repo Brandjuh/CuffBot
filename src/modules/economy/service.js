@@ -197,6 +197,11 @@ export function addToPot(guildId, amount, now = Date.now()) {
  * pot keeps everything. Either way the member's attempt for today is spent.
  * @returns {{code:'disabled'|'already'|'win'|'lose', amount?:number, balance?:number}}
  */
+/** Has this member used today's pot attempt already? (read-only, for /pot) */
+export function hasPotTryToday(guildId, userId, now = Date.now()) {
+  return getPot(guildId, now).attempts?.[userId] === dayString(now);
+}
+
 export function tryPot(guildId, userId, { random = Math.random, now = Date.now() } = {}) {
   const config = getEconomyConfig(guildId);
   if (!config.enabled) return { code: 'disabled' };
