@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.19 — 2026-07-25 (Session 81)
+
+- `references/architecture.md` (Module pattern): promoted two twice/thrice-proven LEARNINGS candidates — the io-injected engine for timed multiplayer games (S73 russian roulette, S79 split-or-steal, S81 rollout), and the unref'd-timer test keep-alive rule (the "Promise resolution is still pending" cascade bit S73 and S81 identically).
+- Evidence: S81 — the rollout suite hit the exact S73 failure again before the keep-alive was added; the engine pattern carried its third game with no design work.
+
 ## 0.5.18 — 2026-07-25 (Session 78)
 
 - `references/architecture.md` (Verification habits): never use top-level `await` in test files — the Pi's older node:test runner executes tests registered after an await interleaved/twice (`processPendingSubtests`), so a test's first assertion sees its own later writes; passes silently on newer Node.

@@ -34,6 +34,7 @@ const MODULE_BADGES = {
   russianroulette: '🔫',
   splitorsteal: '🤝',
   guessthecandy: '🍬',
+  rollout: '🎲',
 };
 
 /**
@@ -129,6 +130,7 @@ export const COMMAND_CATEGORIES = {
   russianroulette: 'games',
   splitorsteal: 'games',
   guessthecandy: 'games',
+  rollout: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',
