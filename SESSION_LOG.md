@@ -1485,3 +1485,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2/6):** none against reality — but two of my own arithmetic claims failed their tests before the code did (the ready-job count and the shop's priced-item count, 29 not 23). Both were test-script errors caught by assertions I had written to be strict; the code was right each time.
 
 **Retrospective:** nothing new for the skill. The 0.5.20 porting rule and the S69 group framework carried this slice with no surprises; the scripted-rng habit from slice A made the settlement tests trivial to write. Worth noting for slice C: the S73/S81 unref'd-timer keep-alive rule will apply the moment the scheduler gets tests.
+
+## Session 87 — 2026-07-25
+
+**Goal:** M16.12 **slice C** — make a finished heist announce itself, and survive a restart doing it. Owner: full throttle.
+
+**Done:**
+- **`scheduler.js`:** `armHeistTimer` (unref'd; replaces any existing timer for that player, so a job can never announce twice), `fireHeist` (settle → post the outcome card into the channel the job started in → ping exactly its owner), `cancelHeistTimer`, `rearmAllHeists`, `armedHeistCount`. Wired from the `play` sub (arm on start) and from `events/ready.js` (ClientReady, once).
+- **Restart safety:** timers are RAM-only, but the durable half was already on disk from slice B — `activeHeist` carries type, `endsAt` and `channelId`. Boot walks every guild's stored players: overdue jobs settle immediately, running ones get the remainder. That is exactly the cog's own `cog_load` behavior.
+- **Design rule worth keeping:** a missing or unfetchable channel does **not** settle the job. Settling into nowhere would burn the outcome; leaving the record intact means the lazy path still reports it on the player's next command. The lazy path in turn cancels the armed timer, so the two never double-report.
+- Tests 663 → **673** (10 new): firing (settled, announced, owner-only ping, job cleared), the vanished-channel case, a failing send still settling, an armed timer firing unprompted, re-arming replacing the old timer with exactly one announcement, cancelling, boot catch-up (one re-armed + one overdue settled + an idle player untouched), an empty boot, and the ready event's shape. The waiting tests use the `setInterval` keep-alive the unref'd-timer rule requires — applied preemptively this time rather than after the failure.
+- Docs: manual (status, events, restart story, scheduler section, troubleshooting rewritten, live checklist now includes "wait without typing" and a restart test), docs index, README, ROADMAP (C done, D left), STATE (resume → slice D with the full crew-robbery spec), help badge unchanged.
+
+**Corrections (Step 2/6):** two of my own test assumptions were wrong and the tests caught them before the code shipped. (1) `Events.ClientReady` is the string `'clientReady'` in discord.js v14, not `'ready'` — the test now compares against the enum rather than a literal. (2) My first timer tests armed a job that was not actually due, so the timer fired and correctly settled nothing; backdating the start fixed the scenario. Both were test-script errors, not module bugs.
+
+**Retrospective:** no skill change. The S73/S81 keep-alive rule did its job as *prevention* rather than diagnosis this time — I wrote the keep-alive into the waiting helper before running anything, and the file never hit "Promise resolution is still pending". That is the promotion paying off, which is worth noting but not worth a new rule.
