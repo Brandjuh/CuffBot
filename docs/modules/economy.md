@@ -23,39 +23,38 @@
 
 The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)** — crook variety, the undercover officer, words/reaction modes, per-type scores, and the leaderboard. Escaped crooks still pickpocket into the donut pot below.
 
-## The heist 🕶️ — `/steal target:@member` (S40, revised S41)
+## The heist 🕶️ — `!steal target:@member` (S40, revised S41)
 
 - **30% success** (owner spec): the loot — **500 🍩** — moves from the target to you, capped by what the target actually carries ("that was everything they had on them").
 - **70% busted:** YOUR 500 🍩 drop **into the donut pot** (S41 — originally the server owner collected). A failed attempt never touches the target.
-- One attempt per **3-hour lay-low window** per thief (S48 owner decision — was 5 min; stamped on success and failure alike; the ephemeral refusal shows the remaining wait in hours + minutes). Self-theft and bots refused. Outcome messages name people but never ping.
+- One attempt per **3-hour lay-low window** per thief (S48 owner decision — was 5 min; stamped on success and failure alike; the refusal shows the remaining wait in hours + minutes). Self-theft and bots refused. Outcome messages name people but never ping.
 - House math: expected value per attempt is 0.3·500 − 0.7·500 = **−200 🍩** — stealing is a gamble, not an income.
 
-## The donut pot 🍯 — `/pot` + `/crack-pot` (S41, split S63)
+## The donut pot 🍯 — `!pot` + `!crack-pot` (S41, split S63)
 
-- **Every lost donut lands in ONE pot:** a busted `/steal`, the escaping crook's pickpocketed loot, and any future game's losses (games call `addToPot`). Nothing vanishes from the economy.
+- **Every lost donut lands in ONE pot:** a busted `!steal`, the escaping crook's pickpocketed loot, and any future game's losses (games call `addToPot`). Nothing vanishes from the economy.
 - The pot **grows +500 🍩 every day** on its own (lazy top-up — missed days catch up; day rollover at **midnight UTC**, early evening for the US community).
-- **Once a day, every member may try to crack it:** `/pot try:True` — **0.5% odds**, strictly-below roll. Win: the ENTIRE pot moves to you and it resets to 0 (next day's 500 reseeds it). Lose: the pot keeps everything; your attempt for today is spent either way.
-- `/pot` (without `try`) shows the current pot and the rules, ephemerally.
+- **Once a day, every member may try to crack it:** `!crack-pot` (S63 replaced the clunky `!pot try:True`) — **0.5% odds**, strictly-below roll. Win: the ENTIRE pot moves to you and it resets to 0 (next day's 500 reseeds it). Lose: the pot keeps everything; your attempt for today is spent either way.
+- `!pot` shows the current pot, whether your daily shot is still open, and the odds.
 - Persistence: pot balance, top-up day, and per-member attempt days live in the store (`economyPot`) — restarts change nothing.
 
-## Claims 🍩 — `/daily`, `/claims`, `/claims-config` (S49, payday engine S67)
+## Claims 🍩 — `!daily`, `!claims`, `/claims-config` (S49, payday engine S67)
 
 - **+25 donuts, once per rolling 24 hours** per member (owner spec). The claim and the timestamp land in one store write.
-- Too early? The ephemeral refusal says exactly how long until the next batch ("fresh in ~14 h 0 min").
+- Too early? The refusal says exactly how long until the next batch ("fresh in ~14 h 0 min").
 - Rolling window (24 h since your last claim), not a calendar day — no midnight rush.
 
 ## Commands
 
-- **/daily** — the ration above.
-- **/donuts `[member]`** — a wallet check (anyone's; bots run on electricity).
-- **/donut-board `[top]`** — richest officers, top 1–25 (default 10).
-- **/steal `target`** — the heist above.
-- **/pot `[try]`** — the donut pot above.
-- **/pot** — the pot view (S63): a tidy embed with the balance front and center, how the pot fills, whether YOUR daily shot is still open, and the odds. Ephemeral (in-channel no-ping reply as `!pot`).
-- **/crack-pot** — the daily attempt as its own command (S63; replaces the clunky `/pot try:True`): win = a loud JACKPOT embed (public), loss = one calm line (public), already-tried/disabled = short ephemeral notes.
-- **/steal outcomes (S63):** short embeds — green HEIST with the amount as a big line, red BUSTED with the confiscation and a one-line pot pointer; refusals (bot/self/cooldown/disabled) stay short ephemeral one-liners.
+- **!daily** — the ration above.
+- **!donuts `[member]`** — a wallet check (anyone's; bots run on electricity).
+- **!donut-board `[top]`** — richest officers, top 1–25 (default 10).
+- **!steal `target`** — the heist above.
+- **!pot** — the pot view (S63): a tidy embed with the balance front and center, how the pot fills, whether YOUR daily shot is still open, and the odds. Ephemeral (in-channel no-ping reply as `!pot`).
+- **!crack-pot** — the daily attempt as its own command (S63; replaces the clunky `!pot try:True`): win = a loud JACKPOT embed (public), loss = one calm line (public), already-tried/disabled = short notes.
+- **!steal outcomes (S63):** short embeds — green HEIST with the amount as a big line, red BUSTED with the confiscation and a one-line pot pointer; refusals (bot/self/cooldown/disabled) stay short one-liners.
 - **!economy** (admin — Manage Server; S70 group, alias `!economy-config`): bare = the status view; subs `on` / `off` (master switch) and `earn <amount>` (donuts per message 0–100). The hunt options moved to `!hunting` in S66; claim payouts live in `!claims-config`.
-- **/claims** (everyone, S67): one embed with every enabled claim interval (ready ✅ / exact wait ⏳), your crack-pot attempt state, and `!claims true` to claim everything available at once (totals incl. streak bonus).
+- **!claims** (everyone, S67): one embed with every enabled claim interval (ready ✅ / exact wait ⏳), your crack-pot attempt state, and `!claims true` to claim everything available at once (totals incl. streak bonus).
 - **!claims-config** (admin, S67; S70 group): bare = every interval + streak status; subs `hourly`/`daily`/`weekly`/`monthly`/`quarterly`/`yearly <amount>` (0 = off; committed defaults keep S49: daily 25, rest off), `streak <amount>` (0 = streaks off), `streakmode <flat|percent>`. **Streak rule (exact cog semantics):** claiming within [window, 2×window) earns the bonus — flat, or in percent mode `base × floor(bonus/100)`; letting it lapse past double the window pays base only. `!daily` = the day interval through the same engine (legacy `lastDailyAt` stamps migrate silently).
 
 ## Design notes
@@ -70,12 +69,12 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 
 - `test/economy.test.js`: cooldown pay, inclusive random ranges, activity-window rules (monologue ≠ active, aging out), spawn-roll matrix, STOP-POLICE matcher (leading-phrase rule), victim pick, starting-balance semantics (read ≠ write), zero floor with honest `applied`, leaderboard, birthday bonus (+ disabled refusal), spawn→catch end-to-end (reward paid, hunt closed, second shout dead), expiry steal (victim named, never pinged, balance dips), empty-server escape, the watcher intent gate (no spawn without Message Content; earnings still flow), and the birthday sweep announcing the 50k line. S56: committed hunt-channel/timer defaults, delay bounds incl. typo guards, and the timed-tick matrix (spawn in the configured channel, busy/no-intent/off/no-channel gates, catch works identically).
 - **Manual (live server) checklist:**
-  1. `/donuts` → 10,000 🍩 before you ever chat.
-  2. Send a message, `/donuts` again → +5.
+  1. `!donuts` → 10,000 🍩 before you ever chat.
+  2. Send a message, `!donuts` again → +5.
   3. `!hunting spawn #general` → crook appears; shout **STOP POLICE** within the window → GOTCHA + bounty.
   4. Test again and stay silent → escape message naming a member who lost donuts.
   5. Chat actively with two people for a few minutes → a crook eventually appears on its own.
-  6. On a member's birthday → announcement includes "50,000 donuts", `/donuts member:` confirms.
+  6. On a member's birthday → announcement includes "50,000 donuts", `!donuts member:` confirms.
 
 ## Troubleshooting
 
@@ -91,15 +90,16 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 
 | Session | Change |
 |---|---|
-| S38 | Created: 10k starting balance, activity pay, crook hunt (active-channel spawns, 5–20 s window, STOP POLICE catch, escape-steal from a random member), 50k birthday gift announced in the birthday message, `/donuts`, `/donut-board`, `/economy-config` with test-hunt. |
-| S40 | `/steal` heist: 30% → 500 🍩 victim→thief; busted → 500 🍩 thief→server owner; 5-min lay-low cooldown; honest capped amounts. |
+| S38 | Created: 10k starting balance, activity pay, crook hunt (active-channel spawns, 5–20 s window, STOP POLICE catch, escape-steal from a random member), 50k birthday gift announced in the birthday message, `!donuts`, `!donut-board`, `/economy-config` with test-hunt. |
+| S40 | `!steal` heist: 30% → 500 🍩 victim→thief; busted → 500 🍩 thief→server owner; 5-min lay-low cooldown; honest capped amounts. |
 | S41 | The donut pot: all lost donuts (busted steals — replacing the S40 to-owner rule — and crook loot) pool up, +500/day, one 0.5% crack attempt per member per day, winner takes all. |
 | S48 | Heist cooldown 5 min → **3 hours** (owner decision — the original limit message never reached S40's session). |
-| S49 | `/daily`: +25 🍩 per rolling 24 h with an exact-wait refusal; `formatWaitMs` shared with /steal. |
-| S50 | Game replies/refusals no longer DM on the `!` text path (owner rule: only important things in DM) — they answer in the channel as a no-ping reply; slash stays ephemeral. |
-| S55 | `/economy-config` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
+| S49 | `!daily`: +25 🍩 per rolling 24 h with an exact-wait refusal; `formatWaitMs` shared with !steal. |
+| S50 | Game replies/refusals no longer DM on the `!` text path (owner rule: only important things in DM) — they answer in the channel as a no-ping reply. (S68 then removed slash entirely, so this is now simply how every reply works.) |
+| S55 | `!economy` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
 | S56 | Timed hunts: a crook also spawns in the owner's hunt channel (`412354971170897921`, committed default) at a random moment every 60–300 min, re-rolled per spawn; `/economy-config hunt-timer:`/`hunt-channel:` knobs; same primitives and Message Content gate as activity hunts. |
-| S63 | Steal + pot UX overhaul (owner: texts read as clutter; `/pot try:True` was clunky): `/pot` = clean view embed incl. your daily-shot state (`hasPotTryToday`); new `/crack-pot` command for the attempt; steal outcomes are short color-coded embeds. 55th command. |
+| S63 | Steal + pot UX overhaul (owner: texts read as clutter; `!pot try:True` was clunky): `!pot` = clean view embed incl. your daily-shot state (`hasPotTryToday`); new `!crack-pot` command for the attempt; steal outcomes are short color-coded embeds. 55th command. |
 | S66 | The crook hunt moved to the new `hunting` module (M16.1 vrt port) — hunt options/events/tests left economy; `/economy-config` slimmed to enabled+earn; the pot keeps receiving escape steals and undercover fines. |
-| S67 | Claims rework (M16.2, YamiCogs/payday port): six claim intervals with per-interval amounts, the exact [T,2T) streak rule (flat/percent-floor), `/claims` overview incl. pot-attempt + collect-all, `/claims-config`; `/daily` swapped onto the engine with silent legacy migration; `dailyAmount`/`dailyCooldownMs` config keys retired (deviation: fixed cog hour-windows replace the free cooldown knob). |
+| S67 | Claims rework (M16.2, YamiCogs/payday port): six claim intervals with per-interval amounts, the exact [T,2T) streak rule (flat/percent-floor), `!claims` overview incl. pot-attempt + collect-all, `/claims-config`; `!daily` swapped onto the engine with silent legacy migration; `dailyAmount`/`dailyCooldownMs` config keys retired (deviation: fixed cog hour-windows replace the free cooldown knob). |
 | S70 | Config commands became groups (M17.2): `!economy` (alias `economy-config`) with on/off/earn, and `!claims-config` with one sub per interval + streak/streakmode. |
+| S95 | All seven converted to the flat `{ command }` shape (M17.3 slice C) and given their first command-level tests — only the service beneath them had been covered. `!claims collect:yes` works alongside `!claims true`; `!steal`'s busted message pointed at `/crack-pot`, gone since S68. |

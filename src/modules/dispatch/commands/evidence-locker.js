@@ -1,58 +1,48 @@
-import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
-import {
-  clearEvidenceLocker,
-  getEvidenceLocker,
-  setEvidenceLocker,
-} from '../lib/api.js';
-import { ensureInvokerPermission } from '../../enforcement/guards.js';
+// Configure the evidence locker — the channel that logs enforcement actions.
+//
+// "set" uses the channel the command is run in rather than taking a channel
+// argument: it matches the "run this in the log channel" convention, and it
+// sidestepped the old adapter's inability to resolve channel mentions.
+//
+// S95 (M17.3 slice C): converted to the flat { command } shape.
+// `!evidence-locker action:set` — the form the manuals, `!911`'s reply and
+// this command's own status line all advertise — works, and so does the bare
+// `!evidence-locker set`.
+import { PermissionFlagsBits } from 'discord.js';
+import { clearEvidenceLocker, getEvidenceLocker, setEvidenceLocker } from '../lib/api.js';
 
-// No channel option: "set" uses the channel the command is run in. This keeps
-// the command working identically as a text command (the prefix adapter does
-// not resolve channel mentions) and matches the common "run this in the log
-// channel" convention.
 export default {
-  data: new SlashCommandBuilder()
-    .setName('evidence-locker')
-    .setDescription('Configure the evidence locker — the channel that logs enforcement actions.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-    .addStringOption((option) =>
-      option
-        .setName('action')
-        .setDescription('set (use this channel), status, or clear (default: status)')
-        .addChoices(
-          { name: 'status', value: 'status' },
-          { name: 'set (this channel)', value: 'set' },
-          { name: 'clear', value: 'clear' },
-        ),
-    ),
-  async execute(interaction) {
-    if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server'))) return;
-    const action = interaction.options.getString('action') ?? 'status';
-    const guildId = interaction.guild.id;
+  command: {
+    name: 'evidence-locker',
+    description: 'Configure the evidence locker — the channel that logs enforcement actions.',
+    emoji: '🗄️',
+    permission: PermissionFlagsBits.ManageGuild,
+    args: [{ name: 'action', type: 'string', choices: ['status', 'set', 'clear'] }], // default: status
+    async run(ctx, { action = 'status' }) {
+      const guildId = ctx.guild.id;
 
-    if (action === 'set') {
-      setEvidenceLocker(guildId, interaction.channel.id);
-      await interaction.reply({
-        content: `🗄️ Evidence locker set to ${interaction.channel}. Enforcement actions will be logged here.`,
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-    if (action === 'clear') {
-      clearEvidenceLocker(guildId);
-      await interaction.reply({
-        content: '🗄️ Evidence locker cleared. Enforcement actions will no longer be logged to a channel.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
+      if (action === 'set') {
+        setEvidenceLocker(guildId, ctx.channel.id);
+        await ctx.reply(
+          `🗄️ Evidence locker set to ${ctx.channel}. Enforcement actions will be logged here.`,
+        );
+        return;
+      }
+      if (action === 'clear') {
+        clearEvidenceLocker(guildId);
+        await ctx.reply(
+          '🗄️ Evidence locker cleared. Enforcement actions will no longer be logged to a channel.',
+        );
+        return;
+      }
 
-    const current = getEvidenceLocker(guildId);
-    await interaction.reply({
-      content: current
-        ? `🗄️ Evidence locker is <#${current}>. Run \`!evidence-locker action:clear\` to disable, or \`action:set\` in another channel to move it.`
-        : '🗄️ No evidence locker configured. Run `!evidence-locker action:set` in the channel you want enforcement actions logged to.',
-      flags: MessageFlags.Ephemeral,
-    });
+      const current = getEvidenceLocker(guildId);
+      await ctx.reply({
+        content: current
+          ? `🗄️ Evidence locker is <#${current}>. Run \`${ctx.prefix}evidence-locker action:clear\` to disable, or \`action:set\` in another channel to move it.`
+          : `🗄️ No evidence locker configured. Run \`${ctx.prefix}evidence-locker action:set\` in the channel you want enforcement actions logged to.`,
+        allowedMentions: { parse: [] },
+      });
+    },
   },
 };

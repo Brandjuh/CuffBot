@@ -26,6 +26,15 @@ import {
   tryPot,
 } from '../src/modules/economy/service.js';
 import { sweepBirthdays, setBirthday } from '../src/modules/birthdays/service.js';
+import donutsCmd from '../src/modules/economy/commands/donuts.js';
+import donutBoardCmd from '../src/modules/economy/commands/donut-board.js';
+import dailyCmd from '../src/modules/economy/commands/daily.js';
+import potCmd from '../src/modules/economy/commands/pot.js';
+import crackPotCmd from '../src/modules/economy/commands/crack-pot.js';
+import stealCmd from '../src/modules/economy/commands/steal.js';
+import claimsCmd from '../src/modules/economy/commands/claims.js';
+import { dispatchCommand } from '../src/core/prefix/command.js';
+import { fakeMessage, fakeUser } from './fixtures/fake-message.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-economy-'));
 process.env.CUFFBOT_DATA_DIR = DATA_DIR;
@@ -36,6 +45,8 @@ after(() => {
 
 let seq = 0;
 const freshGuildId = () => `40000000000000${String((seq += 1)).padStart(4, '0')}`;
+const OFFICER = '600000000000000001';
+const MATE = '600000000000000002';
 
 // ── pure rules ───────────────────────────────────────────────────────────────
 
@@ -360,4 +371,130 @@ test('/daily via the engine: day amount 0 reads as disabled; streaks apply', asy
   assert.equal(onTime.bonus, 5, 'daily streak bonus');
   setEconomyConfig(guildId, { claimDay: 0 });
   assert.equal(claimDaily(guildId, 'other', { now: 1 }).code, 'disabled');
+});
+
+// ── the seven flat commands (converted in S95 = M17.3 slice C) ───────────────
+// None of them had a command-level test before the conversion; only the
+// service beneath them did.
+
+/** Dispatch an economy command as OFFICER in a fresh guild. */
+async function run(command, tokens, { guildId = freshGuildId(), people = [] } = {}) {
+  const self = fakeUser(OFFICER, 'officer', { displayName: 'officer' });
+  const users = Object.fromEntries([self, ...people].map((u) => [u.id, u]));
+  const message = fakeMessage({ guildId, authorId: OFFICER, users });
+  const outcome = await dispatchCommand(command.command, message, tokens, '!');
+  return { outcome, sent: message.sent, guildId };
+}
+
+const bodyOf = (reply) =>
+  reply.content ?? (reply.embeds[0].data?.description ?? reply.embeds[0].description);
+
+test('!donuts reads your own wallet, and another officer’s by mention', async () => {
+  const guildId = freshGuildId();
+  // Everyone opens at startingBalance (10,000 — S38 owner decision), so these
+  // assert the DELTA rather than an absolute figure.
+  const start = DEFAULT_ECONOMY_CONFIG.startingBalance;
+  adjustBalance(guildId, OFFICER, 250);
+  adjustBalance(guildId, MATE, 40);
+
+  const mine = await run(donutsCmd, [], { guildId });
+  assert.equal(mine.sent[0].content, `🍩 You have **${(start + 250).toLocaleString('en-US')} donuts**.`);
+
+  const theirs = await run(donutsCmd, [`<@${MATE}>`], {
+    guildId,
+    people: [fakeUser(MATE, 'mate')],
+  });
+  assert.equal(
+    theirs.sent[0].content,
+    `🍩 <@${MATE}> has **${(start + 40).toLocaleString('en-US')} donuts**.`,
+  );
+});
+
+test('!donuts refuses to audit a bot', async () => {
+  const bot = fakeUser(MATE, 'K9', { bot: true });
+  const { sent } = await run(donutsCmd, [`<@${MATE}>`], { people: [bot] });
+  assert.match(sent[0].content, /Bots run on electricity/);
+});
+
+test('!donut-board ranks by balance and honours the size bounds', async () => {
+  const guildId = freshGuildId();
+  adjustBalance(guildId, OFFICER, 10);
+  adjustBalance(guildId, MATE, 900);
+
+  const board = await run(donutBoardCmd, [], { guildId });
+  const desc = bodyOf(board.sent[0]);
+  assert.ok(desc.indexOf(MATE) < desc.indexOf(OFFICER), 'richest first');
+  assert.match(desc, /🥇/);
+
+  const tooMany = await run(donutBoardCmd, ['99'], { guildId });
+  assert.equal(tooMany.outcome, 'usage-error');
+  assert.match(tooMany.sent[0].content, /between 1 and 25/);
+});
+
+test('!donut-board says so when nobody has moved a donut', async () => {
+  const { sent } = await run(donutBoardCmd, []);
+  assert.match(sent[0].content, /Nobody has moved a single donut/);
+});
+
+test('!daily pays once, then reports the wait', async () => {
+  const guildId = freshGuildId();
+  const first = await run(dailyCmd, [], { guildId });
+  assert.match(first.sent[0].content, /Daily ration collected/);
+  const second = await run(dailyCmd, [], { guildId });
+  assert.match(second.sent[0].content, /already collected today’s ration/);
+});
+
+test('!pot shows the balance and whether the daily shot is open', async () => {
+  const guildId = freshGuildId();
+  addToPot(guildId, 1234);
+  const expected = getPot(guildId).balance.toLocaleString('en-US');
+  const before = await run(potCmd, [], { guildId });
+  assert.match(bodyOf(before.sent[0]), new RegExp(expected));
+  assert.match(bodyOf(before.sent[0]), /still open/);
+
+  await run(crackPotCmd, [], { guildId });
+  const after = await run(potCmd, [], { guildId });
+  assert.match(bodyOf(after.sent[0]), /used for today/);
+});
+
+test('!crack-pot spends the one daily attempt', async () => {
+  const guildId = freshGuildId();
+  addToPot(guildId, 500);
+  const first = await run(crackPotCmd, [], { guildId });
+  // 0.5% odds, so the loss branch is what a test normally sees — accept both
+  // by matching the descriptions rather than the titles.
+  assert.match(bodyOf(first.sent[0]), /rattles it|cracked the pot/);
+  const second = await run(crackPotCmd, [], { guildId });
+  assert.match(second.sent[0].content, /already took today’s shot/);
+});
+
+test('!steal refuses a bot target and needs a target at all', async () => {
+  const bot = fakeUser(MATE, 'K9', { bot: true });
+  const atBot = await run(stealCmd, [`<@${MATE}>`], { people: [bot] });
+  assert.match(atBot.sent[0].content, /unstealable/);
+
+  const bare = await run(stealCmd, []);
+  assert.equal(bare.outcome, 'usage-error');
+  assert.match(bare.sent[0].content, /missing `target`/);
+});
+
+test('!steal refuses to rob yourself', async () => {
+  const { sent } = await run(stealCmd, [`<@${OFFICER}>`]);
+  assert.match(sent[0].content, /between pockets/);
+});
+
+test('!claims lists the timers, and `true` collects', async () => {
+  const guildId = freshGuildId();
+  const view = await run(claimsCmd, [], { guildId });
+  assert.match(bodyOf(view.sent[0]), /Pot attempt/);
+  assert.doesNotMatch(bodyOf(view.sent[0]), /Collected/);
+
+  const collected = await run(claimsCmd, ['true'], { guildId });
+  assert.match(bodyOf(collected.sent[0]), /Collected|Nothing is ready/);
+});
+
+test('!claims accepts the collect: keyword form too', async () => {
+  const { outcome, sent } = await run(claimsCmd, ['collect:yes']);
+  assert.equal(outcome, 'ran');
+  assert.match(bodyOf(sent[0]), /Collected|Nothing is ready/);
 });

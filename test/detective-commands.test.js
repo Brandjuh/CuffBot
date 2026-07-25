@@ -119,23 +119,38 @@ test('askDetective refuses empty questions without spending budget', async () =>
   assert.equal(real.ok, true);
 });
 
-// ── /ask command (defer → editReply) ─────────────────────────────────────────
+// ── !ask command ────────────────────────────────────────────────────────────
+// S95: converted to the flat { command } shape. The provider call is slow, but
+// a message command has no 3-second interaction deadline — so the old
+// deferReply()/editReply() pair became a typing indicator and one reply.
 
-test('/ask defers, then edits in the pipeline result', async () => {
-  const state = { deferred: false, edited: null };
-  await ask.execute({
-    guild: { id: freshGuildId() },
-    channel: { id: '412354971170897921' }, // the detective's desk (S51 default)
-    member: { displayName: 'Brand' },
-    user: { username: 'brand' },
-    options: { getString: () => 'a question' },
-    deferReply: async () => { state.deferred = true; },
-    editReply: async (p) => { state.edited = p; },
-  });
-  assert.equal(state.deferred, true, 'must defer before the slow provider call');
+/** A ctx for !ask, recording replies and typing calls. */
+function askCtx(channelId, guildId = freshGuildId()) {
+  const state = { typing: 0, replies: [] };
+  return {
+    state,
+    ctx: {
+      guild: { id: guildId },
+      channel: { id: channelId },
+      member: { displayName: 'Brand' },
+      user: { username: 'brand', id: 'u1' },
+      prefix: '!',
+      typing: async () => {
+        state.typing += 1;
+      },
+      reply: async (p) => state.replies.push(p),
+    },
+  };
+}
+
+test('!ask shows it is working, then answers once', async () => {
+  const { ctx, state } = askCtx('412354971170897921'); // the desk (S51 default)
+  await ask.command.run(ctx, { question: 'a question' });
+  assert.equal(state.typing, 1, 'the typing indicator stands in for the old defer');
+  assert.equal(state.replies.length, 1, 'one message — no placeholder to edit');
   // No key in process.env → the configuration message is the expected outcome.
-  assert.match(state.edited.content, /No AI provider is configured/);
-  assert.deepEqual(state.edited.allowedMentions, { parse: [] });
+  assert.match(state.replies[0].content, /No AI provider is configured/);
+  assert.deepEqual(state.replies[0].allowedMentions, { parse: [] });
 });
 
 test('the !ai group (S70) toggles the switch and reports status', async () => {
@@ -214,21 +229,12 @@ test('mention event leaves prefix commands to the prefix router', async () => {
 
 // ── S51: the detective's single desk ─────────────────────────────────────────
 
-test('/ask outside the detective channel redirects without spending anything', async () => {
-  const state = { deferred: false, replies: [] };
-  await ask.execute({
-    guild: { id: freshGuildId() },
-    channel: { id: 'somewhere-else' },
-    member: { displayName: 'Brand' },
-    user: { username: 'brand' },
-    options: { getString: () => 'a question' },
-    deferReply: async () => { state.deferred = true; },
-    reply: async (p) => state.replies.push(p),
-    editReply: async () => {},
-  });
-  assert.equal(state.deferred, false, 'no defer, no provider call');
+test('!ask outside the detective channel redirects without spending anything', async () => {
+  const { ctx, state } = askCtx('somewhere-else');
+  await ask.command.run(ctx, { question: 'a question' });
+  assert.equal(state.typing, 0, 'redirected before any provider work started');
   assert.match(state.replies[0].content, /<#412354971170897921>/);
-  assert.equal(state.replies[0].flags, 64, 'ephemeral refusal — in-channel no-ping reply on the text path (S54)');
+  assert.deepEqual(state.replies[0].allowedMentions, { parse: [] }, 'the pointer never pings');
 });
 
 test('a mention outside the channel gets a pointer, not an answer (S51)', async () => {
@@ -242,17 +248,9 @@ test('a mention outside the channel gets a pointer, not an answer (S51)', async 
 test('ai-config: everywhere lifts the restriction; channel sets a new desk', async () => {
   const guildId = freshGuildId();
   setAiConfig(guildId, { channelId: null }); // "everywhere"
-  const state = { deferred: false, edited: null };
-  await ask.execute({
-    guild: { id: guildId },
-    channel: { id: 'any-channel' },
-    member: { displayName: 'B' },
-    user: { username: 'b' },
-    options: { getString: () => 'q' },
-    deferReply: async () => { state.deferred = true; },
-    editReply: async (p) => { state.edited = p; },
-  });
-  assert.equal(state.deferred, true, 'unrestricted: the pipeline runs anywhere');
+  const { ctx, state } = askCtx('any-channel', guildId);
+  await ask.command.run(ctx, { question: 'q' });
+  assert.equal(state.typing, 1, 'unrestricted: the pipeline runs anywhere');
   setAiConfig(guildId, { channelId: '412354971170897921' });
 });
 

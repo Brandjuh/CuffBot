@@ -1,8 +1,13 @@
 // The patrol-wizard's interaction pump: one module-owned InteractionCreate
-// handler (trivia pattern) that only touches "patrol-wizard:" customIds.
-// Wizard messages are ephemeral, so only the admin who started it can press
-// anything; the draft lives in RAM (service) until Save.
-import { Events } from 'discord.js';
+// handler (trivia pattern) that only touches "patrol-wizard:" customIds. The
+// draft lives in RAM (service) until Save.
+//
+// S95: the wizard message is a normal channel message now (S68 left the
+// command dead because it refused to run as a text command), so the buttons
+// are visible to everyone in the channel. Two gates instead of the old
+// ephemerality: Manage Server is re-checked on every component, and the draft
+// is keyed by (guild, user) so one admin cannot steer another's wizard.
+import { Events, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { applyRuleSelection, parseTermsInput } from '../lib/wizard.js';
 import {
@@ -36,6 +41,18 @@ export default {
       const action = customId.slice(PREFIX.length);
       const guild = interaction.guild;
       if (!guild) return;
+
+      // S95: a public message means anyone can press. Refuse visibly rather
+      // than letting a non-admin fall through to the "expired" branch.
+      const perms =
+        interaction.channel?.permissionsFor?.(interaction.member) ?? interaction.member?.permissions;
+      if (!perms?.has?.(PermissionFlagsBits.ManageGuild)) {
+        await interaction.reply({
+          content: '🚫 You need **Manage Server** to use the patrol wizard.',
+          flags: 64,
+        });
+        return;
+      }
 
       const respond = async (payload) => {
         // Modal submits from an ephemeral message can update it too.

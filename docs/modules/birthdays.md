@@ -61,9 +61,9 @@ Bare `!birthday` = the status view (switch, channel, current birthday role). Sub
 - `test/birthdays.test.js` (14 tests): month lengths + Feb 29 validity, timezone validation, `localDateParts` across the date line (one fixed instant = July 24 in Amsterdam **and** July 23 in New York), the Feb 29 leap/non-leap rule, due-selection (wrong-day / already-announced / corrupt records skipped), day counting incl. year wrap, ordering, store round-trip, sweep idempotence (same day silent, next year fires), disabled/unconfigured no-ops, stamp-before-send under a failing channel, sparse config.
 - **Manual (live server) checklist:**
   1. `!birthday channel #general` → status shows the channel.
-  2. `!birthday-set day:<today> month:<this month>` → within ~10 min the announcement appears, pinging only you.
+  2. `!birthday-set <a YYYY/MM/DD with today's day and month>` → within ~10 min the announcement appears, pinging only you.
   3. Re-run `!birthdays` → you show as **TODAY**; another member a few days out shows `in N days`.
-  4. `!birthday-set day:31 month:4` → refused. `!birthday-set day:29 month:2` → accepted.
+  4. `!birthday-set 1990/04/31` → refused (April has 30 days). `!birthday-set 1992/02/29` → accepted (1992 was a leap year).
   5. `!birthday-set … timezone:America/New_York` as a test user → the announcement day follows New York, not Amsterdam.
   6. `!birthday-remove` → confirm; `!birthdays` no longer lists you.
   7. `!birthday-set 24 7 Europe/Amsterdam` → text path works the same.

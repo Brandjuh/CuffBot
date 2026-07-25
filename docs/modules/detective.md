@@ -1,6 +1,6 @@
 # Module: detective 🕵️
 
-> The precinct detective — talk to CuffBot. `/ask` a question or just mention the bot; a free-tier AI provider (Groq or Gemini) answers in character, in your language, under one strict server-wide budget.
+> The precinct detective — talk to CuffBot. `!ask` a question or just mention the bot; a free-tier AI provider (Groq or Gemini) answers in character, in your language, under one strict server-wide budget.
 
 ## At a glance
 
@@ -30,7 +30,7 @@ Without a key everything else keeps working; AI commands reply "not configured".
 
 ## Commands
 
-### /ask
+### !ask
 
 - **Options:** `question` (string, required; greedy in text form — `!ask how do sirens work` takes the whole line).
 - **What happens:** defers the reply (providers take seconds), runs the shared pipeline: enabled? → provider configured? → question non-empty (≤1000 chars, longer is cut)? → **global rate limit incl. the daily cap** → provider call (20 s timeout) → reply clamped to 1900 chars, `@everyone`/`@here` neutered, no mentions ping.
@@ -49,7 +49,7 @@ Bare `!ai` = the status view: enabled, detected provider + model (⚠️ warning
 
 ## Mention replies
 
-Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply, through the exact same pipeline and the same budget as `/ask`. Guards: home guild only, no bots, no system messages, `@everyone`/`@here`/role-only pings never trigger it, `!`-prefixed messages are left to the prefix router. **Requires the Message Content intent** — without it the bot silently doesn't see message text, and only `/ask` (and `!ask`… which also needs the intent) works; slash `/ask` always works.
+Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply, through the exact same pipeline and the same budget as `!ask`. Guards: home guild only, no bots, no system messages, `@everyone`/`@here`/role-only pings never trigger it, `!`-prefixed messages are left to the prefix router. **Requires the Message Content intent** — without it the bot silently doesn't see message text, and only `!ask` (and `!ask`… which also needs the intent) works; slash `!ask` always works.
 
 ## How it works
 
@@ -70,12 +70,12 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 ## Testing
 
 - `test/detective-lib.test.js` — limiter (7 s edge, 62-cap, rolling-window aging, usage), prompt (trim/cut/TTL/name-folding/`@everyone` neutering), providers against **fake fetch** (request shape, auth headers, role mapping, HTTP + malformed-body errors), `pickProvider` matrix.
-- `test/detective-commands.test.js` — pipeline happy path incl. conversation memory across calls, keyless/config/disabled/empty/cooldown/provider-error branches, `/ask` defer→edit, the `!ai` group's off-toggle + status, mention stripping, mention-event gates (@everyone, no-mention, missing intent, bots, prefix collision).
+- `test/detective-commands.test.js` — pipeline happy path incl. conversation memory across calls, keyless/config/disabled/empty/cooldown/provider-error branches, `!ask` defer→edit, the `!ai` group's off-toggle + status, mention stripping, mention-event gates (@everyone, no-mention, missing intent, bots, prefix collision).
 - **No test ever touches the network**; ambient `GROQ_API_KEY`/`GEMINI_API_KEY` are deleted at suite start so results are machine-independent.
 - **Manual (live server) checklist:**
   1. Without a key: `!ask test` → "not configured" message. `!ai` shows ⚠️ none.
   2. Add the key, restart, `!ai` → provider + model shown.
-  3. `/ask question: wat is een 10-4?` → Dutch answer, in character.
+  3. `!ask question: wat is een 10-4?` → Dutch answer, in character.
   4. `@Cuffbot hoe werkt een portofoon?` → channel reply.
   5. Ask twice within 7 s (second person) → cooldown refusal mentioning ~seconds.
   6. `!ask does the text path work` → same behavior as slash.
@@ -88,13 +88,13 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 |---|---|---|
 | "No AI provider is configured" | Key missing/typo'd in `.env`, or not restarted | Check `.env` line, `sudo systemctl restart cuffbot`, `!ai` |
 | "phone line dropped" every time | Invalid/revoked key, provider outage, or model name typo | `journalctl -u cuffbot -n 50` shows the real HTTP error; regenerate the key or unset `CUFFBOT_AI_MODEL` |
-| Mentioning the bot does nothing | Message Content intent off | `/ask` still works; enable the intent (see `operations/raspberry-pi.md`) and restart |
+| Mentioning the bot does nothing | Message Content intent off | `!ask` still works; enable the intent (see `operations/raspberry-pi.md`) and restart |
 | Constant hourly-budget refusals | 62/h is genuinely spent, or a member is farming | It resets on a rolling hour; `!ai` shows usage. Limits are owner-spec — changing them is a code change (`lib/ratelimit.js DEFAULT_LIMITS`) |
 | Answers in the wrong language | Model quirk | Re-ask explicitly ("antwoord in het Nederlands") — the persona already requests the asker's language |
 
 ## The detective's desk (S51)
 
-- The AI only answers in **one channel** — committed default `412354971170897921` (owner decision). `/ask` elsewhere gets an ephemeral redirect (in-channel no-ping reply on the `!` path); a bot-mention elsewhere gets a short pointer ("You'll find my desk in #…") **without spending any AI budget**.
+- The AI only answers in **one channel** — committed default `412354971170897921` (owner decision). `!ask` elsewhere gets a redirect (an in-channel no-ping reply) **before any provider call is made**; a bot-mention elsewhere gets a short pointer ("You'll find my desk in #…") **without spending any AI budget**.
 - Change the desk with `!ai channel #other`; lift the restriction entirely with `!ai everywhere`. The status view shows the current desk.
 - The desk-pile flusher is unaffected: questions can only enter the pile from the desk, so parked answers always land there too.
 
@@ -102,10 +102,11 @@ Mentioning the bot (`@Cuffbot what's a 10-4?`) answers in the channel as a reply
 
 | Session | Change |
 |---|---|
-| S17 | Created: `/ask`, `/ai-config`, mention replies, Groq+Gemini free-tier providers, server-wide 1/7s + 62/h budget, per-channel conversation memory. |
+| S17 | Created: `!ask`, `/ai-config`, mention replies, Groq+Gemini free-tier providers, server-wide 1/7s + 62/h budget, per-channel conversation memory. |
 | S27 | Gemini default model → `gemini-2.5-flash-lite` (owner decision; dashboard limits RPM 10 / TPM 250K / RPD 20); bot-side DAILY cap (gemini 20/day, `CUFFBOT_AI_DAILY_LIMIT` override); specific 429 message; chat-starter AI shares this budget. |
 | S29 | The desk pile: cooldown/hourly-refused questions are parked with a story and answered automatically when budget frees (10 s flusher, one per tick; cap 5, one per member, ≤1 h waits; RAM-only). Daily refusals don't park. |
 | S33 | Token budgets enforced (owner's Groq dashboard: RPM 30 / RPD 14.4K / TPM 6K / TPD 500K): estimated-token windows in the limiter (minute + day), token-aware history trimming, `/ai-config` shows token usage. Token-day refusals don't park. |
 | S51 | The detective answers only at his desk: channel `412354971170897921` (committed default; `/ai-config channel:`/`everywhere:` override). Mentions elsewhere get a budget-free pointer. |
-| S55 | `/ai-config` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
+| S55 | `!ai` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
 | S70 | `/ai-config` became the `!ai` group (M17.2; alias `!ai-config`): on/off, channel, everywhere; bare `!ai` = the full status view. |
+| S95 | `!ask` converted to the flat `{ command }` shape (M17.3 slice C). The provider call is slow, but a message command has no 3-second deadline — the `deferReply()`/`editReply()` pair became a typing indicator and a single reply. `!ask question:…` works too. |

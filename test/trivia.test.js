@@ -118,43 +118,57 @@ test('addPoint accumulates in the store', () => {
   assert.deepEqual(getScores(guildId), { u1: 2, u2: 1 });
 });
 
-// ── command + button flow (fake interactions) ────────────────────────────────
+// ── command + button flow (fakes) ────────────────────────────────────────────
+// S95: !trivia is a flat { command }. ctx.reply returns the sent Message
+// directly, which is what the reveal timer edits — the old withResponse dance
+// existed only because a slash reply does not hand the message back.
 
-function fakeStartInteraction(channelId, guildId) {
+function fakeStart(channelId, guildId) {
   const state = { replies: [], edits: [] };
-  const message = { edit: async (p) => (state.edits.push(p), message) };
+  const sent = { edit: async (p) => (state.edits.push(p), sent) };
   return {
     state,
-    interaction: {
+    ctx: {
       channel: { id: channelId },
       guild: { id: guildId },
-      guildId,
       user: { id: 'starter' },
-      createdTimestamp: 12345,
-      options: { getString: () => null },
+      message: { createdTimestamp: 12345 },
+      prefix: '!',
       reply: async (p) => {
-        state.replies.push(p);
-        return p.withResponse ? { resource: { message } } : p;
+        state.replies.push(typeof p === 'string' ? { content: p } : p);
+        return sent;
       },
     },
   };
 }
 
-test('/trivia starts a round with buttons; a second start in the channel is refused', async () => {
+test('!trivia starts a round with buttons; a second start in the channel is refused', async () => {
   clearAllRounds();
   const guildId = freshGuildId();
-  const { interaction, state } = fakeStartInteraction('chan-t1', guildId);
-  await triviaCmd.execute(interaction);
+  const { ctx, state } = fakeStart('chan-t1', guildId);
+  await triviaCmd.command.run(ctx, {});
   assert.equal(state.replies.length, 1);
   assert.ok(state.replies[0].components?.length === 1, 'one button row');
   const round = getRound('chan-t1');
   assert.ok(round, 'round registered');
   assert.ok(round.message, 'message handle captured for the reveal');
 
-  const again = fakeStartInteraction('chan-t1', guildId);
-  await triviaCmd.execute(again.interaction);
+  const again = fakeStart('chan-t1', guildId);
+  await triviaCmd.command.run(again.ctx, {});
   assert.match(again.state.replies[0].content, /already running/);
   endRound('chan-t1');
+});
+
+test('!trivia refuses an unknown set by name, listing the installed ones (S95)', async () => {
+  clearAllRounds();
+  const { dispatchCommand } = await import('../src/core/prefix/command.js');
+  const { fakeMessage } = await import('./fixtures/fake-message.js');
+  const message = fakeMessage({ guildId: freshGuildId() });
+  message.channel.id = 'chan-unknown-set';
+  const outcome = await dispatchCommand(triviaCmd.command, message, ['made-up-set'], '!');
+  assert.equal(outcome, 'usage-error');
+  assert.match(message.sent[0].content, /`set` must be one of: /);
+  assert.equal(getRound('chan-unknown-set'), null, 'no round was started');
 });
 
 function fakeButton(channelId, guildId, userId, roundId, choice) {
@@ -175,8 +189,8 @@ function fakeButton(channelId, guildId, userId, roundId, choice) {
 test('button flow: wrong gets one guess, correct scores and reveals, late is refused', async () => {
   clearAllRounds();
   const guildId = freshGuildId();
-  const { interaction } = fakeStartInteraction('chan-t2', guildId);
-  await triviaCmd.execute(interaction);
+  const { ctx } = fakeStart('chan-t2', guildId);
+  await triviaCmd.command.run(ctx, {});
   const round = getRound('chan-t2');
   const wrongChoice = round.answer === 0 ? 1 : 0;
 
@@ -199,8 +213,8 @@ test('button flow: wrong gets one guess, correct scores and reveals, late is ref
 test('button presses from a stale round id are politely refused', async () => {
   clearAllRounds();
   const guildId = freshGuildId();
-  const { interaction } = fakeStartInteraction('chan-t3', guildId);
-  await triviaCmd.execute(interaction);
+  const { ctx } = fakeStart('chan-t3', guildId);
+  await triviaCmd.command.run(ctx, {});
   const stale = fakeButton('chan-t3', guildId, 'u1', 'chan-t3-999', 0);
   await triviaButtons.execute(stale.interaction);
   assert.match(stale.replies[0].content, /round is over/i);

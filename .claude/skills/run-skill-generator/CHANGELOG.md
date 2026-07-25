@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.24 — 2026-07-25 (Session 95)
+
+- `references/architecture.md` (Module pattern): added the sibling of S94's advertised-syntax rule — **a feature gated on a "which surface am I?" test is a time bomb; grep for those tests during a conversion and re-decide each one**, and give any "temporarily disabled" branch a test asserting the disabled behavior so removing it is a visible change.
+- Evidence: S95. `!patrol-wizard` checked `interaction.isTextCommand` and bailed with "being rebuilt for text-only mode (S69)". S68 then made *every* invocation a text command, so the wizard died at that moment and stayed dead for eleven sessions — invisible, because a command that always answers with a polite notice looks alive, and its one test asserted exactly that notice. Nothing about it needed a slash command: components attach to a message, and the module's own InteractionCreate pump handles them either way.
+- The same session confirmed S94's rule twice more: `!evidence-locker action:set` (advertised in two manuals and in `!911`'s reply) had also never worked on the text path, and the trivia manual told readers to run `deploy-commands` to register a question set — a script S68 repurposed to CLEAR the slash roster.
+
 ## 0.5.23 — 2026-07-25 (Session 94)
 
 - `references/architecture.md` (Module pattern): extended the S93 conversion rule with its missing half — **before converting a command, grep the docs AND the bot's own replies for how it is advertised, then make that string work.**

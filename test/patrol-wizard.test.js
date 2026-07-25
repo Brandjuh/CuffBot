@@ -80,6 +80,10 @@ function fakeComponent(guild, userId, customId, { values, fields, kind = 'button
     state,
     guild,
     user: { id: userId },
+    // S95: the wizard message is public now, so the pump re-checks
+    // Manage Server on every component press.
+    member: { id: userId },
+    channel: { permissionsFor: () => ({ has: () => true }) },
     customId,
     values,
     fields: fields ? { getTextInputValue: (name) => fields[name] ?? '' } : undefined,
@@ -99,17 +103,19 @@ test('the full wizard flow: start → pick rules → review → terms modal → 
   const guildId = freshGuildId();
   const guild = { id: guildId };
 
-  // /patrol-wizard seeds the draft and shows the overview.
-  const slash = {
+  // !patrol-wizard seeds the draft and shows the overview. S95: it is a
+  // normal channel message now — the command refused to run as a text command
+  // at all between S68 and S95.
+  const replies = [];
+  const ctx = {
     guild,
     user: { id: 'admin' },
-    memberPermissions: { has: () => true },
-    replies: [],
-    reply: async (p) => slash.replies.push(p),
+    prefix: '!',
+    reply: async (p) => replies.push(p),
   };
-  await patrolWizard.execute(slash);
-  assert.match(embedText(slash.replies[0]), /Step 1 of 3/);
-  assert.equal(slash.replies[0].flags, 64, 'the wizard is ephemeral');
+  await patrolWizard.command.run(ctx, {});
+  assert.match(embedText(replies[0]), /Step 1 of 3/);
+  assert.ok(replies[0].components?.length, 'the overview carries its buttons');
   assert.ok(getWizardDraft(guildId, 'admin'), 'draft seeded');
 
   // Start → rules step.
@@ -183,21 +189,22 @@ test('a press on an expired wizard says so instead of erroring', async () => {
   assert.match(embedText(press.state.updates[0]), /expired/i);
 });
 
-test('the pump ignores foreign customIds and the text path names the wizard command', async () => {
+test('the pump ignores foreign customIds', async () => {
   const foreign = fakeComponent({ id: freshGuildId() }, 'admin', 'trivia:answer:1');
   await wizardPump.execute(foreign);
   assert.equal(foreign.state.updates.length, 0, 'not ours — untouched');
+});
 
-  const text = {
-    guild: { id: freshGuildId() },
-    user: { id: 'admin' },
-    memberPermissions: { has: () => true },
-    isTextCommand: true,
-    replies: [],
-    reply: async (p) => text.replies.push(p),
-  };
-  await patrolWizard.execute(text);
-  assert.match(text.replies[0].content, /text-only mode \(S69\)/);
+test('a non-admin pressing the public wizard is refused, not left confused (S95)', async () => {
+  // The wizard message is a normal channel message now, so its buttons are
+  // visible to everyone. Without this gate a stranger's press fell through to
+  // "your wizard expired", which is misleading — they never had one.
+  const guildId = freshGuildId();
+  const stranger = fakeComponent({ id: guildId }, 'stranger', 'patrol-wizard:start');
+  stranger.channel = { permissionsFor: () => ({ has: () => false }) };
+  await wizardPump.execute(stranger);
+  assert.equal(stranger.state.updates.length, 0, 'nothing was changed');
+  assert.match(stranger.state.replies[0].content, /Manage Server/);
 });
 
 test('cleanup helper', () => {
