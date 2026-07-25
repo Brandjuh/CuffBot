@@ -38,7 +38,7 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 - `/pot` (without `try`) shows the current pot and the rules, ephemerally.
 - Persistence: pot balance, top-up day, and per-member attempt days live in the store (`economyPot`) — restarts change nothing.
 
-## The daily ration 🍩 — `/daily` (S49)
+## Claims 🍩 — `/daily`, `/claims`, `/claims-config` (S49, payday engine S67)
 
 - **+25 donuts, once per rolling 24 hours** per member (owner spec). The claim and the timestamp land in one store write.
 - Too early? The ephemeral refusal says exactly how long until the next batch ("fresh in ~14 h 0 min").
@@ -54,7 +54,9 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 - **/pot** — the pot view (S63): a tidy embed with the balance front and center, how the pot fills, whether YOUR daily shot is still open, and the odds. Ephemeral (in-channel no-ping reply as `!pot`).
 - **/crack-pot** — the daily attempt as its own command (S63; replaces the clunky `/pot try:True`): win = a loud JACKPOT embed (public), loss = one calm line (public), already-tried/disabled = short ephemeral notes.
 - **/steal outcomes (S63):** short embeds — green HEIST with the amount as a big line, red BUSTED with the confiscation and a one-line pot pointer; refusals (bot/self/cooldown/disabled) stay short ephemeral one-liners.
-- **/economy-config** (admin — Manage Server): `enabled` (master switch), `earn` (donuts per message 0–100). The hunt options moved to `/hunting` in S66 — this status now covers balances, pay, heist, daily, and pot only.
+- **/economy-config** (admin — Manage Server): `enabled` (master switch), `earn` (donuts per message 0–100). The hunt options moved to `/hunting` in S66; claim payouts live in `/claims-config`.
+- **/claims** (everyone, S67): one embed with every enabled claim interval (ready ✅ / exact wait ⏳), your crack-pot attempt state, and `collect:True` to claim everything available at once (totals incl. streak bonus).
+- **/claims-config** (admin, S67): payday-port knobs — `hourly`/`daily`/`weekly`/`monthly`/`quarterly`/`yearly` amounts (0 = off; committed defaults keep S49: daily 25, rest off) plus `streak-bonus` and `streak-percent`. **Streak rule (exact cog semantics):** claiming within [window, 2×window) earns the bonus — flat, or in percent mode `base × floor(bonus/100)`; letting it lapse past double the window pays base only. `/daily` = the day interval through the same engine (legacy `lastDailyAt` stamps migrate silently).
 
 ## Design notes
 
@@ -99,3 +101,4 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 | S56 | Timed hunts: a crook also spawns in the owner's hunt channel (`412354971170897921`, committed default) at a random moment every 60–300 min, re-rolled per spawn; `/economy-config hunt-timer:`/`hunt-channel:` knobs; same primitives and Message Content gate as activity hunts. |
 | S63 | Steal + pot UX overhaul (owner: texts read as clutter; `/pot try:True` was clunky): `/pot` = clean view embed incl. your daily-shot state (`hasPotTryToday`); new `/crack-pot` command for the attempt; steal outcomes are short color-coded embeds. 55th command. |
 | S66 | The crook hunt moved to the new `hunting` module (M16.1 vrt port) — hunt options/events/tests left economy; `/economy-config` slimmed to enabled+earn; the pot keeps receiving escape steals and undercover fines. |
+| S67 | Claims rework (M16.2, YamiCogs/payday port): six claim intervals with per-interval amounts, the exact [T,2T) streak rule (flat/percent-floor), `/claims` overview incl. pot-attempt + collect-all, `/claims-config`; `/daily` swapped onto the engine with silent legacy migration; `dailyAmount`/`dailyCooldownMs` config keys retired (deviation: fixed cog hour-windows replace the free cooldown knob). |

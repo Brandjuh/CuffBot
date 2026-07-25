@@ -99,6 +99,7 @@ export const COMMAND_CATEGORIES = {
   'hunt-stats': 'games',
   'hunt-board': 'games',
   daily: 'games',
+  claims: 'games',
   fine: 'fun',
   wanted: 'fun',
   donut: 'fun',
@@ -137,6 +138,7 @@ export const COMMAND_CATEGORIES = {
   logbook: 'admin',
   'welcome-config': 'admin',
   'economy-config': 'admin',
+  'claims-config': 'admin',
   youtube: 'admin',
 };
 

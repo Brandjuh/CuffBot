@@ -5,10 +5,12 @@
 // always wrapped in try/catch by the caller).
 import { getGuildData, updateGuildData } from '../../core/store.js';
 import {
+  CLAIM_INTERVALS,
   DEFAULT_ECONOMY_CONFIG,
   dayString,
   daysBetween,
   earnGain,
+  evaluateClaim,
   heistSucceeds,
   potTryWins,
 } from './lib/bank.js';
@@ -88,32 +90,82 @@ export function awardActivity(guildId, userId, now) {
   return out;
 }
 
+// ── payday-style claims (S67 = M16.2) ────────────────────────────────────────
+
+const claimAmountKey = (key) => `claim${key[0].toUpperCase()}${key.slice(1)}`;
+
+/** A member's last-claim timestamp for an interval (legacy lastDailyAt counts as `day`). */
+function lastClaimAt(rec, key) {
+  const stamped = rec?.claims?.[key] ?? null;
+  if (stamped != null) return stamped;
+  return key === 'day' ? (rec?.lastDailyAt ?? null) : null;
+}
+
 /**
- * The /daily ration (S49): 25 donuts, once per rolling 24 hours per member.
- * Stamp + award land in one store write; a too-early claim reports exactly
- * how long is left.
- * @returns {{code:'disabled'|'cooldown'|'claimed', amount?:number, balance?:number, waitMs?:number}}
+ * Evaluate one interval for a member without claiming (for the /claims view).
+ * @returns {{code:'off'|'disabled'}|{code:'cooldown', waitMs}|{code:'claim', amount, bonus}}
  */
-export function claimDaily(guildId, userId, { now = Date.now() } = {}) {
+export function peekClaim(guildId, userId, key, { now = Date.now() } = {}) {
   const config = getEconomyConfig(guildId);
   if (!config.enabled) return { code: 'disabled' };
-  const last = getAccounts(guildId)[userId]?.lastDailyAt ?? null;
-  if (last && now - last < config.dailyCooldownMs) {
-    return { code: 'cooldown', waitMs: config.dailyCooldownMs - (now - last) };
-  }
+  const interval = CLAIM_INTERVALS.find((i) => i.key === key);
+  if (!interval) return { code: 'off' };
+  return evaluateClaim({
+    amount: config[claimAmountKey(key)],
+    streakBonus: config.streakBonus,
+    streakPercent: config.streakPercent,
+    lastClaimAt: lastClaimAt(getAccounts(guildId)[userId], key),
+    now,
+    hours: interval.hours,
+  });
+}
+
+/**
+ * Claim one interval: stamp + award in one store write.
+ * @returns {{code:'disabled'|'off'|'cooldown'|'claimed', amount?, bonus?, balance?, waitMs?}}
+ */
+export function claimInterval(guildId, userId, key, { now = Date.now() } = {}) {
+  const verdict = peekClaim(guildId, userId, key, { now });
+  if (verdict.code !== 'claim') return verdict.code === 'cooldown' ? verdict : { code: verdict.code };
+  const config = getEconomyConfig(guildId);
   let out;
   updateGuildData(
     guildId,
     ECONOMY_USERS_KEY,
     (accounts) => {
       const rec = accounts[userId] ?? { balance: config.startingBalance, lastEarnAt: null };
-      const balance = rec.balance + config.dailyAmount;
-      out = { code: 'claimed', amount: config.dailyAmount, balance };
-      return { ...accounts, [userId]: { ...rec, balance, lastDailyAt: now } };
+      const balance = rec.balance + verdict.amount + verdict.bonus;
+      out = { code: 'claimed', amount: verdict.amount, bonus: verdict.bonus, balance };
+      const claims = { ...(rec.claims ?? {}), [key]: now };
+      return { ...accounts, [userId]: { ...rec, balance, claims } };
     },
     {},
   );
   return out;
+}
+
+/** Claim every available interval at once (the cog's `freecredits all`). */
+export function claimAll(guildId, userId, { now = Date.now() } = {}) {
+  const results = [];
+  for (const interval of CLAIM_INTERVALS) {
+    const result = claimInterval(guildId, userId, interval.key, { now });
+    if (result.code === 'claimed') results.push({ key: interval.key, ...result });
+  }
+  return {
+    claimed: results,
+    total: results.reduce((n, r) => n + r.amount, 0),
+    totalBonus: results.reduce((n, r) => n + r.bonus, 0),
+  };
+}
+
+/**
+ * The /daily ration (S49, engine swapped in S67): the `day` interval claim.
+ * Same outward shape as before; streak bonuses now apply when configured.
+ */
+export function claimDaily(guildId, userId, { now = Date.now() } = {}) {
+  const result = claimInterval(guildId, userId, 'day', { now });
+  if (result.code === 'off') return { code: 'disabled' }; // day amount set to 0 = feature off
+  return result;
 }
 
 /**
