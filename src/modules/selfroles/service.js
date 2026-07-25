@@ -6,7 +6,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionF
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
 import { resolveSendableChannel } from '../../core/channels.js';
-import { buttonLabel, renderSelfRolesLines, selectSelfRoles } from './lib/selfroles.js';
+import { BUTTONS_PER_MESSAGE, buttonLabel, renderSelfRolesLines, selectSelfRoles } from './lib/selfroles.js';
 
 export const SELFROLES_CONFIG_KEY = 'selfrolesConfig';
 export const SELFROLES_INFO_KEY = 'selfrolesInfo';
@@ -96,45 +96,54 @@ export function detectSelfRoles(guild) {
   return selectSelfRoles(rolesDesc, { headerName: config.headerName });
 }
 
-/** The list message: one embed + toggle buttons (5 per row). */
-export function buildSelfRolesPayload(guild) {
+/**
+ * The list as one or more messages (S64): Discord caps a message at 25
+ * buttons (5 rows × 5), so the section is chunked — each message carries its
+ * own embed (that chunk's lines) and that chunk's buttons.
+ */
+export function buildSelfRolesPayloads(guild) {
   const detection = detectSelfRoles(guild);
   const info = getSelfrolesInfo(guild.id);
-  const lines = renderSelfRolesLines(detection.roles, info);
-  const embed = new EmbedBuilder()
-    .setColor(0x5865f2)
-    .setTitle('🎭 Self roles')
-    .setDescription(
-      [
-        'Pick your own roles — press a button to get the role, press it again to take it off.',
-        '',
-        ...(lines.length ? lines : ['_No self-assignable roles found under the header right now._']),
-      ].join('\n'),
-    );
 
-  const rows = [];
-  for (let i = 0; i < detection.roles.length; i += 5) {
-    rows.push(
-      new ActionRowBuilder().addComponents(
-        detection.roles.slice(i, i + 5).map((role) => {
-          const button = new ButtonBuilder()
-            .setCustomId(`${BUTTON_PREFIX}${role.id}`)
-            .setLabel(buttonLabel(role.name))
-            .setStyle(ButtonStyle.Secondary);
-          const emoji = getSelfrolesInfo(guild.id)[role.id]?.emoji;
-          if (emoji) {
-            try {
-              button.setEmoji(emoji);
-            } catch {
-              /* invalid emoji input — the label still identifies the role */
-            }
-          }
-          return button;
-        }),
-      ),
-    );
+  const toButton = (role) => {
+    const button = new ButtonBuilder()
+      .setCustomId(`${BUTTON_PREFIX}${role.id}`)
+      .setLabel(buttonLabel(role.name))
+      .setStyle(ButtonStyle.Secondary);
+    const emoji = info[role.id]?.emoji;
+    if (emoji) {
+      try {
+        button.setEmoji(emoji);
+      } catch {
+        /* invalid emoji input — the label still identifies the role */
+      }
+    }
+    return button;
+  };
+
+  const payloads = [];
+  for (let start = 0; start === 0 || start < detection.roles.length; start += BUTTONS_PER_MESSAGE) {
+    const chunk = detection.roles.slice(start, start + BUTTONS_PER_MESSAGE);
+    const lines = renderSelfRolesLines(chunk, info);
+    const embed = new EmbedBuilder()
+      .setColor(0x5865f2)
+      .setTitle(start === 0 ? '🎭 Self roles' : '🎭 Self roles (continued)')
+      .setDescription(
+        start === 0
+          ? [
+              'Pick your own roles — press a button to get the role, press it again to take it off.',
+              '',
+              ...(lines.length ? lines : ['_No self-assignable roles found under the header right now._']),
+            ].join('\n')
+          : lines.join('\n'),
+      );
+    const rows = [];
+    for (let i = 0; i < chunk.length; i += 5) {
+      rows.push(new ActionRowBuilder().addComponents(chunk.slice(i, i + 5).map(toButton)));
+    }
+    payloads.push({ embeds: [embed], components: rows });
   }
-  return { detection, payload: { embeds: [embed], components: rows } };
+  return { detection, payloads };
 }
 
 // One refresh at a time per guild (channellist pattern) — the debounced
@@ -147,10 +156,18 @@ function withLock(guildId, fn) {
   return next;
 }
 
+/** The tracked message ids, tolerating the pre-S64 single-message shape. */
+function trackedMessageIds(tracked) {
+  if (Array.isArray(tracked?.messageIds)) return tracked.messageIds;
+  return tracked?.messageId ? [tracked.messageId] : [];
+}
+
 /**
- * Bring the posted list in line with the live role list. Edits the tracked
- * message in place; posts (and remembers) a new one when there is none or it
- * was deleted — the bot can always adjust its own list (owner requirement).
+ * Bring the posted list in line with the live role list. Since S64 the list
+ * spans one message per 25 roles: each chunk edits its tracked message in
+ * place, missing ones are posted, surplus ones (roster shrank) and leftovers
+ * in a previously configured channel are deleted best-effort — the bot can
+ * always adjust its own list (owner requirement).
  * @returns {Promise<'disabled'|'unconfigured'|'missing-channel'|'no-header'|'edited'|'posted'>}
  */
 export async function refreshSelfRoles(guild) {
@@ -161,22 +178,55 @@ export async function refreshSelfRoles(guild) {
     const channel = await resolveSendableChannel(guild, config.channelId);
     if (!channel) return 'missing-channel';
 
-    const { detection, payload } = buildSelfRolesPayload(guild);
+    const { detection, payloads } = buildSelfRolesPayloads(guild);
     if (!detection.headerFound) return 'no-header';
 
     const tracked = getGuildData(guild.id, SELFROLES_MESSAGE_KEY, null);
-    if (tracked?.messageId && tracked.channelId === channel.id) {
-      try {
-        const message = await channel.messages.fetch(tracked.messageId);
-        await message.edit(payload);
-        return 'edited';
-      } catch {
-        /* deleted or unreachable — fall through to a fresh post */
+    const oldIds = trackedMessageIds(tracked);
+    const sameChannel = tracked?.channelId === channel.id;
+
+    const newIds = [];
+    let postedAny = false;
+    for (let i = 0; i < payloads.length; i += 1) {
+      const existingId = sameChannel ? oldIds[i] : undefined;
+      if (existingId) {
+        try {
+          const message = await channel.messages.fetch(existingId);
+          await message.edit(payloads[i]);
+          newIds.push(existingId);
+          continue;
+        } catch {
+          /* deleted or unreachable — post a fresh one below */
+        }
+      }
+      const sent = await channel.send(payloads[i]);
+      newIds.push(sent.id);
+      postedAny = true;
+    }
+
+    // Roster shrank: remove now-surplus messages.
+    if (sameChannel) {
+      for (const id of oldIds.slice(payloads.length)) {
+        try {
+          await channel.messages.delete(id);
+        } catch {
+          /* already gone */
+        }
+      }
+    } else if (tracked?.channelId && oldIds.length) {
+      // The list moved channels: best-effort cleanup of the old copies.
+      const oldChannel = await resolveSendableChannel(guild, tracked.channelId);
+      for (const id of oldIds) {
+        try {
+          await oldChannel?.messages?.delete(id);
+        } catch {
+          /* already gone */
+        }
       }
     }
-    const posted = await channel.send(payload);
-    setGuildData(guild.id, SELFROLES_MESSAGE_KEY, { channelId: channel.id, messageId: posted.id });
-    return 'posted';
+
+    setGuildData(guild.id, SELFROLES_MESSAGE_KEY, { channelId: channel.id, messageIds: newIds });
+    return postedAny ? 'posted' : 'edited';
   });
 }
 
@@ -185,7 +235,7 @@ const pending = new Map();
 export function scheduleSelfrolesRefresh(guild, { delayMs = 15_000 } = {}) {
   const config = getSelfrolesConfig(guild.id);
   const tracked = getGuildData(guild.id, SELFROLES_MESSAGE_KEY, null);
-  if (!config.enabled || !tracked?.messageId) return false; // nothing posted yet — nothing to keep current
+  if (!config.enabled || trackedMessageIds(tracked).length === 0) return false; // nothing posted yet — nothing to keep current
   const existing = pending.get(guild.id);
   if (existing) clearTimeout(existing);
   const timer = setTimeout(() => {

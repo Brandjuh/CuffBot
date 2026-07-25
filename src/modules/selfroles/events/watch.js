@@ -44,7 +44,8 @@ export const onBootCatchUp = {
     if (!guild) return;
     // Only once a list was posted: /selfroles post:True is the owner's
     // explicit go-live moment; before that the bot posts nothing on its own.
-    if (!getGuildData(guild.id, SELFROLES_MESSAGE_KEY, null)?.messageId) return;
+    const tracked = getGuildData(guild.id, SELFROLES_MESSAGE_KEY, null);
+    if (!(Array.isArray(tracked?.messageIds) ? tracked.messageIds.length : tracked?.messageId)) return;
     const timer = setTimeout(() => {
       refreshSelfRoles(guild).catch((error) => logger.warn('Self roles: boot refresh failed:', error));
     }, 20_000);
