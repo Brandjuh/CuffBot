@@ -9,6 +9,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | guessthecandy | [`modules/guessthecandy.md`](modules/guessthecandy.md) | stable (S80) |
 | hangman | [`modules/hangman.md`](modules/hangman.md) | stable (S72) |
 | records | [`modules/records.md`](modules/records.md) | stable (S8) |
+| rollout | [`modules/rollout.md`](modules/rollout.md) | stable (S81) |
 | russianroulette | [`modules/russianroulette.md`](modules/russianroulette.md) | stable (S73) |
 | dispatch | [`modules/dispatch.md`](modules/dispatch.md) | stable (S11) |
 | academy | [`modules/academy.md`](modules/academy.md) | stable (S12) |

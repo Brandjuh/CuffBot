@@ -1387,3 +1387,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — state matched reality (d19fcdd, 577/577 at session start).
 
 **Retrospective:** no skill change — the survey's pre-flagged license risk meant the decision was one `ls` + one LICENSE read instead of a surprise; that is the S65 batch-intake pattern working as designed.
+
+---
+
+## Session 81 — 2026-07-25
+
+**Goal:** M16.8 — Rollout (AAA3A port). Owner: full throttle ("Gas erop").
+
+**Done:**
+- **Module `rollout`:** the 50-player elimination game, cog-faithful end to end — lobby (host auto-join, cap 50, host/ManageGuild start, min 2, games-stat at start), 25-number rounds with the pre-rolled choice among OPEN numbers, quiet once-each picks with live board restyling (blue + share counts) and a shrinking pending list, **early round end when everyone picked** (the cog's 1 s poll became the pick bridge), red reveal, elimination split (picked-it + too-slow).
+- **All three survey edge cases:** everyone-out-with-a-pick → round restart (number stays enabled, counter decrements — the cog's RuntimeError path); nobody-picked → abort, nobody paid; **24-disabled + ≥2 alive → tie — the exact case the cog CRASHED on** (None-winner dereference before its unreachable tie embed) — fixed and pinned in a test.
+- **Economy tie-in:** `!rollout economy on` pays the prize in 🍩 through the adjustBalance seam (lazy import + try/catch degrade — the S8 rule); scoreboard (score/wins/games) + leaderboard + admin reset regardless. Prize default 2500 = the cog's CODE default; the help-text lie (5000) documented and pinned in a test.
+- Tests 585 → **595**: pure roll/split, lobby matrix, config/stats, four whole scripted games (two-round elimination with stats; round-restart with the number-stays-enabled assertion; all-timeout abort — with the unref'd-timer keep-alive, which bit AGAIN exactly as in S73; the 24-disabled tie), the real-donuts payout, per-sub permission shape.
+- Docs: manual `rollout.md`, docs index, README (27 modules / 65 commands), ROADMAP M16.8 ✔, STATE.md (resume → M16.9 memory with its known-bug note).
+
+**Corrections (Step 2):** none — state matched reality (de46ed1, 585/585 at session start).
+
+**Retrospective (skill 0.5.18 → 0.5.19):** two LEARNINGS candidates promoted to architecture.md on their second/third confirmation — the io-injected engine (S73/S79/S81) and the unref'd-timer test keep-alive (the "Promise resolution is still pending" cascade hit S73 and S81 identically; now a documented rule instead of a re-discovery).

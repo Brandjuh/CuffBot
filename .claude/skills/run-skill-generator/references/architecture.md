@@ -83,6 +83,8 @@ export default {
 
 The loader (`src/core/loader.js`) imports every `src/modules/*/index.js`, registers both shapes in a `Collection` keyed by command/group name (validating group shape at boot), and wires event listeners. Keep discovery logic in the loader only — modules never self-register.
 
+**Timed multiplayer games use the io-injected engine** (proven S73/S79/S81): the whole match lives in `runGame(game, io)` where `io` = `{ say/askX/sleep/… }` — production wires `channel.send` plus a promise bridge the button pump resolves; tests script entire matches with seeded randomness and zero real waiting. Timers in these engines are `unref()`'d (never block shutdown) — consequence for tests: **a test that genuinely awaits an unref'd timer needs an explicit event-loop keep-alive** (`setInterval` in a try/finally), or node:test cancels the whole file with "Promise resolution is still pending" (bit S73 and S81).
+
 **Pure logic goes in `lib/`.** Anything with rules worth testing (duration parsing, rap-sheet formatting, rank math) lives in `src/modules/<name>/lib/*.js` with **no discord.js imports**, so `test/` can exercise it without a token or network. Command files stay thin: parse options → call lib → reply.
 
 ## Police theme vocabulary
