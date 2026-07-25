@@ -43,10 +43,11 @@ const MODULE_BADGES = {
 };
 
 /**
- * Flatten one loaded command — legacy `{ data, execute }` or Red-style
- * `{ group }` (S69) — into the `{ name, description, defaultMemberPermissions }`
- * shape the help menu consumes. Group permissions are BigInt flags; String()
- * yields the same decimal form as data.toJSON().default_member_permissions.
+ * Flatten one loaded command — Red-style `{ group }` (S69), flat `{ command }`
+ * (S93) or legacy `{ data, execute }` — into the
+ * `{ name, description, defaultMemberPermissions }` shape the help menu
+ * consumes. Group and flat permissions are BigInt flags; String() yields the
+ * same decimal form as data.toJSON().default_member_permissions.
  */
 export function summarizeCommand(cmd) {
   if (cmd.group) {
@@ -54,6 +55,15 @@ export function summarizeCommand(cmd) {
       name: cmd.group.name,
       description: cmd.group.description,
       defaultMemberPermissions: cmd.group.permission != null ? String(cmd.group.permission) : null,
+    };
+  }
+  if (cmd.command) {
+    return {
+      name: cmd.command.name,
+      description: cmd.command.description,
+      defaultMemberPermissions:
+        cmd.command.permission != null ? String(cmd.command.permission) : null,
+      options: (cmd.command.args ?? []).map((a) => ({ name: a.name, required: Boolean(a.required) })),
     };
   }
   const json = cmd.data.toJSON();

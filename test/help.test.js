@@ -135,6 +135,30 @@ test('summarizeCommand flattens groups and legacy commands to one shape (S69)', 
   assert.equal(summarizeCommand(openGroup).defaultMemberPermissions, null);
 });
 
+test('summarizeCommand carries a flat command’s args into the usage line (S93)', () => {
+  const flat = {
+    command: {
+      name: '911',
+      description: 'Report a member.',
+      permission: 32n,
+      args: [
+        { name: 'target', type: 'user', required: true },
+        { name: 'reason', type: 'string', required: true, greedy: true },
+        { name: 'anonymous', type: 'boolean' },
+      ],
+    },
+  };
+  const summary = summarizeCommand(flat);
+  assert.equal(summary.name, '911');
+  assert.equal(summary.defaultMemberPermissions, '32');
+  // usageFor reads {name, required} off each option — required first, in order.
+  assert.equal(usageFor(summary.name, summary.options), '911 <target> <reason> [anonymous]');
+
+  const noArgs = { command: { name: 'hunt-board', description: 'Board.' } };
+  assert.deepEqual(summarizeCommand(noArgs).options, []);
+  assert.equal(summarizeCommand(noArgs).defaultMemberPermissions, null);
+});
+
 test('renderGroupChunks splits oversized groups at entry boundaries', () => {
   const group = {
     title: '📻 Core',

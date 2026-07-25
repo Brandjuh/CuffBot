@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.22 — 2026-07-25 (Session 93)
+
+- `references/architecture.md` (Module pattern): documented the third command shape — flat `{ command }` for single-purpose commands — alongside groups and the shrinking legacy path, and added a conversion rule: **convert a command's TESTS to the real dispatch path, not just its code.**
+- Evidence: S93. The pre-existing smokes hand-built an interaction and called `execute(it)`, so the arg parsing and the permission gate were simulated by the test rather than covered by it. Rewriting them onto `dispatchCommand` with a shared fake *message* immediately exposed that every permission refusal said "Manage Server" whatever the gate was — three shipped groups (`!maintenance`, `!russianroulette force`, `!hammertime role`) had been telling members to get a permission that would not have helped. The rule also names the two things the slice tripped over so B–D need not rediscover them: entity args need real 15–21 digit snowflakes (the resolver applies Discord's own id rule), and a conversion routinely surfaces commands with no test at all (`!xp-ladder`, `!hunt-stats`, `!hunt-board`).
+- Also recorded, in the same section: prefer a NEW shape over bending an existing one when the existing one would change user-visible behavior. M17.3 was written as "convert the rest to groups"; carrying that out literally would have renamed 34 commands the precinct types daily, `!rank-setup` among them — which is a pending owner action.
+
 ## 0.5.21 — 2026-07-25 (Session 92)
 
 - `references/architecture.md` (porting rule): sharpened the data-table clause — extract mechanically, and when the data is inert, ship the dump AS the module's data file instead of transcribing and diffing; resolve named constants during the dump.

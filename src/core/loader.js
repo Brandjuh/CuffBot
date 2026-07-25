@@ -47,6 +47,27 @@ export function validateGroup(mod, group) {
 }
 
 /**
+ * Validate a flat command's shape (S93 = M17.3) and return its name. A flat
+ * command is a group without subcommands: same arg specs, same run(ctx, values).
+ */
+export function validateFlatCommand(mod, command) {
+  if (!command?.name || !command.description || typeof command.run !== 'function') {
+    throw new Error(
+      `Module "${mod.name}" has a malformed command: needs { name, description, run() }.`,
+    );
+  }
+  if (command.aliases && !command.aliases.every((a) => typeof a === 'string' && a.length > 0)) {
+    throw new Error(`Command "${command.name}" (module "${mod.name}") has a non-string alias.`);
+  }
+  for (const arg of command.args ?? []) {
+    if (!arg?.name || !arg.type) {
+      throw new Error(`Command "${command.name}" (module "${mod.name}") has an arg without name/type.`);
+    }
+  }
+  return command.name;
+}
+
+/**
  * Import every src/modules/<name>/index.js manifest and validate its shape.
  * @returns {Promise<Array<{ name: string, description: string, commands: any[], events: any[] }>>}
  */
@@ -85,17 +106,22 @@ export async function loadModules(client) {
 
   for (const mod of modules) {
     for (const command of mod.commands) {
-      // S69 (M17.1): a command is either a Red-style group ({ group }) or a
-      // legacy flat command ({ data, execute }). Groups are dispatched by
-      // core/prefix/group.js; the router picks the path per command.
-      const commandName = command?.group ? validateGroup(mod, command.group) : null;
-      const legacyName = command?.data?.name;
-      if (!commandName && (!legacyName || typeof command.execute !== 'function')) {
-        throw new Error(`Module "${mod.name}" has a command without group or data/execute.`);
+      // Three shapes, in order of preference: a Red-style group ({ group },
+      // S69), a flat command ({ command }, S93), or the legacy
+      // { data, execute } still awaiting conversion (M17.3). The router picks
+      // the matching path per command.
+      let names;
+      if (command?.group) {
+        // A group registers under its name AND its aliases (S70) — every key
+        // resolves to the same command object; help shows only the primary name.
+        names = [validateGroup(mod, command.group), ...(command.group.aliases ?? [])];
+      } else if (command?.command) {
+        names = [validateFlatCommand(mod, command.command), ...(command.command.aliases ?? [])];
+      } else if (command?.data?.name && typeof command.execute === 'function') {
+        names = [command.data.name];
+      } else {
+        throw new Error(`Module "${mod.name}" has a command without group, command or data/execute.`);
       }
-      // A group registers under its name AND its aliases (S70) — every key
-      // resolves to the same command object; help shows only the primary name.
-      const names = commandName ? [commandName, ...(command.group.aliases ?? [])] : [legacyName];
       for (const name of names) {
         if (client.commands.has(name)) {
           throw new Error(`Duplicate command name "${name}" (module "${mod.name}").`);

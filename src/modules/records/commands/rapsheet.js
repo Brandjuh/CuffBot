@@ -1,25 +1,22 @@
-import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+// S93 (M17.3 slice A): converted from the legacy { data, execute } shape to
+// the flat { command } shape. Same invocation (`!rapsheet @member`), but the
+// framework now owns the permission refusal and the crash apology, and the
+// old MessageFlags.Ephemeral is gone — ctx.reply has been the S54 no-ping
+// in-channel reply all along, which is what the adapter turned it into.
+import { PermissionFlagsBits } from 'discord.js';
 import { recordsFor } from '../lib/api.js';
 import { formatRapSheet } from '../lib/format.js';
-import { ensureInvokerPermission } from '../../enforcement/guards.js';
 
 export default {
-  data: new SlashCommandBuilder()
-    .setName('rapsheet')
-    .setDescription("Pull up a member's record: citations, detainments, arrests, releases.")
-    .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-    .addUserOption((option) =>
-      option.setName('target').setDescription('Whose record to pull').setRequired(true),
-    ),
-  async execute(interaction) {
-    if (!(await ensureInvokerPermission(interaction, PermissionFlagsBits.ModerateMembers, 'Moderate Members'))) return;
-    const target = interaction.options.getUser('target', true);
-    const entries = recordsFor(interaction.guild.id, target.id);
-    // Ephemeral by design: a member's record is for the force's eyes, not a
-    // public shaming board — dispatch/logging arrives in M4 for the rest.
-    await interaction.reply({
-      content: formatRapSheet(target.displayName ?? target.username, entries),
-      flags: MessageFlags.Ephemeral,
-    });
+  command: {
+    name: 'rapsheet',
+    description: "Pull up a member's record: citations, detainments, arrests, releases.",
+    emoji: '📋',
+    permission: PermissionFlagsBits.ModerateMembers,
+    args: [{ name: 'target', type: 'user', required: true }],
+    async run(ctx, { target }) {
+      const entries = recordsFor(ctx.guild.id, target.id);
+      await ctx.reply(formatRapSheet(target.displayName ?? target.username, entries));
+    },
   },
 };

@@ -4,7 +4,7 @@
 // boot time on the owner's machine.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { discoverModules, validateGroup } from '../src/core/loader.js';
+import { discoverModules, validateFlatCommand, validateGroup } from '../src/core/loader.js';
 
 test('every module manifest resolves and is well-formed', async () => {
   const modules = await discoverModules();
@@ -29,6 +29,14 @@ test('every command is a well-formed group or legacy data/execute command', asyn
         );
         continue;
       }
+      if (command.command) {
+        // Flat command (S93): same validation, one command instead of a family.
+        assert.doesNotThrow(
+          () => validateFlatCommand(mod, command.command),
+          `command "${command.command?.name}" in "${mod.name}" is malformed`,
+        );
+        continue;
+      }
       assert.ok(command.data?.name, `command in "${mod.name}" needs data.name`);
       assert.ok(
         command.data?.description,
@@ -47,7 +55,11 @@ test('command names and group aliases are unique across all modules', async () =
   const modules = await discoverModules();
   const names = modules.flatMap((mod) =>
     mod.commands.flatMap((cmd) =>
-      cmd.group ? [cmd.group.name, ...(cmd.group.aliases ?? [])] : [cmd.data.name],
+      cmd.group
+        ? [cmd.group.name, ...(cmd.group.aliases ?? [])]
+        : cmd.command
+          ? [cmd.command.name, ...(cmd.command.aliases ?? [])]
+          : [cmd.data.name],
     ),
   );
   assert.equal(new Set(names).size, names.length, `duplicate command names in: ${names}`);
