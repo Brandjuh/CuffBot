@@ -38,6 +38,7 @@ const MODULE_BADGES = {
   memory: '🧠',
   wordle: '🟩',
   hammertime: '⏰',
+  heist: '💰',
 };
 
 /**
@@ -136,6 +137,7 @@ export const COMMAND_CATEGORIES = {
   rollout: 'games',
   memory: 'games',
   wordle: 'games',
+  heist: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',

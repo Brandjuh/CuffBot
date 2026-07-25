@@ -1,14 +1,16 @@
-// Heist (M16.12) is a STAGED port — this is slice A.
+// Heist (M16.12) is a STAGED port.
 //
-// Landed here: the cog's data tables (74 items, 28 recipes, 24 jobs), the
-// XP curve, the pure resolver and crafting, all covered by test/heist.test.js.
-// Deliberately NOT here yet: commands, buttons, storage and the
-// restart-surviving timer scheduler — those are slices B and C, and the
-// manifest stays empty until then so nothing half-wired reaches the precinct.
+// Slice A (S85): the rules engine — data tables, XP curve, pure resolver.
+// Slice B (S86): storage + the `!heist` command surface. A finished job is
+//   settled LAZILY by the next heist command (the cog's own fallback path).
+// Slice C: the restart-surviving scheduler that announces a result unprompted.
+// Slice D: crew robbery (4 officers) + the owner-tunable job table.
+import heist from './commands/heist.js';
+
 export default {
   name: 'heist',
   description:
-    'Heist (ported from maxcogs, staged): the long-form crime economy — timed jobs, tools and shields, police heat, jail and bail, materials and crafting, levels 1–120. Slice A: rules engine only, no commands yet.',
-  commands: [],
+    'Heist (ported from maxcogs): the long-form crime economy — timed jobs, tools and shields, police heat, jail and bail, materials and crafting, levels 1–120.',
+  commands: [heist],
   events: [],
 };

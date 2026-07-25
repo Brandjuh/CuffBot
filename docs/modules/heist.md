@@ -2,35 +2,57 @@
 
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
-**Status:** 🚧 staged port — **slice A landed (S85): rules engine only, no commands yet**
-**Last updated:** Session 85 · 2026-07-25
+**Status:** 🚧 staged port — **slices A+B landed (S86): playable, results settle on your next command**
+**Last updated:** Session 86 · 2026-07-25
 
 ## Purpose
 
 The other side of the badge: Heist, ported from maxcogs/heist (owner request, S65 batch → M16.12) — a long-form crime economy where officers-turned-crooks run timed jobs, spend tools and shields, build police heat, land in jail, and grind materials into better gear across 120 levels.
 
-At 4,442 lines the cog is far too large for one session, so it lands in slices (the plan is in `ROADMAP.md`). **This manual describes slice A**, which is the whole rules engine and nothing else: no commands, no buttons, no storage, no timers. The module's manifest is deliberately empty, so the precinct sees nothing yet.
+At 4,442 lines the cog is far too large for one session, so it lands in slices (the plan is in `ROADMAP.md`). **Slice A** (S85) built the rules engine; **slice B** (S86) gave it storage and the `!heist` command surface, so the game is playable now. The one thing still missing is the *unprompted* announcement: a finished job settles the next time you run any `!heist` command — which is the cog's own fallback path. Slice C makes it fire on its own.
 
 ## Commands
 
-**None yet** — the command surface (`!heist`, the shop, the inventory, jail and bail) is slice B. The manifest exports zero commands and zero events on purpose, so a half-wired game can never reach the live server via the self-update timer.
-
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| _(none in slice A)_ | — | — | — | — |
+| `!heist` (alias `!heists`) | Group: run jobs, gear up, sell, craft, bail out; bare = your profile | subs below | Everyone | `!heist bank` |
+
+### !heist (S69-style group)
+
+| Subcommand | Does |
+|---|---|
+| `!heist play <job> [confirm]` (aliases `start`, `do`) | Start a job; `!heist bank` works too (play is the fallback sub) |
+| `!heist jobs` (aliases `list`, `cooldowns`) | Every job: payout, odds, and ready / cooling-down |
+| `!heist shop` | Gear for sale — 6 shields and 23 tools, with prices |
+| `!heist buy <item> [amount]` | Buy gear (1–100 at a time) |
+| `!heist equip <item>` / `!heist unequip <shield\|tool>` | Fill or clear a slot |
+| `!heist inventory` (alias `inv`) | Your gear, loot, materials and any debt |
+| `!heist sell <item> [amount]` | Sell loot or materials — the price is rolled per unit |
+| `!heist craft [recipe]` | Bare lists all 28 recipes (✅ = affordable); with a name, crafts it |
+| `!heist bail [@member]` | Pay bail for yourself or someone else |
+| `!heist paydebt` | Pay down what you owe, as far as your balance reaches |
+| `!heist level [@member]` | Level, XP bar and the success bonus it buys |
+
+- **Running a job:** the gates fire in the cog's order — jail, then debt, then an already-running job, then the cooldown. Item and job names accept spaces or underscores (`bank drill` = `bank_drill`).
+- **The debt consent (deviation):** the cog popped a confirm button when your balance could not cover the job's worst case. The text-only version refuses once, explains that the shortfall becomes **debt + 20% tax**, and asks you to repeat the command with `confirm` — `!heist play bank confirm`.
+- **Results:** a finished job produces the cog's result card — status line, a flavour line, the money or loot, shield/tool notes, any material drop, and on an arrest the jail clock plus bail. It appears the next time you run **any** `!heist` command.
+- **Crew robbery** is recognised but refused with a pointer — it needs a four-officer lobby (slice D).
 
 ## Events
 
-None in slice A.
+None yet — slice C adds the scheduler that resolves a job without being asked.
 
 ## Configuration
 
-None in slice A (nothing is persisted yet). Slice B adds per-member state — inventory, equipped gear, heat, debt, jail, XP, stats — and the admin-tunable copies of the job table.
+- `heistPlayers` in the guild store, keyed by member: `{ inventory, equipped {shield,tool}, heat, heatLastSet, materialHeat, debt, jail {endsAt,bail}, xp, stats {success,fail,caught}, cooldowns {job: startedAt}, activeHeist {type,endsAt,channelId,taxAgreed} }`.
+- No admin surface yet — the job table is the cog's, unmodified. Owner tuning lands in slice D.
 
 ## Permissions & safety
 
-- Nothing is reachable by members yet, so there is nothing to gate.
-- Two safety rules are already fixed by the slicing plan: the economy tie-in will go through the existing `adjustBalance` seam (the S8 rule — a broken economy degrades, never blocks), and slice C's timers must **survive a restart** (persist `endsAt`, re-arm on boot) rather than living only in RAM.
+- **Member permissions:** the whole game is public, like the cog.
+- **Economy:** every payment goes through the economy module's `adjustBalance` seam with a lazy import and a try/catch (the S8 rule) — a disabled economy degrades the game instead of breaking it.
+- **Pings:** none; profiles and levels render mentions without notifying.
+- **Storage:** per member, per guild. A restart loses nothing but the *timing* of an unfinished job — the record survives and settles on the player's next command (slice C turns that into a real timer).
 
 ## How it works
 
@@ -43,6 +65,9 @@ None in slice A (nothing is persisted yet). Slice B adds per-member state — in
   - Material drops use a pity counter: `+4%` per job without a drop, cap 90%, reset on a drop; the three end-game jobs restrict the pool to their own tiers.
   - Getting caught means jail until `now + jailMs` and bail of `trunc(maxLoss · uniform(0.5, 1.0))` **+ 15% tax** — and the police take back what you just stole (the loot item, or the currency reward), or a random loot item from your collection if the job already failed.
 - `lib/crafting.js` — `craftPlan` (spend exact materials, report exactly what is short), `craftableFrom`, `sellRange`.
+- `lib/flavour.js` — the cog's narration lines, verbatim (crew lines carried for slice D), plus its heat bar.
+- `service.js` (slice B) — the store layer and the gates: `getPlayer` (normalized, heat already decayed), `startHeist`, `settleActiveHeist` (runs the pure resolver, applies `nextState`, pays `balanceDelta`, clears the job), `buyItem`/`sellItem`/`equipItem`/`craftItem`, `payDebt`, `payBail`, plus `jailStatus`/`cooldownLeft`/`readyJobs`. **Deviation:** heat decay is computed at read time from `(heat, heatLastSet)` rather than written back on every read — same schedule (one point per two idle hours), but it spares the Pi's SD card and stops the decay depending on how often you look.
+- `commands/heist.js` — the group. Each of the cog's select-menu views became a named subcommand, and every command settles a finished job before doing anything else.
 
 **Deviations recorded so far:** our economy has no maximum balance, so the cog's "balance already at maximum" branch is dropped. Everything else in slice A is faithful, *including float artifacts*: `trunc(1000 × (1 − 0.07))` is **929**, not 930, in both Python and here — the port preserves the expression, not the intent (see `.claude/skills/run-skill-generator/references/architecture.md`).
 
@@ -50,29 +75,44 @@ None in slice A (nothing is persisted yet). Slice B adds per-member state — in
 
 ```
 src/modules/heist/
-  index.js            manifest — deliberately empty until slice B
-  lib/tables.js       74 items · 28 recipes · 24 jobs (verbatim)
-  lib/leveling.js     XP curve, level bonus, XP awards
-  lib/resolve.js      the pure resolver + heat decay + bail
-  lib/crafting.js     craft plan, craftable list, sell ranges
-test/heist.test.js    fixture diff, table invariants, XP curve, resolver, crafting
+  index.js               manifest
+  lib/tables.js          74 items · 28 recipes · 24 jobs (verbatim)
+  lib/leveling.js        XP curve, level bonus, XP awards
+  lib/resolve.js         the pure resolver + heat decay + bail
+  lib/crafting.js        craft plan, craftable list, sell ranges
+  lib/flavour.js         the cog's narration lines + heat bar
+  service.js             storage, gates, settlement, economy seam
+  commands/heist.js      the !heist group and its result card
+test/heist.test.js         fixture diff, table invariants, XP curve, resolver, crafting
+test/heist-service.test.js storage, gates, settlement, shop/sell/craft/bail, group shape
 test/fixtures/heist-source-tables.json   the cog's tables, dumped from Python
 ```
 
 ## Testing
 
 - `test/heist.test.js` (19 tests). The load-bearing one is the **fixture diff**: `test/fixtures/heist-source-tables.json` was produced by *executing* the cog's `utils.py` and dumping its three tables, so the test proves the JS transcription still matches the original entry for entry — long after the Python source (a scratchpad clone) is gone. The rest: table invariants (every tool points at a real job, every recipe needs real materials, crafted gear has no shop price, exactly three jobs pay in goods), the XP curve and its cap, and the resolver driven by a **scripted rng** that throws when a queue runs dry — so a passing test also proves the resolver made exactly the calls the cog makes, in the cog's order. Branches covered: clean success with an event multiplier, loot-paying job, tool consumed/boosted/unequipped, wrong-job tool ignored, shielded failure, full shield absorbing everything, unpayable loss becoming taxed debt, caught-on-success (seizure, jail, bail + 15%, heat wiped, no XP), caught-on-failure confiscation, caught-on-loot-success confiscation, the material pity counter, the police heat cap, heat decay, and crafting.
-- **Manual (live server) checklist:** nothing to click yet — slice A ships no surface. The first live checklist arrives with slice B.
+- `test/heist-service.test.js` (16 tests): the player shape, read-time heat decay, jail status and its 15% bail tax, cooldowns and the ready list, starting a job, lazy settlement (nothing while running, exactly once when done, donuts actually moved, cooldown preserved), an arrest writing jail state, an unpayable loss becoming taxed debt with `paydebt` clearing it in two goes, the shop's 29 priced items and a real purchase, equip validation, per-unit sell rolls, crafting, bail (too poor → still inside; paid → free with heat wiped), the result card, and the group shape.
+- **Manual (live server) checklist:**
+  1. `!heist` → your profile (level 1, empty heat bar, 23/23 jobs ready).
+  2. `!heist jobs` → the board; `!heist vending_machine` → "in progress", landing in 30 s.
+  3. Wait, then `!heist` again → the result card appears (that is the lazy settlement).
+  4. `!heist shop` → `!heist buy crowbar` → `!heist equip crowbar` → `!heist atm_smash` → the start card names the tool bonus.
+  5. Run jobs until materials drop, then `!heist craft` → craft whatever shows ✅.
+  6. Get arrested → any `!heist play` refuses with the jail line → `!heist bail` frees you.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `!heist` does nothing | Expected: slice A has no commands | The command surface lands in slice B |
+| My job finished but nothing was posted | Expected in slice B — settlement is lazy | Run any `!heist` command; slice C adds the automatic announcement |
+| "You have a job running" when it should be done | Same thing — it settles on your next command | `!heist` shows it and posts the result |
+| `!heist play` refuses with a debt warning | Your balance cannot cover the job's worst case | Pick a smaller job, or repeat with `confirm` and accept debt + 20% tax |
+| Crew robbery is refused | It needs a four-officer lobby (slice D) | Any solo job works |
 | A table number looks wrong | The fixture diff would have failed | Run `npm test`; if it passes, the value matches the cog by definition |
 
 ## Changelog
 
 | Session | Change |
 |---|---|
+| S86 | **Slice B**: storage (`heistPlayers`), the `!heist` group (play/jobs/shop/buy/equip/unequip/inventory/sell/craft/bail/paydebt/level — each of the cog's select views became a subcommand), the cog's gate order, the result card with its flavour lines, and the economy seam. A finished job settles lazily on the player's next command (the cog's own fallback). Deviations: a text `confirm` token replaces the debt-consent button; heat decays at read time instead of being rewritten on every read. |
 | S85 | Created (M16.12 **slice A**): the cog's 74 items / 28 recipes / 24 jobs transcribed verbatim and machine-diffed against the Python source (fixture committed so the check is permanent), the 120-level XP curve, the pure `resolveHeist` (tools, shields, debt + tax, heat, material pity counter, police roll, jail + bail, confiscation, XP) and crafting. No commands, events or storage yet — the manifest is empty on purpose. Corrections to the S65 survey: the cog has **24** jobs and **74** items, not 25 and ~75. |
