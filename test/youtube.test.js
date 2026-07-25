@@ -14,11 +14,13 @@ import {
   DEFAULT_YOUTUBE_CONFIG,
   addCreator,
   getCreators,
+  getYouTubeConfig,
   removeCreator,
   resolveChannelId,
   setYouTubeConfig,
   sweepYouTube,
 } from '../src/modules/youtube/service.js';
+import youtubeCommand from '../src/modules/youtube/commands/youtube.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-youtube-'));
 process.env.CUFFBOT_DATA_DIR = DATA_DIR;
@@ -259,9 +261,12 @@ test('removeCreator works by id and by name', async () => {
 });
 
 // ── the !youtube group command (S69 reference conversion) ────────────────────
+// Imported statically at the top of the file (S78): top-level `await import`
+// BETWEEN test registrations broke the Pi's older node:test runner — tests
+// registered after the await ran interleaved/twice via processPendingSubtests,
+// so a test's first assertion saw its OWN later writes. Static ESM imports
+// hoist, so every test registers before the runner starts.
 
-const { default: youtubeCommand } = await import('../src/modules/youtube/commands/youtube.js');
-const { getYouTubeConfig } = await import('../src/modules/youtube/service.js');
 const group = youtubeCommand.group;
 const sub = (name) => group.subcommands.find((s) => s.name === name);
 
