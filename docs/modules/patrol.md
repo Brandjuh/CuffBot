@@ -9,27 +9,27 @@
 
 Patrol is the precinct's automated beat cop (automod): it screens every message for **banned terms**, **invite links**, and **spam**, removes offenders, warns the author, and files the incident on the rap sheet and in the evidence locker. All the matching is pure `lib/` logic, so it is exhaustively testable without a live gateway. Patrol is **off by default** — an admin turns it on and tunes it.
 
-> **Requires the Message Content intent** (privileged). Without it, patrol simply does not run and `/patrol` shows a warning — the rest of the bot is unaffected (see core.md → Dual invocation).
+> **Requires the Message Content intent** (privileged). Without it, patrol simply does not run and `!patrol` shows a warning — the rest of the bot is unaffected (see core.md → Dual invocation).
 
 ## Commands
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| `/patrol` | View patrol status, or switch it on/off | `action` (status/on/off) | Manage Server | `/patrol action:on` |
-| `/patrol-rule` | Switch a rule category on/off | `rule`, `state` | Manage Server | `/patrol-rule rule:invites state:off` |
-| `/patrol-term` | Add/remove a banned term | `action`, `term` | Manage Server | `/patrol-term action:add term:slur` |
+| `!patrol` | View patrol status, or switch it on/off | `action` (status/on/off) | Manage Server | `!patrol action:on` |
+| `!patrol-rule` | Switch a rule category on/off | `rule`, `state` | Manage Server | `!patrol-rule rule:invites state:off` |
+| `!patrol-term` | Add/remove a banned term | `action`, `term` | Manage Server | `!patrol-term action:add term:slur` |
 
-### /patrol
+### !patrol
 
-Shows an ephemeral status card (patrol on/off, each rule on/off, banned-term count) and, with `action:on`/`off`, flips the whole patrol. Warns if the Message Content intent is unavailable.
+Shows a status card (patrol on/off, each rule on/off, banned-term count) and, with `on`/`off` (or `action:on`), flips the whole patrol. Warns if the Message Content intent is unavailable.
 
-### /patrol-rule
+### !patrol-rule
 
 Toggles one of `bannedTerms`, `invites`, `spam` independently.
 
-### /patrol-term
+### !patrol-term
 
-Adds or removes a banned term. The term is stored lowercased and matched **evasion-aware** (see below). The reply is ephemeral and deliberately does **not** echo the term back.
+Adds or removes a banned term — a multi-word phrase is fine, the whole rest of the line is the term (S95). It is stored lowercased and matched **evasion-aware** (see below). The reply deliberately does **not** echo the term back: since S54 it lands in the channel, so repeating it would post the very word being suppressed.
 
 ## Events
 
@@ -75,34 +75,36 @@ Banned-term matching is deliberately **aggressive** so it can't be dodged with s
 | `src/modules/patrol/commands/*.js` | patrol, patrol-rule, patrol-term |
 | `test/patrol-screen.test.js`, `test/patrol-event.test.js`, `test/patrol-commands.test.js` | Coverage |
 
-## The setup wizard — `/patrol-wizard` (S47)
+## The setup wizard — `!patrol-wizard` (S47, revived S95)
 
-A guided, fully **ephemeral** 3-step flow (admin, Manage Server) — the clear path to a working patrol without memorizing three commands:
+A guided 3-step flow (admin, Manage Server) — the clear path to a working patrol without memorizing three commands:
+
+> ⚠️ **It was dead from S68 to S95.** The command checked `interaction.isTextCommand` and bailed with "being rebuilt for text-only mode", and S68 made *every* invocation a text command — so for that whole stretch it answered nothing but that notice. Nothing about it actually needed a slash command: buttons, selects and modals attach to a **message**, and the module's own InteractionCreate pump handles their component interactions either way.
 
 1. **Overview** — what patrol does (delete → DM → rap sheet → evidence locker; moderators exempt) and the current status, with a Start button.
 2. **Choose rules** — a multi-select over the three categories (banned terms / invite links / spam), preselected with the current config.
 3. **Review & save** — the chosen setup summarized; **✏️ Edit banned terms** opens a modal (comma- or newline-separated, prefilled, deduped, ≤100 terms of ≤64 chars); then **🚨 Save & turn ON** or **💾 Save, keep OFF**.
 
 - The draft starts from the LIVE config (re-running the wizard edits, never resets) and lives in RAM for 10 minutes — nothing is written until Save; Cancel and expiry change nothing.
-- Interactive components need real interactions, so `!patrol-wizard` points at the slash form.
+- **The wizard message is a normal channel message (S95), so its buttons are visible to everyone.** Two gates replace the old ephemerality: the pump re-checks **Manage Server** on every press (a non-admin gets a private refusal, not a confusing "expired"), and the draft is keyed by (guild, admin) so one admin cannot steer another's wizard.
 - Implementation: pure logic in `lib/wizard.js` (term parsing, selection mapping, summaries), rendering in `wizard-ui.js`, one module-owned InteractionCreate pump filtering `patrol-wizard:` customIds (trivia pattern) in `events/wizard.js`.
 
 ## Testing
 
-- **Automated:** `npm test` — normalization/evasion, each detector (banned via spacing+leet, invites across forms and spacing, spam floods/runs), `screenMessage` rule toggles, the event handler (removes + records on a hit; no-op for mods, disabled, missing intent, clean, bots), and command smokes (permission gate, on/off, intent warning, rule toggle, term add/remove without echo). No token or network needed.
+- **Automated:** `npm test` — normalization/evasion, each detector (banned via spacing+leet, invites across forms and spacing, spam floods/runs), `screenMessage` rule toggles, the event handler (removes + records on a hit; no-op for mods, disabled, missing intent, clean, bots), and command smokes through the real dispatch path (permission gate naming the right permission, on/off, choice validation, intent warning, rule toggle, multi-word term add/remove without echo, and the wizard opening a draft seeded from the live config). No token or network needed.
 - **Manual (live server) checklist:**
-  1. Enable the Message Content intent in the portal; restart. `/patrol` should not show the intent warning.
-  2. `/patrol action:on`; `/patrol-term action:add term:<a test word>`.
+  1. Enable the Message Content intent in the portal; restart. `!patrol` should not show the intent warning.
+  2. `!patrol action:on`; `!patrol-term action:add term:<a test word>`.
   3. As a **non-mod** account, post the test word → the message is removed, you get a DM, and it appears on `/rapsheet` and in the evidence locker.
   4. Post `discord.gg/whatever` as a non-mod → removed. Post it as a mod → not removed (exemption).
-  5. `/patrol-rule rule:invites state:off` → invite links are no longer removed.
+  5. `!patrol-rule rule:invites state:off` → invite links are no longer removed.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Patrol never acts | Intent off, patrol off, or user is a mod | `/patrol` (check status + intent warning); enable intent; test as a non-mod |
-| Legit messages removed | A banned term is too short/generic | `/patrol-term action:remove term:<it>`; use specific full terms |
+| Patrol never acts | Intent off, patrol off, or user is a mod | `!patrol` (check status + intent warning); enable intent; test as a non-mod |
+| Legit messages removed | A banned term is too short/generic | `!patrol-term action:remove term:<it>`; use specific full terms |
 | Messages not deleted | Bot lacks Manage Messages in that channel | Grant the permission |
 | No record/locker entry for a removal | Records/locker unreachable (logged) | Check `journalctl -u cuffbot`; removal still happened |
 
@@ -110,5 +112,6 @@ A guided, fully **ephemeral** 3-step flow (admin, Manage Server) — the clear p
 
 | Session | Change |
 |---|---|
-| S47 | `/patrol-wizard`: guided 3-step ephemeral setup (rule multi-select, banned-terms modal, review + enable/save), RAM draft with 10-min TTL. |
-| S13 | Created: pure screener (banned terms/invites/spam), MessageCreate handler (mod-exempt, cross-module routing), `/patrol`, `/patrol-rule`, `/patrol-term`; false-positive story documented. |
+| S47 | `!patrol-wizard`: guided 3-step ephemeral setup (rule multi-select, banned-terms modal, review + enable/save), RAM draft with 10-min TTL. |
+| S13 | Created: pure screener (banned terms/invites/spam), MessageCreate handler (mod-exempt, cross-module routing), `!patrol`, `!patrol-rule`, `!patrol-term`; false-positive story documented. |
+| S95 | All four converted to the flat `{ command }` shape (M17.3 slice C) — and `!patrol-wizard` **works again**: it had been dead since S68, refusing to run as a text command while S68 made every invocation one. Its message is public now, so component presses re-check Manage Server. `!patrol-term` accepts a multi-word phrase. Unknown rule/action values are refused by the arg spec with the valid list. |
