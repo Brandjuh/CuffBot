@@ -1515,3 +1515,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2/6):** the S86 group-shape test pinned "no admin gates in slice B" and the 12-sub list; both were correct for that slice and are now updated to the final 14 subs with `admin` as the only gated one. No drift against reality otherwise.
 
 **Retrospective:** no skill change, but one thing is worth recording for the next LARGE port: **the A→D slicing worked**. Rules engine (pure, fixture-verified) → storage + commands → timers → extras meant every session shipped something coherent, the manual stayed honest at each step ("slice A: no commands yet" was a real sentence a reader could trust), and nothing half-wired ever reached the Pi because the manifest stayed empty until there was something to run. STATE's resume point now recommends that shape explicitly for M16.13 city, which is the same size problem.
+
+## Session 89 — 2026-07-25
+
+**Goal:** M16.13 **slice A** — the city crime engine (CalaMari port, ~7,000 lines, staged like heist). Owner told me off for stopping between sessions, so this one chains straight into the next.
+
+**Done:**
+- **`lib/tables.js`:** the five crimes with the cog's numbers, the `global_settings` defaults and the streak rules. One comment-vs-value conflict recorded: `rob_store`'s fine comment says 45%, its value says 0.4 — the value wins, pinned in a test.
+- **`data/crime-events.json`:** the 96 random events (24 per crime) **dumped out of the Python source with `ast.literal_eval`** instead of retyped. This is the fixture idea from heist taken one step further — there is no transcription step at all, because the dump *is* the data the module loads. The test validates shape and key set rather than values, since values are verbatim by construction.
+- **`lib/resolve.js`:** pure. Event draw (first guaranteed, then 75/50/10, without replacement), the modifier fold (chance clamped at 1.0 and the cog's 5% floor, jail multiplied cumulatively with truncation at each step, credit effects summed apart), streaks (+5% a step, +25% cap, wiped after 24 idle hours), the targeted-steal maths with its three caps and its floor, and `resolveCrime`. **The rounding order is behavior**: the cog rounds after the streak multiplier and again after every event multiplier, so the port does too and returns the step list for slice B's card. Failure fines `int(maxReward × fineMultiplier)`; a member who cannot pay loses everything and serves double.
+- Tests 686 → **697** (11 new). Manual `city.md` honest about being slice A; docs index, README, ROADMAP and STATE updated with the four-slice plan.
+
+**Corrections (Step 2/6):** one real port error, caught by my own test. I had split a targeted crime's payout into "stolen from the victim" and "credits from thin air" — the cog withdraws the **whole** transfer, event credit effects included, from the target. Fixed in the resolver (not in the test) and documented in the manual.
+
+**Retrospective:** the dump-don't-transcribe trick deserves promoting the next time it holds. S85 dumped the source tables to a fixture and diffed a hand transcription against it; here I skipped the transcription entirely and shipped the dump as the module's data file. That is strictly better whenever the data is pure data — no diff to maintain, nothing to drift. Recorded as a LEARNINGS candidate; it needs one more confirmation (slice C's scenarios are the obvious test) before it goes into architecture.md.
