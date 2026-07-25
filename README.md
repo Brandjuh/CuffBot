@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 25 modules, 63 commands. **CuffBot is text-only (S68): every command is a `!command`**, and config commands are Red-style groups (`!group sub <args>`, S69/S70 — type `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 26 modules, 64 commands. **CuffBot is text-only (S68): every command is a `!command`**, and config commands are Red-style groups (`!group sub <args>`, S69/S70 — type `!help` for the full roster). Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -27,6 +27,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Hangman** 🪢 | `!hangman play` — solo word-guessing against the gallows | [hangman](docs/modules/hangman.md) |
 | **Russian roulette** 🔫 | `!rr play` — last-officer-standing party game (mod opens the lobby) | [russianroulette](docs/modules/russianroulette.md) |
 | **Split or Steal** 🤝 | `!sos play` — two random contestants, one secret trust dilemma | [splitorsteal](docs/modules/splitorsteal.md) |
+| **Guess the Candy** 🍬 | `!gtc` — unscramble the candy, first right button wins on the clock | [guessthecandy](docs/modules/guessthecandy.md) |
 | **Memorial** 🕯️ | `!memorial` group — fallen firefighters/officers tracker (RSS, role tags) | [memorial](docs/modules/memorial.md) |
 | **Starboard** ⭐ | `!starboard` group — ⭐-reactions repost highlights to the board | [starboard](docs/modules/starboard.md) |
 | **Chat starter** 💬 | `!chat-starter` group — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |
