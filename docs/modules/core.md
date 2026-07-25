@@ -3,7 +3,7 @@
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
 **Status:** stable
-**Last updated:** Session 74 · 2026-07-25
+**Last updated:** Session 75 · 2026-07-25
 
 ## Purpose
 
@@ -40,7 +40,7 @@ New and converted commands use the group structure of the Red-DiscordBot cogs th
 | `!help` | Shows every command the viewer can use, grouped by category | none | Everyone | `!help` |
 | `!update` | Updates the bot from GitHub with live status in Discord; restarts only when the tests pass | none | Administrators / guild owner | `!update` |
 | `!restart` | Restarts the bot to reload `.env`/configuration, reports back when on duty | none | Administrators / guild owner | `!restart` |
-| `!maintenance` | Maintenance mode: only the precinct owner can run commands; everyone else gets an English notice (S74) | `on` / `off` / `message <text…>` / `nomessage` | **Guild owner only** (admin-visible) | `!maintenance on` |
+| `!maintenance` | Maintenance mode: only the **bot owner** can run commands; everyone else gets an English notice (S74/S75) | `on` / `off` / `message <text…>` / `nomessage` | **Bot owner only** (admin-visible) | `!maintenance on` |
 
 ### /radio-check
 
@@ -70,13 +70,13 @@ New and converted commands use the group structure of the Red-DiscordBot cogs th
 - **Fallback without sudoers:** the process exits with a failure code — the unit runs `Restart=on-failure` with `RestartSec=5`, so systemd revives it within seconds either way.
 - **Failure modes:** non-admin → ephemeral refusal, nothing happens. Note `!restart` (text) requires the Message Content intent like every `!command`.
 
-### !maintenance (S74, owner request)
+### !maintenance (S74, owner request; S75 correction: BOT owner, not guild owner)
 
-One switch that closes the command desk: with maintenance ON, every `!command` from anyone but the **precinct owner** (structural `guild.ownerId` — never a raw id, S40 rule) answers the notice instead of running. The gate sits in the prefix router BEFORE both dispatch paths (groups and legacy), so no command slips through; unknown `!words` stay silent (no notice spam). Only commands are gated — events, sweeps, and running games/buttons continue.
+One switch that closes the command desk: with maintenance ON, every `!command` from anyone but the **bot owner** — the owner of the Discord APPLICATION, resolved structurally via `client.application.owner` (for a team-owned app every team member counts; never a raw id) — answers the notice instead of running. The guild owner gets the notice like everyone else. The gate sits in the prefix router BEFORE both dispatch paths (groups and legacy), so no command slips through; unknown `!words` stay silent (no notice spam). Only commands are gated — events, sweeps, and running games/buttons continue.
 
-- `!maintenance on` / `off` — the switch. **Owner-only at runtime** (an admin who could enable it would lock themselves out, since only the owner is exempt — the gate matches the exemption exactly). The group is Administrator-gated for visibility, so regular members never see it in `!help`.
-- `!maintenance message <text…>` — a custom notice (greedy, clamped 500); `nomessage` restores the default: *"🚧 CuffBot is under maintenance. Only the precinct owner can use commands right now — back on duty soon."*
-- Config: `maintenanceConfig` `{ enabled: false, message: null }` in the guild store (`src/core/maintenance.js`).
+- `!maintenance on` / `off` — the switch. **Bot-owner-only at runtime** (anyone else who could enable it would lock themselves out, since only the bot owner is exempt — the gate matches the exemption exactly). The group is Administrator-gated for visibility, so regular members never see it in `!help`.
+- `!maintenance message <text…>` — a custom notice (greedy, clamped 500); `nomessage` restores the default: *"🚧 CuffBot is under maintenance. Only the bot owner can use commands right now — back on duty soon."*
+- Config: `maintenanceConfig` `{ enabled: false, message: null }` in the guild store (`src/core/maintenance.js`). The owner lookup runs only while maintenance is ON (one application fetch, cached on success, retried on failure — a transient API error can never permanently lock the owner out).
 
 ## Events
 
@@ -123,7 +123,7 @@ Boot fails fast with a named-variable error message when required settings are m
 | `src/modules/core/events/guild-lockdown.js` | Live jurisdiction enforcement |
 | `src/core/prefix/{parse,adapter,router}.js` | Text (`!command`) parsing, legacy option adapter, MessageCreate router |
 | `src/core/prefix/group.js` | Red-style group commands (S69): overview, arg resolution, permission gates, dispatch |
-| `src/core/maintenance.js` | Maintenance mode (S74): the owner-exempt command gate + config |
+| `src/core/maintenance.js` | Maintenance mode (S74/S75): the bot-owner-exempt command gate + config |
 | `src/core/help.js` | Pure help-roster construction (used by `!help`; `summarizeCommand` flattens groups and legacy commands alike) |
 | `src/modules/core/lib/precinct.js` | Pure: home-guild check |
 | `src/modules/core/lib/radio.js` | Pure: latency verdict formatting |
@@ -173,4 +173,5 @@ Boot fails fast with a named-variable error message when required settings are m
 | S69 | Red-style group commands (M17.1): new `src/core/prefix/group.js` (`!group sub <args>`, bare `!group` = status+overview embed, typed args incl. greedy/choices, per-group and per-sub permission gates, framework-owned errors); loader accepts `{ group }` commands and validates their shape; router dispatches groups before the legacy adapter; `help.js summarizeCommand` puts groups in the menu; `!youtube` converted as the reference. |
 | S70 | Framework extensions for the M17.2 conversion wave: group-level `aliases` (retired command names keep working — the loader registers every alias to the same group and boot-fails on collisions) and the `postable: true` channel-arg flag (S55 text/announcement rule enforced in `resolveArg`). All 13 config commands converted to groups; `!channel-list` absorbed `!channel-list-config`. |
 | S71 | Group `fallback` subs: unmatched first tokens route into a designated sub with the full token list (`!connect4 @user` → `play`); loader validates the fallback names a real sub. First consumer: the connect4 module (M16.3). |
-| S74 | Maintenance mode (owner request): `src/core/maintenance.js` + a router gate before both dispatch paths — with the switch on, only the precinct owner (`guild.ownerId`) runs commands; everyone else gets the (customizable) English notice. `!maintenance` group: admin-visible, owner-only to operate (on/off/message/nomessage). Events/sweeps/components unaffected. |
+| S74 | Maintenance mode (owner request): `src/core/maintenance.js` + a router gate before both dispatch paths — with the switch on, only the exempt owner runs commands; everyone else gets the (customizable) English notice. `!maintenance` group: admin-visible, owner-only to operate (on/off/message/nomessage). Events/sweeps/components unaffected. |
+| S75 | Owner correction: the exempt party is the **BOT owner** (`client.application.owner`, team members included), NOT the guild owner — the guild owner is now gated like everyone else. Owner ids cached on first successful application fetch, retried on failure. |

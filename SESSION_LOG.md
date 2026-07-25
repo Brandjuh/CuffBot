@@ -1286,3 +1286,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — mid-marathon session, state was own-verified (94f00d5, 563/563).
 
 **Retrospective:** no skill change — the request landed cleanly on three existing rails: the S40 structural-owner rule decided WHO is exempt, the S69 group framework shaped the command, and the single router choke-point (S68's text-only consolidation) made the gate one insertion. That the architecture absorbs a brand-new cross-cutting feature at this cost is the system working; nothing new to record.
+
+---
+
+## Session 75 — 2026-07-25
+
+**Goal:** owner correction on S74 (verbatim): "Nee niet de server eigenaar, BOT eigenaar." — the maintenance exemption belongs to the BOT owner (the application owner), not the guild owner.
+
+**Done:**
+- `src/core/maintenance.js`: the exemption now resolves via **`client.application.owner`** — still structural, no raw id: a user-owned app exempts that user; a team-owned app exempts every team member (`getBotOwnerIds`). Ids are fetched ON DEMAND only while maintenance is on, cached on the client after the first successful fetch, and a FAILED fetch is never cached — the next check retries, so a transient API error can't permanently lock the owner out. The everyday (maintenance-off) path never touches the API.
+- Router gate + `!maintenance` group updated: the guild owner is now gated like everyone else; on/off/message/nomessage require the bot owner (`isBotOwner`). Default notice reworded: "Only the bot owner can use commands right now".
+- Tests 567 → **568** (rewritten): owner resolution (user app, team app, cache-on-success, retry-after-failure), the gate matrix (off-path makes zero fetches; bot owner passes; **guild owner blocked** — the correction pinned in a test), router integration (both paths, silent unknowns, no-ping notice), group operate-matrix (admin refused, guild owner refused, bot owner full flow).
+- Docs: core.md (section/table/files/changelog + S75 row), STATE.md bullet.
+
+**Corrections (Step 2):** the S74 implementation itself — shipped same-day against the owner's intent ("de eigenaar van de bot" was read as the guild owner via the S40 precedent; the owner meant the application owner). Corrected within the same window; both readings were structural, so no raw ids ever landed.
+
+**Retrospective:** no skill-file change, but a candidate lesson recorded in LEARNINGS: "owner"-words are ambiguous across THREE structural identities (guild owner / application owner / admin role) — when a request says "eigenaar", confirm WHICH, or pick the application owner for bot-level controls and the guild owner for server-level features, and say so in the report (the S74 report named the choice, which is exactly what let the owner correct it in one line).

@@ -22,10 +22,10 @@ export function wirePrefixRouter(client, runCommand) {
     const command = client.commands.get(parsed.name);
     if (!command) return;
 
-    // Maintenance mode (S74): a real command from anyone but the precinct
+    // Maintenance mode (S74/S75): a real command from anyone but the BOT
     // owner answers the notice instead of running. Unknown "!words" stayed
     // silent above — no notice spam on chatter.
-    const notice = maintenanceNotice(message.guild, message.author.id);
+    const notice = await maintenanceNotice(client, message.guild.id, message.author.id);
     if (notice) {
       await message.reply({ content: notice, allowedMentions: { repliedUser: false } }).catch(() => {});
       return;
