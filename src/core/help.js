@@ -36,6 +36,7 @@ const MODULE_BADGES = {
   guessthecandy: '🍬',
   rollout: '🎲',
   memory: '🧠',
+  wordle: '🟩',
 };
 
 /**
@@ -133,6 +134,7 @@ export const COMMAND_CATEGORIES = {
   guessthecandy: 'games',
   rollout: 'games',
   memory: 'games',
+  wordle: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',
