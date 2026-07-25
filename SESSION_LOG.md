@@ -1370,3 +1370,20 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2):** none — state matched reality (b32ac8d, 568/568 at session start; the S78 fix held).
 
 **Retrospective:** no skill-file change — the io-injected engine pattern carried its second game with zero friction (S73's candidate is now twice-proven; promotion to architecture.md is warranted the next time the skill file is edited, noted in LEARNINGS). The static-import test rule (0.5.18) was applied from the start this session.
+
+---
+
+## Session 80 — 2026-07-25
+
+**Goal:** M16.7 — Guess the Candy (AAA3A port). Owner: "Gas erop" (full throttle).
+
+**License decision (the S65 survey's flag, now resolved with evidence):** the cog repo is MIT, but its 46 bundled PNGs depict branded candy products (KitKat, M&M's, Snickers, Reese's, …) — a repo license cannot clear third-party product imagery, so bundling them into this repo is a real redistribution risk. Decision: the game loop ports byte-faithfully, the SHADOW becomes a **per-word letter scramble of the candy name** (zero assets); the 23-NAME pool ports verbatim (product names as quiz answers are nominative use). Recorded deviation in the manual/ROADMAP/STATE.
+
+**Done:**
+- **Module `guessthecandy`:** `!gtc [5–23]` (group + play fallback): sample-then-choice keeps the answer always on the board; anyone presses; wrong = the cog's quiet "You guessed wrong! Try again!"; first correct press wins with two-decimal elapsed time (clock starts after send, cog behavior); winner pinged (scoped); 180 s auto-close. `pressCandy` flips `ended` synchronously (the cog's asyncio.Lock as our S22 claim rule). **Rounds keyed by game id — parallel rounds allowed** (cog behavior; first game module that does NOT channel-lock).
+- Tests 577 → **585**: pool integrity (23, bounds), sampling invariants, the scramble (boundaries kept, letters equal, differs), elapsed formatting, parallel rounds, the press matrix incl. the synchronous lock, seeded round shape, group wiring (fallback, both difficulty bounds, 5-row board, code-block prompt).
+- Docs: manual `guessthecandy.md`, docs index, README (26 modules / 64 commands), ROADMAP M16.7 ✔, STATE.md (resume → M16.8 rollout).
+
+**Corrections (Step 2):** none — state matched reality (d19fcdd, 577/577 at session start).
+
+**Retrospective:** no skill change — the survey's pre-flagged license risk meant the decision was one `ls` + one LICENSE read instead of a surprise; that is the S65 batch-intake pattern working as designed.

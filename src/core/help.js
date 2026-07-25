@@ -33,6 +33,7 @@ const MODULE_BADGES = {
   hangman: '🪢',
   russianroulette: '🔫',
   splitorsteal: '🤝',
+  guessthecandy: '🍬',
 };
 
 /**
@@ -127,6 +128,7 @@ export const COMMAND_CATEGORIES = {
   hangman: 'games',
   russianroulette: 'games',
   splitorsteal: 'games',
+  guessthecandy: 'games',
   daily: 'games',
   claims: 'games',
   fine: 'fun',
