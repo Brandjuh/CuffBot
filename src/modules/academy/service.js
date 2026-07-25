@@ -2,7 +2,6 @@
 // checks, applying role changes) — kept out of lib/ so lib/ stays pure.
 import { PermissionFlagsBits } from 'discord.js';
 import { getGuildData } from '../../core/store.js';
-import { replyEither } from '../../core/prefix/context.js';
 import { auditReason } from '../enforcement/lib/audit.js';
 import { buildLadder } from './lib/ladder.js';
 
@@ -13,10 +12,13 @@ export function getAcademyConfig(guildId) {
   return { ...DEFAULT_CONFIG, ...getGuildData(guildId, ACADEMY_CONFIG_KEY, {}) };
 }
 
-export async function replyEphemeral(source, content) {
-  // S94: works from a flat command's ctx as well as a legacy interaction —
-  // on the text path there is no ephemeral, only a no-ping in-channel reply.
-  await replyEither(source, content);
+/**
+ * Named for the slash era. Since S54 there is no ephemeral on the text path —
+ * this is simply the ctx's no-ping in-channel reply, kept as one helper so the
+ * academy commands read consistently.
+ */
+export async function replyEphemeral(ctx, content) {
+  await ctx.reply(content);
 }
 
 /** Guild roles ordered highest position first, as plain objects for lib/. */

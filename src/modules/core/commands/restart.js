@@ -10,8 +10,13 @@
 // RestartSec=5, so a failure exit is revived by systemd within seconds.
 //
 // Security: admin/guild-owner only; a fixed command with no user input.
+//
+// S96 (M17.3 slice D): converted to the flat { command } shape. The gate is
+// checked inside run() rather than declared as `permission`, because it also
+// admits the GUILD OWNER, who may not hold the Administrator flag —
+// `isAdminOrOwner` is shared with !update.
 import { spawn } from 'node:child_process';
-import { MessageFlags, PermissionFlagsBits, SlashCommandBuilder } from 'discord.js';
+import { isAdminOrOwner } from '../../../core/prefix/permissions.js';
 import { logger } from '../../../core/logger.js';
 import { getHead, writeUpdateMarker } from '../update-status.js';
 
@@ -35,34 +40,31 @@ function triggerRestart() {
 }
 
 export default {
-  data: new SlashCommandBuilder()
-    .setName('restart')
-    .setDescription('Restart the bot to reload its configuration/.env (admins only).')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-  async execute(interaction) {
-    const isOwner = interaction.guild?.ownerId === interaction.user.id;
-    const isAdmin = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
-    if (!isAdmin && !isOwner) {
-      await interaction.reply({
-        content: '🚫 Only administrators can order a restart.',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
+  command: {
+    name: 'restart',
+    description: 'Restart the bot to reload its configuration/.env (admins only).',
+    emoji: '🔄',
+    args: [],
+    async run(ctx) {
+      if (!isAdminOrOwner(ctx)) {
+        await ctx.reply('🚫 Only administrators can order a restart.');
+        return;
+      }
 
-    // Remember the order first — the restart kills this process, and the boot
-    // reporter finishes the conversation in this channel.
-    writeUpdateMarker(interaction.guild.id, {
-      channelId: interaction.channel?.id ?? null,
-      requesterId: interaction.user.id,
-      startedHead: getHead().head ?? 'unknown',
-      at: Date.now(),
-      kind: 'restart',
-    });
-    await interaction.reply(
-      '🔄 Restarting to reload the configuration (`.env`) — back in a moment, I will report here. 🚔',
-    );
-    logger.info(`Restart ordered by ${interaction.user.tag ?? interaction.user.username}.`);
-    triggerRestart();
+      // Remember the order first — the restart kills this process, and the boot
+      // reporter finishes the conversation in this channel.
+      writeUpdateMarker(ctx.guild.id, {
+        channelId: ctx.channel?.id ?? null,
+        requesterId: ctx.user.id,
+        startedHead: getHead().head ?? 'unknown',
+        at: Date.now(),
+        kind: 'restart',
+      });
+      await ctx.reply(
+        '🔄 Restarting to reload the configuration (`.env`) — back in a moment, I will report here. 🚔',
+      );
+      logger.info(`Restart ordered by ${ctx.user.tag ?? ctx.user.username}.`);
+      triggerRestart();
+    },
   },
 };

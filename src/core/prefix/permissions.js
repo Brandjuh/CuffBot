@@ -40,3 +40,14 @@ export function hasPermission(ctx, flag) {
   const perms = ctx.channel?.permissionsFor?.(ctx.member) ?? ctx.member?.permissions;
   return Boolean(perms?.has?.(flag));
 }
+
+/**
+ * Administrator OR the guild owner (S96). A command's `permission` field
+ * cannot express the second half — a guild owner implicitly has every power
+ * but need not carry the Administrator flag — so the ops commands
+ * (`!restart`, `!update`) check this inside run() instead of declaring a gate.
+ */
+export function isAdminOrOwner(ctx) {
+  if (ctx.guild?.ownerId && ctx.guild.ownerId === ctx.user?.id) return true;
+  return hasPermission(ctx, PermissionFlagsBits.Administrator);
+}

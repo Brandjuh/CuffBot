@@ -106,21 +106,17 @@ export async function loadModules(client) {
 
   for (const mod of modules) {
     for (const command of mod.commands) {
-      // Three shapes, in order of preference: a Red-style group ({ group },
-      // S69), a flat command ({ command }, S93), or the legacy
-      // { data, execute } still awaiting conversion (M17.3). The router picks
-      // the matching path per command.
+      // Two shapes, since S96 finished M17.3: a Red-style group ({ group },
+      // S69) or a flat command ({ command }, S93). Both register under their
+      // name AND their aliases (S70) — every key resolves to the same command
+      // object; help shows only the primary name.
       let names;
       if (command?.group) {
-        // A group registers under its name AND its aliases (S70) — every key
-        // resolves to the same command object; help shows only the primary name.
         names = [validateGroup(mod, command.group), ...(command.group.aliases ?? [])];
       } else if (command?.command) {
         names = [validateFlatCommand(mod, command.command), ...(command.command.aliases ?? [])];
-      } else if (command?.data?.name && typeof command.execute === 'function') {
-        names = [command.data.name];
       } else {
-        throw new Error(`Module "${mod.name}" has a command without group, command or data/execute.`);
+        throw new Error(`Module "${mod.name}" has a command that is neither a group nor a command.`);
       }
       for (const name of names) {
         if (client.commands.has(name)) {

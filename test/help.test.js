@@ -114,15 +114,7 @@ test('every REAL command is categorized and every category key is valid', async 
   }
 });
 
-test('summarizeCommand flattens groups and legacy commands to one shape (S69)', () => {
-  const legacy = {
-    data: { toJSON: () => ({ name: 'cite', description: 'Ticket', default_member_permissions: '8192' }) },
-  };
-  assert.deepEqual(summarizeCommand(legacy), {
-    name: 'cite',
-    description: 'Ticket',
-    defaultMemberPermissions: '8192',
-  });
+test('summarizeCommand flattens both command shapes to one shape (S69/S93)', () => {
   const group = {
     group: { name: 'youtube', description: 'Uploads', permission: 32n, subcommands: [] },
   };
