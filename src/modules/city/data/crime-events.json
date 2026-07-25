@@ -1,0 +1,458 @@
+{
+ "pickpocket": [
+  {
+   "text": "Your target is distracted by their phone! 📱 (+15% success chance)",
+   "chance_bonus": 0.15
+  },
+  {
+   "text": "The area is crowded with people! 👥 (+10% success chance)",
+   "chance_bonus": 0.1
+  },
+  {
+   "text": "Your target seems unusually alert! 👀 (-20% success chance)",
+   "chance_penalty": 0.2
+  },
+  {
+   "text": "You spotted a security guard nearby! 🚔 (-15% success chance)",
+   "chance_penalty": 0.15
+  },
+  {
+   "text": "Your target has premium loot! 💎 (1.5x reward)",
+   "reward_multiplier": 1.5
+  },
+  {
+   "text": "Your target looks completely broke... 💸 (0.7x reward)",
+   "reward_multiplier": 0.7
+  },
+  {
+   "text": "You found a dropped wallet on the ground! 💰 (+{credits_bonus} {currency})",
+   "credits_bonus": 100
+  },
+  {
+   "text": "You dropped some of your own money! 💸 (-{credits_penalty} {currency})",
+   "credits_penalty": 75
+  },
+  {
+   "text": "Your target is rich but very alert! 💰 (-15% success chance, 1.3x reward)",
+   "chance_penalty": 0.15,
+   "reward_multiplier": 1.3
+  },
+  {
+   "text": "Your target is easy but has a small wallet! 👝 (+20% success chance, 0.8x reward)",
+   "chance_bonus": 0.2,
+   "reward_multiplier": 0.8
+  },
+  {
+   "text": "You are taking your time to be thorough... ⏱️ (-10% success chance, -20% jail time)",
+   "chance_penalty": 0.1,
+   "jail_multiplier": 0.8
+  },
+  {
+   "text": "You went for a quick but risky grab! ⚡ (+15% success chance, +20% jail time)",
+   "chance_bonus": 0.15,
+   "jail_multiplier": 1.2
+  },
+  {
+   "text": "You are in rush hour chaos! 🏃 (+15% success chance, -25% reward, -10% jail time)",
+   "chance_bonus": 0.15,
+   "reward_multiplier": 0.75,
+   "jail_multiplier": 0.9
+  },
+  {
+   "text": "You are in a high-security area! 🔒 (-20% success chance, 1.4x reward, +25% jail time)",
+   "chance_penalty": 0.2,
+   "reward_multiplier": 1.4,
+   "jail_multiplier": 1.25
+  },
+  {
+   "text": "You found extra cash but attracted attention! 💵 (+100 {currency}, -10% success chance)",
+   "credits_bonus": 100,
+   "chance_penalty": 0.1
+  },
+  {
+   "text": "You paid a spotter for good intel! 🔍 (-50 {currency}, +15% success chance)",
+   "credits_penalty": 50,
+   "chance_bonus": 0.15
+  },
+  {
+   "text": "The guards are changing shifts! 😴 (-15% jail time)",
+   "jail_multiplier": 0.85
+  },
+  {
+   "text": "The street patrols have increased! 👮 (+15% jail time)",
+   "jail_multiplier": 1.15
+  },
+  {
+   "text": "Your target looks wealthy but well-connected! 💰 (1.3x reward, +15% jail time)",
+   "reward_multiplier": 1.3,
+   "jail_multiplier": 1.15
+  },
+  {
+   "text": "You found a quick escape route! 🤫 (0.8x reward, -15% jail time)",
+   "reward_multiplier": 0.8,
+   "jail_multiplier": 0.85
+  },
+  {
+   "text": "You paid off a street cop! 💵 (-75 {currency}, -15% jail time)",
+   "credits_penalty": 75,
+   "jail_multiplier": 0.85
+  },
+  {
+   "text": "You found their secret stash! 💰 (+50 {currency}, +10% jail time)",
+   "credits_bonus": 50,
+   "jail_multiplier": 1.1
+  },
+  {
+   "text": "You bought intel from locals! 🗺️ (-50 {currency}, 1.2x reward)",
+   "credits_penalty": 50,
+   "reward_multiplier": 1.2
+  },
+  {
+   "text": "You dropped some valuables while running! 💨 (+25 {currency}, 0.9x reward)",
+   "credits_bonus": 25,
+   "reward_multiplier": 0.9
+  }
+ ],
+ "mugging": [
+  {
+   "text": "You found a perfect dark alley! 🌙 (+20% success chance)",
+   "chance_bonus": 0.2
+  },
+  {
+   "text": "Your target is stumbling drunk! 🍺 (+15% success chance)",
+   "chance_bonus": 0.15
+  },
+  {
+   "text": "Your target knows martial arts! 🥋 (-25% success chance)",
+   "chance_penalty": 0.25
+  },
+  {
+   "text": "Your target looks very strong! 💪 (-15% success chance)",
+   "chance_penalty": 0.15
+  },
+  {
+   "text": "Your target is wearing expensive jewelry! 💎 (1.5x reward)",
+   "reward_multiplier": 1.5
+  },
+  {
+   "text": "Your target seems completely broke! 💸 (0.7x reward)",
+   "reward_multiplier": 0.7
+  },
+  {
+   "text": "You got tips from a street performer! 🎭 (+{credits_bonus} {currency})",
+   "credits_bonus": 150
+  },
+  {
+   "text": "You dropped your loot while running! 💸 (-{credits_penalty} {currency})",
+   "credits_penalty": 150
+  },
+  {
+   "text": "The storm provides cover but limits visibility! ⛈️ (+10% success chance, -10% reward)",
+   "chance_bonus": 0.1,
+   "reward_multiplier": 0.9
+  },
+  {
+   "text": "Your target is drunk but has no money! 🍺 (+15% success chance, -20% reward)",
+   "chance_bonus": 0.15,
+   "reward_multiplier": 0.8
+  },
+  {
+   "text": "You spotted a police car nearby! 👮 (-20% success chance, +30% jail time)",
+   "chance_penalty": 0.2,
+   "jail_multiplier": 1.3
+  },
+  {
+   "text": "You found a shortcut through the alley! 🏃 (+20% success chance, +30% jail time)",
+   "chance_bonus": 0.2,
+   "jail_multiplier": 1.3
+  },
+  {
+   "text": "Your target is an off-duty bouncer! 🥊 (-25% success chance, 1.4x reward, +20% jail time)",
+   "chance_penalty": 0.25,
+   "reward_multiplier": 1.4,
+   "jail_multiplier": 1.2
+  },
+  {
+   "text": "You went for a quick snatch and run! ⚡ (+15% success chance, 0.8x reward, -15% jail time)",
+   "chance_bonus": 0.15,
+   "reward_multiplier": 0.8,
+   "jail_multiplier": 0.85
+  },
+  {
+   "text": "You bribed a witness to look away! 💰 (-100 {currency}, +20% success chance)",
+   "credits_penalty": 100,
+   "chance_bonus": 0.2
+  },
+  {
+   "text": "You found a lucky charm! 🍀 (+75 {currency}, +5% success chance)",
+   "credits_bonus": 75,
+   "chance_bonus": 0.05
+  },
+  {
+   "text": "The police are busy with a parade! 🎉 (-20% jail time)",
+   "jail_multiplier": 0.8
+  },
+  {
+   "text": "The neighborhood watch is active! 🏘️ (+15% jail time)",
+   "jail_multiplier": 1.15
+  },
+  {
+   "text": "Your target is a rich tourist with a bodyguard! 💰 (1.4x reward, +20% jail time)",
+   "reward_multiplier": 1.4,
+   "jail_multiplier": 1.2
+  },
+  {
+   "text": "You performed a silent takedown! 🤫 (0.8x reward, -15% jail time)",
+   "reward_multiplier": 0.8,
+   "jail_multiplier": 0.85
+  },
+  {
+   "text": "You bribed a witness to stay quiet! 💵 (-100 {currency}, -15% jail time)",
+   "credits_penalty": 100,
+   "jail_multiplier": 0.85
+  },
+  {
+   "text": "You found their hidden wallet! 💰 (+75 {currency}, +10% jail time)",
+   "credits_bonus": 75,
+   "jail_multiplier": 1.1
+  },
+  {
+   "text": "You bought better weapons! 🔪 (-125 {currency}, 1.3x reward)",
+   "credits_penalty": 125,
+   "reward_multiplier": 1.3
+  },
+  {
+   "text": "You damaged their expensive watch! ⌚ (+50 {currency}, 0.85x reward)",
+   "credits_bonus": 50,
+   "reward_multiplier": 0.85
+  }
+ ],
+ "rob_store": [
+  {
+   "text": "You caught them during shift change! 🔄 (+20% success chance)",
+   "chance_bonus": 0.2
+  },
+  {
+   "text": "The security cameras are malfunctioning! 📹 (+20% success chance)",
+   "chance_bonus": 0.2
+  },
+  {
+   "text": "One of the customers is armed! 🔫 (-25% success chance)",
+   "chance_penalty": 0.25
+  },
+  {
+   "text": "The cashier looks ex-military! 🎖️ (-20% success chance)",
+   "chance_penalty": 0.2
+  },
+  {
+   "text": "The safe was left open! 💰 (1.4x reward)",
+   "reward_multiplier": 1.4
+  },
+  {
+   "text": "Store was just robbed - barely any cash! 📉 (0.6x reward)",
+   "reward_multiplier": 0.6
+  },
+  {
+   "text": "You found extra cash in the register! 💰 (+{credits_bonus} {currency})",
+   "credits_bonus": 200
+  },
+  {
+   "text": "You had to pay for property damage! 💸 (-{credits_penalty} {currency})",
+   "credits_penalty": 200
+  },
+  {
+   "text": "Store is busy - more witnesses but more cash! 👥 (-15% success chance, 1.2x reward)",
+   "chance_penalty": 0.15,
+   "reward_multiplier": 1.2
+  },
+  {
+   "text": "Quick grab from the register! ⚡ (+10% success chance, 0.8x reward)",
+   "chance_bonus": 0.1,
+   "reward_multiplier": 0.8
+  },
+  {
+   "text": "Someone triggered the silent alarm! 🚨 (-20% success chance, +25% jail time)",
+   "chance_penalty": 0.2,
+   "jail_multiplier": 1.25
+  },
+  {
+   "text": "The store is right next to a police station! 👮 (-20% success chance, +25% jail time)",
+   "chance_penalty": 0.2,
+   "jail_multiplier": 1.25
+  },
+  {
+   "text": "The store's having a sale - busy but understaffed! 🏷️ (+15% success chance, 1.2x reward, +20% jail time)",
+   "chance_bonus": 0.15,
+   "reward_multiplier": 1.2,
+   "jail_multiplier": 1.2
+  },
+  {
+   "text": "You're taking hostages - risky but profitable! 😨 (-25% success chance, 1.8x reward, +25% jail time)",
+   "chance_penalty": 0.25,
+   "reward_multiplier": 1.8,
+   "jail_multiplier": 1.25
+  },
+  {
+   "text": "You paid off a security guard! 💵 (-150 {currency}, +25% success chance)",
+   "credits_penalty": 150,
+   "chance_bonus": 0.25
+  },
+  {
+   "text": "You found money in the break room! 💰 (+100 {currency}, -5% success chance)",
+   "credits_bonus": 100,
+   "chance_penalty": 0.05
+  },
+  {
+   "text": "The local jail is overcrowded! 🏢 (-20% jail time)",
+   "jail_multiplier": 0.8
+  },
+  {
+   "text": "The new judge is strict! ⚖️ (+20% jail time)",
+   "jail_multiplier": 1.2
+  },
+  {
+   "text": "Premium merchandise in stock! 💎 (1.5x reward, +20% jail time)",
+   "reward_multiplier": 1.5,
+   "jail_multiplier": 1.2
+  },
+  {
+   "text": "You're grabbing and dashing! 🏃 (0.7x reward, -20% jail time)",
+   "reward_multiplier": 0.7,
+   "jail_multiplier": 0.8
+  },
+  {
+   "text": "You bribed the security company! 💵 (-200 {currency}, -20% jail time)",
+   "credits_penalty": 200,
+   "jail_multiplier": 0.8
+  },
+  {
+   "text": "You found the manager's personal safe! 💰 (+150 {currency}, +15% jail time)",
+   "credits_bonus": 150,
+   "jail_multiplier": 1.15
+  },
+  {
+   "text": "You hired a getaway driver! 🚗 (-175 {currency}, 1.3x reward)",
+   "credits_penalty": 175,
+   "reward_multiplier": 1.3
+  },
+  {
+   "text": "You damaged merchandise during escape! 📦 (+100 {currency}, 0.8x reward)",
+   "credits_bonus": 100,
+   "reward_multiplier": 0.8
+  }
+ ],
+ "bank_heist": [
+  {
+   "text": "You have an inside contact! 🤝 (+25% success chance)",
+   "chance_bonus": 0.25
+  },
+  {
+   "text": "The security system is being upgraded! 🔧 (+20% success chance)",
+   "chance_bonus": 0.2
+  },
+  {
+   "text": "Extra guard rotation today! 👮 (-20% success chance)",
+   "chance_penalty": 0.2
+  },
+  {
+   "text": "New security system installed! 🔒 (-15% success chance)",
+   "chance_penalty": 0.15
+  },
+  {
+   "text": "You found the high-value vault! 💎 (1.8x reward)",
+   "reward_multiplier": 1.8
+  },
+  {
+   "text": "Most cash was just transferred out! 📉 (0.7x reward)",
+   "reward_multiplier": 0.7
+  },
+  {
+   "text": "You found an uncounted stack of bills! 💰 (+{credits_bonus} {currency})",
+   "credits_bonus": 500
+  },
+  {
+   "text": "Your hacking device broke! 💸 (-{credits_penalty} {currency})",
+   "credits_penalty": 400
+  },
+  {
+   "text": "It's gold transport day! 🏆 (-15% success chance, 1.6x reward)",
+   "chance_penalty": 0.15,
+   "reward_multiplier": 1.6
+  },
+  {
+   "text": "You're only hitting the small safe! 🔑 (+15% success chance, 0.8x reward)",
+   "chance_bonus": 0.15,
+   "reward_multiplier": 0.8
+  },
+  {
+   "text": "Security is doing inspections! 🔍 (-15% success chance, +15% jail time)",
+   "chance_penalty": 0.15,
+   "jail_multiplier": 1.15
+  },
+  {
+   "text": "You found the security patrol schedule! 📋 (+15% success chance, +15% jail time)",
+   "chance_bonus": 0.15,
+   "jail_multiplier": 1.15
+  },
+  {
+   "text": "The bank is busy - more risk but more reward! 👥 (-15% success chance, 1.5x reward, +20% jail time)",
+   "chance_penalty": 0.15,
+   "reward_multiplier": 1.5,
+   "jail_multiplier": 1.2
+  },
+  {
+   "text": "You're doing a quick vault grab during lunch! 🏃 (+20% success chance, 0.8x reward, -15% jail time)",
+   "chance_bonus": 0.2,
+   "reward_multiplier": 0.8,
+   "jail_multiplier": 0.85
+  },
+  {
+   "text": "You bribed a bank employee! 💵 (-300 {currency}, +20% success chance)",
+   "credits_penalty": 300,
+   "chance_bonus": 0.2
+  },
+  {
+   "text": "You found loose cash in the vault! 💰 (+250 {currency}, -10% success chance)",
+   "credits_bonus": 250,
+   "chance_penalty": 0.1
+  },
+  {
+   "text": "The prison is doing a transport strike! 🚫 (-25% jail time)",
+   "jail_multiplier": 0.75
+  },
+  {
+   "text": "The prison is under maximum security alert! ⚠️ (+20% jail time)",
+   "jail_multiplier": 1.2
+  },
+  {
+   "text": "You found the diamond vault! 💎 (2.0x reward, +25% jail time)",
+   "reward_multiplier": 2.0,
+   "jail_multiplier": 1.25
+  },
+  {
+   "text": "You're using the back entrance! 🚪 (0.8x reward, -20% jail time)",
+   "reward_multiplier": 0.8,
+   "jail_multiplier": 0.8
+  },
+  {
+   "text": "You bribed the security chief! 💵 (-400 {currency}, -25% jail time)",
+   "credits_penalty": 400,
+   "jail_multiplier": 0.75
+  },
+  {
+   "text": "You found blackmail evidence! 💰 (+300 {currency}, +15% jail time)",
+   "credits_bonus": 300,
+   "jail_multiplier": 1.15
+  },
+  {
+   "text": "You hired expert hackers! 💻 (-350 {currency}, 1.4x reward)",
+   "credits_penalty": 350,
+   "reward_multiplier": 1.4
+  },
+  {
+   "text": "You triggered dye packs! 🎨 (+200 {currency}, 0.7x reward)",
+   "credits_bonus": 200,
+   "reward_multiplier": 0.7
+  }
+ ]
+}
