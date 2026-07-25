@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.16 — 2026-07-25 (Session 65)
+
+- `LEARNINGS.md`: new candidate — batch "like X" intakes: clone all public sources via the git proxy, survey with parallel read-only agents on a fixed questionnaire, persist the survey under docs/porting/ (the scratchpad is ephemeral; the survey is the porting reference).
+- Evidence: S65 — 14 cogs across 8 repos surveyed in one session; the three agent reports became docs/porting/S65-cog-surveys.md and the M16 roadmap entries.
+
 ## 0.5.15 — 2026-07-25 (Session 64)
 
 - `discord-reference.md` → self-updating posted messages: the multi-message variant (25-button cap per message → tracked `messageIds[]`, per-chunk edit/post/delete-surplus, legacy single-id records keep working).
