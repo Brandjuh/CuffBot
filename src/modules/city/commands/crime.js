@@ -6,14 +6,18 @@ import { EmbedBuilder } from 'discord.js';
 import { CRIMES } from '../lib/tables.js';
 import { streakBonus } from '../lib/resolve.js';
 import {
+  attemptJailbreak,
   canAttempt,
   cityBalance,
   commitCrime,
+  commitScenarioCrime,
   cooldownFor,
   getCitySettings,
   getCriminal,
   jailState,
+  payCityBail,
 } from '../service.js';
+import { bailCost } from '../lib/resolve.js';
 
 const CRIME_COLOUR = 0x8b1a1a;
 const WIN = 0xa020f0;
@@ -35,6 +39,10 @@ function eventLine(event) {
 export function crimeEmbed(outcome, displayName, { targetName = null } = {}) {
   const crime = CRIMES[outcome.crimeType];
   const lines = [];
+  if (outcome.scenario) {
+    const flavour = outcome.success ? outcome.scenario.success_text : outcome.scenario.fail_text;
+    lines.push(`*${flavour.replaceAll('{user}', displayName).replaceAll('{currency}', '🍩')}*`, '');
+  }
   if (outcome.events.length > 0) lines.push(outcome.events.map(eventLine).join('\n'), '');
 
   if (outcome.success) {
@@ -74,7 +82,9 @@ export function crimeEmbed(outcome, displayName, { targetName = null } = {}) {
 
   return new EmbedBuilder()
     .setColor(outcome.success ? WIN : LOSS)
-    .setTitle(`${crime.emoji} ${title(outcome.crimeType)} — ${outcome.success ? '✅ Clean getaway' : '🚨 Caught'}`)
+    .setTitle(
+      `${crime.emoji} ${outcome.scenario ? outcome.scenario.name : title(outcome.crimeType)} — ${outcome.success ? '✅ Clean getaway' : '🚨 Caught'}`,
+    )
     .setDescription(lines.join('\n'))
     .setFooter({ text: `${displayName} · ${Math.round(outcome.successChance * 100)}% odds after events` });
 }
@@ -143,7 +153,7 @@ export default {
           return `${crime.emoji} **${title(type)}** — ${money(crime.minReward)}–${money(crime.maxReward)} 🍩 · ${Math.round(crime.successRate * 100)}% · ${left > 0 ? `⏱️ ${relative(now + left)}` : '✅ ready'}`;
         });
       return [
-        `Pick a job: \`${ctx.prefix}crime pickpocket @member\`, \`${ctx.prefix}crime mug @member\`, \`${ctx.prefix}crime store\`, \`${ctx.prefix}crime bank\`. Every attempt draws random events that swing the odds, the take and the sentence.`,
+        `Pick a job: \`${ctx.prefix}crime pickpocket @member\`, \`${ctx.prefix}crime mug @member\`, \`${ctx.prefix}crime store\`, \`${ctx.prefix}crime bank\`, or \`${ctx.prefix}crime random\` for one of 46 one-off scores. Every attempt draws random events that swing the odds, the take and the sentence.`,
         '',
         ...board,
         '',
@@ -151,7 +161,7 @@ export default {
           ? `🔥 **Streak ${criminal.streak}** — ×${streakBonus(criminal.streak).toFixed(2)} on your next score (dies after a day off).`
           : '**Streak:** none — consecutive successes pay up to +25%.',
         jail.jailed
-          ? `🚨 **In a cell** until ${relative(jail.releaseAt)}${settings.allowBail ? ' — bail lands in a later update' : ''}`
+          ? `🚨 **In a cell** until ${relative(jail.releaseAt)} — ${settings.allowBail ? `bail costs **${money(bailCost(jail.remainingMs, settings))} 🍩** (\`${ctx.prefix}crime bail\`)` : 'no bail in this precinct'}, or gamble on \`${ctx.prefix}crime jailbreak\` (one shot).`
           : '**Status:** free to work.',
       ];
     },
@@ -190,6 +200,93 @@ export default {
         args: [],
         async run(ctx) {
           await attempt(ctx, 'bank_heist');
+        },
+      },
+      {
+        name: 'random',
+        aliases: ['lucky', 'scenario'],
+        description: 'Take whatever the street offers — one of 46 one-off jobs, odds and all.',
+        args: [],
+        async run(ctx) {
+          const criminal = getCriminal(ctx.guild.id, ctx.user.id);
+          const gate = canAttempt(ctx.guild.id, criminal, 'random', {});
+          if (gate.reason === 'jailed') {
+            await ctx.reply(`🚨 You are behind bars until ${relative(gate.releaseAt)}. \`${ctx.prefix}crime bail\` or \`${ctx.prefix}crime jailbreak\`.`);
+            return;
+          }
+          if (gate.reason === 'cooldown') {
+            await ctx.reply(`⏱️ Nothing doing yet — try again ${relative(Date.now() + gate.remainingMs)}.`);
+            return;
+          }
+          const outcome = await commitScenarioCrime(ctx.guild.id, ctx.user.id);
+          await ctx.reply({
+            embeds: [crimeEmbed(outcome, ctx.member?.displayName ?? ctx.user.username)],
+            allowedMentions: { parse: [] },
+          });
+        },
+      },
+      {
+        name: 'bail',
+        description: 'Buy your way out — the price tracks what is left of your sentence.',
+        args: [],
+        async run(ctx) {
+          const result = await payCityBail(ctx.guild.id, ctx.user.id);
+          if (result.error === 'bail-disabled') {
+            await ctx.reply('🚫 This precinct does not take bail. Sit it out or try your luck.');
+            return;
+          }
+          if (result.error === 'not-jailed') {
+            await ctx.reply('You are not in a cell.');
+            return;
+          }
+          if (result.error === 'too-poor') {
+            await ctx.reply(`🚫 Bail is **${money(result.cost)} 🍩** and you have **${money(result.balance)}**.`);
+            return;
+          }
+          await ctx.reply(`🔓 Paid **${money(result.cost)} 🍩** — you walk. Try to make it count.`);
+        },
+      },
+      {
+        name: 'jailbreak',
+        aliases: ['break', 'escape'],
+        description: 'One shot per sentence: run for it, or add 30% to your time.',
+        args: [],
+        async run(ctx) {
+          const result = await attemptJailbreak(ctx.guild.id, ctx.user.id);
+          if (result.error === 'not-jailed') {
+            await ctx.reply('You are already a free officer.');
+            return;
+          }
+          if (result.error === 'already-tried') {
+            await ctx.reply('🚫 You already tried that this sentence. The guards are watching you now.');
+            return;
+          }
+          const name = ctx.member?.displayName ?? ctx.user.username;
+          const flavour = (result.success ? result.scenario.success_text : result.scenario.fail_text)
+            .replaceAll('{user}', name)
+            .replaceAll('{currency}', '🍩');
+          const lines = [`*${result.scenario.attempt_text.replaceAll('{user}', name)}*`, ''];
+          for (const event of result.events) {
+            let line = `• ${event.text.replaceAll('{currency}', '🍩')}`;
+            if (event.currency_bonus) line += ` (+${money(event.currency_bonus)} 🍩)`;
+            if (event.currency_penalty) line += ` (−${money(event.currency_penalty)} 🍩)`;
+            lines.push(line);
+          }
+          if (result.events.length > 0) lines.push('');
+          lines.push(flavour);
+          if (!result.success) {
+            lines.push('', `⛓️ **+30% on your sentence** — out ${relative(Date.now() + result.remainingMs)}.`);
+          }
+          await ctx.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(result.success ? WIN : LOSS)
+                .setTitle(result.success ? '🔓 Successful jailbreak!' : '⛓️ Failed jailbreak!')
+                .setDescription(lines.join('\n'))
+                .setFooter({ text: `${name} · ${Math.round(result.chance * 100)}% odds after events` }),
+            ],
+            allowedMentions: { parse: [] },
+          });
         },
       },
       {

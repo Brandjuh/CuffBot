@@ -1543,3 +1543,17 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2/6):** one test assumption of mine was wrong in an interesting way. I wrote a test expecting a steal to overshoot the victim's balance, and it could not: a steal is a *percentage* of that same balance, so the intended transfer is always well under it. The clamp is therefore defensive, not a live path — the test now forces an oversized draw deliberately and says in a comment why. Better to prove a guard on purpose than to leave a test that quietly asserts nothing.
 
 **Retrospective:** no skill change. The A→B rhythm from heist is holding: slice A's pure resolver meant this slice was storage, gates and rendering only, with no rules to re-derive — and the one bug that surfaced (the targeted-transfer split in S89) had already been caught by slice A's own tests before any of this was wired.
+
+## Session 91 — 2026-07-25
+
+**Goal:** M16.13 **slice C** — the ways out of a cell, plus the 46 one-off scores. Third session chained without stopping.
+
+**Done:**
+- **Both scenario tables dumped from the Python**, like the events before them: 46 random-crime scenarios and 14 prison-break scripts. This one needed a wrinkle — the cog writes their numbers as module constants (`RISK_MEDIUM`, `SUCCESS_RATE_LOW`), so `ast.literal_eval` refused them; a ten-line AST evaluator resolved the names against the module's own top-level constants first. Still no hand transcription.
+- **`lib/scenarios.js`:** `scenarioToCrime` maps a scenario onto the crime shape the resolver already accepts (overriding reward range, odds, sentence and fine, keeping the `random` crime's cooldown), and `resolveJailbreak` is pure — note that **every** event in a break script applies, with no probability draw, unlike a crime's 100/75/50/10.
+- **`!crime bail`** charges what is left of the sentence, respects `allowBail`, and records it. **`!crime jailbreak`** draws a script, folds its events into the odds and the wallet, and rolls once: free, or **30% added to whatever remained**. The single attempt per sentence is claimed *before* the roll (the S22 rule), so nothing can buy a second. **`!crime random`** runs a scenario through the normal pipeline via a new `crimeOverride` option on `commitCrime`.
+- Tests 708 → **713**. Docs: manual, index, README, ROADMAP, STATE resume → slice D (black market, leaderboards, admin).
+
+**Corrections (Step 2/6):** a real fidelity bug in my own slice-A code, found while implementing bail against the source. I had written `bailCost` as `ceil(minutesLeft) × multiplier`; the cog is `int(multiplier × (secondsLeft / 60))` — fractional minutes, one truncation at the end. Ninety seconds left is **2**, not 3. Fixed in `resolve.js` and pinned with that exact case. Two of my slice-C test scripts were also wrong (the scenario crime draws no events at all, so my float queue was off by three; and my "too poor for bail" member had more than bail) — both test errors, not code.
+
+**Retrospective:** the dump-don't-transcribe candidate from S89 got its second confirmation here, and a sharper edge with it: the dump may need a *resolver* for names the source used as values, which is still far cheaper and safer than retyping. That is enough to promote — but the promotion belongs with slice D's session so the rule can cite the black-market tables too, and the skill only gets one version bump for the whole idea.

@@ -7,7 +7,8 @@
 import { getGuildData, setGuildData, updateGuildData } from '../../core/store.js';
 import { logger } from '../../core/logger.js';
 import { CRIMES, DEFAULT_CITY_SETTINGS } from './lib/tables.js';
-import { crimeCooldownLeft, defaultRng, jailLeft, resolveCrime } from './lib/resolve.js';
+import { bailCost, crimeCooldownLeft, defaultRng, jailLeft, resolveCrime } from './lib/resolve.js';
+import { failedBreakExtension, pickPrisonBreak, pickScenario, resolveJailbreak, scenarioToCrime } from './lib/scenarios.js';
 
 export const CITY_MEMBERS_KEY = 'cityMembers';
 export const CITY_SETTINGS_KEY = 'citySettings';
@@ -150,9 +151,9 @@ export async function commitCrime(
   guildId,
   userId,
   crimeType,
-  { targetId = null, now = Date.now(), rng = defaultRng } = {},
+  { targetId = null, now = Date.now(), rng = defaultRng, crimeOverride = null } = {},
 ) {
-  const crime = CRIMES[crimeType];
+  const crime = crimeOverride ?? CRIMES[crimeType];
   const criminal = getCriminal(guildId, userId);
   const settings = getCitySettings(guildId);
   const balance = await cityBalance(guildId, userId);
@@ -206,4 +207,76 @@ export function topCriminals(guildId, key = 'earned') {
   return Object.entries(allCriminals(guildId))
     .map(([id, raw]) => ({ id, ...getCriminal(guildId, id), _raw: raw }))
     .sort((a, b) => (b.stats[key] ?? 0) - (a.stats[key] ?? 0));
+}
+
+// ── jail: bail, jailbreak, and the scenario crime (S91 = slice C) ────────────
+
+/**
+ * Buy your way out. The payer is always the jailed member themselves (the cog
+ * has no bail-for-a-friend on this side), and the cost tracks what is LEFT of
+ * the sentence, so waiting it out gets cheaper.
+ * @returns {Promise<{ok:true, cost:number}|{ok:false, error:string, ...}>}
+ */
+export async function payCityBail(guildId, userId, { now = Date.now() } = {}) {
+  const settings = getCitySettings(guildId);
+  if (!settings.allowBail) return { ok: false, error: 'bail-disabled' };
+  const criminal = getCriminal(guildId, userId);
+  const jail = jailState(criminal, now);
+  if (!jail.jailed) return { ok: false, error: 'not-jailed' };
+
+  const cost = bailCost(jail.remainingMs, settings);
+  const balance = await cityBalance(guildId, userId);
+  if (balance < cost) return { ok: false, error: 'too-poor', cost, balance };
+
+  await cityAdjustBalance(guildId, userId, -cost);
+  updateCriminal(guildId, userId, (current) => ({
+    ...current,
+    jailMs: 0,
+    jailStartedAt: 0,
+    attemptedJailbreak: false,
+    stats: { ...current.stats, bailPaid: current.stats.bailPaid + cost },
+  }));
+  return { ok: true, cost, remainingMs: jail.remainingMs };
+}
+
+/**
+ * Try to break out — once per sentence. A drawn scenario's events all apply
+ * (they shift the odds and can cost or pay a little), then one roll decides:
+ * out clean, or 30% added to whatever was left.
+ */
+export async function attemptJailbreak(guildId, userId, { now = Date.now(), rng = defaultRng } = {}) {
+  const criminal = getCriminal(guildId, userId);
+  const jail = jailState(criminal, now);
+  if (!jail.jailed) return { ok: false, error: 'not-jailed' };
+  if (criminal.attemptedJailbreak) return { ok: false, error: 'already-tried' };
+
+  // Claim the one attempt before anything can go wrong (the S22 rule).
+  updateCriminal(guildId, userId, (current) => ({ ...current, attemptedJailbreak: true }));
+
+  const scenario = pickPrisonBreak(rng);
+  const result = resolveJailbreak(scenario, rng);
+  if (result.currencyChange !== 0) await cityAdjustBalance(guildId, userId, result.currencyChange);
+
+  if (result.success) {
+    updateCriminal(guildId, userId, (current) => ({ ...current, jailMs: 0, jailStartedAt: 0 }));
+    return { ok: true, scenario, ...result, addedMs: 0, remainingMs: 0 };
+  }
+
+  const addedMs = failedBreakExtension(jail.remainingMs);
+  updateCriminal(guildId, userId, (current) => ({
+    ...current,
+    jailStartedAt: now,
+    jailMs: jail.remainingMs + addedMs,
+  }));
+  return { ok: true, scenario, ...result, addedMs, remainingMs: jail.remainingMs + addedMs };
+}
+
+/**
+ * The scenario crime: draw one of the 46, let it override the `random`
+ * crime's numbers, then run the normal pipeline through `commitCrime`.
+ */
+export async function commitScenarioCrime(guildId, userId, { now = Date.now(), rng = defaultRng } = {}) {
+  const scenario = pickScenario(rng);
+  const outcome = await commitCrime(guildId, userId, 'random', { now, rng, crimeOverride: scenarioToCrime(scenario) });
+  return { ...outcome, scenario };
 }

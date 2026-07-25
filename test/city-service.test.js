@@ -257,21 +257,143 @@ test('the result card shows the events, the maths and the sentence', () => {
   assert.match(bust.description, /streak is back to zero/);
 });
 
-test('!crime group shape: five public subcommands, city alias', () => {
+test('!crime group shape: eight public subcommands, city alias', () => {
   const group = crimeCommand.group;
   assert.equal(group.name, 'crime');
   assert.ok(group.aliases.includes('city'));
   assert.equal(group.permission, undefined, 'the underworld is public');
   assert.deepEqual(
     group.subcommands.map((s) => s.name),
-    ['pickpocket', 'mug', 'store', 'bank', 'stats'],
+    ['pickpocket', 'mug', 'store', 'bank', 'random', 'bail', 'jailbreak', 'stats'],
   );
   assert.ok(group.subcommands.every((s) => s.permission === undefined));
-  // The two person-crimes take a member; the rest take nothing.
+  // The two person-crimes and `stats` take a member; the rest take nothing.
   assert.deepEqual(
     group.subcommands.map((s) => s.args.length),
-    [1, 1, 0, 0, 1],
+    [1, 1, 0, 0, 0, 0, 0, 1],
   );
   assert.equal(CRIMES.pickpocket.requiresTarget, true);
   assert.equal(CRIMES.rob_store.requiresTarget, false);
+});
+
+// ── slice C: bail, jailbreak, scenarios ──────────────────────────────────────
+
+test('the 46 scenarios and 14 prison breaks came out of the source intact', async () => {
+  const { prisonBreaks, randomScenarios, scenarioToCrime } = await import('../src/modules/city/lib/scenarios.js');
+  const scenarios = randomScenarios();
+  assert.equal(scenarios.length, 46);
+  for (const scenario of scenarios) {
+    for (const key of ['name', 'risk', 'min_reward', 'max_reward', 'success_rate', 'jail_time', 'fine_multiplier', 'attempt_text', 'success_text', 'fail_text']) {
+      assert.ok(key in scenario, `${scenario.name} has ${key}`);
+    }
+    assert.ok(['low', 'medium', 'high'].includes(scenario.risk), 'the risk constants resolved during the dump');
+    assert.ok(scenario.min_reward <= scenario.max_reward);
+    assert.ok(scenario.success_rate > 0 && scenario.success_rate <= 1);
+  }
+  const breaks = prisonBreaks();
+  assert.equal(breaks.length, 14);
+  for (const script of breaks) {
+    assert.ok(script.name && script.attempt_text && script.success_text && script.fail_text);
+    assert.ok(script.base_chance > 0 && script.base_chance <= 1);
+    for (const event of script.events ?? []) assert.ok(event.text, 'every break event has text');
+  }
+
+  // A scenario overrides the numbers but keeps the `random` crime's cooldown.
+  const crime = scenarioToCrime(scenarios[0]);
+  assert.equal(crime.maxReward, scenarios[0].max_reward);
+  assert.equal(crime.jailMs, scenarios[0].jail_time * 1000);
+  assert.equal(crime.cooldownMs, CRIMES.random.cooldownMs);
+  assert.equal(crime.requiresTarget, false);
+});
+
+test('a scenario crime runs the normal pipeline with the scenario numbers', async () => {
+  const { commitScenarioCrime } = await import('../src/modules/city/service.js');
+  const { randomScenarios } = await import('../src/modules/city/lib/scenarios.js');
+  const guildId = freshGuildId();
+  const before = balanceOf(guildId, 'alice');
+  const scenario = randomScenarios()[0];
+  const outcome = await commitScenarioCrime(guildId, 'alice', {
+    now: NOW,
+    // The scenario crime has NO event pool, so drawEvents makes no rng calls
+    // at all: pick the scenario, roll for success, draw the reward.
+    rng: scriptRng({ picks: [0], floats: [0.01], ints: [scenario.min_reward] }),
+  });
+  assert.equal(outcome.scenario.name, scenario.name);
+  assert.equal(outcome.success, true);
+  assert.equal(balanceOf(guildId, 'alice'), before + outcome.payout);
+  assert.equal(getCriminal(guildId, 'alice').cooldowns.random, NOW, 'the scenario crime has its own cooldown');
+});
+
+test('bail costs what is left of the sentence and clears the cell', async () => {
+  const { payCityBail, setCitySettings: setSettings } = await import('../src/modules/city/service.js');
+  const guildId = freshGuildId();
+  assert.equal((await payCityBail(guildId, 'free', { now: NOW })).error, 'not-jailed');
+
+  updateCriminal(guildId, 'jailed', (c) => ({ ...c, jailMs: HOUR, jailStartedAt: NOW }));
+  adjustBalance(guildId, 'jailed', -balanceOf(guildId, 'jailed'));
+  adjustBalance(guildId, 'jailed', 20); // under the 48 that bail will cost
+  const poor = await payCityBail(guildId, 'jailed', { now: NOW + 30 * MINUTE });
+  assert.equal(poor.error, 'too-poor');
+  assert.equal(poor.cost, 48, 'int(1.6 × 30 minutes left)');
+
+  adjustBalance(guildId, 'jailed', 1000);
+  const paid = await payCityBail(guildId, 'jailed', { now: NOW + 30 * MINUTE });
+  assert.equal(paid.ok, true);
+  assert.equal(paid.cost, 48);
+  const freed = getCriminal(guildId, 'jailed');
+  assert.equal(jailState(freed, NOW + 31 * MINUTE).jailed, false, 'out');
+  assert.equal(freed.stats.bailPaid, 48);
+
+  setSettings(guildId, { allowBail: false });
+  updateCriminal(guildId, 'jailed', (c) => ({ ...c, jailMs: HOUR, jailStartedAt: NOW }));
+  assert.equal((await payCityBail(guildId, 'jailed', { now: NOW })).error, 'bail-disabled');
+});
+
+test('a jailbreak is one shot: out clean, or 30% added to what was left', async () => {
+  const { attemptJailbreak } = await import('../src/modules/city/service.js');
+  const guildId = freshGuildId();
+  assert.equal((await attemptJailbreak(guildId, 'free', { now: NOW })).error, 'not-jailed');
+
+  // A clean break: pick the first script, then a roll under its chance.
+  updateCriminal(guildId, 'lucky', (c) => ({ ...c, jailMs: HOUR, jailStartedAt: NOW }));
+  const out = await attemptJailbreak(guildId, 'lucky', {
+    now: NOW + 10 * MINUTE,
+    rng: scriptRng({ picks: [0], floats: [0.001] }),
+  });
+  assert.equal(out.success, true);
+  assert.equal(jailState(getCriminal(guildId, 'lucky'), NOW + 11 * MINUTE).jailed, false);
+  assert.equal(getCriminal(guildId, 'lucky').attemptedJailbreak, true, 'the attempt is spent');
+
+  // A failure stretches the REMAINING time by 30%.
+  updateCriminal(guildId, 'unlucky', (c) => ({ ...c, jailMs: HOUR, jailStartedAt: NOW }));
+  const caught = await attemptJailbreak(guildId, 'unlucky', {
+    now: NOW + 20 * MINUTE,
+    rng: scriptRng({ picks: [0], floats: [0.999] }),
+  });
+  assert.equal(caught.success, false);
+  assert.equal(caught.addedMs, 12 * MINUTE, '30% of the 40 minutes left');
+  assert.equal(caught.remainingMs, 52 * MINUTE);
+  assert.equal(jailState(getCriminal(guildId, 'unlucky'), NOW + 20 * MINUTE).remainingMs, 52 * MINUTE);
+
+  // And only one attempt per sentence.
+  const again = await attemptJailbreak(guildId, 'unlucky', { now: NOW + 21 * MINUTE });
+  assert.equal(again.error, 'already-tried');
+});
+
+test('a jailbreak scenario folds its events into the odds and the wallet', async () => {
+  const { resolveJailbreak } = await import('../src/modules/city/lib/scenarios.js');
+  const scenario = {
+    base_chance: 0.35,
+    events: [
+      { text: 'a', chance_bonus: 0.2 },
+      { text: 'b', chance_penalty: 0.05, currency_penalty: 100 },
+      { text: 'c', currency_bonus: 250 },
+    ],
+  };
+  const result = resolveJailbreak(scenario, scriptRng({ floats: [0.49] }));
+  assert.ok(Math.abs(result.chance - 0.5) < 1e-9, '0.35 + 0.20 − 0.05');
+  assert.equal(result.success, true, '0.49 < 0.50');
+  assert.equal(result.currencyChange, 150, '+250 −100');
+  // Every event applies — unlike a crime, there is no probability draw here.
+  assert.equal(result.events.length, 3);
 });
