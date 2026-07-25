@@ -37,6 +37,7 @@ const MODULE_BADGES = {
   rollout: '🎲',
   memory: '🧠',
   wordle: '🟩',
+  hammertime: '⏰',
 };
 
 /**
@@ -146,6 +147,7 @@ export const COMMAND_CATEGORIES = {
   'xp-ladder': 'ranks',
   ranks: 'ranks',
   badge: 'ranks',
+  hammertime: 'community',
   'birthday-set': 'community',
   'birthday-remove': 'community',
   birthdays: 'community',
