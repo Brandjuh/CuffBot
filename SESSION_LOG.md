@@ -1120,3 +1120,18 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests 482 → **484** net (payload chunking; the full multi-message cycle post→edit→shrink-deletes-surplus; legacy-record migration; cap test updated to 125 with the new skip reason). Manual selfroles.md; skill 0.5.15 (multi-message variant added to the posted-messages reference).
 
 **Retrospective:** skill 0.5.15 — the S36/S59 "self-updating posted message" reference now covers outgrowing a single message; third use of the pattern, second generalization.
+
+---
+
+## Session 65 — 2026-07-25
+
+**Goal:** owner batch request ("Grote aanpassingen"): 12 new game modules ported from Red-bot cogs, a hunting rework in the style of vrt-cogs/hunting ("this is what I actually want" — police/crooks theme, STOP POLICE), and a daily rework in the style of YamiCogs/payday with crack-the-pot.
+
+**Done (intake session — no bot code):**
+- **All 8 source repos cloned** (public → plain `git clone` through the git proxy; add_repo refuses cross-owner attaches — recorded in STATE with the repo list for re-cloning).
+- **All 14 cogs surveyed:** three parallel read-only survey agents covered the 12 games on a fixed questionnaire (flow / commands / config defaults / exact numbers / port size); I read vrt-hunting (554 lines) and YamiCogs-payday (874 lines) directly since they rework existing CuffBot systems. Survey persisted verbatim at **`docs/porting/S65-cog-surveys.md`** — the porting reference.
+- **ROADMAP → M16 "The Games Arcade":** M16.1 hunting rework and M16.2 claims rework first (owner priority), then 12 games ordered smallest-first (connect4 → hangman → russian roulette → split-or-steal → guess-the-candy → rollout → memory → wordle → hammertime), with the three LARGE ports (heist, city, mafia) staged across multiple sessions each. Standing acceptance criteria recorded (pure lib + tests, economy through existing seams, pump pattern, manuals).
+- Known cog bugs recorded as deliberate port decisions (rollout tie-crash, memory double-count, wordle hardcoded-6, connect4 tie-stat key) — fixes, each to be noted as a recorded deviation in the module manual.
+- Tests untouched: 484/484. Skill 0.5.16 (batch-intake pattern in LEARNINGS).
+
+**Handoff:** next session = M16.1 (hunting rework). Faithful numbers already extracted: intervals 900–3600 s, catch timeout 20 s, fumble 2/17, eagle→undercover-officer salute mechanic, reward range knob, per-type scores + top-50 leaderboard, words/reaction catch modes. Keep escape→pot wiring (owner's own S38/S41 design).

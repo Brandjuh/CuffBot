@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 64 · 2026-07-25
+**Last updated:** Session 65 · 2026-07-25
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,14 +16,14 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 484/484 pass as of S64 |
+| Tests green | `npm test` | 484/484 pass as of S65 (intake session — no code changes) |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'leveling', 'logbook', 'memorial', 'patrol', 'public-affairs', 'records', 'selfroles', 'starboard', 'trivia', 'welcome', 'youtube' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, core, detective, dispatch, economy, enforcement, leveling, logbook, memorial, patrol, public-affairs, records, selfroles, starboard, trivia, welcome, youtube |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
 
-## What exists (verified Session 64 · 2026-07-25)
+## What exists (verified Session 65 · 2026-07-25)
 
 - **YouTube announcer (S52):** module `youtube` — follows up to 25 creators via YouTube's public Atom feeds (**no API key**). `/youtube` (admin): enabled/channel/add (UC id, channel URL, or @handle — resolved via one page fetch)/remove/preview. **Adding baselines the back catalog** (memorial rule — no history flood); the 10-min sweep (+boot tick) posts NEW uploads oldest-first (cap 3/creator/sweep) as `📺 **Creator** just uploaded: **Title**` + the plain link (Discord renders the playable card); **S53: every announcement leads with a ping for role `625326875442675763`** (committed owner default; `allowedMentions` scoped to exactly that role; `/youtube ping-role:` retargets, `no-ping:True` silences); failed sends stay unseen and retry. No announce channel invented — owner must set one. Manual `youtube.md`.
 - **Selfroles (S59):** module `selfroles` — button-toggle self roles. The section = roles under the role named `self-roles` in the role list (academy divider rules; managed/elevated-permission roles skipped WITH visible reasons; **S64: cap 125** — the list spans one message per 25 buttons, tracked as `messageIds[]` with per-chunk edit/post/delete-surplus and legacy single-id migration). List posts in **`625276074833608705`** (committed owner default) as one embed + `selfroles:toggle:` buttons; press = get, press again = lose (live-validated per press, audit reasons, honest hierarchy failures). Per-role info/emoji via `/selfroles role: info: emoji:` (greedy `info` on text path). Tracked message (`selfrolesMessage`) edits in place, reposts when deleted; role events debounce 15 s; boot catch-up (only once posted — `/selfroles post:True` is go-live). Manual `selfroles.md`.
@@ -75,11 +75,12 @@
 2. Detective: put `GROQ_API_KEY` (or `GEMINI_API_KEY`) in the Pi's `.env` and restart — AI replies "not configured" until then (`docs/modules/detective.md` § Owner setup).
 3. If anything still misbehaves on the Pi: `cd ~/CuffBot && npm run doctor` (since S18 it checks the whole update chain — stale checkout, missing command registrations, dead service, unarmed timer — with the exact fix per ❌).
 
-Next: **M14 — goal tracker** once the owner defines its scope (question queued in the owner report); otherwise: owner live-verification of the marathon modules (each manual has a checklist), then polish/ideas. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
+Next: **M16.1 — the hunting rework** (vrt-cogs model, police theme, STOP POLICE — owner: "this is what I actually want"), then M16.2 (claims/payday), then the M16 games smallest-first; see ROADMAP → M16 and docs/porting/S65-cog-surveys.md. After M16: **M14 — goal tracker** once the owner defines its scope (question queued in the owner report); otherwise: owner live-verification of the marathon modules (each manual has a checklist), then polish/ideas. **M14 (goal tracker) is deliberately skipped — its scope must come from the owner** (question queued in the owner report).
 
 
 ## Environment facts (S61)
 
+- **Game-cog sources (S65):** the owner's 8 source repos are PUBLIC and clone fine through the git proxy (`git clone --depth 1 https://github.com/<owner>/<repo>`); add_repo refuses cross-owner attaches, so clone into the scratchpad instead. Repos: AAA3A-AAA3A/AAA3A-cogs (guessthecandygame, mafiagame, rolloutgame, russianroulettegame, splitorstealgame, wordlegame, memorygame), CalaMariGold/CalaMari-Cogs (city), phenom4n4n/phen-cogs (connect4), Chovin/Dumb-Cogs (hammertime), Flame442/FlameCogs (hangman), ltzmax/maxcogs (heist), vertyco/vrt-cogs (hunting), yamikaitou/YamiCogs (payday).
 - **Session containers have NO open internet:** the network gateway 403s CONNECT to arbitrary hosts (verified S61 against firehero.org/odmp.org/usfa.fema.gov). Live checks of external resources must run **on the Pi** — ship a bot-command probe surface (e.g. `/memorial-config probe:`) instead of committing unverified URLs.
 
 ## Open problems / blockers
