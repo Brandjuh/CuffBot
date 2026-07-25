@@ -1,24 +1,13 @@
-// Pure donut-economy math — no discord.js. Balances, activity earnings, and
-// the crook-hunt game rules (S38 owner request) live here as deterministic
-// functions; every random draw takes an injectable `random` so tests can pin
-// outcomes. The store and live Discord objects stay in service.js.
+// Pure donut-economy math — no discord.js. Balances, activity earnings, the
+// pot, and /steal live here as deterministic functions; every random draw
+// takes an injectable `random` so tests can pin outcomes. isCatchPhrase,
+// pickVictim, and randomInt are shared with the hunting module (S66 seam).
 
 export const DEFAULT_ECONOMY_CONFIG = {
   enabled: true,
   startingBalance: 10_000, // owner: "iedereen begint met 10k donuts"
   earnPerMessage: 5, // activity pay (past the cooldown)
   earnCooldownMs: 60_000,
-  huntEnabled: true,
-  huntChance: 0.03, // spawn roll per eligible message in an active channel
-  huntCooldownMs: 10 * 60_000, // per-channel gap between hunts
-  huntActivityWindowMs: 3 * 60_000, // "active" = enough recent messages…
-  huntActivityMin: 4, // …this many, from at least two humans
-  huntMinDurationMs: 5_000, // owner: the crook stays 5–20 seconds
-  huntMaxDurationMs: 20_000,
-  catchRewardMin: 100,
-  catchRewardMax: 300,
-  stealMin: 50,
-  stealMax: 250,
   heistChance: 0.3, // /steal success odds (owner: 30%)
   heistAmount: 500, // what a successful /steal moves victim → thief; a failed one feeds the pot
   heistCooldownMs: 3 * 60 * 60_000, // lay-low time per thief (S48 owner decision: 3 hours)
@@ -26,10 +15,6 @@ export const DEFAULT_ECONOMY_CONFIG = {
   potWinChance: 0.005, // odds that a daily /pot try empties it (owner: 0.5%)
   dailyAmount: 25, // the /daily ration (S49 owner decision)
   dailyCooldownMs: 24 * 60 * 60_000, // one claim per rolling 24 hours
-  huntTimerEnabled: true, // timed random hunts (S56 owner request)
-  huntTimerChannelId: '412354971170897921', // S56 owner decision: timed hunts land here
-  huntTimerMinGapMs: 60 * 60_000, // random gap between timed hunts: 1–5 h
-  huntTimerMaxGapMs: 5 * 60 * 60_000,
 };
 
 /** "2 h 45 min" / "12 min" — shared by every cooldown refusal. */
@@ -54,65 +39,6 @@ export function randomInt(min, max, random = Math.random) {
   return lo + Math.floor(random() * (hi - lo + 1));
 }
 
-/** How long this crook lingers before fleeing (5–20 s by default). */
-export function huntDurationMs(config, random = Math.random) {
-  return randomInt(
-    config.huntMinDurationMs ?? DEFAULT_ECONOMY_CONFIG.huntMinDurationMs,
-    config.huntMaxDurationMs ?? DEFAULT_ECONOMY_CONFIG.huntMaxDurationMs,
-    random,
-  );
-}
-
-export function catchReward(config, random = Math.random) {
-  return randomInt(
-    config.catchRewardMin ?? DEFAULT_ECONOMY_CONFIG.catchRewardMin,
-    config.catchRewardMax ?? DEFAULT_ECONOMY_CONFIG.catchRewardMax,
-    random,
-  );
-}
-
-export function stealAmount(config, random = Math.random) {
-  return randomInt(
-    config.stealMin ?? DEFAULT_ECONOMY_CONFIG.stealMin,
-    config.stealMax ?? DEFAULT_ECONOMY_CONFIG.stealMax,
-    random,
-  );
-}
-
-/**
- * Channel-activity ring: track recent human messages per channel so hunts
- * only spawn where a conversation is actually happening. `state` is a plain
- * Map(channelId → [{userId, at}]) owned by the caller (RAM only).
- */
-export function trackActivity(state, channelId, userId, now, config = DEFAULT_ECONOMY_CONFIG) {
-  const windowMs = config.huntActivityWindowMs ?? DEFAULT_ECONOMY_CONFIG.huntActivityWindowMs;
-  const list = (state.get(channelId) ?? []).filter((e) => now - e.at < windowMs);
-  list.push({ userId, at: now });
-  if (list.length > 50) list.splice(0, list.length - 50);
-  state.set(channelId, list);
-  return list;
-}
-
-/** Active = enough recent messages from at least two distinct humans. */
-export function channelIsActive(state, channelId, now, config = DEFAULT_ECONOMY_CONFIG) {
-  const windowMs = config.huntActivityWindowMs ?? DEFAULT_ECONOMY_CONFIG.huntActivityWindowMs;
-  const min = config.huntActivityMin ?? DEFAULT_ECONOMY_CONFIG.huntActivityMin;
-  const recent = (state.get(channelId) ?? []).filter((e) => now - e.at < windowMs);
-  if (recent.length < min) return false;
-  return new Set(recent.map((e) => e.userId)).size >= 2;
-}
-
-/**
- * Roll for a crook spawn: only in an active channel, past the per-channel
- * cooldown, and then with a small chance per message so hunts feel random.
- */
-export function shouldSpawnHunt({ active, lastHuntAt, now, config, random = Math.random }) {
-  if (!active) return false;
-  const cooldown = config.huntCooldownMs ?? DEFAULT_ECONOMY_CONFIG.huntCooldownMs;
-  if (lastHuntAt && now - lastHuntAt < cooldown) return false;
-  return random() < (config.huntChance ?? DEFAULT_ECONOMY_CONFIG.huntChance);
-}
-
 /**
  * Does this message catch the crook? The arrest phrase is "STOP POLICE" —
  * matched case-insensitively, ignoring punctuation/extra spaces, and allowing
@@ -124,20 +50,6 @@ export function isCatchPhrase(content) {
     .toUpperCase()
     .replace(/[^A-Z]/g, '');
   return letters.startsWith('STOPPOLICE');
-}
-
-/**
- * Random delay until the next timed hunt (S56): uniform in [min, max], never
- * below one minute. A max below min degrades to min (config typos must not
- * arm a zero-delay spawn loop).
- */
-export function nextHuntTimerDelay(config, random = Math.random) {
-  const min = Math.max(
-    60_000,
-    config?.huntTimerMinGapMs ?? DEFAULT_ECONOMY_CONFIG.huntTimerMinGapMs,
-  );
-  const max = Math.max(min, config?.huntTimerMaxGapMs ?? DEFAULT_ECONOMY_CONFIG.huntTimerMaxGapMs);
-  return Math.round(min + random() * (max - min));
 }
 
 /** Pick the crook's victim from candidate ids (never the catcher/nobody). */

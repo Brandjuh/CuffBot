@@ -1135,3 +1135,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 - Tests untouched: 484/484. Skill 0.5.16 (batch-intake pattern in LEARNINGS).
 
 **Handoff:** next session = M16.1 (hunting rework). Faithful numbers already extracted: intervals 900–3600 s, catch timeout 20 s, fumble 2/17, eagle→undercover-officer salute mechanic, reward range knob, per-type scores + top-50 leaderboard, words/reaction catch modes. Keep escape→pot wiring (owner's own S38/S41 design).
+
+---
+
+## Session 66 — 2026-07-25
+
+**Goal:** M16.1 — the hunting rework (owner: vrt-cogs/hunting "is what I actually want, but police-with-crooks themed and STOP POLICE").
+
+**Done — new module `hunting` (21st module; 3 commands → 58 total):**
+- **The wanted board:** 7 crooks with their own shout lines + the **undercover officer** (the cog's eagle): salute 🫡 (or the word) = reward; shouting STOP POLICE at them = a fine **into the donut pot** (recorded deviation — the cog just withdraws). Toggleable via `undercover:`.
+- **Faithful mechanics:** the 2/17 fumble roll ported byte-exactly (`randrange(0,17) > 1` hits); vrt scheduling ported exactly (first message ARMS the guild clock at now + random 900–3600 s; a message past the clock locks the channel, re-arms, and spawns after ANOTHER random interval); 20 s escape window; words/reaction catch modes (reaction = 🚨/💥 + 🫡, needs no Message Content — the degrade path; words mode disables outright without the intent, S38 rule); optional response-time display; bounty range 100–300 🍩 (inclusive roll — the cog's `randint(min, max+1)` off-by-one deliberately not ported).
+- **Kept from the owner's own design:** escapes pickpocket 50–250 🍩 from a random member into the pot; the S56 hunt channel `412354971170897921` is the committed default channel-list entry.
+- **Stats:** persistent per-member per-crook-type catches; `/hunt-stats [member]`, `/hunt-board` (top 25 — deviation from the cog's paginated top 50, recorded); `/hunting` admin covers channels/timing/mode/rewards/test-spawn and shows when the next crook can appear.
+- **Surgery on economy:** the S38 activity hunt + S56 timed hunt removed (watcher slimmed to activity pay; hunt-timer event deleted; hunt functions/config/defaults out of service+bank; `/economy-config` reduced to `enabled`+`earn` — a breaking option-list change, deliberate; isCatchPhrase/pickVictim/randomInt stay in bank.js as the shared seam). Hunt tests moved out of economy.test.js.
+- Tests 484 → **488** (new hunting suite: defaults, board, exact fumble boundaries, scheduler state machine, mode availability, catch/fine/salute/fumble/escape end-to-end incl. pot flows, leaderboard). Manuals hunting.md (new) + economy.md; README 21 modules / 58 commands; help badge 🦹 + categories.
+
+**Retrospective:** no skill change — the port followed the S65 survey + the batch-intake pattern exactly; the survey doc (docs/porting/) proved its worth on the first use (every number was already extracted). Next: M16.2.
