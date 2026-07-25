@@ -8,6 +8,7 @@ import { setGuildData } from '../src/core/store.js';
 import { thresholdsFor } from '../src/modules/leveling/lib/xp.js';
 import { getUserXp, getXpConfig, setXpConfig } from '../src/modules/leveling/service.js';
 import level, { progressBar } from '../src/modules/leveling/commands/level.js';
+import xpLadderCmd from '../src/modules/leveling/commands/xp-ladder.js';
 import leaderboardCmd from '../src/modules/leveling/commands/leaderboard.js';
 import xpConfigCmd from '../src/modules/leveling/commands/xp.js';
 import messageXpEvent from '../src/modules/leveling/events/message-xp.js';
@@ -66,6 +67,17 @@ function fakeMember(guild, id, roleIds = []) {
   };
 }
 
+// S93: !level / !leaderboard / !xp-ladder are flat { command } commands now.
+// Their run() takes the same ctx the group framework builds — here with the
+// rich guild fixture above, which fakeMessage's plain guild cannot stand in for.
+function flatCtx(guild, user = { id: 'viewer', bot: false }) {
+  const replies = [];
+  return {
+    replies,
+    ctx: { guild, user, prefix: '!', reply: async (p) => { replies.push(typeof p === 'string' ? { content: p } : p); } },
+  };
+}
+
 function embedDesc(reply) {
   const e = reply.embeds[0];
   return e.data?.description ?? e.description;
@@ -73,19 +85,14 @@ function embedDesc(reply) {
 
 const T = thresholdsFor(4, getXpConfig('000000000000000000'));
 
-// ---- /level ----
+// ---- !level ----
 
-test('/level seeds a ranked member from their role and shows the card', async () => {
+test('!level seeds a ranked member from their role and shows the card', async () => {
   const guild = fakeGuild(freshGuildId());
   const member = fakeMember(guild, 'u1', ['r-veteran']);
   guild.members.fetch = async () => member;
-  const replies = [];
-  await level.execute({
-    guild,
-    user: member.user,
-    options: { getUser: () => null },
-    reply: async (p) => replies.push(p),
-  });
+  const { ctx, replies } = flatCtx(guild, member.user);
+  await level.command.run(ctx, {});
   const desc = embedDesc(replies[0]);
   assert.match(desc, new RegExp(`\\*\\*XP:\\*\\* ${T[2].toLocaleString('en-US')}`));
   assert.match(desc, /r-veteran/);
@@ -95,31 +102,21 @@ test('/level seeds a ranked member from their role and shows the card', async ()
   assert.equal(getUserXp(guild.id, 'u1'), T[2], 'seed persisted');
 });
 
-test('/level for a rankless member starts at 0', async () => {
+test('!level for a rankless member starts at 0', async () => {
   const guild = fakeGuild(freshGuildId());
   const member = fakeMember(guild, 'u2', []);
   guild.members.fetch = async () => member;
-  const replies = [];
-  await level.execute({
-    guild,
-    user: member.user,
-    options: { getUser: () => null },
-    reply: async (p) => replies.push(p),
-  });
+  const { ctx, replies } = flatCtx(guild, member.user);
+  await level.command.run(ctx, {});
   assert.match(embedDesc(replies[0]), /\*\*XP:\*\* 0/);
   assert.equal(getUserXp(guild.id, 'u2'), 0);
 });
 
-test('/level refuses bots and never creates a record for them (audit #4)', async () => {
+test('!level refuses bots and never creates a record for them (audit #4)', async () => {
   const guild = fakeGuild(freshGuildId());
   const bot = { id: 'bot-1', bot: true, username: 'OldLeveler', displayAvatarURL: () => null };
-  const replies = [];
-  await level.execute({
-    guild,
-    user: { id: 'human', bot: false },
-    options: { getUser: () => bot },
-    reply: async (p) => replies.push(p),
-  });
+  const { ctx, replies } = flatCtx(guild);
+  await level.command.run(ctx, { target: bot });
   assert.match(replies[0].content, /Bots don’t earn XP/);
   assert.equal(getUserXp(guild.id, 'bot-1'), 0);
   const { getUsers } = await import('../src/modules/leveling/service.js');
@@ -133,36 +130,58 @@ test('progressBar clamps and fills proportionally', () => {
   assert.equal(progressBar(500, 100), '▰'.repeat(12), 'overshoot clamps');
 });
 
-// ---- /leaderboard ----
+// ---- !leaderboard ----
 
-test('/leaderboard lists seeded + earned XP, highest first', async () => {
+test('!leaderboard lists seeded + earned XP, highest first', async () => {
   const guild = fakeGuild(freshGuildId());
   // Seed two members by viewing their /level once.
   for (const [id, roles] of [['top', ['r-legend']], ['low', ['r-rookie']]]) {
     const m = fakeMember(guild, id, roles);
     guild.members.fetch = async () => m;
-    await level.execute({ guild, user: m.user, options: { getUser: () => null }, reply: async () => {} });
+    await level.command.run(flatCtx(guild, m.user).ctx, {});
   }
-  const replies = [];
-  await leaderboardCmd.execute({
-    guild,
-    options: { getInteger: () => null, getNumber: () => null },
-    reply: async (p) => replies.push(p),
-  });
+  const { ctx, replies } = flatCtx(guild);
+  await leaderboardCmd.command.run(ctx, {});
   const desc = embedDesc(replies[0]);
   assert.ok(desc.indexOf('top') < desc.indexOf('low'), 'legend outranks rookie');
   assert.match(desc, /🥇/);
 });
 
-test('/leaderboard with no data explains how XP starts', async () => {
+test('!leaderboard with no data explains how XP starts', async () => {
   const guild = fakeGuild(freshGuildId());
-  const replies = [];
-  await leaderboardCmd.execute({
-    guild,
-    options: { getInteger: () => null, getNumber: () => null },
-    reply: async (p) => replies.push(p),
-  });
+  const { ctx, replies } = flatCtx(guild);
+  await leaderboardCmd.command.run(ctx, {});
   assert.match(embedDesc(replies[0]), /No XP on the books yet/);
+});
+
+// ---- !xp-ladder ----
+// Converted in S93 and, until then, the only command in the module with no
+// test at all — the conversion is what surfaced that.
+
+test('!xp-ladder lists each tier and marks where the viewer stands', async () => {
+  const guild = fakeGuild(freshGuildId());
+  const member = fakeMember(guild, 'climber', ['r-regular']);
+  guild.members.fetch = async () => member;
+  await level.command.run(flatCtx(guild, member.user).ctx, {}); // seeds their XP
+
+  const { ctx, replies } = flatCtx(guild, member.user);
+  await xpLadderCmd.command.run(ctx, {});
+  const desc = embedDesc(replies[0]);
+  for (const roleId of ['r-rookie', 'r-regular', 'r-veteran', 'r-legend']) {
+    assert.match(desc, new RegExp(roleId), `${roleId} is on the ladder`);
+  }
+  assert.match(desc, /⬅️ you/, 'the viewer is marked');
+  // fakeGuild writes academyConfig.headerRoleId, i.e. the ladder IS pinned —
+  // so the "auto-promotions stay idle" warning must stay out of the way.
+  assert.doesNotMatch(desc, /Ladder not pinned/);
+});
+
+test('!xp-ladder says so plainly when no ladder exists', async () => {
+  const guild = fakeGuild(freshGuildId());
+  guild.roles.cache.clear();
+  const { ctx, replies } = flatCtx(guild);
+  await xpLadderCmd.command.run(ctx, {});
+  assert.match(replies[0].content, /No rank ladder detected/);
 });
 
 // ---- the !xp group (S70) ----

@@ -13,21 +13,21 @@ Leveling is CuffBot's own XP system, built to **replace the old leveler bot**: m
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| `/level` | XP card: rank, progress bar, next rank | `target` | Everyone | `/level target:@user` |
-| `/leaderboard` | Top officers by XP | `size` | Everyone | `/leaderboard size:15` |
+| `!level` | XP card: rank, progress bar, next rank | `[target]` | Everyone | `!level @user` |
+| `!leaderboard` | Top officers by XP | `[size]` (1–25, default 10) | Everyone | `!leaderboard 15` |
 | `!xp` | XP settings group (S70; alias `!xp-config`) | subs: on/off, sync, message, voice, cooldown, announce, noannounce, base, exponent | Admins (Manage Server) | `!xp base 1500` |
-| `/xp-ladder` | The XP list: which XP total earns which rank (S42), with a "you are here" marker | none | Everyone | `/xp-ladder` |
+| `!xp-ladder` | The XP list: which XP total earns which rank (S42), with a "you are here" marker | none | Everyone | `!xp-ladder` |
 
 Everything is a text command: `!level @user`, `!leaderboard 15`, bare `!xp` for the settings view.
 
-### /level
+### !level
 
 - **Options:** `target` (user, optional, default: you) — whose card to show.
 - **What happens:** fetches the member, resolves the academy ladder, and **seeds their XP record if this is the first time the system sees them** (see How it works → Seeding). Computes progress toward the next rank.
 - **Reply:** public embed — XP total, current rank, next rank with the XP still needed, and a progress bar. A footer notes when the XP was seeded from an existing rank. When XP has earned a rank the member doesn't hold, the card explains why (ladder not pinned / sync off / pending or hierarchy-blocked). Role/user mentions are rendered but never ping (`allowedMentions: { parse: [] }`).
-- **Failure modes:** target is a bot → refused, no record is created ("K9 units are paid in treats"); target not in the guild → ephemeral "not in the precinct"; no ladder configured → the card still shows XP and points at `/rank-setup`.
+- **Failure modes:** target is a bot → refused, no record is created ("K9 units are paid in treats"); target not in the guild → "not in the precinct"; no ladder configured → the card still shows XP and points at `!rank-setup`.
 
-### /leaderboard
+### !leaderboard
 
 - **Options:** `size` (integer 1–25, optional, default 10).
 - **What happens:** reads all XP records for the guild and sorts descending.
@@ -81,7 +81,7 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 - **Safety rails:**
   - **Pinned ladder required for automation.** Seeding from a rank, auto rank sync, and XP coupling only act when the ladder header was explicitly pinned by an admin (`/rank-setup`, academy's `isPinnedLadder`). A name-heuristic ladder is fine for humans reading `/ranks`, but automation acting on a *guessed* header could hand out decoy roles and write wrong XP. When unpinned: XP still accrues, sync stays idle (one log warning per boot), `!xp` and `!level` say so.
   - **Promote-only.** XP sync never removes a rank someone already holds above what their XP earns — demotion stays a deliberate human act (`/demote`). A redeploy or a misconfigured ladder can never mass-strip ranks.
-  - **Self-healing seeds.** If a member was first seen while the ladder was broken/unpinned (seeded 0 despite holding a rank), the record heals automatically: on their next award or `/level` under a pinned ladder, XP is raised to their held rank's floor. Monotonic — healing never lowers XP.
+  - **Self-healing seeds.** If a member was first seen while the ladder was broken/unpinned (seeded 0 despite holding a rank), the record heals automatically: on their next award or `!level` under a pinned ladder, XP is raised to their held rank's floor. Monotonic — healing never lowers XP.
   - **Human rank changes couple XP** (cross-module seam): `/promote` raises the member's XP to the new rank's floor; `/demote` caps it at the demoted-to rank's floor — otherwise their old XP would re-earn the higher rank on the next message, making the demotion meaningless.
   - **No duplicate promotions:** a per-member in-flight guard stops the message handler and the voice sweep from executing the same promotion (and announcing it) twice when both cross the threshold in the same instant.
   - **Anti-farm (voice):** no XP in the AFK channel, alone in a channel (≥2 humans required), while self-deafened, or for bots.
@@ -91,9 +91,9 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 
 ## How it works
 
-- `lib/xp.js` — **all pure math** (no discord.js): cooldown/voice gains, thresholds, `seedXpForRankIndex`, voice eligibility, promote-only `planRankSync`, `/level` progress. The ladder comes in as a plain `{ ranks: [{roleId,name}] }`, highest-first, exactly what academy's `buildLadder` produces.
+- `lib/xp.js` — **all pure math** (no discord.js): cooldown/voice gains, thresholds, `seedXpForRankIndex`, voice eligibility, promote-only `planRankSync`, `!level` progress. The ladder comes in as a plain `{ ranks: [{roleId,name}] }`, highest-first, exactly what academy's `buildLadder` produces.
 - `service.js` — store access + live role application. `awardMessageXp` / `awardVoiceMinutes` do read-modify-write via `updateGuildData` so a seed+award lands as one atomic write. Two SD-card-friendly rules: a message inside the cooldown does **no** write at all (read-only fast path — safe because the store is synchronous), and a voice tick awards **all** eligible members in one single write, not one per member. `syncMemberRank` executes a `planRankSync` plan, checking `role.editable` first and reporting `blocked` instead of throwing.
-- **Seeding (owner requirement):** the first time any code path touches a member with no XP record (`readOrSeed`), their current rank is read from their live roles via academy's `currentRankIndex`, and their XP starts at that rank's threshold **floor** — the minimum XP consistent with the rank they hold. They keep their rank and still have to earn the next one in full. Members with no rank role seed at 0. `seededFromRank` is stored for transparency and shown on `/level`. Seeding happens lazily (on first message, first voice minute, or first `/level`) — no bulk migration step is needed, and members who never show up are simply never seeded. Rank-based seeding requires the **pinned** ladder; under an unpinned/broken ladder members seed at 0 and `reconcile()` heals them (raises XP to the held rank's floor) as soon as a pinned ladder is back — a temporary detection failure can never permanently reset anyone.
+- **Seeding (owner requirement):** the first time any code path touches a member with no XP record (`readOrSeed`), their current rank is read from their live roles via academy's `currentRankIndex`, and their XP starts at that rank's threshold **floor** — the minimum XP consistent with the rank they hold. They keep their rank and still have to earn the next one in full. Members with no rank role seed at 0. `seededFromRank` is stored for transparency and shown on `!level`. Seeding happens lazily (on first message, first voice minute, or first `!level`) — no bulk migration step is needed, and members who never show up are simply never seeded. Rank-based seeding requires the **pinned** ladder; under an unpinned/broken ladder members seed at 0 and `reconcile()` heals them (raises XP to the held rank's floor) as soon as a pinned ladder is back — a temporary detection failure can never permanently reset anyone.
 - **Rank ↔ XP coupling:** thresholds are position-based, derived from the ladder length — `thresholds[i] = round(baseXp · (i+1)^exponent)`, lowest rank first. If the owner later inserts or removes rank roles, thresholds shift automatically with the ladder; XP itself never changes.
 - **Voice XP by sweep, not by session bookkeeping:** every 60 s the sweep pays one minute to everyone eligible *right now*. No join/leave timestamps to corrupt across restarts, mutes, or channel moves; a restart loses at most 59 seconds of credit.
 - **Ladder-change reconciliation (S37):** the owner can rename, reorder, delete, and add rank roles freely. A stored snapshot (the ordered rank-id list, `ladderSnapshot`) detects structural change — on role position/create/delete events (debounced 15 s; a UI drag fires one event per shifted role), after `/rank-setup`/`/rank-exclude`, and at boot (offline changes). The sweep then quietly re-applies the exact rules the live system already enforces, so the sweep and a member's next message can never disagree:
@@ -111,10 +111,10 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 | `src/modules/leveling/index.js` | Manifest |
 | `src/modules/leveling/lib/xp.js` | Pure XP math: gains, thresholds, seeding, eligibility, sync plan |
 | `src/modules/leveling/service.js` | Store access, seeding, role application, announcements |
-| `src/modules/leveling/commands/level.js` | `/level` card |
-| `src/modules/leveling/commands/leaderboard.js` | `/leaderboard` |
+| `src/modules/leveling/commands/level.js` | `!level` card |
+| `src/modules/leveling/commands/leaderboard.js` | `!leaderboard` |
 | `src/modules/leveling/commands/xp.js` | The `!xp` admin group |
-| `src/modules/leveling/commands/xp-ladder.js` | `/xp-ladder` — the XP-per-rank list |
+| `src/modules/leveling/commands/xp-ladder.js` | `!xp-ladder` — the XP-per-rank list |
 | `src/modules/leveling/events/message-xp.js` | Message XP + promotion announce |
 | `src/modules/leveling/events/voice-sweep.js` | 60-second voice XP sweep |
 | `src/modules/leveling/events/ladder-watch.js` | Ladder-change detection (role events + boot) → quiet reconciliation |
@@ -156,3 +156,4 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 | S37 | Ladder-change reconciliation: rename/reorder/delete/add rank roles safely — snapshot-based detection (events + boot + config commands), quiet spaced role writes, XP heals, baseline seeding of all rank holders. |
 | S55 | `announce` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
 | S70 | `/xp-config` became the `!xp` group (M17.2; alias `!xp-config`): on/off, sync, message, voice, cooldown, announce, noannounce, base, exponent — with in-run range guards. |
+| S93 | `!level`, `!leaderboard` and `!xp-ladder` converted to the flat `{ command }` shape (M17.3 slice A). `size` bounds moved from the slash builder to the arg spec; `!leaderboard`'s footer no longer points at a `/level` that has not existed since S68. `!xp-ladder` got its first tests — the conversion is what revealed it had none. |

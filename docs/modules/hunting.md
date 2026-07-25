@@ -92,7 +92,7 @@ src/modules/hunting/
   1. `!hunting` → status shows the hunt channel and "words" mode.
   2. `!hunting spawn #channel` → a crook appears; shout **STOP POLICE** → GOTCHA + bounty.
   3. Test the officer: `!hunting spawn` until 🕵️ appears → salute 🫡 → reward; (or cuff them → fine).
-  4. `/hunt-stats` and `/hunt-board` show the catch.
+  4. `!hunt-stats` and `!hunt-board` show the catch.
   5. `!hunting mode reaction` → next crook gets a 🚨 reaction; pressing it cuffs.
 
 ## Troubleshooting
@@ -110,3 +110,4 @@ src/modules/hunting/
 |---|---|
 | S66 | Created (M16.1): the vrt-cogs/hunting port, precinct edition — crook variety + undercover-officer salute special, 2/17 fumble, words/reaction modes, multi-channel vrt scheduling (900–3600 s, 20 s window), per-type scores + leaderboard. Replaces the S38 activity hunt and S56 timed hunt; escape/fine donuts land in the pot (recorded deviation). |
 | S70 | Converted to a Red-style group (M17.2): `!hunting on/off/add/remove/mode/showtime/undercover/rewards/interval/timeout/spawn`; out-of-range values are refused with the valid range (was builder-enforced). |
+| S93 | `!hunt-stats` and `!hunt-board` converted to the flat `{ command }` shape (M17.3 slice A) and given their first tests — neither command had any before. |

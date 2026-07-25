@@ -5,6 +5,7 @@ import { Events } from 'discord.js';
 import { parseCommandLine, usageFor } from './parse.js';
 import { createMessageInteraction } from './adapter.js';
 import { dispatchGroup } from './group.js';
+import { dispatchCommand } from './command.js';
 import { maintenanceNotice } from '../maintenance.js';
 
 /**
@@ -33,6 +34,10 @@ export function wirePrefixRouter(client, runCommand) {
 
     if (command.group) {
       await dispatchGroup(command.group, message, parsed.tokens, prefix);
+      return;
+    }
+    if (command.command) {
+      await dispatchCommand(command.command, message, parsed.tokens, prefix);
       return;
     }
 

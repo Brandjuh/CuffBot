@@ -16,6 +16,8 @@
 //         reply(payload) }  — reply() is the S54 no-ping in-channel reply.
 import { EmbedBuilder } from 'discord.js';
 import { logger } from '../logger.js';
+import { buildCtx } from './context.js';
+import { hasPermission, refusalFor } from './permissions.js';
 
 const TYPES = new Set(['string', 'integer', 'number', 'boolean', 'user', 'role', 'channel']);
 
@@ -32,6 +34,21 @@ const TRUE_WORDS = new Set(['true', 'yes', 'on', 'ja', '1']);
 const FALSE_WORDS = new Set(['false', 'no', 'off', 'nee', '0']);
 
 /**
+ * S93: `min`/`max` mirror the slash builders' setMinValue/setMaxValue, so a
+ * converted command still refuses `!detain @x 0 minutes` instead of quietly
+ * accepting it. Stated as a range so the member reads the fix, not the fault.
+ */
+function boundsCheck(spec, n) {
+  if (spec.min != null && n < spec.min) {
+    return { error: `\`${spec.name}\` must be ${spec.max != null ? `between ${spec.min} and ${spec.max}` : `at least ${spec.min}`}` };
+  }
+  if (spec.max != null && n > spec.max) {
+    return { error: `\`${spec.name}\` must be ${spec.min != null ? `between ${spec.min} and ${spec.max}` : `at most ${spec.max}`}` };
+  }
+  return { value: n };
+}
+
+/**
  * Resolve one raw token into a typed value. Entity types return an id-bearing
  * object from the guild (mention or raw id both work). Returns {value} or
  * {error}. Pure except for the guild lookups (cache first, fetch fallback).
@@ -40,16 +57,21 @@ async function resolveArg(message, spec, raw) {
   const text = String(raw);
   switch (spec.type) {
     case 'string':
+      // S93: `maxLength` mirrors the slash builders' setMaxLength — the limit
+      // usually exists because the value ends up in an embed field.
+      if (spec.maxLength && text.length > spec.maxLength) {
+        return { error: `\`${spec.name}\` must be at most ${spec.maxLength} characters` };
+      }
       return { value: text };
     case 'integer': {
       const n = Number.parseInt(text, 10);
       if (!Number.isInteger(n)) return { error: `\`${spec.name}\` must be a whole number` };
-      return { value: n };
+      return boundsCheck(spec, n);
     }
     case 'number': {
       const n = Number(text);
       if (!Number.isFinite(n)) return { error: `\`${spec.name}\` must be a number` };
-      return { value: n };
+      return boundsCheck(spec, n);
     }
     case 'boolean': {
       const lower = text.toLowerCase();
@@ -93,26 +115,73 @@ async function resolveArg(message, spec, raw) {
 }
 
 /**
- * Map raw tokens onto a subcommand's arg specs (greedy last-string supported).
+ * Slot the raw tokens into the arg specs, one raw string per spec.
+ *
+ * Positional, except for the greedy arg: it swallows every token that the
+ * specs around it do not claim. Leading specs take from the front; specs
+ * declared AFTER the greedy one take from the BACK (S93) — that is how
+ * `!911 @member they spammed the lobby yes` still finds its trailing
+ * `anonymous` flag, which the legacy adapter special-cased per command.
+ *
+ * An OPTIONAL trailing spec only claims its token when the value fits the
+ * type; otherwise the token stays part of the greedy span, so a reason ending
+ * in an ordinary word is never mistaken for a flag.
+ */
+function slotTokens(specs, tokens) {
+  const greedyIndex = specs.findIndex((s) => s.greedy);
+  if (greedyIndex === -1) return specs.map((_, i) => tokens[i] ?? null);
+
+  const raws = new Array(specs.length).fill(null);
+  for (let i = 0; i < greedyIndex; i += 1) raws[i] = tokens[i] ?? null;
+
+  // Claim the trailing specs right-to-left, never eating into the leading ones.
+  let end = tokens.length;
+  for (let i = specs.length - 1; i > greedyIndex; i -= 1) {
+    if (end <= greedyIndex) break;
+    const candidate = tokens[end - 1];
+    if (candidate == null) continue;
+    if (!specs[i].required && !looksLike(specs[i], candidate)) continue;
+    raws[i] = candidate;
+    end -= 1;
+  }
+
+  raws[greedyIndex] = tokens.slice(greedyIndex, end).join(' ').trim() || null;
+  return raws;
+}
+
+/** Cheap type sniff — enough to decide whether a tail token IS this arg. */
+function looksLike(spec, token) {
+  switch (spec.type) {
+    case 'integer':
+    case 'number':
+      return Number.isFinite(Number(token));
+    case 'boolean':
+      return TRUE_WORDS.has(token.toLowerCase()) || FALSE_WORDS.has(token.toLowerCase());
+    case 'user':
+    case 'role':
+    case 'channel':
+      return /^(<[@#][!&]?\d+>|\d{15,21})$/.test(token);
+    default:
+      return spec.choices ? spec.choices.includes(token.toLowerCase()) : true;
+  }
+}
+
+/**
+ * Map raw tokens onto a subcommand's (or flat command's) arg specs.
  * @returns {Promise<{values: object, errors: string[]}>}
  */
 export async function resolveSubArgs(message, sub, tokens) {
   const specs = sub.args ?? [];
   const values = {};
   const errors = [];
+  const raws = slotTokens(specs, tokens);
   for (let i = 0; i < specs.length; i += 1) {
     const spec = specs[i];
     if (!TYPES.has(spec.type)) {
       errors.push(`bad arg spec ${spec.name}`);
       continue;
     }
-    const isLast = i === specs.length - 1;
-    let raw;
-    if (spec.greedy && isLast) {
-      raw = tokens.slice(i).join(' ').trim() || null;
-    } else {
-      raw = tokens[i] ?? null;
-    }
+    const raw = raws[i];
     if (raw == null || raw === '') {
       if (spec.required) errors.push(`missing \`${spec.name}\``);
       continue;
@@ -148,32 +217,12 @@ export function buildGroupOverview(group, ctx, statusLines = []) {
     );
 }
 
-/** Does this member clear the group/sub permission gate? */
-function hasPermission(ctx, flag) {
-  if (!flag) return true;
-  const perms = ctx.channel?.permissionsFor?.(ctx.member) ?? ctx.member?.permissions;
-  return Boolean(perms?.has?.(flag));
-}
-
 /**
  * Dispatch one parsed `!group …` invocation. Owns the overview, unknown-sub
  * hints, permission refusals, arg errors with usage, and the run() call.
  */
 export async function dispatchGroup(group, message, tokens, prefix) {
-  const ctx = {
-    message,
-    client: message.client,
-    guild: message.guild,
-    channel: message.channel,
-    member: message.member,
-    user: message.author,
-    prefix,
-    reply: (payload) => {
-      const p = typeof payload === 'string' ? { content: payload } : { ...payload };
-      if (!p.allowedMentions) p.allowedMentions = { repliedUser: false };
-      return message.reply(p).catch(() => message.channel.send(p).catch(() => null));
-    },
-  };
+  const ctx = buildCtx(message, prefix);
 
   const subName = tokens[0]?.toLowerCase() ?? null;
   let sub =
@@ -191,7 +240,7 @@ export async function dispatchGroup(group, message, tokens, prefix) {
 
   if (!sub) {
     if (!hasPermission(ctx, group.permission)) {
-      await ctx.reply('🚫 You need **Manage Server** for that.');
+      await ctx.reply(refusalFor(group.permission));
       return 'refused';
     }
     let statusLines = [];
@@ -208,8 +257,9 @@ export async function dispatchGroup(group, message, tokens, prefix) {
     return 'overview';
   }
 
-  if (!hasPermission(ctx, sub.permission ?? group.permission)) {
-    await ctx.reply('🚫 You need **Manage Server** for that.');
+  const gate = sub.permission ?? group.permission;
+  if (!hasPermission(ctx, gate)) {
+    await ctx.reply(refusalFor(gate));
     return 'refused';
   }
 

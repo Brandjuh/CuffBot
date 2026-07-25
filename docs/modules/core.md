@@ -32,6 +32,28 @@ New and converted commands use the group structure of the Red-DiscordBot cogs th
 - `ctx` = `{ message, client, guild, channel, member, user, prefix, reply() }`; `reply()` is the S54 no-ping in-channel reply and falls back to `channel.send` when the invoking message was deleted. Because its `allowedMentions` names no `parse` list, role/user mentions in confirmations render but never ping.
 - The reference conversion is `src/modules/youtube/commands/youtube.js`; M17.2/M17.3 convert the remaining commands module by module.
 
+### Flat commands (S93, M17.3 — for single-purpose commands)
+
+A group models a *family* (`!youtube channel`, `!youtube add`, …). Most commands are not families: `!badge`, `!daily`, `!rapsheet` do exactly one thing, and turning them into groups would rename what the precinct types every day. They use the **flat shape** instead, which shares everything the group framework already does:
+
+```js
+export default {
+  command: {
+    name: 'rapsheet', aliases: [], description: '…', emoji: '📋',
+    permission: PermissionFlagsBits.ModerateMembers,   // optional; omit = open to all
+    args: [{ name: 'target', type: 'user', required: true }],
+    async run(ctx, { target }) { await ctx.reply('…'); },
+  },
+};
+```
+
+- Same `ctx`, same arg types, same permission gate, same 📻 malfunction apology as a group subcommand — `run()` is happy-path only. `dispatchCommand` returns `'ran' | 'refused' | 'usage-error' | 'crashed'`.
+- The router picks the path per command: `{ group }` → group dispatch, `{ command }` → flat dispatch, `{ data, execute }` → the legacy adapter (shrinking each M17.3 slice; it goes away in the last one).
+- **Arg bounds (S93):** `min` / `max` on `integer`/`number` and `maxLength` on `string` replace the slash builders' `setMinValue`/`setMaxValue`/`setMaxLength`, so a converted command still refuses out-of-range input — with the range stated in the refusal.
+- **Trailing args after a greedy one (S93):** specs declared *after* the greedy arg are claimed from the END of the line, so `!911 @member they keep shouting yes` fills `target`, `reason` and the trailing `anonymous` flag. An **optional** trailing arg only claims its token when the value fits the type, so a reason ending in an ordinary word stays whole. This replaces the per-command `textGreedyArg` hint the adapter needed.
+- **`ctx.typing()` replaces `deferReply()` (S93):** a message command has no 3-second interaction deadline, so a slow command (avatar fetch, AI call) shows the typing indicator and answers once, instead of posting a "🚔 Working…" placeholder and editing it.
+- **Permission refusals name the right permission (S93):** before this, every refusal said "You need **Manage Server**" regardless of the actual gate — wrong for `!maintenance` (Administrator), `!russianroulette force` (Manage Messages) and `!hammertime role` (Manage Roles). The label map lives in `src/core/prefix/permissions.js`; an unmapped flag degrades to "elevated permissions".
+
 ## Commands
 
 | Command | What it does | Key options | Who may use it | Example |

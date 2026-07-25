@@ -21,6 +21,7 @@ import {
   getScores,
   huntingAvailable,
   noteMessage,
+  recordCatch,
   resetHuntingState,
   resolveHunt,
   setHuntingConfig,
@@ -28,6 +29,10 @@ import {
   topHunters,
 } from '../src/modules/hunting/service.js';
 import { balanceOf, getPot } from '../src/modules/economy/service.js';
+import huntStats from '../src/modules/hunting/commands/hunt-stats.js';
+import huntBoard from '../src/modules/hunting/commands/hunt-board.js';
+import { dispatchCommand } from '../src/core/prefix/command.js';
+import { fakeMessage, fakeUser } from './fixtures/fake-message.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-hunting-'));
 process.env.CUFFBOT_DATA_DIR = DATA_DIR;
@@ -39,6 +44,8 @@ beforeEach(() => resetHuntingState());
 
 let seq = 0;
 const freshGuildId = () => `80000000000000${String((seq += 1)).padStart(4, '0')}`;
+const HUNTER = '700000000000000031';
+const RIVAL = '700000000000000032';
 
 // ── pure rules ───────────────────────────────────────────────────────────────
 
@@ -229,4 +236,46 @@ test('topHunters ranks by total catches', async () => {
     }
   }
   assert.deepEqual(topHunters(guildId, 3).map((r) => r.userId), ['b', 'c', 'a']);
+});
+
+// ── the two flat commands (converted in S93 = M17.3 slice A) ─────────────────
+// Neither had a test before the conversion; writing them was part of it.
+
+test('!hunt-stats reports a hunter’s catches per crook type', async () => {
+  const guildId = freshGuildId();
+  const hunter = fakeUser(HUNTER, 'hunter');
+  recordCatch(guildId, HUNTER, 'mob-boss');
+  recordCatch(guildId, HUNTER, 'mob-boss');
+  recordCatch(guildId, HUNTER, 'pickpocket');
+
+  const message = fakeMessage({ guildId, authorId: HUNTER, users: { [HUNTER]: hunter } });
+  assert.equal(await dispatchCommand(huntStats.command, message, [], '!'), 'ran');
+  const desc = message.sent[0].embeds[0].data.description;
+  assert.match(desc, /\*\*3\*\* crooks cuffed in total/);
+  assert.match(desc, /mob boss — \*\*2\*\*/);
+  assert.match(desc, /pickpocket — \*\*1\*\*/);
+});
+
+test('!hunt-stats tells an empty-handed hunter how to start', async () => {
+  const message = fakeMessage({ guildId: freshGuildId(), authorId: HUNTER });
+  await dispatchCommand(huntStats.command, message, [], '!');
+  assert.match(message.sent[0].content, /Cuff a crook before you brag/);
+});
+
+test('!hunt-board ranks the precinct and opens with a gold medal', async () => {
+  const guildId = freshGuildId();
+  for (const [id, catches] of [[HUNTER, 1], [RIVAL, 3]]) {
+    for (let i = 0; i < catches; i += 1) recordCatch(guildId, id, 'mob-boss');
+  }
+  const message = fakeMessage({ guildId, authorId: HUNTER });
+  await dispatchCommand(huntBoard.command, message, [], '!');
+  const desc = message.sent[0].embeds[0].data.description;
+  assert.ok(desc.indexOf(RIVAL) < desc.indexOf(HUNTER), 'three catches outrank one');
+  assert.match(desc, /🥇/);
+});
+
+test('!hunt-board says the board is open when nobody has scored', async () => {
+  const message = fakeMessage({ guildId: freshGuildId(), authorId: HUNTER });
+  await dispatchCommand(huntBoard.command, message, [], '!');
+  assert.match(message.sent[0].content, /the board is wide open/);
 });
