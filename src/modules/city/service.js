@@ -9,6 +9,7 @@ import { logger } from '../../core/logger.js';
 import { CRIMES, DEFAULT_CITY_SETTINGS } from './lib/tables.js';
 import { bailCost, crimeCooldownLeft, defaultRng, jailLeft, resolveCrime } from './lib/resolve.js';
 import { failedBreakExtension, pickPrisonBreak, pickScenario, resolveJailbreak, scenarioToCrime } from './lib/scenarios.js';
+import { MARKET_ITEMS, applySentenceReduction, isConsumable } from './lib/market.js';
 
 export const CITY_MEMBERS_KEY = 'cityMembers';
 export const CITY_SETTINGS_KEY = 'citySettings';
@@ -21,6 +22,8 @@ const emptyMember = () => ({
   streak: 0,
   highest: 0,
   lastCrimeAt: 0,
+  perks: [], // permanent black-market perks
+  items: {}, // consumables: { itemId: count }
   stats: {
     successes: 0,
     failures: 0,
@@ -49,6 +52,8 @@ export function getCriminal(guildId, userId) {
     ...emptyMember(),
     ...raw,
     cooldowns: { ...(raw.cooldowns ?? {}) },
+    perks: [...(raw.perks ?? [])],
+    items: { ...(raw.items ?? {}) },
     stats: { ...emptyMember().stats, ...(raw.stats ?? {}) },
   };
 }
@@ -186,7 +191,8 @@ export async function commitCrime(
     lastCrimeAt: now,
     streak: outcome.streak.streak,
     highest: outcome.streak.highest,
-    jailMs: outcome.success ? current.jailMs : outcome.jailMs,
+    // The black-market perk shaves the sentence as it is handed down.
+    jailMs: outcome.success ? current.jailMs : applySentenceReduction(outcome.jailMs, current.perks),
     jailStartedAt: outcome.success ? current.jailStartedAt : now,
     stats: {
       ...current.stats,
@@ -279,4 +285,76 @@ export async function commitScenarioCrime(guildId, userId, { now = Date.now(), r
   const scenario = pickScenario(rng);
   const outcome = await commitCrime(guildId, userId, 'random', { now, rng, crimeOverride: scenarioToCrime(scenario) });
   return { ...outcome, scenario };
+}
+
+// ── the black market (S92 = slice D) ─────────────────────────────────────────
+
+export const marketCatalogue = () =>
+  Object.entries(MARKET_ITEMS).map(([id, item]) => ({ id, ...item }));
+
+/** @returns {Promise<{ok:true, item:object}|{ok:false, error:string, ...}>} */
+export async function buyMarketItem(guildId, userId, itemId, { now = Date.now() } = {}) {
+  const item = MARKET_ITEMS[itemId];
+  if (!item) return { ok: false, error: 'unknown-item' };
+  const criminal = getCriminal(guildId, userId);
+  if (item.type === 'perk' && criminal.perks.includes(itemId)) return { ok: false, error: 'already-owned' };
+
+  const balance = await cityBalance(guildId, userId);
+  if (balance < item.cost) return { ok: false, error: 'too-poor', cost: item.cost, balance };
+  await cityAdjustBalance(guildId, userId, -item.cost);
+
+  updateCriminal(guildId, userId, (current) =>
+    item.type === 'perk'
+      ? { ...current, perks: [...current.perks, itemId] }
+      : { ...current, items: { ...current.items, [itemId]: (current.items[itemId] ?? 0) + 1 } },
+  );
+  return { ok: true, item: { id: itemId, ...item } };
+}
+
+/**
+ * Burn a get-out-of-jail card. Consumables are spent on use, and the card
+ * only works when there is actually a sentence to end.
+ */
+export function useJailPass(guildId, userId, { now = Date.now() } = {}) {
+  const criminal = getCriminal(guildId, userId);
+  if ((criminal.items.jail_pass ?? 0) <= 0) return { ok: false, error: 'no-pass' };
+  const jail = jailState(criminal, now);
+  if (!jail.jailed) return { ok: false, error: 'not-jailed' };
+
+  updateCriminal(guildId, userId, (current) => {
+    const items = { ...current.items };
+    const left = (items.jail_pass ?? 0) - 1;
+    if (left <= 0) delete items.jail_pass;
+    else items.jail_pass = left;
+    return { ...current, items, jailMs: 0, jailStartedAt: 0, attemptedJailbreak: false };
+  });
+  return { ok: true, remainingMs: jail.remainingMs, left: Math.max(0, (criminal.items.jail_pass ?? 1) - 1) };
+}
+
+export const hasPerk = (criminal, perkId) => criminal.perks.includes(perkId);
+export const consumableCount = (criminal, itemId) => (isConsumable(itemId) ? criminal.items[itemId] ?? 0 : 0);
+
+// ── leaderboards (S92 = slice D) ─────────────────────────────────────────────
+
+/** The cog's six boards, mapped onto our record. */
+export const LEADERBOARD_CATEGORIES = {
+  earned: { label: 'Total earned', pick: (c) => c.stats.earned, suffix: ' 🍩' },
+  biggest: { label: 'Biggest single score', pick: (c) => c.stats.largestHeist, suffix: ' 🍩' },
+  jobs: { label: 'Successful jobs', pick: (c) => c.stats.successes, suffix: '' },
+  stolen: { label: 'Lifted off others', pick: (c) => c.stats.stolenFrom, suffix: ' 🍩' },
+  fines: { label: 'Fines paid', pick: (c) => c.stats.finesPaid, suffix: ' 🍩' },
+  streak: { label: 'Best streak', pick: (c) => c.highest, suffix: '' },
+};
+
+export function cityLeaderboard(guildId, category = 'earned', limit = 10) {
+  const spec = LEADERBOARD_CATEGORIES[category];
+  if (!spec) return null;
+  return Object.keys(allCriminals(guildId))
+    .map((id) => {
+      const criminal = getCriminal(guildId, id);
+      return { id, value: spec.pick(criminal) ?? 0 };
+    })
+    .filter((entry) => entry.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit);
 }

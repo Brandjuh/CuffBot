@@ -4,7 +4,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 
 | Module | Manual | Status |
 |---|---|---|
-| city | [`modules/city.md`](modules/city.md) | 🚧 staged — playable, slices A+B+C (S91) |
+| city | [`modules/city.md`](modules/city.md) | stable (S92) |
 | core | [`modules/core.md`](modules/core.md) | stable (S1) |
 | enforcement | [`modules/enforcement.md`](modules/enforcement.md) | stable (S7) |
 | guessthecandy | [`modules/guessthecandy.md`](modules/guessthecandy.md) | stable (S80) |

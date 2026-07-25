@@ -1557,3 +1557,19 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Corrections (Step 2/6):** a real fidelity bug in my own slice-A code, found while implementing bail against the source. I had written `bailCost` as `ceil(minutesLeft) × multiplier`; the cog is `int(multiplier × (secondsLeft / 60))` — fractional minutes, one truncation at the end. Ninety seconds left is **2**, not 3. Fixed in `resolve.js` and pinned with that exact case. Two of my slice-C test scripts were also wrong (the scenario crime draws no events at all, so my float queue was off by three; and my "too poor for bail" member had more than bail) — both test errors, not code.
 
 **Retrospective:** the dump-don't-transcribe candidate from S89 got its second confirmation here, and a sharper edge with it: the dump may need a *resolver* for names the source used as values, which is still far cheaper and safer than retyping. That is enough to promote — but the promotion belongs with slice D's session so the rule can cite the black-market tables too, and the skill only gets one version bump for the whole idea.
+
+## Session 92 — 2026-07-25
+
+**Goal:** M16.13 **slice D** — the black market, the leaderboards and the admin surface. The last city slice, and the last item in M16.
+
+**Done:**
+- **Black market:** `jail_reducer` (20,000 🍩) is a permanent perk that takes 20% off a sentence *as it is handed down*, and `jail_pass` (1,000 🍩) is a card that ends a sentence on the spot and restores the jailbreak attempt. Members gained a small inventory (`perks`, `items`) on their record; perks are unique, consumables stack.
+- **One item deliberately not sold.** The cog's third market item pings you when your sentence ends. Our jail has no release timer at all — a sentence is evaluated whenever you next act — so selling it would take 10,000 donuts for nothing. It is left out with the reason recorded in the manual and a note that the heist scheduler is the pattern to reuse if it is ever wanted.
+- **Six leaderboards** (earned, biggest single score, jobs, lifted off others, fines paid, best streak) and **`!crime admin`** (Manage Server, the only gated sub) for bail on/off, the bail price and the two steal limits, with bare = show.
+- Tests 713 → **719** (22 in the city service suite). **M16.13 is complete**: the manual drops its staged marker, city is listed stable, the ROADMAP ticks, and README stops calling it staged.
+
+**Corrections (Step 2/6):** none — S91's state matched reality.
+
+**Retrospective (skill 0.5.20 → 0.5.21):** promoted the S89 candidate. The rule in architecture.md now has two grades for a port's data tables: dump-and-diff against a hand transcription (S85, for data that also wants to be code and comments), or — better when the data is inert — **ship the dump itself as the module's data file** (S89/S91: 96 events, 46 scenarios, 14 break scripts, zero transcription). The S91 wrinkle is written in too: if the source stores values as named constants, resolve them during the dump with a small AST walk rather than giving up and typing them out.
+
+**Milestone:** M16 is finished — all thirteen items from the S65 games batch, including both LARGE staged ports (heist S85–S88, city S89–S92). STATE's resume point now recommends M17.3 next: converting the last flat commands and retiring the legacy adapter, which is the only remaining item that makes the bot more coherent rather than bigger.

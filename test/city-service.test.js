@@ -257,21 +257,31 @@ test('the result card shows the events, the maths and the sentence', () => {
   assert.match(bust.description, /streak is back to zero/);
 });
 
-test('!crime group shape: eight public subcommands, city alias', () => {
+test('!crime group shape: the full surface, admin gated', () => {
   const group = crimeCommand.group;
   assert.equal(group.name, 'crime');
   assert.ok(group.aliases.includes('city'));
   assert.equal(group.permission, undefined, 'the underworld is public');
   assert.deepEqual(
     group.subcommands.map((s) => s.name),
-    ['pickpocket', 'mug', 'store', 'bank', 'random', 'bail', 'jailbreak', 'stats'],
+    [
+      'pickpocket',
+      'mug',
+      'store',
+      'bank',
+      'random',
+      'bail',
+      'jailbreak',
+      'market',
+      'buy',
+      'usepass',
+      'leaderboard',
+      'admin',
+      'stats',
+    ],
   );
-  assert.ok(group.subcommands.every((s) => s.permission === undefined));
-  // The two person-crimes and `stats` take a member; the rest take nothing.
-  assert.deepEqual(
-    group.subcommands.map((s) => s.args.length),
-    [1, 1, 0, 0, 0, 0, 0, 1],
-  );
+  const gated = group.subcommands.filter((s) => s.permission !== undefined).map((s) => s.name);
+  assert.deepEqual(gated, ['admin'], 'only the tuning surface is gated');
   assert.equal(CRIMES.pickpocket.requiresTarget, true);
   assert.equal(CRIMES.rob_store.requiresTarget, false);
 });
@@ -396,4 +406,103 @@ test('a jailbreak scenario folds its events into the odds and the wallet', async
   assert.equal(result.currencyChange, 150, '+250 −100');
   // Every event applies — unlike a crime, there is no probability draw here.
   assert.equal(result.events.length, 3);
+});
+
+// ── slice D: the black market, leaderboards, admin ───────────────────────────
+
+test('the market sells two working items — and not the one that would do nothing', async () => {
+  const { MARKET_ITEMS } = await import('../src/modules/city/lib/market.js');
+  const { marketCatalogue } = await import('../src/modules/city/service.js');
+  assert.deepEqual(Object.keys(MARKET_ITEMS), ['jail_reducer', 'jail_pass']);
+  assert.equal(MARKET_ITEMS.jail_reducer.cost, 20_000);
+  assert.equal(MARKET_ITEMS.jail_pass.cost, 1000);
+  assert.equal(marketCatalogue().length, 2);
+  // The cog's third item (notify_ping) is deliberately absent: our jail has no
+  // release timer, so it would take 10,000 donuts for nothing.
+  assert.equal(MARKET_ITEMS.notify_ping, undefined);
+});
+
+test('buying: a perk is permanent and unique, a card stacks', async () => {
+  const { buyMarketItem } = await import('../src/modules/city/service.js');
+  const guildId = freshGuildId();
+  adjustBalance(guildId, 'buyer', 100_000);
+  const before = balanceOf(guildId, 'buyer');
+
+  const perk = await buyMarketItem(guildId, 'buyer', 'jail_reducer', { now: NOW });
+  assert.equal(perk.ok, true);
+  assert.equal(balanceOf(guildId, 'buyer'), before - 20_000);
+  assert.deepEqual(getCriminal(guildId, 'buyer').perks, ['jail_reducer']);
+  assert.equal((await buyMarketItem(guildId, 'buyer', 'jail_reducer', { now: NOW })).error, 'already-owned');
+
+  await buyMarketItem(guildId, 'buyer', 'jail_pass', { now: NOW });
+  await buyMarketItem(guildId, 'buyer', 'jail_pass', { now: NOW });
+  assert.equal(getCriminal(guildId, 'buyer').items.jail_pass, 2, 'consumables stack');
+  assert.equal((await buyMarketItem(guildId, 'buyer', 'nonsense', { now: NOW })).error, 'unknown-item');
+
+  adjustBalance(guildId, 'skint2', -balanceOf(guildId, 'skint2'));
+  const poor = await buyMarketItem(guildId, 'skint2', 'jail_reducer', { now: NOW });
+  assert.equal(poor.error, 'too-poor');
+  assert.equal(poor.cost, 20_000);
+});
+
+test('the sentence-reduction perk shortens a sentence as it is handed down', async () => {
+  const { applySentenceReduction } = await import('../src/modules/city/lib/market.js');
+  assert.equal(applySentenceReduction(HOUR, []), HOUR, 'no perk, full time');
+  assert.equal(applySentenceReduction(HOUR, ['jail_reducer']), 48 * MINUTE, 'int(60 × 0.8)');
+
+  // End to end: the same failed job, with and without the perk.
+  const plain = freshGuildId();
+  adjustBalance(plain, 'crook', 50_000);
+  await commitCrime(plain, 'crook', 'rob_store', { now: NOW, rng: noEvents(0.99) });
+  const fullTime = getCriminal(plain, 'crook').jailMs;
+
+  const perked = freshGuildId();
+  adjustBalance(perked, 'crook', 50_000);
+  updateCriminal(perked, 'crook', (c) => ({ ...c, perks: ['jail_reducer'] }));
+  await commitCrime(perked, 'crook', 'rob_store', { now: NOW, rng: noEvents(0.99) });
+  const shortened = getCriminal(perked, 'crook').jailMs;
+  assert.equal(shortened, Math.trunc(fullTime * 0.8), 'the perk took 20% off');
+});
+
+test('a jail card walks you out once, and only while you are inside', async () => {
+  const { useJailPass } = await import('../src/modules/city/service.js');
+  const guildId = freshGuildId();
+  assert.equal(useJailPass(guildId, 'nobody', { now: NOW }).error, 'no-pass');
+
+  updateCriminal(guildId, 'holder', (c) => ({ ...c, items: { jail_pass: 2 } }));
+  assert.equal(useJailPass(guildId, 'holder', { now: NOW }).error, 'not-jailed', 'saved for when it matters');
+  assert.equal(getCriminal(guildId, 'holder').items.jail_pass, 2, 'nothing burned');
+
+  updateCriminal(guildId, 'holder', (c) => ({ ...c, jailMs: HOUR, jailStartedAt: NOW, attemptedJailbreak: true }));
+  const used = useJailPass(guildId, 'holder', { now: NOW + 10 * MINUTE });
+  assert.equal(used.ok, true);
+  assert.equal(used.left, 1);
+  const freed = getCriminal(guildId, 'holder');
+  assert.equal(jailState(freed, NOW + 11 * MINUTE).jailed, false);
+  assert.equal(freed.items.jail_pass, 1);
+  assert.equal(freed.attemptedJailbreak, false, 'a new sentence gets a fresh escape attempt');
+});
+
+test('six leaderboards, each sorted on its own stat', async () => {
+  const { LEADERBOARD_CATEGORIES, cityLeaderboard } = await import('../src/modules/city/service.js');
+  assert.deepEqual(Object.keys(LEADERBOARD_CATEGORIES), ['earned', 'biggest', 'jobs', 'stolen', 'fines', 'streak']);
+  const guildId = freshGuildId();
+  updateCriminal(guildId, 'earner', (c) => ({ ...c, stats: { ...c.stats, earned: 9000, successes: 2 } }));
+  updateCriminal(guildId, 'grinder', (c) => ({ ...c, stats: { ...c.stats, earned: 100, successes: 40 } }));
+  updateCriminal(guildId, 'streaker', (c) => ({ ...c, highest: 12 }));
+
+  assert.deepEqual(cityLeaderboard(guildId, 'earned').map((r) => r.id), ['earner', 'grinder']);
+  assert.deepEqual(cityLeaderboard(guildId, 'jobs').map((r) => r.id), ['grinder', 'earner']);
+  assert.deepEqual(cityLeaderboard(guildId, 'streak'), [{ id: 'streaker', value: 12 }]);
+  assert.deepEqual(cityLeaderboard(guildId, 'fines'), [], 'nobody has paid a fine here');
+  assert.equal(cityLeaderboard(guildId, 'nonsense'), null);
+});
+
+test('the admin knobs write through to the live settings', () => {
+  const guildId = freshGuildId();
+  setCitySettings(guildId, { allowBail: false, maxStealAmount: 5000 });
+  const settings = getCitySettings(guildId);
+  assert.equal(settings.allowBail, false);
+  assert.equal(settings.maxStealAmount, 5000);
+  assert.equal(settings.bailCostMultiplier, 1.6, 'untouched knobs keep the cog default');
 });
