@@ -5,6 +5,7 @@ import { Events } from 'discord.js';
 import { parseCommandLine, usageFor } from './parse.js';
 import { createMessageInteraction } from './adapter.js';
 import { dispatchGroup } from './group.js';
+import { maintenanceNotice } from '../maintenance.js';
 
 /**
  * @param {import('discord.js').Client} client
@@ -20,6 +21,15 @@ export function wirePrefixRouter(client, runCommand) {
     if (!parsed) return;
     const command = client.commands.get(parsed.name);
     if (!command) return;
+
+    // Maintenance mode (S74): a real command from anyone but the precinct
+    // owner answers the notice instead of running. Unknown "!words" stayed
+    // silent above — no notice spam on chatter.
+    const notice = maintenanceNotice(message.guild, message.author.id);
+    if (notice) {
+      await message.reply({ content: notice, allowedMentions: { repliedUser: false } }).catch(() => {});
+      return;
+    }
 
     if (command.group) {
       await dispatchGroup(command.group, message, parsed.tokens, prefix);
