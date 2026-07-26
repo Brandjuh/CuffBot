@@ -58,7 +58,30 @@ An ambiguous near-miss (two candidates, neither exact) is **refused**, not guess
 
 It stays out entirely when: auto-join is off, the desk is off, the channel is outside `voiceChannelIds`, there is no `GROQ_API_KEY`, or it lacks **Connect** on the voice channel or **Send Messages** in the text one. All of that is checked *before* joining, so it never appears in a channel it cannot actually work in.
 
-### What the daily limit actually counts (S121)
+### Groq's real limits (S123)
+
+Owner: *"Ik wil geen budgetten gaan gokken, wat zijn de officiele rate limits hiervan?"* Fair — the old `100/day` was invented in S101 and corresponded to nothing Groq publishes. These are the documented **free-tier** limits, and what the module now enforces:
+
+| Limit | Value |
+|---|---|
+| Requests / minute | **20** |
+| Requests / day | **2,000** |
+| Audio-seconds / hour | **7,200** (2 hours of audio) |
+| Audio-seconds / day | **28,800** (8 hours of audio) |
+| **Minimum billed per request** | **10 seconds** |
+
+**That last row is the one that shapes everything.** A live speaker turn is often 1–3 seconds and is charged as ten, so sending each turn separately threw away most of the budget. Two consequences:
+
+- **Turns are batched** toward the 10-second floor before being sent. Six 1.5-second turns cost **60** audio-seconds sent separately and **10** batched — a 6× saving, and Whisper transcribes better with the context. Batching never claims a saving where there is none: three 12-second turns cost 36 either way, and the arithmetic is tested for exactly that.
+- **A lone remark is never stranded.** If nobody else speaks, held audio goes out after 6 seconds regardless, and everything held is flushed when the bot leaves.
+
+**The per-minute cap is enforced locally**, so a busy channel is throttled by us rather than collecting 429s from Groq and silently losing turns. Each refusal names *which* window it hit and when it frees up.
+
+`!transcribe` shows all of it: `0/20 this minute · 0/2000 today · 0/120 audio-min this hour`, with a warning once the tightest window passes 80%.
+
+**`dailyLimit` still exists but now defaults to `0` (off).** Set it only to spend *less* than Groq allows.
+
+### What the daily limit counts (S121)
 
 Owner: *"is dat 100 minuten? 100 seconden? 100 berichten?"* — none of those. It counts **transcriptions**: pieces of audio actually turned into text. `spendBudget` adds exactly **1 per successful call, regardless of length**, so a 9-minute memo and a 3-second one cost the same.
 
@@ -257,6 +280,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 
 | Session | Change |
 |---|---|
+| S123 | **The budget is Groq's, not one we invented** (owner: *"Ik wil geen budgetten gaan gokken"*). Enforces the published free-tier limits — 20/min, 2,000/day, 7,200 audio-sec/hour, 28,800/day — including the **10-second minimum billed per request**, with a local per-minute throttle so a busy channel is not answered with 429s. Short voice turns are **batched toward that floor**, worth up to 6× more conversation on the same budget. `dailyLimit` becomes an optional extra ceiling, default off. Also removed a duplicate **Auto-join** line the S118 edit had left in the status. |
 | S121 | **The limits say what they measure.** Owner asked whether `100` meant minutes, seconds or messages — nothing anywhere said. The status now reads `3 / 100 transcriptions · resets at midnight UTC`, shows the recording-length cap (which was invisible), and `!transcribe limit` states the unit each choice takes and spells out that live voice spends the same budget one **turn** at a time. |
 | S118 | **`!transcribe pairs` answers the question it was asked** (owner: *"een optie dat ik kan zien welke VC kanalen aan welke kanalen zijn gekoppeld"*): it walks every voice channel instead of the pairing table, so rooms matched by name — most of them — are no longer invisible, and each row states its reason. Deleted targets and orphaned pairings are flagged rather than rendered as broken mentions. New **`!transcribe unpair`** takes a raw id so a deleted channel's pairing can still be cleaned up, and names the fallback rather than just saying "removed". |
 | S117 | **Music is ignored**, **auto-join says why it is not firing**, and usage lines spell out their options. A music bot was being transcribed because the receiver saw it as an ordinary speaker (`ignoreBots`, on by default, checked before subscribing). The bare `!transcribe` status gained an **Auto-join** line naming which of five conditions is blocking it and the fix for each — every refusal in the handler is a silent `return`, which is right for a background feature and useless for diagnosing one. `!transcribe auto` now reads `<voice|files> <true|false>` instead of `<kind> <state>`, framework-wide. |

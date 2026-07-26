@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.44 — 2026-07-26 (Session 123)
+
+- `references/architecture.md` (Verification habits): **a function whose purpose is to justify a change must be tested against the case where the change is worthless.** Plus, as a second instance: **render the output, not the builders.**
+- Evidence: `batchingSaving` exists to quantify how much batching short voice turns saves against Groq's 10-second minimum billing. Its first version computed the unbatched cost as `turns × 10` — treating the floor as a flat rate — so a 12-second turn was priced at 10 instead of 12 and the saving was overstated for long turns. The error was in the exact function whose job is to justify the change, pointed only at the flattering input. The corrected version reports factor 1 for three 12-second turns and a test asserts it. Sibling of 0.5.35: there the check was circular, here it was only ever aimed at the case that made the change look good. Separately, `!transcribe` had printed its **Auto-join** line twice since S118 — every test asserted a line-producing function in isolation, none asserted the finished status.
+
 ## 0.5.43 — 2026-07-26 (Session 121)
 
 - `references/architecture.md` (Verification habits): **a number shown to a user must carry its unit and its window.** Riders: when an argument's unit depends on *another* argument the usage line cannot express it, so the description and the reply must; and **a default sized for one workload silently becomes wrong when a second workload starts spending it**.

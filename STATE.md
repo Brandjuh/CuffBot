@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 122 · 2026-07-26
+**Last updated:** Session 123 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -352,6 +352,22 @@ Owner, for the second time: *"Dit is niet hoe het spel werkt in de link die ik j
 **Deliberate limits of this slice, each recorded rather than glossed:** the cog re-checks the bail flag between narrated events (longer window); ours settles in one call, so the window is the 2-second beat the cog also has — splitting the resolver is 26.3b. Market, leaderboard and target-picking remain subcommands, and **the panel shows no buttons for them**, because a dead button is the scaffolding-as-product trap (0.5.38) in miniature.
 
 ⚠️ **The loader's duplicate-alias guard earned its place again**: `panel` was first given the alias `board`, which `!crime board` already used. Caught at test time rather than at boot on the Pi.
+
+## S123 — the transcribe budget is Groq's, not one we invented
+
+Owner: *"Ik wil geen budgetten gaan gokken, wat zijn de officiele rate limits hiervan?"* — and he was right not to want a made-up number. `dailyLimit: 100` came from S101 and corresponded to nothing Groq publishes.
+
+**Groq free tier, both Whisper models** (looked up; `console.groq.com/docs` 403s through this container's proxy, so two independent searches were cross-checked): **20 requests/minute · 2,000/day · 7,200 audio-seconds/hour · 28,800/day · minimum 10 seconds billed per request.**
+
+**That last figure is what made live voice expensive.** A speaker turn is often 1–3 seconds and is charged as ten. All three changes follow from it, and the owner asked for all three:
+
+1. **The limits are enforced as Groq states them** — four sliding windows in `lib/limits.js`, claim-before-send, released when a request never goes out. Each refusal names *which* window and when it frees.
+2. **A local per-minute throttle**, which did not exist. A busy channel used to collect 429s and silently lose turns.
+3. **Turns are batched toward the 10-second floor.** Six 1.5-second turns cost 60 audio-seconds separately and 10 batched — 6×. A lone remark is never stranded: held audio ages out after 6 s, and everything is flushed on leave.
+
+⚠️ **A test caught my own arithmetic lying.** `batchingSaving` first computed the unbatched cost as `turns × 10`, treating the floor as a flat rate — but a 12-second turn is billed at 12, not 10. That overstated the saving for long turns. The corrected function reports **factor 1** for three 12-second turns, and the test asserts exactly that: batching must not claim a saving where none exists.
+
+`dailyLimit` survives as an **optional** extra ceiling, default `0` (off). Also fixed: S118 added an Auto-join diagnosis line but left the old one, so the status printed **Auto-join twice**.
 
 ## Environment facts (S61)
 
