@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 111 · 2026-07-26
+**Last updated:** Session 112 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -196,6 +196,18 @@ They ship as **`DEFAULT_VOICE_PAIRS` in `src/modules/transcribe/lib/pairing.js`*
 A guild's own `voicePairs` (new, sparse, default `{}`) is merged over the defaults, so `!transcribe pair <voice> [text]` corrects one without a code change and `!transcribe pair <voice>` alone restores the default. `!transcribe pairs` lists what is in force and marks the server's own overrides. `pairs` is the second unguarded subcommand after `now` — it only reads.
 
 ⚠️ **The trap this session hit, for whoever edits that table next: an unquoted 18-digit snowflake is silently destroyed by `Number`.** `411633952961593345` becomes `411633952961593340`; the source looks correct and the lookup simply never matches a real channel. Worse, **my first verification returned a false green** because it iterated `Object.entries()` and looked the keys up again — it was reading the already-rounded value back and comparing it with itself. The keys are quoted strings now, and `test/transcribe-voice.test.js` spells all four ids out again as literals so a future rounding can only fail loudly. This is a concrete instance of skill rule 0.5.34 (*verify the verification*).
+
+## S112 — the roadmap was six sessions out of date (correction session)
+
+**`ROADMAP.md` claimed unbuilt work that exists.** Four milestones had every sub-slice ticked and the parent box still empty — **M16.14** (mafia; superseded by M24 and built there), **M17.3** (done S96, its own acceptance line already said *"✅ Done in S96"*), **M24.1** (S105) and **M24.2** (S108). The M24 header still read *"not yet scheduled"* four sessions after the owner scheduled it.
+
+**This is the failure mode the roadmap exists to prevent, pointed the wrong way.** The skill tells a session with no resume point to take *the first unchecked item in `ROADMAP.md`* — so the next session would have read "M24.1 — Classic, 5+ players, unchecked" and started rebuilding a module that has been in `src/modules/mafia/` since S105.
+
+Also fixed: **five sessions of owner-requested work had no roadmap entry at all** (S106 de-hyphenation, S107 audit, S109 help panel, S110 auto-join, S111 pairings). They arrived in chat and were built directly, which is correct — but a milestone recorded only in `SESSION_LOG.md` is invisible to anyone planning work, and the log is 2,000 lines of append-only history nobody reads end to end. They are now **§ M25**, all ticked.
+
+**The file now has exactly one unchecked box: M24.3** (mafia anomalies/achievements), and its entry says plainly that the gate is an owner decision about whether the precinct plays mafia enough to want a long tail — not a session nobody got to. An unchecked box that means *"waiting on the owner"* must say so, or the next session treats it as a queue.
+
+No code changed. Verified separately that `README.md`'s "37 modules, 60 commands" still matches what the loader actually produces.
 
 ## Environment facts (S61)
 

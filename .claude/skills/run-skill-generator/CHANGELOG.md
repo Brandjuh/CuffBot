@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.36 — 2026-07-26 (Session 112)
+
+- `SKILL.md` Step 2 (Verify): **`ROADMAP.md` is a claim too.** Iron rule 2 named `STATE.md` and `SESSION_LOG.md` and quietly excluded the third state file — so nothing told anyone to verify the roadmap, and nobody did. Adds the two drift shapes (an unchecked-but-done box schedules duplicate work; a checked-but-undone box hides a gap), the fastest tell (**a parent box unchecked while every child is ticked is stale**), and the requirement that a box blocked on the owner says so inside the box.
+- Evidence: S112 read the roadmap to pick the next item and found four milestones unchecked with all their sub-slices ticked — M16.14, M17.3 (whose own acceptance line read *"✅ Done in S96"* directly beneath an empty box), M24.1 (S105) and M24.2 (S108) — plus a *"not yet scheduled"* heading four sessions after the owner scheduled it. Step 3 says to take the first unchecked item, so the next session would have started rebuilding `src/modules/mafia/`. Five sessions of owner-requested work (S106, S107, S109, S110, S111) also had no roadmap entry at all, making them invisible to anyone planning from that file.
+
 ## 0.5.35 — 2026-07-26 (Session 111)
 
 - `references/architecture.md` (Verification habits): **a check that derives its expected value from the thing under test cannot fail.** Restate the truth independently — from the owner's message, a fixture, or a literal typed out a second time. Includes the concrete trap that produced it: a Discord snowflake is a string, always.
