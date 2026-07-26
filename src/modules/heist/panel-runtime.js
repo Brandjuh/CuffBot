@@ -9,12 +9,24 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  ModalBuilder,
   StringSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from 'discord.js';
-import { craftPanel, equipPanel, jobPanel, shopPanel } from './lib/panels.js';
+import { configPanel, craftPanel, equipPanel, eventPanel, jobPanel, pricePanel, shopPanel, unpackSelection } from './lib/panels.js';
 import { xpProgress } from './lib/leveling.js';
-import { ITEMS } from './lib/tables.js';
-import { cooldownLeft, getItemCost, getPlayer, heistBalance } from './service.js';
+import { ITEMS, fmt } from './lib/tables.js';
+import {
+  TUNABLE_FIELDS,
+  cooldownLeft,
+  eventMultiplier,
+  getHeistSettings,
+  getItemCost,
+  getPlayer,
+  heistBalance,
+  heistEventEndsAt,
+} from './service.js';
 
 const STYLES = {
   success: ButtonStyle.Success,
@@ -120,10 +132,66 @@ export function craftPayload(guildId, userId, { page = 0, selected = null } = {}
   });
 }
 
+// ── the admin views (S130 = M26.4b) ──────────────────────────────────────────
+
+export function configPayload(guildId, userId, { selected = null } = {}) {
+  const panel = configPanel({
+    fields: TUNABLE_FIELDS,
+    settingsFor: (type) => getHeistSettings(guildId, type),
+    selected,
+  });
+  return render(panel, { view: 'config', owner: userId, selected: panel.selected });
+}
+
+export function pricePayload(guildId, userId, { page = 0, selected = null } = {}) {
+  const costs = Object.fromEntries(Object.keys(ITEMS).map((id) => [id, getItemCost(guildId, id)]));
+  return render(pricePanel({ costs, page, selected }), { view: 'prices', owner: userId, page, selected });
+}
+
+export function eventPayload(guildId, userId) {
+  return render(eventPanel({ multiplier: eventMultiplier(guildId), endsAt: heistEventEndsAt(guildId) }), {
+    view: 'event',
+    owner: userId,
+  });
+}
+
+/**
+ * The value modal for whichever admin panel opened it.
+ *
+ * One builder for both because the difference is only the label and the
+ * prefill — and the custom id carries the state, so the submit handler knows
+ * what it is setting without any memory of having opened it.
+ */
+export function valueModal(state) {
+  const isPrice = state.view === 'prices';
+  const { field } = unpackSelection(state.selected);
+  const spec = TUNABLE_FIELDS[field];
+  const label = isPrice ? 'New price in donuts' : (spec?.label ?? 'New value');
+  const input = new TextInputBuilder()
+    .setCustomId('value')
+    .setLabel(label.slice(0, 45))
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(12);
+  if (!isPrice && spec) {
+    input.setPlaceholder(`${spec.min}–${spec.max}${spec.seconds ? ' (seconds)' : ''}`.slice(0, 100));
+  }
+  return new ModalBuilder()
+    .setCustomId(encodeId('value-modal', state))
+    .setTitle(isPrice ? `Price — ${fmt(state.selected ?? 'item')}`.slice(0, 45) : 'Heist setting')
+    .addComponents(new ActionRowBuilder().addComponents(input));
+}
+
 /** Which payload a view name maps to. */
 export const PAYLOADS = {
   job: (guildId, userId, state) => jobPayload(guildId, userId, state),
   shop: (guildId, userId, state) => shopPayload(guildId, userId, state),
   equip: (guildId, userId) => equipPayload(guildId, userId),
   craft: (guildId, userId, state) => craftPayload(guildId, userId, state),
+  config: (guildId, userId, state) => configPayload(guildId, userId, state),
+  prices: (guildId, userId, state) => pricePayload(guildId, userId, state),
+  event: (guildId, userId) => eventPayload(guildId, userId),
 };
+
+/** The views only Manage Server may touch — they change the game for everyone. */
+export const ADMIN_VIEWS = new Set(['config', 'prices', 'event']);

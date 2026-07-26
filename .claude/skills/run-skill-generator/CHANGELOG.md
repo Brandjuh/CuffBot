@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.50 — 2026-07-27 (Session 130)
+
+- `references/architecture.md` (Verification habits): **a permission on a command does not protect the panel that command opens.**
+- Evidence: M26.4b added three Manage-Server heist panels. `permission:` on the subcommand gates only who may *type* it — the message it posts is public, outlives the command, and its component interactions arrive carrying nothing but a custom id. Every gated panel therefore needs the check twice, and S130's second check consults an `ADMIN_VIEWS` set rather than a hand-written condition, so a view added later is protected by being in the set instead of by somebody remembering to extend an `if` (0.5.46 applied before it could bite). Generalises to the two facts a pump already had to re-establish — ownership (S98) and staleness — under one rule: a component handler shares nothing with the command but a custom id. Also this session: the loader's duplicate-alias guard caught a collision for the **third** time (S116, S122, S130), which is a decent argument that boot-time invariants belong in tests rather than in review.
+
 ## 0.5.49 — 2026-07-27 (Session 128)
 
 - `references/architecture.md` (Verification habits): **the deployment scripts are code, and nothing was testing them** — plus **a test that locates code by searching for a word will find the word in a comment.**

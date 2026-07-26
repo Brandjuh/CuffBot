@@ -335,3 +335,156 @@ export function craftPanel({ inventory = {}, selected = null, page = 0, recipes 
     ],
   };
 }
+
+// ── the admin panels (S130 = M26.4b) ─────────────────────────────────────────
+//
+// The last three of the source's eight. They are separated from the four above
+// by more than a heading: these are the only ones that CHANGE the game for
+// everybody, so the pump gates them on Manage Server and they carry the
+// owner's id like the rest. 26.4a took the player-facing four first on the
+// panel-first rule (0.5.38) — the panel belongs where a player reaches it, and
+// an admin typing `!heist admin` is not that player.
+
+/** The config panel's two selections travel as one custom-id segment. */
+export const packSelection = (job, field) => `${job ?? '-'}~${field ?? '-'}`;
+export function unpackSelection(packed) {
+  const [job, field] = String(packed ?? '').split('~');
+  return { job: job && job !== '-' ? job : null, field: field && field !== '-' ? field : null };
+}
+
+/** A stored value rendered the way it is TYPED, not the way it is stored. */
+export function fieldValue(spec, raw) {
+  if (raw === undefined || raw === null) return '—';
+  if (spec.seconds) return cooldownLabel(raw);
+  if (spec.float) return `${Math.round(raw * 100)}%`;
+  return money(raw);
+}
+
+/**
+ * `!heist admin` — pick a job, pick a field, type a value.
+ *
+ * The source drives this with two selects and a modal, and so does this. The
+ * one thing it adds: **the whole job is shown while you edit it**, with a ◄ on
+ * the field you have selected, so a number is never changed without its
+ * neighbours in view — `minReward` above `maxReward` is the pair most easily
+ * put the wrong way round.
+ */
+export function configPanel({ jobs = HEISTS, settingsFor = () => ({}), selected = null, fields = null } = {}) {
+  const spec = fields ?? {};
+  const { job, field } = unpackSelection(selected);
+  const chosen = job && jobs[job] ? job : null;
+  const lines = ['**⚙️ Heist settings**', ''];
+
+  if (!chosen) {
+    lines.push('_Pick a job, then a field, then press **Set value**._');
+  } else {
+    const current = settingsFor(chosen);
+    lines.push(`**${jobs[chosen].emoji} ${fmt(chosen)}**`);
+    for (const [key, meta] of Object.entries(spec)) {
+      lines.push(`-# ${meta.label}: ${fieldValue(meta, current[key])}${key === field ? ' ◄' : ''}`);
+    }
+    if (!field) lines.push('', '_Now pick the field to change._');
+  }
+
+  const jobOptions = Object.entries(jobs)
+    .slice(0, 25)
+    .map(([name, data]) => ({ label: fmt(name), value: name, emoji: data.emoji, default: name === chosen }));
+
+  return {
+    title: '⚙️ Heist settings',
+    lines,
+    selected: packSelection(chosen, chosen ? field : null),
+    job: chosen,
+    field: chosen ? field : null,
+    selects: [
+      { id: 'cfg-job', placeholder: 'Which job…', disabled: false, options: jobOptions },
+      {
+        id: 'cfg-field',
+        placeholder: chosen ? 'Which setting…' : 'Pick a job first',
+        disabled: !chosen,
+        options: Object.entries(spec).map(([key, meta]) => ({
+          label: meta.label,
+          value: key,
+          description: `${meta.min}–${meta.max}${meta.seconds ? ' seconds' : ''}`.slice(0, 100),
+          default: key === field,
+        })),
+      },
+    ],
+    buttons: [
+      // Dead until both halves are chosen — a modal that opens with nothing to
+      // write to is a refusal disguised as a form.
+      { id: 'cfg-set', label: 'Set value', emoji: '✏️', style: 'primary', disabled: !(chosen && field) },
+      { id: 'cfg-reset', label: 'Reset this job', emoji: '↩️', style: 'danger', disabled: !chosen },
+    ],
+  };
+}
+
+/** `!heist admin prices` — the shop's price list, one page of 25 at a time. */
+export function pricePanel({ items = ITEMS, costs = {}, selected = null, page = 0 } = {}) {
+  const priced = Object.entries(items).filter(([, data]) => data.cost !== undefined);
+  const pages = pageCount(priced.length, 25);
+  const current = clampPage(page, priced.length, 25);
+  const shown = slice(priced, current, 25);
+  const chosen = selected && items[selected]?.cost !== undefined ? selected : null;
+
+  const lines = [`**💰 Item prices** — page ${current + 1}/${pages}`, ''];
+  for (const [name, data] of shown) {
+    const cost = costs[name] ?? data.cost;
+    // An overridden price is marked, so "why is this 99?" is answerable from
+    // the panel instead of from the config file.
+    const overridden = costs[name] !== undefined && costs[name] !== data.cost;
+    lines.push(`-# ${data.emoji} ${fmt(name)}: ${money(cost)}${overridden ? ` _(was ${money(data.cost)})_` : ''}${name === chosen ? ' ◄' : ''}`);
+  }
+
+  return {
+    title: '💰 Item prices',
+    lines,
+    page: current,
+    pages,
+    selected: chosen,
+    select: {
+      id: 'price-pick',
+      placeholder: 'Which item…',
+      disabled: shown.length === 0,
+      options: shown.map(([name, data]) => ({
+        label: fmt(name),
+        value: name,
+        emoji: data.emoji,
+        description: `${money(costs[name] ?? data.cost)} 🍩`,
+        default: name === chosen,
+      })),
+    },
+    buttons: [
+      ...navRow('price', current, pages),
+      { id: 'price-set', label: 'Set price', emoji: '✏️', style: 'primary', disabled: !chosen },
+    ],
+  };
+}
+
+/** `!heist admin event` — the payout multiplier, started and stopped. */
+export function eventPanel({ multiplier = 1, endsAt = 0, now = Date.now() } = {}) {
+  const active = multiplier > 1 && endsAt > now;
+  const lines = active
+    ? [
+        `**🎉 Event running — ${multiplier}× payouts**`,
+        '',
+        `Ends <t:${Math.floor(endsAt / 1000)}:R>.`,
+        '-# Every cash reward a job pays out is multiplied while this runs.',
+      ]
+    : [
+        '**🎉 Heist events**',
+        '',
+        'Nothing running.',
+        '-# Start one to multiply every cash payout for a set number of hours.',
+      ];
+
+  return {
+    title: '🎉 Heist events',
+    lines,
+    active,
+    buttons: [
+      { id: 'event-start', label: 'Start event', emoji: '🎉', style: 'success', disabled: active },
+      { id: 'event-stop', label: 'Stop event', emoji: '🛑', style: 'danger', disabled: !active },
+    ],
+  };
+}

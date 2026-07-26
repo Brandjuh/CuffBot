@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 129 · 2026-07-27
+**Last updated:** Session 130 · 2026-07-27
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1313/1313 pass as of S129 |
+| Tests green | `npm test` | 1327/1327 pass as of S130 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | 37 names: `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'minigames', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 
 ⚠️ **Both rows above were wrong until S124** — they claimed `1095/1095 as of S120` and still listed `connect4`, a module **S116 deleted** when `minigames` replaced it. A verification block that has drifted verifies nothing: it either fails for the wrong reason or, worse, is skipped because "it always looks a bit off". **Update these two rows in the same commit as any change to the test count or the module list.**
@@ -271,7 +271,7 @@ The first fix from the S115 audit, and the first module built under the rule tha
 
 Tests **1033 → 1049**: +46 for the new module, −30 with the old one. A test count that goes *down* on a replacement is the evidence the old thing is really gone (S96's precedent).
 
-**Still open in M26:** only **26.4b** — heist's two admin config panels (`HeistConfigView`, `ItemPriceConfigView`) and `EventView`. **26.4a is COMPLETE** (S126: the four player-facing panels). **26.2 is COMPLETE** — 26.2a in S116, 26.2b in S125. **26.3 is COMPLETE** — 26.3a in S122 (the panel + Bail Out), 26.3b in S124 (narrated events with a bail check between each, the mark picker, market/board as buttons).
+🎉 **M26 IS COMPLETE** (S116, S122, S124, S125, S126, S130). Every game now matches how its source is actually played. **26.2 is COMPLETE** — 26.2a in S116, 26.2b in S125. **26.3 is COMPLETE** — 26.3a in S122 (the panel + Bail Out), 26.3b in S124 (narrated events with a bail check between each, the mark picker, market/board as buttons).
 
 ## S117 — seven games did not start; unattended updates said nothing
 
@@ -482,6 +482,22 @@ scripts/setup-pi.sh: line 121: !update: command not found
 > `Last check: 4 minutes ago — it was up to date then; the commits above landed after it. Next check in 11 minutes.`
 
 **The marker fires only for a stale `up-to-date`.** A failed last run (red tests, dead fetch) is never softened into a staleness note — being behind because the tests went red is a different fact from being behind because the commits are new, and the red one has to survive. Both halves mutation-tested.
+
+## S130 — the last three panels, and M26 is done (M26.4b)
+
+`HeistConfigView`, `ItemPriceConfigView` and `EventView` — the three the S115 audit counted and nobody had built. **That closes M26**, the milestone that existed because two large staged ports had shipped their scaffolding as the product.
+
+- **`!heist tune`** — pick a job, pick a field, type a value in a modal. Also resets one job to its shipped values.
+- **`!heist pricing`** — every priced item, 25 to a page, overrides marked with what they used to be.
+- **`!heist event`** — start or stop the 2× payout multiplier.
+
+⚠️ **Gated twice, deliberately.** The subcommands carry `ManageGuild`, **and the pump re-checks it on every press.** A panel is a message that outlives the command that opened it, and anybody can press a message — the subcommand permission only ever protected the typing. The gate consults `ADMIN_VIEWS` rather than a hand-written list, so a future admin view is protected by being in the set (0.5.46's lesson applied before it could bite).
+
+**Values render as they are typed, not as they are stored.** Cooldowns are milliseconds in the store and seconds in the modal; `policeChance` is a 0–1 fraction and a percent on screen. And the **whole job stays visible while one field is edited**, with a ◄ on the selected one — `minReward` above `maxReward` is the pair most easily inverted, and editing one number in isolation is how that happens.
+
+⚠️ **The loader's duplicate-alias guard earned its keep a third time** (S116, S122, now): `prices` already belonged to S126's player-facing `catalogue`, so the admin editor took `pricing`. Caught at test time rather than at boot on the Pi.
+
+Five mutations, all caught — including a stale job id that would have let a field selection survive onto a job the admin never opened, and the admin gate removed from the pump.
 
 ## Environment facts (S61)
 

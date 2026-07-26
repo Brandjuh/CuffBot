@@ -6,6 +6,7 @@
 // on cooldown is not selectable" is assertable without a gateway.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   EQUIP_SLOTS,
   HEISTS_PER_PAGE,
@@ -14,17 +15,24 @@ import {
   SHOP_SECTIONS,
   canCraft,
   clampPage,
+  configPanel,
   cooldownLabel,
   craftPanel,
   equipPanel,
+  eventPanel,
+  fieldValue,
   itemEffect,
   jobPanel,
   navRow,
+  packSelection,
   pageCount,
+  pricePanel,
   riskLabel,
   shopPanel,
+  unpackSelection,
 } from '../src/modules/heist/lib/panels.js';
-import { decodeId, encodeId } from '../src/modules/heist/panel-runtime.js';
+import { ADMIN_VIEWS, PAYLOADS, decodeId, encodeId } from '../src/modules/heist/panel-runtime.js';
+import { TUNABLE_FIELDS } from '../src/modules/heist/service.js';
 import { HEISTS, ITEMS, RECIPES } from '../src/modules/heist/lib/tables.js';
 import { MAX_LEVEL, levelSuccessBonus } from '../src/modules/heist/lib/leveling.js';
 
@@ -331,4 +339,141 @@ test('every custom id fits Discord’s 100-character limit', () => {
   const longest = Object.keys(RECIPES).reduce((a, b) => (a.length > b.length ? a : b));
   const id = encodeId('craft:make', { view: 'craft', page: 9, selected: longest, owner: '411157175948541954' });
   assert.ok(id.length <= 100, `${id.length} chars: ${id}`);
+});
+
+// ── the admin panels (M26.4b) ────────────────────────────────────────────────
+//
+// The last three of the source's eight, and the only ones that change the game
+// for everybody — so what is tested here is mostly "does it refuse cleanly",
+// not "does it look right".
+
+test('a config selection round-trips through one custom-id segment', () => {
+  assert.deepEqual(unpackSelection(packSelection('atm_smash', 'minReward')), {
+    job: 'atm_smash',
+    field: 'minReward',
+  });
+  assert.deepEqual(unpackSelection(packSelection('atm_smash', null)), { job: 'atm_smash', field: null });
+  assert.deepEqual(unpackSelection(packSelection(null, null)), { job: null, field: null });
+  assert.deepEqual(unpackSelection(''), { job: null, field: null });
+  assert.deepEqual(unpackSelection(undefined), { job: null, field: null });
+});
+
+const JOB = Object.keys(HEISTS).find((k) => !HEISTS[k].crewSize);
+const config = (over = {}) =>
+  configPanel({ fields: TUNABLE_FIELDS, settingsFor: (t) => HEISTS[t], ...over });
+
+test('with nothing chosen the config panel asks, and offers nothing to press', () => {
+  const panel = config();
+  assert.match(panel.lines.join('\n'), /Pick a job/);
+  assert.equal(panel.selects[1].disabled, true, 'the field select is dead until a job is picked');
+  assert.equal(panel.buttons.every((b) => b.disabled), true, 'nothing to set and nothing to reset');
+});
+
+test('choosing a job shows the WHOLE job, so a number is never changed alone', () => {
+  // minReward above maxReward is the pair most easily put the wrong way round;
+  // showing one field at a time is how that happens.
+  const body = config({ selected: packSelection(JOB, null) }).lines.join('\n');
+  for (const meta of Object.values(TUNABLE_FIELDS)) assert.match(body, new RegExp(meta.label.replace(/[()%]/g, '.')));
+});
+
+test('the selected field is marked, and Set value only lights up once both are chosen', () => {
+  const jobOnly = config({ selected: packSelection(JOB, null) });
+  assert.equal(jobOnly.buttons.find((b) => b.id === 'cfg-set').disabled, true, 'no field yet');
+  assert.equal(jobOnly.buttons.find((b) => b.id === 'cfg-reset').disabled, false, 'but the job can be reset');
+
+  const both = config({ selected: packSelection(JOB, 'minReward') });
+  assert.equal(both.buttons.find((b) => b.id === 'cfg-set').disabled, false);
+  assert.match(both.lines.join('\n'), /Min reward: .* ◄/);
+});
+
+test('a job that does not exist is treated as no selection at all', () => {
+  const panel = config({ selected: packSelection('not_a_job', 'minReward') });
+  assert.equal(panel.job, null);
+  assert.equal(panel.field, null, 'and the field goes with it, so a stale id cannot edit a real job');
+  assert.equal(panel.buttons.every((b) => b.disabled), true);
+});
+
+test('values are shown the way they are TYPED, not the way they are stored', () => {
+  // Milliseconds and 0–1 fractions are storage details; an admin types seconds
+  // and percents, so a panel that printed 1800000 would be asking for a
+  // mistake.
+  assert.equal(fieldValue(TUNABLE_FIELDS.cooldownMs, 30 * 60_000), '30m');
+  assert.equal(fieldValue(TUNABLE_FIELDS.policeChance, 0.05), '5%');
+  assert.equal(fieldValue(TUNABLE_FIELDS.minReward, 1500), '1,500');
+  assert.equal(fieldValue(TUNABLE_FIELDS.minReward, undefined), '—', 'an unset value is not zero');
+});
+
+test('the price panel pages, marks overrides, and only lets you set a chosen item', () => {
+  const id = Object.entries(ITEMS).find(([, d]) => d.cost !== undefined)[0];
+  const plain = pricePanel({});
+  assert.equal(plain.buttons.find((b) => b.id === 'price-set').disabled, true, 'nothing chosen');
+
+  const chosen = pricePanel({ selected: id, costs: { [id]: 99 } });
+  assert.equal(chosen.buttons.find((b) => b.id === 'price-set').disabled, false);
+  assert.match(chosen.lines.join('\n'), /was [\d,]+/, 'an overridden price says what it used to be');
+  assert.match(chosen.lines.join('\n'), /◄/);
+});
+
+test('the price panel ignores a selection that has no price to set', () => {
+  const material = Object.entries(ITEMS).find(([, d]) => d.cost === undefined)?.[0];
+  assert.ok(material, 'the table has unpriced items, or this guard is vacuous');
+  assert.equal(pricePanel({ selected: material }).selected, null);
+  assert.equal(pricePanel({ selected: material }).buttons.find((b) => b.id === 'price-set').disabled, true);
+});
+
+test('every priced item is reachable by paging the price panel', () => {
+  const priced = Object.entries(ITEMS).filter(([, d]) => d.cost !== undefined).length;
+  const first = pricePanel({});
+  const seen = new Set();
+  for (let page = 0; page < first.pages; page += 1) {
+    for (const option of pricePanel({ page }).select.options) seen.add(option.value);
+  }
+  assert.equal(seen.size, priced);
+});
+
+test('the event panel offers exactly the action that is available', () => {
+  const now = 1_700_000_000_000;
+  const idle = eventPanel({ multiplier: 1, endsAt: 0, now });
+  assert.equal(idle.active, false);
+  assert.equal(idle.buttons.find((b) => b.id === 'event-start').disabled, false);
+  assert.equal(idle.buttons.find((b) => b.id === 'event-stop').disabled, true);
+
+  const running = eventPanel({ multiplier: 2, endsAt: now + 3_600_000, now });
+  assert.equal(running.active, true);
+  assert.equal(running.buttons.find((b) => b.id === 'event-start').disabled, true, 'no starting a second one');
+  assert.equal(running.buttons.find((b) => b.id === 'event-stop').disabled, false);
+  assert.match(running.lines.join('\n'), /2× payouts/);
+  assert.match(running.lines.join('\n'), /Ends <t:\d+:R>/, 'a multiplier with no end reads as permanent');
+});
+
+test('an EXPIRED event is idle, not running', () => {
+  const now = 1_700_000_000_000;
+  const expired = eventPanel({ multiplier: 2, endsAt: now - 1, now });
+  assert.equal(expired.active, false);
+  assert.equal(expired.buttons.find((b) => b.id === 'event-start').disabled, false);
+});
+
+test('the admin views are the three that change the game for everyone', () => {
+  assert.deepEqual([...ADMIN_VIEWS].sort(), ['config', 'event', 'prices']);
+  for (const view of ['job', 'shop', 'equip', 'craft']) {
+    assert.equal(ADMIN_VIEWS.has(view), false, `${view} is a player panel and must not be gated`);
+  }
+});
+
+test('every view name in ADMIN_VIEWS has a payload, and vice versa for all views', () => {
+  // A gated view with no renderer, or a renderer nobody gates, is how an admin
+  // surface ends up either unreachable or unprotected.
+  for (const view of ADMIN_VIEWS) assert.equal(typeof PAYLOADS[view], 'function', `no payload for '${view}'`);
+  assert.deepEqual(Object.keys(PAYLOADS).sort(), ['config', 'craft', 'equip', 'event', 'job', 'prices', 'shop']);
+});
+
+test('the pump gates the admin views on Manage Server', () => {
+  const source = readFileSync(new URL('../src/modules/heist/events/panels.js', import.meta.url), 'utf8');
+  assert.match(source, /ADMIN_VIEWS\.has\(state\.view\)/, 'the gate must consult the set, not a hand-written list');
+  assert.match(source, /PermissionFlagsBits\.ManageGuild/);
+  // And it must come before the work, not after it.
+  assert.ok(
+    source.indexOf('ADMIN_VIEWS.has(state.view)') < source.indexOf("state.action === 'cfg-set'"),
+    'the permission check must precede the actions it protects',
+  );
 });

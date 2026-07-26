@@ -56,7 +56,7 @@ Overrides are sparse: only what you set is stored, so improving a default later 
 
 S115's audit measured the source at **31** `discord.ui` references against our **1**: it has eight panels, and S88 built only the crew lobby. The other seven became subcommands — the same mistake M26.3 fixed for city, from the same cause (the command surface was scaffolding in slice B and had become the product by slice D).
 
-S126 ports the **four a player touches**. The two admin config panels and the event panel are 26.4b, because the panel-first rule (skill 0.5.38) puts the panel where a player reaches it first, and an admin typing `!heist admin` is not that player.
+S126 ported the **four a player touches**; S130 finished with the three an admin does. The split followed the panel-first rule (skill 0.5.38): the panel belongs where a player reaches it first.
 
 | Panel | Opened by | What it does |
 |---|---|---|
@@ -64,6 +64,21 @@ S126 ports the **four a player touches**. The two admin config panels and the ev
 | **🛒 Shop** | `!heist shop` | Shields and tools on their own pages, with a buy select. |
 | **⚙️ Equipment rack** | `!heist equip` | One select per slot showing only what you own, plus an Unequip button per slot. |
 | **🔨 Crafting bench** | `!heist craft` | Every recipe, ten to a page, with a detail block naming exactly how many of each material you are short. |
+| **⚙️ Job settings** | `!heist tune` *(Manage Server)* | Pick a job, pick a field, type a value in a modal. Also resets one job to its shipped values. |
+| **💰 Item prices** | `!heist pricing` *(Manage Server)* | Every priced item, 25 to a page, with overrides marked and a modal to change one. |
+| **🎉 Payout events** | `!heist event` *(Manage Server)* | Start or stop a 2× rewards multiplier. |
+
+### The admin three (M26.4b)
+
+They are gated twice: the subcommands carry `ManageGuild`, **and the pump re-checks it on every press** — a panel is a message that outlives the command, and anybody can press a message. The check consults `ADMIN_VIEWS` rather than a hand-written list, so a new admin view is protected by existing to be in the set.
+
+**Values are shown the way they are typed, not the way they are stored.** Cooldowns are milliseconds in the store and seconds in the modal; `policeChance` is a 0–1 fraction and a percent on screen. A panel printing `1800000` would be inviting the mistake it exists to prevent.
+
+**The whole job stays on screen while one field is edited**, with a `◄` on the selected one. `minReward` above `maxReward` is the pair most easily put the wrong way round, and editing one number in isolation is how that happens.
+
+**Choosing a different job clears the field.** The two selects are one selection packed into a single custom-id segment (`job~field`), and carrying a field across a job change would let a press edit something the admin never looked at.
+
+> `!heist admin …` still does all of this in text, unchanged. The panels are an addition, not a replacement — the text form is the only way to script a change or set several at once.
 
 **The board shows the odds that are actually yours.** `!heist jobs` printed the table's raw success band, so a level-40 player was reading numbers that were not theirs; the panel folds the level bonus in and says so (`Success shown includes +8% from level 40`), capped at 100%.
 
@@ -166,6 +181,7 @@ test/fixtures/heist-source-tables.json   the cog's tables, dumped from Python
 
 | Session | Change |
 |---|---|
+| S130 (M26.4b) | **The last three panels — M26 complete.** `!heist tune` (pick a job, pick a field, type a value), `!heist pricing` (25 items a page, overrides marked), `!heist event` (start/stop the 2× multiplier). All three gated on Manage Server **twice**: on the subcommand and again in the pump on every press, because a panel outlives the command that opened it. Values render as they are typed (seconds, percents) rather than as they are stored. The loader's duplicate-alias guard earned its keep a third time — `prices` already belonged to S126's player-facing `catalogue`, so the admin editor took `pricing`. |
 | S126 (M26.4a) | **Four panels the audit found missing.** The job board (`!heist panel`), the shop, the equipment rack and the crafting bench are now panels rather than printed lists — paged, with selects that act instead of telling you what to type. The board folds your **level bonus into the success band**, which the static `!heist jobs` never did. Panel state rides in the custom id, so a press survives a restart. `!heist shop`'s old plain list is still there as `!heist catalogue`; `!heist equip` and `!heist craft` open their panels when bare and still work when given an item or recipe. Starting a job from the board **refuses** rather than accepting debt, because a select cannot carry the `confirm` token the cog's consent needs. Two equipment slots, not the source's three — our table has no `consumable` type, and a test asserts that so the slot appears the moment it does. |
 | S88 | **Slice D — M16.12 complete**: crew robbery (level-20 organiser, 4-seat button lobby with a 3-minute clock, one shared success roll, haul split four ways, per-officer shields and police rolls, a single settlement driven by the leader's record) and the admin surface — `!heist admin show/set/reset/price/event` with the cog's range guards, sparse overrides layered over the ported defaults, item repricing, and payout events that finally make the resolver's `eventMultiplier` live. |
 | S87 | **Slice C**: the job scheduler — `armHeistTimer`/`fireHeist`/`cancelHeistTimer` plus a `ClientReady` boot catch-up that re-arms running jobs and settles the ones that finished while the bot was down. Results now announce themselves in the channel the job started from, pinging exactly the officer. A missing channel deliberately leaves the job unsettled so the lazy path can still report it; the lazy path cancels the armed timer so nothing reports twice. |

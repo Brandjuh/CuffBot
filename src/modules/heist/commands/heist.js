@@ -56,7 +56,15 @@ import {
   startHeist,
   unequipSlot,
 } from '../service.js';
-import { craftPayload, equipPayload, jobPayload, shopPayload } from '../panel-runtime.js';
+import {
+  configPayload,
+  craftPayload,
+  equipPayload,
+  eventPayload,
+  jobPayload,
+  pricePayload,
+  shopPayload,
+} from '../panel-runtime.js';
 
 const CRIME = 0x8b1a1a;
 const TEAL = 0x11806a;
@@ -780,6 +788,40 @@ export default {
           }
 
           await ctx.reply(`🚫 Unknown action. Try: show, set, reset, price, event — e.g. \`${ctx.prefix}heist admin show\`.`);
+        },
+      },
+      {
+        name: 'tune',
+        aliases: ['settings'],
+        description: 'Open the job-settings panel: pick a job, pick a field, type a value.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [],
+        async run(ctx) {
+          await ctx.reply(configPayload(ctx.guild.id, ctx.user.id));
+        },
+      },
+      {
+        // `prices` belongs to the player-facing `catalogue` list (S126); this
+        // is the admin editor, so it takes the other name rather than stealing
+        // one the precinct already types. The loader's duplicate-alias guard
+        // caught the collision at test time (skill 0.5.39, third time).
+        name: 'pricing',
+        aliases: ['repricing'],
+        description: 'Open the item-price panel and change what the shop charges.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [],
+        async run(ctx) {
+          await ctx.reply(pricePayload(ctx.guild.id, ctx.user.id));
+        },
+      },
+      {
+        name: 'event',
+        aliases: ['events'],
+        description: 'Open the payout-event panel: start or stop a rewards multiplier.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [],
+        async run(ctx) {
+          await ctx.reply(eventPayload(ctx.guild.id, ctx.user.id));
         },
       },
       {

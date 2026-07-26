@@ -2532,3 +2532,35 @@ Two mutations, both caught: reverting to the contradictory line, and marking eve
 Tests **1310 → 1313**.
 
 **Handoff:** the update chain is done and verified; the `STATE.md` row is closed rather than merely updated. Next: **M26.4b** — heist's `HeistConfigView`, `ItemPriceConfigView` and `EventView`, all admin and presentation-only, after which **M26 is finished**. M24.3 stays gated on an owner decision, and `!minigames betvsbot` is the lever if the donut supply climbs.
+
+---
+
+## Session 130 — 2026-07-27
+
+**Goal:** M26.4b — the last three of the eight panels S115 counted in the heist source: `HeistConfigView`, `ItemPriceConfigView`, `EventView`. All admin, all presentation only (the service has done the work since S88).
+
+**M26 is complete.** The milestone existed because two large staged ports — heist and city — had shipped slice B's command surface as scaffolding and then treated it as the product by slice D. Six sessions later every game matches how its source is actually played.
+
+- **`!heist tune`** — two selects and a modal: pick a job, pick a field, type a value. Plus a reset for one job.
+- **`!heist pricing`** — 25 priced items a page, overrides marked with what they used to be.
+- **`!heist event`** — start or stop the 2× multiplier.
+
+⚠️ **Gated twice, and the second gate is the one that matters.** The subcommands carry `ManageGuild`, but that only protects the *typing*. A panel is a message that outlives the command, and anybody can press a message — so the pump re-checks the permission on every press. It consults `ADMIN_VIEWS` rather than a hand-written list, which is 0.5.46 applied before it could bite: a future admin view is protected by existing in the set, not by somebody remembering to add it to an `if`.
+
+**Two small decisions worth their comments.** Values render the way they are *typed* — seconds, percents — not the way they are stored (milliseconds, 0–1 fractions); a panel printing `1800000` invites the mistake it exists to prevent. And the whole job stays on screen while one field is edited, with a ◄ on the selected one: `minReward` above `maxReward` is the pair most easily inverted, and editing one number in isolation is exactly how that happens.
+
+⚠️ **The loader's duplicate-alias guard earned its keep for the third time** (S116's `connect4`, S122's `board`, now `prices`). S126 had given `prices` to the player-facing `catalogue` list, so the admin editor took `pricing`. Caught at test time rather than at boot on the Pi.
+
+**Five mutations, all five caught:** a stale job id letting a field selection survive onto a job the admin never opened; Set value live with no field chosen; an expired event still counting as running; the admin gate removed from the pump; and an unpriced material accepted as a price target.
+
+### Definition of Done — heist
+
+- [x] Layout per architecture.md; `node --check` clean across `src` and `test`
+- [x] Pure logic tested: `heist-panels.test.js` 34 → 48
+- [x] Manual `docs/modules/heist.md` updated: the three panels in the table, an "admin three" section covering the double gate and the typed-value rule, the file map, the changelog row
+- [x] Listed in `docs/README.md` (unchanged)
+- [x] `STATE.md` + `SESSION_LOG.md` + `ROADMAP.md` reflect reality
+
+Tests **1313 → 1327**.
+
+**Handoff:** **M26 is finished.** The only scheduled work left is **M24.3** (mafia anomalies/achievements), still gated on an owner decision — it was never scoped, so a session picking it up should ask rather than invent. Standing items: `!minigames betvsbot` is the lever if the donut supply climbs, and the updater is verified self-maintaining (S129), so nothing there needs re-checking.
