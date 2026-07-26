@@ -36,6 +36,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | selfroles | [`modules/selfroles.md`](modules/selfroles.md) | stable (S59) |
 | rules | [`modules/rules.md`](modules/rules.md) | stable (S97) |
 | killcounter | [`modules/killcounter.md`](modules/killcounter.md) | stable (S99) |
+| transcribe | [`modules/transcribe.md`](modules/transcribe.md) | stable (S101) |
 | splitorsteal | [`modules/splitorsteal.md`](modules/splitorsteal.md) | stable (S79) |
 | hunting | [`modules/hunting.md`](modules/hunting.md) | stable (S66) |
 
