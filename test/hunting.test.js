@@ -29,9 +29,10 @@ import {
   topHunters,
 } from '../src/modules/hunting/service.js';
 import { balanceOf, getPot } from '../src/modules/economy/service.js';
-import huntStats from '../src/modules/hunting/commands/hunt-stats.js';
-import huntBoard from '../src/modules/hunting/commands/hunt-board.js';
+// S106: `!hunt-stats` / `!hunt-board` are `!hunting stats` / `board`.
+import huntingGroup from '../src/modules/hunting/commands/hunting.js';
 import { dispatchCommand } from '../src/core/prefix/command.js';
+import { dispatchGroup } from '../src/core/prefix/group.js';
 import { fakeMessage, fakeUser } from './fixtures/fake-message.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-hunting-'));
@@ -249,7 +250,7 @@ test('!hunt-stats reports a hunter’s catches per crook type', async () => {
   recordCatch(guildId, HUNTER, 'pickpocket');
 
   const message = fakeMessage({ guildId, authorId: HUNTER, users: { [HUNTER]: hunter } });
-  assert.equal(await dispatchCommand(huntStats.command, message, [], '!'), 'ran');
+  assert.equal(await dispatchGroup(huntingGroup.group, message, ['stats', ...[]], '!'), 'ran');
   const desc = message.sent[0].embeds[0].data.description;
   assert.match(desc, /\*\*3\*\* crooks cuffed in total/);
   assert.match(desc, /mob boss — \*\*2\*\*/);
@@ -258,7 +259,7 @@ test('!hunt-stats reports a hunter’s catches per crook type', async () => {
 
 test('!hunt-stats tells an empty-handed hunter how to start', async () => {
   const message = fakeMessage({ guildId: freshGuildId(), authorId: HUNTER });
-  await dispatchCommand(huntStats.command, message, [], '!');
+  await dispatchGroup(huntingGroup.group, message, ['stats', ...[]], '!');
   assert.match(message.sent[0].content, /Cuff a crook before you brag/);
 });
 
@@ -268,7 +269,7 @@ test('!hunt-board ranks the precinct and opens with a gold medal', async () => {
     for (let i = 0; i < catches; i += 1) recordCatch(guildId, id, 'mob-boss');
   }
   const message = fakeMessage({ guildId, authorId: HUNTER });
-  await dispatchCommand(huntBoard.command, message, [], '!');
+  await dispatchGroup(huntingGroup.group, message, ['board', ...[]], '!');
   const desc = message.sent[0].embeds[0].data.description;
   assert.ok(desc.indexOf(RIVAL) < desc.indexOf(HUNTER), 'three catches outrank one');
   assert.match(desc, /🥇/);
@@ -276,6 +277,6 @@ test('!hunt-board ranks the precinct and opens with a gold medal', async () => {
 
 test('!hunt-board says the board is open when nobody has scored', async () => {
   const message = fakeMessage({ guildId: freshGuildId(), authorId: HUNTER });
-  await dispatchCommand(huntBoard.command, message, [], '!');
+  await dispatchGroup(huntingGroup.group, message, ['board', ...[]], '!');
   assert.match(message.sent[0].content, /the board is wide open/);
 });

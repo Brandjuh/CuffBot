@@ -7,10 +7,14 @@ import { PermissionFlagsBits } from 'discord.js';
 import promote from '../src/modules/academy/commands/promote.js';
 import demote from '../src/modules/academy/commands/demote.js';
 import ranks from '../src/modules/academy/commands/ranks.js';
-import rankSetup from '../src/modules/academy/commands/rank-setup.js';
-import rankExclude from '../src/modules/academy/commands/rank-exclude.js';
+
+// S106: `!rank-setup` and `!rank-exclude` are subcommands of `!ranks` now.
+const SETUP_SUB = ranks.group.subcommands.find((s) => s.name === 'setup');
+const EXCLUDE_SUB = ranks.group.subcommands.find((s) => s.name === 'exclude');
+const LIST_SUB = ranks.group.subcommands.find((s) => s.name === 'list');
 import { getGuildData } from '../src/core/store.js';
 import { dispatchCommand } from '../src/core/prefix/command.js';
+import { dispatchGroup } from '../src/core/prefix/group.js';
 import { fakeMessage } from './fixtures/fake-message.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-academy-'));
@@ -86,12 +90,12 @@ const EXCLUDED = { id: 'r-rookie', toString: () => '<@&r-rookie>' };
 // Configure the ladder for the guild once (header + no exclusions).
 function configure() {
   const ctx = fakeCtx({});
-  return rankSetup.command.run(ctx, { header: { id: 'lvl-header' } }).then(() => ctx);
+  return SETUP_SUB.run(ctx, { header: { id: 'lvl-header' } }).then(() => ctx);
 }
 
 test('rank-setup requires Manage Server and stores the header', async () => {
   const denied = fakeMessage({ perms: false, guildId: GUILD });
-  const outcome = await dispatchCommand(rankSetup.command, denied, [], '!');
+  const outcome = await dispatchGroup(ranks.group, denied, ['setup', ...[]], '!');
   assert.equal(outcome, 'refused');
   assert.match(denied.sent[0].content, /Manage Server/);
 
@@ -102,7 +106,7 @@ test('rank-setup requires Manage Server and stores the header', async () => {
 test('ranks shows the detected ladder highest-first', async () => {
   await configure();
   const ix = fakeCtx({});
-  await ranks.command.run(ix, ix.values ?? {});
+  await LIST_SUB.run(ix, ix.values ?? {});
   const desc = ix.replies[0].embeds[0].data?.description ?? ix.replies[0].embeds[0].description;
   assert.match(desc, /r-legend/);
   assert.match(desc, /r-rookie/);
@@ -161,11 +165,11 @@ test('demote refuses when there is no rank to remove', async () => {
 test('rank-exclude adds a role to the exclusion list', async () => {
   await configure();
   const ix = fakeCtx({});
-  await rankExclude.command.run(ix, { role: EXCLUDED, action: 'add' });
+  await EXCLUDE_SUB.run(ix, { role: EXCLUDED, action: 'add' });
   assert.ok(getGuildData(GUILD, 'academyConfig', {}).excludedRoleIds.includes('r-rookie'));
   // now the ladder should drop Rookie
   const rk = fakeCtx({});
-  await ranks.command.run(rk, {});
+  await LIST_SUB.run(rk, {});
   const desc = rk.replies[0].embeds[0].data?.description ?? rk.replies[0].embeds[0].description;
   assert.ok(!/r-rookie/.test(desc), 'excluded role no longer in the ladder');
 });
@@ -216,7 +220,7 @@ test('rank-setup accepts the documented header: form — and the bare mention', 
       roles: { [HEADER]: { id: HEADER, name: '▬ LEVELER ▬', position: 80 } },
     });
     message.guild.members = { me: { permissions: { has: () => true } } };
-    const outcome = await dispatchCommand(rankSetup.command, message, tokens, '!');
+    const outcome = await dispatchGroup(ranks.group, message, ['setup', ...tokens], '!');
     assert.equal(outcome, 'ran', `"${tokens.join(' ')}" should run`);
     assert.equal(
       getGuildData(guildId, 'academyConfig', {}).headerRoleId,
@@ -233,7 +237,7 @@ test('rank-exclude takes action: as a keyword or positionally', async () => {
       guildId: GUILD,
       roles: { [ROLE]: { id: ROLE, name: 'Cosmetic', position: 5 } },
     });
-    await dispatchCommand(rankExclude.command, message, tokens, '!');
+    await dispatchGroup(ranks.group, message, ['exclude', ...tokens], '!');
     // Nothing was excluded yet, so "remove" reports the miss — which proves the
     // action reached run() as `remove` rather than defaulting to `add`.
     assert.match(message.sent[0].content, /was not on the exclusion list/);
@@ -246,7 +250,7 @@ test('rank-exclude refuses an action that is not add or remove', async () => {
     guildId: GUILD,
     roles: { [ROLE]: { id: ROLE, name: 'Cosmetic', position: 5 } },
   });
-  const outcome = await dispatchCommand(rankExclude.command, message, [`<@&${ROLE}>`, 'action:banish'], '!');
+  const outcome = await dispatchGroup(ranks.group, message, ['exclude', ...[`<@&${ROLE}>`, 'action:banish']], '!');
   assert.equal(outcome, 'usage-error');
   assert.match(message.sent[0].content, /`action` must be one of: add, remove/);
 });

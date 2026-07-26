@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Purpose** | Owner request (M10): birthday announcements with per-member timezone support |
-| **Commands** | `!birthday-set`, `!birthday-remove`, `!birthdays` (everyone), `!birthday` group (admin, S70; alias `!birthday-config`) |
+| **Commands** | `!birthday set`, `!birthday remove`, `!birthdays` (everyone), `!birthday` group (admin, S70; alias `!birthday-config`) |
 | **Events** | `ClientReady` — starts a 10-minute sweep: birthday-role sync (S58) + announcements (idempotent) |
 | **Data** | `birthdayUsers` (day, month, timeZone, lastAnnouncedYear per user) + `birthdayConfig` (enabled, channelId) in the guild store |
 | **Default channel** | `411609312037961729` (S31, owner decision — committed as product config; `!birthday channel` overrides win) |
@@ -17,14 +17,14 @@
 
 ## Commands
 
-### !birthday-set
+### !birthday set
 
-- **Args:** `<date>` as **YYYY/MM/DD** (S44 — e.g. `1990/05/23`), then `[timezone]` (IANA name, optional — default `America/New_York`, S32 owner decision: Eastern Time is the most-populated US zone). The timezone also takes the keyword form: `!birthday-set 1990/05/23 timezone:Europe/Amsterdam`.
+- **Args:** `<date>` as **YYYY/MM/DD** (S44 — e.g. `1990/05/23`), then `[timezone]` (IANA name, optional — default `America/New_York`, S32 owner decision: Eastern Time is the most-populated US zone). The timezone also takes the keyword form: `!birthday set 1990/05/23 timezone:Europe/Amsterdam`.
 - **What happens:** validates the calendar date (Apr 31 refused, **Feb 29 allowed**) and the timezone (`Intl` lookup), then stores the record. Setting again overwrites.
 - **Reply:** an in-channel confirmation with the parsed date + timezone. The birth YEAR is stored but never announced.
 - **Failure modes:** impossible date → themed refusal naming the YYYY/MM/DD form; unknown timezone → a refusal that **suggests the closest real zone names** (S94 — `Europe/Amster` comes back with `Europe/Amsterdam`). Before S94 the near-miss list lived in a slash autocomplete handler that could not fire, because S68 removed every slash command.
 
-### !birthday-remove
+### !birthday remove
 
 Removes your record (confirms, and says so plainly if nothing was on file).
 
@@ -61,12 +61,12 @@ Bare `!birthday` = the status view (switch, channel, current birthday role). Sub
 - `test/birthdays.test.js` (14 tests): month lengths + Feb 29 validity, timezone validation, `localDateParts` across the date line (one fixed instant = July 24 in Amsterdam **and** July 23 in New York), the Feb 29 leap/non-leap rule, due-selection (wrong-day / already-announced / corrupt records skipped), day counting incl. year wrap, ordering, store round-trip, sweep idempotence (same day silent, next year fires), disabled/unconfigured no-ops, stamp-before-send under a failing channel, sparse config.
 - **Manual (live server) checklist:**
   1. `!birthday channel #general` → status shows the channel.
-  2. `!birthday-set <a YYYY/MM/DD with today's day and month>` → within ~10 min the announcement appears, pinging only you.
+  2. `!birthday set <a YYYY/MM/DD with today's day and month>` → within ~10 min the announcement appears, pinging only you.
   3. Re-run `!birthdays` → you show as **TODAY**; another member a few days out shows `in N days`.
-  4. `!birthday-set 1990/04/31` → refused (April has 30 days). `!birthday-set 1992/02/29` → accepted (1992 was a leap year).
-  5. `!birthday-set … timezone:America/New_York` as a test user → the announcement day follows New York, not Amsterdam.
-  6. `!birthday-remove` → confirm; `!birthdays` no longer lists you.
-  7. `!birthday-set 24 7 Europe/Amsterdam` → text path works the same.
+  4. `!birthday set 1990/04/31` → refused (April has 30 days). `!birthday set 1992/02/29` → accepted (1992 was a leap year).
+  5. `!birthday set … timezone:America/New_York` as a test user → the announcement day follows New York, not Amsterdam.
+  6. `!birthday remove` → confirm; `!birthdays` no longer lists you.
+  7. `!birthday set 24 7 Europe/Amsterdam` → text path works the same.
 
 ## Troubleshooting
 
@@ -77,7 +77,7 @@ Bare `!birthday` = the status view (switch, channel, current birthday role). Sub
 | The role stays after the birthday | Removal is failing (hierarchy/permissions) — it retries every 10 min | Fix the hierarchy; the sweep removes it on the next tick |
 | Announcement came "a day early/late" | The member's timezone differs from yours | By design: their day, their timezone. Check with `!birthdays` |
 | Announcement missing after a reboot | Sweep only marks *after* it announces — it catches up on the next tick | Wait ≤10 min after boot; check `journalctl -u cuffbot` for "Birthdays: announcement failed" (missing send permission) |
-| Member left but still listed | Records are not pruned automatically | `!birthday-remove` can only be run by the member; hand-edit `data/<guild>.json → birthdayUsers` if needed |
+| Member left but still listed | Records are not pruned automatically | `!birthday remove` can only be run by the member; hand-edit `data/<guild>.json → birthdayUsers` if needed |
 
 ## Changelog
 
@@ -87,7 +87,7 @@ Bare `!birthday` = the status view (switch, channel, current birthday role). Sub
 | S31 | Default announcement channel committed: `411609312037961729` (owner decision). |
 | S32 | Default timezone → `America/New_York` (owner decision: US-based community; Eastern is the most-populated US zone). |
 | S38 | Birthday members receive 50,000 donuts (economy seam), announced inside the birthday message. |
-| S44 | `!birthday-set` input is now a single **YYYY/MM/DD** date (year validated 1900–now, real leap-year checking; stored but never announced) and the timezone option is a **typed picker** (autocomplete over the full IANA list, US zones first). |
+| S44 | `!birthday set` input is now a single **YYYY/MM/DD** date (year validated 1900–now, real leap-year checking; stored but never announced) and the timezone option is a **typed picker** (autocomplete over the full IANA list, US zones first). |
 | S55 | Channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
 | S58 | Celebrants wear role `701577807070756946` (committed owner default) for their whole local birthday — sweep-synced add/remove with retry, idempotent adds, never strips manually granted roles; `/birthday-config birthday-role:`/`no-birthday-role:` knobs. |
 | S70 | `/birthday-config` became the `!birthday` group (M17.2; alias `!birthday-config`): on/off, channel, role, norole. |

@@ -27,13 +27,19 @@ import {
 } from '../src/modules/economy/service.js';
 import { sweepBirthdays, setBirthday } from '../src/modules/birthdays/service.js';
 import donutsCmd from '../src/modules/economy/commands/donuts.js';
-import donutBoardCmd from '../src/modules/economy/commands/donut-board.js';
+
 import dailyCmd from '../src/modules/economy/commands/daily.js';
 import potCmd from '../src/modules/economy/commands/pot.js';
-import crackPotCmd from '../src/modules/economy/commands/crack-pot.js';
+
 import stealCmd from '../src/modules/economy/commands/steal.js';
 import claimsCmd from '../src/modules/economy/commands/claims.js';
+
+// S106: these were flat commands; each is a subcommand of its family now.
+const donutBoardCmd = { group: donutsCmd.group, sub: 'board' };
+const crackPotCmd = { group: potCmd.group, sub: 'crack' };
+const claimsConfig = { group: claimsCmd.group, sub: null };
 import { dispatchCommand } from '../src/core/prefix/command.js';
+import { dispatchGroup } from '../src/core/prefix/group.js';
 import { fakeMessage, fakeUser } from './fixtures/fake-message.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-economy-'));
@@ -378,11 +384,21 @@ test('/daily via the engine: day amount 0 reads as disabled; streaks apply', asy
 // service beneath them did.
 
 /** Dispatch an economy command as OFFICER in a fresh guild. */
+/**
+ * S106: the hyphenated commands became subcommands, so a test that used to
+ * dispatch a flat command now dispatches its GROUP with the subcommand name in
+ * front. `sub(group, 'name')` names that pair; the local `run` helper below
+ * takes either shape, so the dispatch stays real (S93's rule).
+ */
+const sub = (groupCmd, name) => ({ group: groupCmd.group, sub: name });
+
 async function run(command, tokens, { guildId = freshGuildId(), people = [] } = {}) {
   const self = fakeUser(OFFICER, 'officer', { displayName: 'officer' });
   const users = Object.fromEntries([self, ...people].map((u) => [u.id, u]));
   const message = fakeMessage({ guildId, authorId: OFFICER, users });
-  const outcome = await dispatchCommand(command.command, message, tokens, '!');
+  const outcome = command.sub
+    ? await dispatchGroup(command.group, message, [command.sub, ...tokens], '!')
+    : await dispatchCommand(command.command, message, tokens, '!');
   return { outcome, sent: message.sent, guildId };
 }
 
@@ -397,10 +413,10 @@ test('!donuts reads your own wallet, and another officer’s by mention', async 
   adjustBalance(guildId, OFFICER, 250);
   adjustBalance(guildId, MATE, 40);
 
-  const mine = await run(donutsCmd, [], { guildId });
+  const mine = await run({ group: donutsCmd.group, sub: 'balance' }, [], { guildId });
   assert.equal(mine.sent[0].content, `🍩 You have **${(start + 250).toLocaleString('en-US')} donuts**.`);
 
-  const theirs = await run(donutsCmd, [`<@${MATE}>`], {
+  const theirs = await run({ group: donutsCmd.group, sub: 'balance' }, [`<@${MATE}>`], {
     guildId,
     people: [fakeUser(MATE, 'mate')],
   });
@@ -412,7 +428,7 @@ test('!donuts reads your own wallet, and another officer’s by mention', async 
 
 test('!donuts refuses to audit a bot', async () => {
   const bot = fakeUser(MATE, 'K9', { bot: true });
-  const { sent } = await run(donutsCmd, [`<@${MATE}>`], { people: [bot] });
+  const { sent } = await run({ group: donutsCmd.group, sub: 'balance' }, [`<@${MATE}>`], { people: [bot] });
   assert.match(sent[0].content, /Bots run on electricity/);
 });
 
@@ -448,12 +464,12 @@ test('!pot shows the balance and whether the daily shot is open', async () => {
   const guildId = freshGuildId();
   addToPot(guildId, 1234);
   const expected = getPot(guildId).balance.toLocaleString('en-US');
-  const before = await run(potCmd, [], { guildId });
+  const before = await run({ group: potCmd.group, sub: 'show' }, [], { guildId });
   assert.match(bodyOf(before.sent[0]), new RegExp(expected));
   assert.match(bodyOf(before.sent[0]), /still open/);
 
   await run(crackPotCmd, [], { guildId });
-  const after = await run(potCmd, [], { guildId });
+  const after = await run({ group: potCmd.group, sub: 'show' }, [], { guildId });
   assert.match(bodyOf(after.sent[0]), /used for today/);
 });
 
@@ -485,16 +501,16 @@ test('!steal refuses to rob yourself', async () => {
 
 test('!claims lists the timers, and `true` collects', async () => {
   const guildId = freshGuildId();
-  const view = await run(claimsCmd, [], { guildId });
+  const view = await run({ group: claimsCmd.group, sub: 'collect' }, [], { guildId });
   assert.match(bodyOf(view.sent[0]), /Pot attempt/);
   assert.doesNotMatch(bodyOf(view.sent[0]), /Collected/);
 
-  const collected = await run(claimsCmd, ['true'], { guildId });
+  const collected = await run({ group: claimsCmd.group, sub: 'collect' }, ['true'], { guildId });
   assert.match(bodyOf(collected.sent[0]), /Collected|Nothing is ready/);
 });
 
 test('!claims accepts the collect: keyword form too', async () => {
-  const { outcome, sent } = await run(claimsCmd, ['collect:yes']);
+  const { outcome, sent } = await run({ group: claimsCmd.group, sub: 'collect' }, ['collect:yes']);
   assert.equal(outcome, 'ran');
   assert.match(bodyOf(sent[0]), /Collected|Nothing is ready/);
 });

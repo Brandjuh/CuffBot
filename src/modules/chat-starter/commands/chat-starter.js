@@ -1,5 +1,5 @@
-// The chat-starter admin group (S70 = M17.2, `!chat-starter` — the old
-// `!chat-starter-config` name stays as an alias).
+// The chat-starter admin group (S70 = M17.2, `!chatstarter` — the old
+// `!chatstarter` name stays as an alias).
 import { PermissionFlagsBits } from 'discord.js';
 import { getStarterConfig, nextQuestion, postStarter, questionBank, setStarterConfig } from '../service.js';
 import { pickProvider } from '../../detective/lib/providers.js';
@@ -8,8 +8,8 @@ export const TEST_DELAY_MS = 30_000;
 
 export default {
   group: {
-    name: 'chat-starter',
-    aliases: ['chat-starter-config'],
+    name: 'chatstarter',
+    aliases: ['chat-starter', 'chat-starter-config', 'starter'],
     description: 'The chat starter: revives a quiet channel with an open question (admin).',
     emoji: '💬',
     permission: PermissionFlagsBits.ManageGuild,

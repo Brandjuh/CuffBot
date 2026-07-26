@@ -76,7 +76,7 @@ None of its own. Reads the evidence-locker channel (dispatch config) for `!911`.
   1. `!badge` on yourself and `!badge @member` → rank + record count + join date look right.
   2. Give a member some infractions via enforcement, then `!badge @them` → record count reflects it.
   3. `!wanted @friend` and `!donut @friend` → playful embeds, no state changes. The poster appears as ONE message (no "🚔 Working…" that gets edited).
-  4. Set an evidence locker (`!evidence-locker action:set`), then `!911 @someone test report yes` → the channel shows only the confirmation; the report appears in the locker with the reporter shown as Anonymous and the reason as "test report".
+  4. Set an evidence locker (`!dispatch locker action:set`), then `!911 @someone test report yes` → the channel shows only the confirmation; the report appears in the locker with the reporter shown as Anonymous and the reason as "test report".
   5. `/911` with no locker configured → you're told to ask an admin to set one.
 
 ## Troubleshooting

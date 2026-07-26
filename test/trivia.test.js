@@ -20,7 +20,11 @@ import {
   loadSets,
   startRound,
 } from '../src/modules/trivia/service.js';
-import triviaCmd from '../src/modules/trivia/commands/trivia.js';
+import { dispatchGroup } from '../src/core/prefix/group.js';
+import triviaGroup from '../src/modules/trivia/commands/trivia.js';
+
+// S106: `!trivia` is a group now; `play` is what bare `!trivia` runs.
+const triviaCmd = { command: triviaGroup.group.subcommands.find((s) => s.name === 'play') };
 import triviaButtons from '../src/modules/trivia/events/trivia-buttons.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-trivia-'));
@@ -165,7 +169,7 @@ test('!trivia refuses an unknown set by name, listing the installed ones (S95)',
   const { fakeMessage } = await import('./fixtures/fake-message.js');
   const message = fakeMessage({ guildId: freshGuildId() });
   message.channel.id = 'chan-unknown-set';
-  const outcome = await dispatchCommand(triviaCmd.command, message, ['made-up-set'], '!');
+  const outcome = await dispatchGroup(triviaGroup.group, message, ['play', ...['made-up-set']], '!');
   assert.equal(outcome, 'usage-error');
   assert.match(message.sent[0].content, /`set` must be one of: /);
   assert.equal(getRound('chan-unknown-set'), null, 'no round was started');

@@ -14,8 +14,8 @@ The crook hunt, rebuilt in S66 (M16.1) on the model of vrt-cogs/hunting — the 
 | Command | What it does | Who |
 |---|---|---|
 | `!hunting` | Config group + status: channels, timing, mode, rewards, test spawn | Admin (Manage Server) |
-| `!hunt-stats [member]` | A hunter's arrest record per crook type | Everyone |
-| `!hunt-board` | Top 25 hunters by total catches | Everyone |
+| `!hunting stats [member]` | A hunter's arrest record per crook type | Everyone |
+| `!hunting board` | Top 25 hunters by total catches | Everyone |
 
 ### !hunting (admin — Manage Server; S70 group command)
 
@@ -92,7 +92,7 @@ src/modules/hunting/
   1. `!hunting` → status shows the hunt channel and "words" mode.
   2. `!hunting spawn #channel` → a crook appears; shout **STOP POLICE** → GOTCHA + bounty.
   3. Test the officer: `!hunting spawn` until 🕵️ appears → salute 🫡 → reward; (or cuff them → fine).
-  4. `!hunt-stats` and `!hunt-board` show the catch.
+  4. `!hunting stats` and `!hunting board` show the catch.
   5. `!hunting mode reaction` → next crook gets a 🚨 reaction; pressing it cuffs.
 
 ## Troubleshooting
@@ -110,4 +110,4 @@ src/modules/hunting/
 |---|---|
 | S66 | Created (M16.1): the vrt-cogs/hunting port, precinct edition — crook variety + undercover-officer salute special, 2/17 fumble, words/reaction modes, multi-channel vrt scheduling (900–3600 s, 20 s window), per-type scores + leaderboard. Replaces the S38 activity hunt and S56 timed hunt; escape/fine donuts land in the pot (recorded deviation). |
 | S70 | Converted to a Red-style group (M17.2): `!hunting on/off/add/remove/mode/showtime/undercover/rewards/interval/timeout/spawn`; out-of-range values are refused with the valid range (was builder-enforced). |
-| S93 | `!hunt-stats` and `!hunt-board` converted to the flat `{ command }` shape (M17.3 slice A) and given their first tests — neither command had any before. |
+| S93 | `!hunting stats` and `!hunting board` converted to the flat `{ command }` shape (M17.3 slice A) and given their first tests — neither command had any before. |

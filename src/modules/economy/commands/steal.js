@@ -67,7 +67,7 @@ export default {
                 ? [
                     `**${thief}** got caught robbing **${victim}**.`,
                     `# −${gold(result.amount)}`,
-                    `_Confiscated into the donut pot — now **${gold(result.potBalance)}**. Your shot: \`${ctx.prefix}crack-pot\`._`,
+                    `_Confiscated into the donut pot — now **${gold(result.potBalance)}**. Your shot: \`${ctx.prefix}pot crack\`._`,
                   ].join('\n')
                 : `**${thief}** got caught robbing **${victim}** — with already-empty pockets. The pot sighs.`,
             );

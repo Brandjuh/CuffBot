@@ -9,7 +9,8 @@ import { describeLatency } from '../lib/radio.js';
 
 export default {
   command: {
-    name: 'radio-check',
+    name: 'radiocheck',
+    aliases: ['radio-check', 'ping'],
     description: 'Check that CuffBot is on the air (latency + feature status).',
     emoji: '📻',
     args: [],

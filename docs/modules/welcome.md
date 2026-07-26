@@ -35,7 +35,7 @@ Bare `!welcome` = the status view with a rendered preview and — crucially — 
 
 ## Setup (one-time, required)
 
-The join event only fires with the **Server Members Intent**: Developer Portal → your app → **Bot** → Privileged Gateway Intents → **Server Members Intent** → Save, then `!restart`. `!welcome` and `!radio-check` both show whether it is active.
+The join event only fires with the **Server Members Intent**: Developer Portal → your app → **Bot** → Privileged Gateway Intents → **Server Members Intent** → Save, then `!restart`. `!welcome` and `!radiocheck` both show whether it is active.
 
 ## Testing
 

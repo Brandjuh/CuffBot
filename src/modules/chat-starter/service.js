@@ -106,7 +106,7 @@ export async function seedActivityFromHistory(guild, config, botUserId) {
 /**
  * Post one starter to the configured channel RIGHT NOW (no idle/guard checks
  * — callers decide). Used by the sweep once its rules pass, and by the
- * `!chat-starter test` subcommand.
+ * `!chatstarter test` subcommand.
  * @returns {Promise<boolean>} posted
  */
 export async function postStarter(guild, config, now = Date.now()) {

@@ -18,10 +18,11 @@ import {
   suggestTimeZones,
   DEFAULT_TIMEZONE,
 } from '../src/modules/birthdays/lib/birthday.js';
-import birthdaySet from '../src/modules/birthdays/commands/birthday-set.js';
-import birthdayRemove from '../src/modules/birthdays/commands/birthday-remove.js';
 import birthdaysList from '../src/modules/birthdays/commands/birthdays.js';
+// S106: `!birthday-set` / `!birthday-remove` are `!birthday set` / `remove`.
+import birthdayGroup from '../src/modules/birthdays/commands/birthday.js';
 import { dispatchCommand } from '../src/core/prefix/command.js';
+import { dispatchGroup } from '../src/core/prefix/group.js';
 import { fakeMessage } from './fixtures/fake-message.js';
 import {
   getBirthdayConfig,
@@ -366,7 +367,7 @@ test('syncBirthdayRole: no-op without a role id; a departed celebrant is skipped
 test('!birthday-set stores the date and defaults the timezone', async () => {
   const guildId = freshGuildId();
   const message = fakeMessage({ guildId, authorId: MEMBER });
-  assert.equal(await dispatchCommand(birthdaySet.command, message, ['1990/05/23'], '!'), 'ran');
+  assert.equal(await dispatchGroup(birthdayGroup.group, message, ['set', ...['1990/05/23']], '!'), 'ran');
   assert.match(message.sent[0].content, /23 May/);
   const stored = getBirthdayUsers(guildId)[MEMBER];
   assert.deepEqual(
@@ -379,7 +380,7 @@ test('!birthday-set takes an explicit timezone, positionally or by keyword', asy
   for (const tokens of [['1990/05/23', 'America/Chicago'], ['1990/05/23', 'timezone:America/Chicago']]) {
     const guildId = freshGuildId();
     const message = fakeMessage({ guildId, authorId: MEMBER });
-    await dispatchCommand(birthdaySet.command, message, tokens, '!');
+    await dispatchGroup(birthdayGroup.group, message, ['set', ...tokens], '!');
     assert.equal(getBirthdayUsers(guildId)[MEMBER]?.timeZone, 'America/Chicago', tokens.join(' '));
   }
 });
@@ -387,7 +388,7 @@ test('!birthday-set takes an explicit timezone, positionally or by keyword', asy
 test('!birthday-set refuses a bad date and stores nothing', async () => {
   const guildId = freshGuildId();
   const message = fakeMessage({ guildId, authorId: MEMBER });
-  await dispatchCommand(birthdaySet.command, message, ['23/05/1990'], '!');
+  await dispatchGroup(birthdayGroup.group, message, ['set', ...['23/05/1990']], '!');
   assert.match(message.sent[0].content, /YYYY\/MM\/DD/);
   assert.equal(getBirthdayUsers(guildId)[MEMBER], undefined);
 });
@@ -395,7 +396,7 @@ test('!birthday-set refuses a bad date and stores nothing', async () => {
 test('!birthday-set suggests real zones for a near-miss (S94, replacing autocomplete)', async () => {
   const guildId = freshGuildId();
   const message = fakeMessage({ guildId, authorId: MEMBER });
-  await dispatchCommand(birthdaySet.command, message, ['1990/05/23', 'Europe/Amster'], '!');
+  await dispatchGroup(birthdayGroup.group, message, ['set', ...['1990/05/23', 'Europe/Amster']], '!');
   assert.match(message.sent[0].content, /not a timezone I know/);
   assert.match(message.sent[0].content, /Europe\/Amsterdam/);
 });
@@ -403,19 +404,19 @@ test('!birthday-set suggests real zones for a near-miss (S94, replacing autocomp
 test('!birthday-remove reports whether there was anything to remove', async () => {
   const guildId = freshGuildId();
   const empty = fakeMessage({ guildId, authorId: MEMBER });
-  await dispatchCommand(birthdayRemove.command, empty, [], '!');
+  await dispatchGroup(birthdayGroup.group, empty, ['remove', ...[]], '!');
   assert.match(empty.sent[0].content, /no birthday on file/i);
 
-  await dispatchCommand(birthdaySet.command, fakeMessage({ guildId, authorId: MEMBER }), ['1990/05/23'], '!');
+  await dispatchGroup(birthdayGroup.group, fakeMessage({ guildId, authorId: MEMBER }), ['set', ...['1990/05/23']], '!');
   const filled = fakeMessage({ guildId, authorId: MEMBER });
-  await dispatchCommand(birthdayRemove.command, filled, [], '!');
+  await dispatchGroup(birthdayGroup.group, filled, ['remove', ...[]], '!');
   assert.match(filled.sent[0].content, /struck from the record/i);
   assert.equal(getBirthdayUsers(guildId)[MEMBER], undefined);
 });
 
 test('!birthdays lists upcoming birthdays and honours the count bounds', async () => {
   const guildId = freshGuildId();
-  await dispatchCommand(birthdaySet.command, fakeMessage({ guildId, authorId: MEMBER }), ['1990/05/23'], '!');
+  await dispatchGroup(birthdayGroup.group, fakeMessage({ guildId, authorId: MEMBER }), ['set', ...['1990/05/23']], '!');
 
   const listed = fakeMessage({ guildId, authorId: MEMBER });
   await dispatchCommand(birthdaysList.command, listed, [], '!');

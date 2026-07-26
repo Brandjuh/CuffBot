@@ -22,7 +22,7 @@ const MODULES = [
   {
     name: 'core',
     description: 'core',
-    commands: [{ name: 'radio-check', description: 'Latency check', options: [] }],
+    commands: [{ name: 'radiocheck', description: 'Latency check', options: [] }],
   },
   {
     name: 'enforcement',
@@ -43,7 +43,7 @@ const MODULES = [
 
 test('usageFor marks required <> and optional []', () => {
   assert.equal(usageFor('cite', MODULES[1].commands[0].options), 'cite <target> <reason> [penalty]');
-  assert.equal(usageFor('radio-check', []), 'radio-check');
+  assert.equal(usageFor('radiocheck', []), 'radiocheck');
 });
 
 test('buildHelp groups by module and lists the text invocation (S68 text-only)', () => {
@@ -70,7 +70,7 @@ const FLAT = [
   { name: 'wanted', description: 'Poster', defaultMemberPermissions: null },
   { name: 'xp', description: 'XP settings', defaultMemberPermissions: '32' },
   { name: 'update', description: 'Self-update', defaultMemberPermissions: null },
-  { name: 'radio-check', description: 'Latency', defaultMemberPermissions: null },
+  { name: 'radiocheck', description: 'Latency', defaultMemberPermissions: null },
 ];
 
 test('buildCategorizedHelp groups by purpose in the defined order', () => {
@@ -78,7 +78,7 @@ test('buildCategorizedHelp groups by purpose in the defined order', () => {
   const titles = model.groups.map((g) => g.title);
   assert.deepEqual(titles, ['🛡️ Moderation', '🎮 Games & Economy', '🎉 Fun', '📻 Info', '⚙️ Setup & Admin']);
   const info = model.groups.find((g) => g.title === '📻 Info');
-  assert.match(info.entries[0].line, /^\*\*!radio-check\*\* — Latency$/);
+  assert.match(info.entries[0].line, /^\*\*!radiocheck\*\* — Latency$/);
   assert.match(model.description, /6 commands/);
 });
 

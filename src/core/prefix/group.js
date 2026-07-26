@@ -6,6 +6,10 @@
 // Shape:
 //   export default { group: {
 //     name, description, emoji?, permission?,        // permission = BigInt flag
+//     fallback?,                                      // unmatched first token → this sub
+//     invokeWithoutSubcommand?,                       // bare !group runs `fallback` (Red's
+//                                                     //   invoke_without_command); `!group help`
+//                                                     //   still shows the overview
 //     status(ctx)?,                                   // bare !group body lines
 //     subcommands: [{ name, aliases?, description, permission?,
 //                     args: [{ name, type, required?, greedy?, choices? }],
@@ -20,6 +24,15 @@ import { buildCtx } from './context.js';
 import { hasPermission, refusalFor } from './permissions.js';
 
 const TYPES = new Set(['string', 'integer', 'number', 'boolean', 'user', 'role', 'channel']);
+
+/**
+ * The gate a subcommand actually runs behind. A sub may raise the bar with its
+ * own flag, or **drop it entirely with an explicit `permission: null`** — which
+ * is how a public reader (`!xp ladder`, `!hunting stats`) lives inside an admin
+ * group. `??` would have swallowed that null, so the check is deliberate.
+ */
+export const gateFor = (group, sub) =>
+  sub.permission !== undefined ? sub.permission : group.permission;
 
 /** `!group sub <a> [b…]` usage string for one subcommand. */
 export function subUsage(prefix, groupName, sub) {
@@ -124,7 +137,7 @@ async function resolveArg(message, spec, raw) {
  * `penalty:FINAL WARNING` work without that arg having to be the greedy one.
  *
  * This exists because the bot has been telling people to type this syntax for
- * a long time — `!rank-setup header:@[LEVELER]`, `!evidence-locker action:set`
+ * a long time — `!ranks setup header:@[LEVELER]`, `!dispatch locker action:set`
  * — in manuals, in STATE's owner-action list, and in its own replies, while
  * the text path only ever accepted positional args. Typing exactly what the
  * bot instructed produced "`header` should be a mention or id" (S68 → S94).
@@ -262,12 +275,43 @@ export async function resolveSubArgs(message, sub, tokens) {
   return { values, errors };
 }
 
+/**
+ * Show the group's card: status lines plus every visible subcommand. Returns
+ * the dispatch result so callers can `return` it directly.
+ */
+async function renderOverview(group, ctx, unknownSub) {
+  if (!hasPermission(ctx, group.permission)) {
+    await ctx.reply(refusalFor(group.permission));
+    return 'refused';
+  }
+  let statusLines = [];
+  if (group.status) {
+    try {
+      statusLines = (await group.status(ctx)) ?? [];
+    } catch (error) {
+      logger.warn(`Group ${group.name}: status failed:`, error);
+    }
+  }
+  const embed = buildGroupOverview(group, ctx, statusLines);
+  if (unknownSub) {
+    embed.setFooter({ text: `Unknown subcommand "${unknownSub}" — pick one from the list.` });
+  }
+  await ctx.reply({ embeds: [embed] });
+  return 'overview';
+}
+
 /** The bare-`!group` overview: status lines (if any) + every visible subcommand. */
 export function buildGroupOverview(group, ctx, statusLines = []) {
   const prefix = ctx.prefix;
-  const subLines = group.subcommands.map(
-    (sub) => `\`${subUsage(prefix, group.name, sub)}\` — ${sub.description}`,
-  );
+  // S106: show only what THIS member may run. Groups used to be all-or-nothing
+  // (gate the group, gate everything), but folding public commands into admin
+  // groups — `!xp ladder`, `!hunting stats` — makes a group open at the top
+  // with gated subs the normal shape, and an overview that advertises refusals
+  // is worse than one that is short. The category help menu has filtered per
+  // viewer since S43; a group card had not.
+  const subLines = group.subcommands
+    .filter((sub) => hasPermission(ctx, gateFor(group, sub)))
+    .map((sub) => `\`${subUsage(prefix, group.name, sub)}\` — ${sub.description}`);
   return new EmbedBuilder()
     .setColor(0x2b6cb0)
     .setTitle(`${group.emoji ?? '🚔'} ${prefix}${group.name}`)
@@ -290,6 +334,15 @@ export async function dispatchGroup(group, message, tokens, prefix) {
   const ctx = buildCtx(message, prefix);
 
   const subName = tokens[0]?.toLowerCase() ?? null;
+
+  // `!group help` always renders the overview. It has to be reserved, because a
+  // group with `invokeWithoutSubcommand` has no bare invocation left to show it
+  // with — and a command family you cannot list is a command family nobody
+  // discovers. Red reaches the same place via `[p]help <group>`.
+  if (subName === 'help' && !group.subcommands.some((s) => s.name === 'help')) {
+    return renderOverview(group, ctx, null);
+  }
+
   let sub =
     subName &&
     group.subcommands.find((s) => s.name === subName || (s.aliases ?? []).includes(subName));
@@ -303,26 +356,19 @@ export async function dispatchGroup(group, message, tokens, prefix) {
     if (sub) subTokens = tokens;
   }
 
-  if (!sub) {
-    if (!hasPermission(ctx, group.permission)) {
-      await ctx.reply(refusalFor(group.permission));
-      return 'refused';
-    }
-    let statusLines = [];
-    if (group.status) {
-      try {
-        statusLines = (await group.status(ctx)) ?? [];
-      } catch (error) {
-        logger.warn(`Group ${group.name}: status failed:`, error);
-      }
-    }
-    const embed = buildGroupOverview(group, ctx, statusLines);
-    if (subName) embed.setFooter({ text: `Unknown subcommand "${subName}" — pick one from the list.` });
-    await ctx.reply({ embeds: [embed] });
-    return 'overview';
+  // S106: Red's `invoke_without_command`. A group that used to be a flat command
+  // keeps doing its job when typed bare — `!trivia` still starts a round, and
+  // `!donuts` still shows a balance — instead of answering with a menu nobody
+  // asked for. Without this, folding a hyphenated pair into a group would
+  // silently change the parent command everyone already types.
+  if (!sub && subName === null && group.invokeWithoutSubcommand && group.fallback) {
+    sub = group.subcommands.find((s) => s.name === group.fallback);
+    subTokens = [];
   }
 
-  const gate = sub.permission ?? group.permission;
+  if (!sub) return renderOverview(group, ctx, subName);
+
+  const gate = gateFor(group, sub);
   if (!hasPermission(ctx, gate)) {
     await ctx.reply(refusalFor(gate));
     return 'refused';

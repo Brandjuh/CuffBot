@@ -1,6 +1,6 @@
-// The channel-directory group (S70 = M17.2): the old !channel-list actions and
-// !channel-list-config options merged into ONE Red-style group (the retired
-// config name stays as an alias). Bare `!channel-list` shows the settings.
+// The channel-directory group (S70 = M17.2): the old !channellist actions and
+// !channellist options merged into ONE Red-style group (the retired
+// config name stays as an alias). Bare `!channellist` shows the settings.
 import { PermissionFlagsBits } from 'discord.js';
 import {
   DEFAULT_HEADER,
@@ -22,9 +22,9 @@ const RESULTS = {
   edited: '📋 Channel list updated — the existing messages were edited in place.',
   posted: '📋 Channel list posted.',
   reposted: '📋 Channel list reposted.',
-  unconfigured: '⚠️ No list channel set yet — run `!channel-list post #channel` once.',
+  unconfigured: '⚠️ No list channel set yet — run `!channellist post #channel` once.',
   'missing-channel':
-    '⚠️ The configured channel no longer exists — pick a new one with `!channel-list post #channel`.',
+    '⚠️ The configured channel no longer exists — pick a new one with `!channellist post #channel`.',
   forbidden: '⚠️ I need permission to view and send messages in the configured channel.',
 };
 
@@ -37,8 +37,8 @@ async function patchAndRefresh(ctx, patch, note) {
 
 export default {
   group: {
-    name: 'channel-list',
-    aliases: ['channel-list-config'],
+    name: 'channellist',
+    aliases: ['channel-list', 'channel-list-config', 'channels'],
     description: 'The channel directory: post/update/remove it and tune its look (admin).',
     emoji: '🗂️',
     permission: PermissionFlagsBits.ManageGuild,

@@ -36,7 +36,7 @@ const MODULES = [
     name: 'core',
     description: 'core',
     commands: [
-      { command: { name: 'radio-check', description: 'ping', args: [] } },
+      { command: { name: 'radiocheck', description: 'ping', args: [] } },
       { command: { name: 'update', description: 'self-update', args: [] } },
     ],
   },

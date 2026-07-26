@@ -7,12 +7,17 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import patrol from '../src/modules/patrol/commands/patrol.js';
-import patrolRule from '../src/modules/patrol/commands/patrol-rule.js';
-import patrolTerm from '../src/modules/patrol/commands/patrol-term.js';
-import patrolWizard from '../src/modules/patrol/commands/patrol-wizard.js';
+import patrolGroup from '../src/modules/patrol/commands/patrol.js';
+
+// S106: `!patrol-rule` / `-term` / `-wizard` are subcommands now.
+const patrol = { group: patrolGroup.group, sub: 'status' };
+const patrolRule = { group: patrolGroup.group, sub: 'rule' };
+const patrolTerm = { group: patrolGroup.group, sub: 'term' };
+const patrolWizard = { group: patrolGroup.group, sub: 'wizard' };
+
 import { getPatrolConfig, getWizardDraft } from '../src/modules/patrol/service.js';
 import { dispatchCommand } from '../src/core/prefix/command.js';
+import { dispatchGroup } from '../src/core/prefix/group.js';
 import { fakeMessage } from './fixtures/fake-message.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-patrol-cmd-'));
@@ -25,10 +30,20 @@ after(() => {
 const GUILD = '411157175948541954';
 const ADMIN = '111000000000000111';
 
+/**
+ * S106: the hyphenated commands became subcommands, so a test that used to
+ * dispatch a flat command now dispatches its GROUP with the subcommand name in
+ * front. `sub(group, 'name')` names that pair; the local `run` helper below
+ * takes either shape, so the dispatch stays real (S93's rule).
+ */
+const sub = (groupCmd, name) => ({ group: groupCmd.group, sub: name });
+
 async function run(command, tokens, { perms = true, contentIntent = true } = {}) {
   const message = fakeMessage({ perms, guildId: GUILD, authorId: ADMIN });
   message.client.messageContentAvailable = contentIntent;
-  const outcome = await dispatchCommand(command.command, message, tokens, '!');
+  const outcome = command.sub
+    ? await dispatchGroup(command.group, message, [command.sub, ...tokens], '!')
+    : await dispatchCommand(command.command, message, tokens, '!');
   return { outcome, sent: message.sent };
 }
 

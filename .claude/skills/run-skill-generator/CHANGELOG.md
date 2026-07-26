@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.33 — 2026-07-26 (Session 106)
+
+- `references/architecture.md` (Verification habits): **a mechanical refactor must be audited field-by-field against the pre-change source, not spot-checked.** A regex that fails to match produces *silence*, and silence is invisible in a diff.
+- Evidence: S106 folded 19 hyphenated commands into Red-style groups with a Python helper. Its `args:` regex did not allow a trailing comment, so four modules lost their arg specs entirely — `args: []` looks exactly like a command that legitimately takes none, so nothing in the diff or the code review would show it. `!dispatch locker set` stored nothing; `!donuts @member` ignored the mention. The fix that found it was reading every folded subcommand's original back out of `git show HEAD:<file>` and comparing field by field; the repair regex then over-matched and gave three subs their neighbour's args, which the same audit caught on the second pass. Both rounds were found by comparing against the source of truth, never by reading my own output.
+- Also recorded, as a second confirmation of the S93 rule (*check what the instruction would literally do to the user*): the conversion needed Red's `invoke_without_command` before it was safe, or bare `!trivia` would have stopped starting a round.
+
 ## 0.5.32 — 2026-07-26 (Session 105)
 
 - `references/architecture.md` (Module pattern): **slice a staged port by feature depth, not by layer.** "Pure logic this session, command surface next session" is not an available slice for a NEW module — the loader requires an `index.js` manifest for every directory under `src/modules/`, so the pure half has nowhere legal to live.
