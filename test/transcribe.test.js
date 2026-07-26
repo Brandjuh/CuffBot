@@ -441,9 +441,9 @@ test('the group offers exactly the documented subcommands', () => {
   assert.deepEqual(
     SUBS.map((s) => s.name),
     // S102 the live-voice trio, S110 the auto-join pair, S111 the pairings,
-    // S117 the two "don't transcribe this" knobs.
+    // S117 the two "don't transcribe this" knobs, S118 unpair.
     // prettier-ignore
-    ['now', 'join', 'leave', 'autojoin', 'voicechannel', 'pair', 'pairs', 'ignore', 'bots', 'timestamps', 'on', 'off', 'auto', 'english', 'channel', 'everywhere', 'limit'],
+    ['now', 'join', 'leave', 'autojoin', 'voicechannel', 'pair', 'pairs', 'unpair', 'ignore', 'bots', 'timestamps', 'on', 'off', 'auto', 'english', 'channel', 'everywhere', 'limit'],
   );
   assert.deepEqual(transcribeCommand.group.aliases, ['stt', 'statement']);
 });
@@ -547,4 +547,46 @@ test('the channel list toggles, and emptying it means everywhere again', async (
   await runGroup(message, `channel <#${CHAN}>`);
   await runGroup(message, 'everywhere');
   assert.deepEqual(getTranscribeConfig(guildId).channelIds, []);
+});
+
+// ── S118: removing a pairing ─────────────────────────────────────────────────
+//
+// These live here rather than in transcribe-voice.test.js because they drive
+// the real dispatcher and need the store; the pure `describePairings` rules
+// are covered there.
+test('unpair removes the override and reports the fallback, not just "removed"', async () => {
+  const guildId = freshGuildId();
+  const OWNER_VC = '411633952961593345';
+  const OWNER_TEXT = '411634025426321438';
+
+  // Override one of the committed defaults, then remove the override.
+  setTranscribeConfig(guildId, { voicePairs: { [OWNER_VC]: '999999999999999999' } });
+  const message = fakeMessage({ guildId, perms: true });
+  await dispatchGroup(transcribeCommand.group, message, ['unpair', `<#${OWNER_VC}>`], '!');
+
+  assert.deepEqual(getTranscribeConfig(guildId).voicePairs, {}, 'the override is gone');
+  const reply = JSON.stringify(message.sent[0]);
+  assert.match(reply, new RegExp(OWNER_TEXT), 'it names the default it falls back to');
+  assert.doesNotMatch(reply, /matching by name/, 'a channel WITH a default does not fall back to a name match');
+});
+
+test('unpair accepts a raw id, so a deleted channel can still be cleaned up', async () => {
+  const guildId = freshGuildId();
+  setTranscribeConfig(guildId, { voicePairs: { '777777777777777777': '888888888888888888' } });
+  const message = fakeMessage({ guildId, perms: true });
+  await dispatchGroup(transcribeCommand.group, message, ['unpair', '777777777777777777'], '!');
+  assert.deepEqual(getTranscribeConfig(guildId).voicePairs, {});
+});
+
+test('unpair refuses something that is not a channel id', async () => {
+  const message = fakeMessage({ guildId: freshGuildId(), perms: true });
+  await dispatchGroup(transcribeCommand.group, message, ['unpair', 'general'], '!');
+  assert.match(JSON.stringify(message.sent[0]), /#mention.*raw id|raw id/);
+});
+
+test('unpairing something with no override says so instead of pretending', async () => {
+  const guildId = freshGuildId();
+  const message = fakeMessage({ guildId, perms: true });
+  await dispatchGroup(transcribeCommand.group, message, ['unpair', '123456789012345678'], '!');
+  assert.match(JSON.stringify(message.sent[0]), /already matched by name|Nothing stored/);
 });
