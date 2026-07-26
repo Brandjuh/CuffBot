@@ -2502,3 +2502,33 @@ Four mutations run this session; all four caught after the fix.
 Tests **1303 → 1310**.
 
 **Handoff:** the Pi is on S127 code and healthy — ask the owner to confirm `!update status` shows *"Up to date"* and *"Restart route: clean exit → systemd restarts me. No sudo involved. ✅"*, which is the end-to-end proof the rebuild works. Then **M26.4b** (heist's `HeistConfigView`, `ItemPriceConfigView`, `EventView` — all admin, presentation only), after which M26 is finished.
+
+---
+
+## Session 129 — 2026-07-27
+
+**Goal:** the owner posted his `!update status` output. Read it properly, then fix what it revealed.
+
+**The rebuild is verified working on the Pi.** Three independent facts in one screenshot:
+
+- `Running: Merge pull request #127` — the S127 code is what is executing, so the one-off unstick landed.
+- `Last check: 4 minutes ago` — the service started 15:33:37 and `FIRST_CHECK_MS` is 2 minutes; ~15:35 is exact. **The in-process 15-minute loop actually runs**, which is the part that replaced a systemd timer nobody could observe.
+- `Restart route: clean exit → systemd restarts me. No sudo involved. ✅` — the single precondition holds on the real machine.
+
+**That closes an open item that had been in `STATE.md` since S7.**
+
+⚠️ **And the same screenshot showed a line I would have called a bug in anyone else's code.** Directly under `2 commits behind` sat `Last check: 4 minutes ago — Already on the latest version.` Both true: #128 merged *after* the check ran. But nothing on screen said so, and what it reads as is a checker contradicting itself — the precise impression S127 was built to remove. A reader who sees that stops trusting the whole panel, which is how the previous five sessions of confusion started.
+
+Fixed: when the last run said `up-to-date` and we are now behind, the line says which fact is stale and when the gap closes by itself.
+
+> `Last check: 4 minutes ago — it was up to date then; the commits above landed after it. Next check in 11 minutes.`
+
+**The marker is deliberately narrow.** It fires only for a stale `up-to-date`; a failed last run — red tests, dead fetch, refused merge — is never softened into a staleness note, because *behind because the tests went red* is a different fact from *behind because the commits are new*, and the red one must survive. That is the second mutation below, and it is the one that matters: the naive `superseded = behind > 0` would have hidden a rolled-back update behind a reassuring sentence.
+
+Two mutations, both caught: reverting to the contradictory line, and marking every last run stale.
+
+**Nothing about this was reported as broken.** It came from reading the owner's screenshot as evidence rather than as confirmation — the status was green on every count I had asked him to check, and the defect was in a line I had not thought to check.
+
+Tests **1310 → 1313**.
+
+**Handoff:** the update chain is done and verified; the `STATE.md` row is closed rather than merely updated. Next: **M26.4b** — heist's `HeistConfigView`, `ItemPriceConfigView` and `EventView`, all admin and presentation-only, after which **M26 is finished**. M24.3 stays gated on an owner decision, and `!minigames betvsbot` is the lever if the donut supply climbs.

@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 128 · 2026-07-27
+**Last updated:** Session 129 · 2026-07-27
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1310/1310 pass as of S128 |
+| Tests green | `npm test` | 1313/1313 pass as of S129 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | 37 names: `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'minigames', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 
 ⚠️ **Both rows above were wrong until S124** — they claimed `1095/1095 as of S120` and still listed `connect4`, a module **S116 deleted** when `minigames` replaced it. A verification block that has drifted verifies nothing: it either fails for the wrong reason or, worse, is skipped because "it always looks a bit off". **Update these two rows in the same commit as any change to the test count or the module list.**
@@ -101,7 +101,7 @@
 |---|---|---|
 | Is the rank ladder pinned? | `!xp` | **Ladder pinned:** starts with `yes`. Since S113 a `no` states which of four reasons it is — including a **stale pin** (the pinned role was deleted or re-created, so its id changed and the old pin silently stopped counting). Owner reports having run `!ranks setup` 4× as of 2026-07-26; if `!xp` says `yes`, this item is closed. |
 | Is an AI key configured? | `!transcribe` / `!ask` | **Service:** shows 🟢 Groq. **Owner confirmed the key is in place (2026-07-26)** — treat as done unless the bot itself says otherwise. |
-| Is the Pi's update chain healthy? | `!update status` in Discord, or `npm run doctor` on the Pi | **S127 rebuilt this.** `!update status` names the branch, how far behind, whether the fetch works, and which restart route is live. ⚠️ **One-off unstick required:** the Pi is on pre-S127 code, whose updater is the broken one, so it cannot fetch its own fix. Owner runs ONCE: `cd ~/CuffBot && git pull && bash scripts/setup-pi.sh`. After that it maintains itself. |
+| Is the Pi's update chain healthy? | `!update status` in Discord | ✅ **CLOSED S129 — verified live.** The owner's screenshot showed `Running: Merge pull request #127` (the rebuild is on the Pi), `Automatic checks: on, every 15 minutes` with a real timestamped run 2 minutes after boot, and `Restart route: clean exit → systemd restarts me. No sudo involved. ✅`. The one-off unstick is done. Nothing here needs re-asking. |
 
 ✅ **RESOLVED (S78): the Pi's red update gate (de52cd0 → …) was S69's top-level `await import` in test/youtube.test.js** — on the Pi's older node:test, tests registered after a top-level await run interleaved/twice (`processPendingSubtests`), so two youtube-group tests saw their own later writes and failed ONLY there (newer Node is unaffected — the container never reproduced it). Fixed by importing statically; rule recorded in architecture.md (skill 0.5.18). The S76/S77 evidence plumbing (journal tail + readable user-owned log + doctor surfacing) is what made the Pi log readable and pinned the cause. The boot-smoke 30s→120s raise (S76) was precautionary hardening, not the cause. ✅ Pi confirmed green again by the owner during the S78 window ("updated to b32ac8d… service is active"). **M16 IS COMPLETE** — every game the owner asked for in S65 is built (M16.1–M16.13), including both LARGE staged ports (heist S85–S88, city S89–S92).
 
@@ -466,6 +466,22 @@ scripts/setup-pi.sh: line 121: !update: command not found
 **The real gap was that no test looked at the shell scripts at all** — the two files carrying the entire deployment, unchecked while 1,303 tests covered the JavaScript. `test/shell-scripts.test.js` now guards: both scripts parse, **no unquoted heredoc contains a backtick**, `Restart=always` is present and `on-failure` is not, `setup-pi.sh` removes the pre-S127 units rather than installing them, `update.sh` emits a result on every exit path, and the `CUFFBOT_NO_RESTART` guard sits *before* the sudo block it exists to skip.
 
 ⚠️ **One of those seven guards was itself vacuous** and the mutation run caught it: it searched for the bare string `CUFFBOT_NO_RESTART`, which also appears in the file's header comment, so it measured the comment's position rather than the guard's and passed against a build with the guard moved after the sudo block. **Fourth time in five sessions** that a new guard passed against the mutation it existed to catch.
+
+## S129 — the rebuild is verified live, and one honest-looking line was not
+
+**The update chain is confirmed working on the Pi**, from the owner's own `!update status`:
+
+- `Running: Merge pull request #127` — the S127 rebuild is what is executing.
+- `Automatic checks: on, every 15 minutes`, `Last check: 4 minutes ago` — the service started 15:33:37 and `FIRST_CHECK_MS` is 2 minutes, so ~15:35 is exactly right. **The in-process loop runs.**
+- `Restart route: clean exit → systemd restarts me. No sudo involved. ✅` — the precondition holds.
+
+**This closes the open item that has been in this file since S7.**
+
+⚠️ **But the same screenshot showed "2 commits behind" with "Last check: 4 minutes ago — Already on the latest version" directly beneath it.** Both were true — at different moments; #128 merged after the check ran. A reader cannot see that, and what it looks like is a checker calling itself a liar. That is exactly the impression the whole rebuild exists to remove, so the line now says which fact is stale and when the next check closes the gap:
+
+> `Last check: 4 minutes ago — it was up to date then; the commits above landed after it. Next check in 11 minutes.`
+
+**The marker fires only for a stale `up-to-date`.** A failed last run (red tests, dead fetch) is never softened into a staleness note — being behind because the tests went red is a different fact from being behind because the commits are new, and the red one has to survive. Both halves mutation-tested.
 
 ## Environment facts (S61)
 
