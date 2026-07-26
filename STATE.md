@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 124 · 2026-07-26
+**Last updated:** Session 125 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1171/1171 pass as of S124 |
+| Tests green | `npm test` | 1243/1243 pass as of S125 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | 37 names: `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'minigames', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 
 ⚠️ **Both rows above were wrong until S124** — they claimed `1095/1095 as of S120` and still listed `connect4`, a module **S116 deleted** when `minigames` replaced it. A verification block that has drifted verifies nothing: it either fails for the wrong reason or, worse, is skipped because "it always looks a bit off". **Update these two rows in the same commit as any change to the test count or the module list.**
@@ -271,7 +271,7 @@ The first fix from the S115 audit, and the first module built under the rule tha
 
 Tests **1033 → 1049**: +46 for the new module, −30 with the old one. A test count that goes *down* on a replacement is the evidence the old thing is really gone (S96's precedent).
 
-**Still open in M26:** 26.2b (Tic-Tac-Toe, donut staking, `!gameleaderboard` sorting, admin config) and 26.4 (heist's seven remaining panels). **26.3 is COMPLETE** — 26.3a in S122 (the panel + Bail Out), 26.3b in S124 (narrated events with a bail check between each, the mark picker, market/board as buttons).
+**Still open in M26:** only **26.4** (heist's seven remaining panels). **26.2 is COMPLETE** — 26.2a in S116, 26.2b in S125. **26.3 is COMPLETE** — 26.3a in S122 (the panel + Bail Out), 26.3b in S124 (narrated events with a bail check between each, the mark picker, market/board as buttons).
 
 ## S117 — seven games did not start; unattended updates said nothing
 
@@ -390,6 +390,22 @@ S122 gave City a panel and the Bail Out button. It was still only **one** decisi
 **Two real defects found by the new tests:** `boardPayload` crashed on an unknown category (`cityLeaderboard` returns `null`; only the label fell back, the raw key went through), and the S122 button test was a hard-coded `['refresh']` that could only ever be "fixed" by editing the literal. It now asserts the real rule — **every button the panel offers is an action the pump handles** — verified by adding a dead button and watching it fail.
 
 **Corrections to this file, found in Step 2:** the Verification block claimed `1095/1095 as of S120` and still listed `connect4`, which **S116 deleted**. Both fixed above. `docs/modules/city.md` claimed `!crime` had an `!city` alias (removed in S122) and that the module had no event listeners (false since S122's pump).
+
+## S125 — the arcade grows a second game and a wallet (M26.2b)
+
+The last of the owner's M26.2 scope: *"Tic-Tac-Toe erbij, Inzetten met donuts, Statistieken + leaderboard."*
+
+**Tic-Tac-Toe** runs on M26.2a's frame — the same `Board`, the same `findLines`, and `tryCompleteLine`, which had sat in `board.js` since S116 with a comment saying it was for this opponent and no caller until now. Its board **is** the buttons (nine, three per row), and it **stays on screen when the game ends** with Rematch beneath it: Connect 4 can drop its buttons because its board is drawn in the embed text, but dropping Tic-Tac-Toe's would delete the finished game from view. My first version did exactly that, and the test for the winning-line highlight caught it — the highlight was computed and could never be seen.
+
+**Two deliberate divergences from the source**, both in the file: it gives both marks the same red (unreadable with two players on screen), and it hard-codes CROSS to move first — a real edge in a 3×3 game, and these games are staked, so the opener is randomised the way Connect 4's already was.
+
+**Staking.** 100 in from each human **on accept** (never on invite — an unanswered invitation must cost nothing), a 400–600 prize drawn at creation so both players see it before committing, refunded on a tie or a cancel before anyone moves, never charged to a bot.
+
+⚠️ **`betvsbot` is a knob the cog does not have, added on purpose.** The cog charges and pays in full against its own bot; against a heuristic with no lookahead that is **+300 to +500 per game**, a faucet nothing else in the economy comes close to. The cog's behaviour is the default because the owner asked for the cog — the knob means closing it is one command rather than a release. **Owner: if the donut supply starts climbing, `!minigames betvsbot false` is the lever.**
+
+**One board for both games.** `!connect4 stats`/`board` are **gone**, replaced by `!minigames stats` and `!gameleaderboard <wins|earnings|games|winrate>`. Both games always wrote to one set of counters, so a Connect-4-branded board showing Tic-Tac-Toe results would have been a lie — and the owner's `!city`/`!crime` complaint was exactly two names for one thing. **The storage key is still `connect4Stats`**: renaming it would be cosmetic and would cost the precinct its history.
+
+**Corrections found in Step 2:** `MODULE_BADGES` in `core/help.js` still named the **`connect4` module S116 deleted**, so the roster has shown a bullet instead of a badge for nine sessions. `COMMAND_CATEGORIES` has been guarded against the loader since S43 and caught the missing `!tictactoe` immediately; `MODULE_BADGES` had no such guard. It has one now.
 
 ## Environment facts (S61)
 

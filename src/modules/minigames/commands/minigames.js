@@ -1,215 +1,178 @@
-// The `!connect4` group for the new minigames module (M26.2a).
+// The shared minigames surface (M26.2b): stats, configuration, and the cog's
+// sortable leaderboard.
 //
-// The command exists only to OPEN the panel. Everything after that happens on
-// the panel itself — which is the correction this whole milestone is: the
-// source cog is panel-driven, and S71/S100 shipped a command per action.
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
-import { NONE, RED, TIE, chooseColumn, newGame, playColumn } from '../lib/connect4.js';
-import { connect4Panel } from '../lib/panel.js';
+// S116 hung `stats` and `board` off the `!connect4` group, because Connect 4
+// was the only game. Tic-Tac-Toe writes to the same counters — the cog pools
+// both games too — so leaving them there would have meant `!connect4 board`
+// showing Tic-Tac-Toe results. They live here instead, and the duplicates are
+// gone rather than aliased: the owner's own complaint about `!city`/`!crime`
+// was exactly two names for one thing.
+import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import {
-  channelAvailability,
-  createSession,
-  getGame,
+  LEADERBOARD_SORTS,
+  gamesOf,
+  getMinigamesConfig,
   getStats,
   leaderboard,
   playerStats,
-  recordResult,
-  seatOf,
-  touch,
+  setMinigamesConfig,
+  winRateOf,
 } from '../service.js';
 
-const STYLES = {
-  success: ButtonStyle.Success,
-  secondary: ButtonStyle.Secondary,
-  primary: ButtonStyle.Primary,
-  danger: ButtonStyle.Danger,
-};
+const ARCADE = 0x9b59b6;
+const money = (n) => Number(n).toLocaleString('en-US');
+const SORTS = Object.keys(LEADERBOARD_SORTS);
 
-/** Turn the pure panel description into a discord.js message payload. */
-export function payloadFor(game) {
-  const panel = connect4Panel(game);
-  const buttons = panel.buttons.map((b) => {
-    const button = new ButtonBuilder().setCustomId(`mg:${game.id}:${b.id}`).setStyle(STYLES[b.style]);
-    if (b.emoji) button.setEmoji(b.emoji);
-    if (b.label) button.setLabel(b.label);
-    return button.setDisabled(Boolean(b.disabled));
-  });
-  // Discord allows five buttons per row; seven columns therefore need two.
-  const rows = [];
-  for (let i = 0; i < buttons.length; i += 5) {
-    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
-  }
-  return {
-    content: panel.content ?? undefined,
-    embeds: [new EmbedBuilder().setTitle(panel.embed.title).setDescription(panel.embed.description).setColor(panel.embed.color)],
-    components: rows,
-    allowedMentions: { parse: ['users'] },
-  };
+/** The stats card — shared by `!minigames stats` and nothing else, yet. */
+function statsEmbed(guildId, who, isOther) {
+  const p = playerStats(getStats(guildId), who.id);
+  const total = gamesOf(p);
+  return new EmbedBuilder()
+    .setColor(ARCADE)
+    .setTitle(`🎮 Minigames — ${isOther ? (who.displayName ?? who.username) : 'your record'}`)
+    .setDescription(
+      total === 0
+        ? 'No games yet. `!connect4` or `!tictactoe` starts one.'
+        : [
+            `**Won:** ${p.wins} · **Lost:** ${p.losses} · **Tied:** ${p.ties}`,
+            `**Win rate:** ${winRateOf(p).toFixed(1)}% over ${total} game${total === 1 ? '' : 's'}`,
+            `**Earnings:** ${p.earnings >= 0 ? '+' : '−'}${money(Math.abs(p.earnings))} 🍩`,
+          ].join('\n'),
+    )
+    .setFooter({ text: 'Connect 4 and Tic-Tac-Toe share one record. Games against the bot are not counted.' });
 }
 
-/** The bot moves if it is the bot's turn. Exported so the pump can reuse it. */
-export function botMoveIfDue(game, random = Math.random) {
-  while (!game.finished && game.state.winner === NONE && game.players[game.state.current]?.bot) {
-    game.state = playColumn(game.state, chooseColumn(game.state.board, game.state.current, random));
-  }
-  return settleIfOver(game);
-}
-
-/**
- * Mark a finished game finished, and write the result exactly once.
- *
- * The `finished` flag is what makes it once-only: every path that can end a
- * game (a human move, a bot move, the final move of a rematch) funnels through
- * here, and a second call is a no-op. Recording twice would double a player's
- * win on a single game — the same claim-before-act shape as S22.
- */
-export function settleIfOver(game) {
-  if (game.finished || game.state.winner === NONE) return game;
-  game.finished = true;
-  const [red, blue] = game.players;
-  // Games against the bot do not touch the scoreboard: a human record is only
-  // meaningful against other humans, and the cog's own stats work the same way.
-  if (!game.againstBot) {
-    if (game.state.winner === TIE) recordResult(game.guildId, { tie: [red.id, blue.id] });
-    else {
-      const winner = game.players[game.state.winner];
-      const loser = game.players[game.state.winner === 0 ? 1 : 0];
-      recordResult(game.guildId, { winnerId: winner.id, loserId: loser.id });
-    }
-  }
-  return game;
-}
-
-export default {
+export const minigamesGroup = {
   group: {
-    name: 'connect4',
-    aliases: ['c4'],
-    description: 'Connect 4 on a panel — challenge an officer, or take on the bot.',
-    emoji: '🔴',
+    name: 'minigames',
+    aliases: ['mgset'],
+    description: 'The arcade desk: your record, and the buy-in the games run on.',
+    emoji: '🎮',
     invokeWithoutSubcommand: true,
-    fallback: 'play',
+    fallback: 'stats',
+    status(ctx) {
+      const config = getMinigamesConfig(ctx.guild.id);
+      return [
+        `Two games, both panel-driven: \`${ctx.prefix}connect4\` and \`${ctx.prefix}tictactoe\`. Name an officer to challenge them, or leave it blank to play the bot.`,
+        '',
+        `**Buy-in:** ${config.betAmount === 0 ? 'free' : `${money(config.betAmount)} 🍩 each`}`,
+        `**Winner takes:** ${config.betAmount === 0 ? '—' : `${money(config.winMin)}–${money(config.winMax)} 🍩`}`,
+        `**Staked against the bot:** ${config.betVsBot === false ? 'no' : 'yes'}`,
+        '',
+        `\`${ctx.prefix}gameleaderboard <${SORTS.join('|')}>\` ranks the precinct · \`${ctx.prefix}minigames stats\` is your own record.`,
+      ];
+    },
     subcommands: [
       {
-        name: 'play',
-        description: 'Open a Connect 4 panel. Name an officer, or leave it blank to face the bot.',
-        args: [{ name: 'opponent', type: 'user' }],
-        async run(ctx, { opponent = null }) {
-          const availability = channelAvailability(ctx.channel.id);
-          if (!availability.ok) {
-            await ctx.reply(
-              `🔴 A game is already running in this channel. It can be replaced after **${availability.minutesLeft} more minute${availability.minutesLeft === 1 ? '' : 's'}** of inactivity.`,
-            );
-            return;
-          }
-
-          if (opponent && opponent.id === ctx.user.id) {
-            await ctx.reply('🔴 You cannot challenge yourself. Leave the name off to play the bot.');
-            return;
-          }
-          if (opponent?.bot && opponent.id !== ctx.client.user.id) {
-            await ctx.reply('🔴 That is another bot. Leave the name off to play me.');
-            return;
-          }
-
-          const againstBot = !opponent || opponent.id === ctx.client.user.id;
-          const me = { id: ctx.user.id, name: ctx.member?.displayName ?? ctx.user.username, bot: false };
-          const them = againstBot
-            ? { id: ctx.client.user.id, name: ctx.client.user.username, bot: true }
-            : { id: opponent.id, name: opponent.displayName ?? opponent.username, bot: false };
-
-          // The challenger is always RED (seat 0), which is also how the cog
-          // seats a human against the bot.
-          const game = createSession({
-            channelId: ctx.channel.id,
-            guildId: ctx.guild.id,
-            players: [me, them],
-            againstBot,
-            state: newGame(),
-          });
-
-          // The starting player is random, so the bot may have to open.
-          if (againstBot) botMoveIfDue(game);
-
-          const message = await ctx.reply(payloadFor(game));
-          game.messageId = message?.id ?? null;
-        },
-      },
-      {
         name: 'stats',
-        description: 'Your Connect 4 record, or someone else’s.',
+        aliases: ['record', 'me'],
+        description: 'Your minigames record, or someone else’s.',
         args: [{ name: 'member', type: 'user' }],
         async run(ctx, { member = null }) {
-          const who = member ?? ctx.user;
-          const all = getStats(ctx.guild.id);
-          const p = playerStats(all, who.id);
-          const total = p.wins + p.losses + p.ties;
           await ctx.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0xdd2e44)
-                .setTitle(`🔴 Connect 4 — ${member ? (who.displayName ?? who.username) : 'your record'}`)
-                .setDescription(
-                  total === 0
-                    ? `No games yet. \`${ctx.prefix}connect4\` starts one.`
-                    : [
-                        `**Won:** ${p.wins} · **Lost:** ${p.losses} · **Tied:** ${p.ties}`,
-                        `**Win rate:** ${Math.round((p.wins / total) * 100)}% over ${total} game${total === 1 ? '' : 's'}`,
-                      ].join('\n'),
-                ),
-            ],
+            embeds: [statsEmbed(ctx.guild.id, member ?? ctx.user, Boolean(member))],
             allowedMentions: { parse: [] },
           });
         },
       },
       {
-        name: 'board',
-        aliases: ['leaderboard', 'top'],
-        description: 'The precinct’s Connect 4 leaderboard.',
-        args: [],
-        async run(ctx) {
-          const rows = leaderboard(ctx.guild.id);
-          await ctx.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(0xdd2e44)
-                .setTitle('🔴 Connect 4 — precinct leaderboard')
-                .setDescription(
-                  rows.length === 0
-                    ? 'Nobody has finished a game yet.'
-                    : rows
-                        .map((r, i) => `**${i + 1}.** <@${r.id}> — ${r.wins}W / ${r.losses}L / ${r.ties}T`)
-                        .join('\n'),
-                ),
-            ],
-            allowedMentions: { parse: [] },
-          });
+        name: 'bet',
+        description: 'Set the buy-in each player pays. 0 turns staking off.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'amount', type: 'integer', required: true }],
+        async run(ctx, { amount }) {
+          if (amount < 0) {
+            await ctx.reply('🎮 The buy-in cannot be negative.');
+            return;
+          }
+          setMinigamesConfig(ctx.guild.id, { betAmount: amount });
+          await ctx.reply(
+            amount === 0
+              ? '🎮 Staking is off — games are free, and nothing is paid out.'
+              : `🎮 Buy-in set to **${money(amount)} 🍩** per player.`,
+          );
         },
       },
       {
-        name: 'end',
-        description: 'End the game running in this channel.',
-        args: [],
-        async run(ctx) {
-          const game = getGame(ctx.channel.id);
-          if (!game || game.finished) {
-            await ctx.reply('🔴 No game is running here.');
+        name: 'winmin',
+        description: 'The bottom of the prize range.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'amount', type: 'integer', required: true }],
+        async run(ctx, { amount }) {
+          const config = getMinigamesConfig(ctx.guild.id);
+          if (amount < 0) {
+            await ctx.reply('🎮 The prize cannot be negative.');
             return;
           }
-          // Anyone may end a STALE game — the cog's rule, and the reason it
-          // needs no timers. A live game may only be ended by its players.
-          const stale = channelAvailability(ctx.channel.id).reason === 'stale';
-          if (!stale && seatOf(game, ctx.user.id) < 0) {
-            await ctx.reply('🔴 Only the players can end a game that is still being played.');
+          if (amount > config.winMax) {
+            await ctx.reply(`🎮 The minimum cannot be above the maximum (**${money(config.winMax)} 🍩**).`);
             return;
           }
-          game.cancelled = true;
-          game.finished = true;
-          touch(game);
-          await ctx.reply('🔴 Game ended.');
+          setMinigamesConfig(ctx.guild.id, { winMin: amount });
+          await ctx.reply(`🎮 Prize range is now **${money(amount)}–${money(config.winMax)} 🍩**.`);
+        },
+      },
+      {
+        name: 'winmax',
+        description: 'The top of the prize range.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'amount', type: 'integer', required: true }],
+        async run(ctx, { amount }) {
+          const config = getMinigamesConfig(ctx.guild.id);
+          if (amount < config.winMin) {
+            await ctx.reply(`🎮 The maximum cannot be below the minimum (**${money(config.winMin)} 🍩**).`);
+            return;
+          }
+          setMinigamesConfig(ctx.guild.id, { winMax: amount });
+          await ctx.reply(`🎮 Prize range is now **${money(config.winMin)}–${money(amount)} 🍩**.`);
+        },
+      },
+      {
+        name: 'betvsbot',
+        description: 'Whether games against the bot are played for donuts.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'on', type: 'boolean', required: true }],
+        async run(ctx, { on }) {
+          const config = setMinigamesConfig(ctx.guild.id, { betVsBot: on });
+          await ctx.reply(
+            on
+              ? `🎮 Games against me are staked — the cog's own behaviour. Beating me pays **${money(config.winMin)}–${money(config.winMax)} 🍩** for a **${money(config.betAmount)} 🍩** buy-in.`
+              : '🎮 Games against me are free and pay nothing. Officer-versus-officer games still stake.',
+          );
         },
       },
     ],
   },
 };
 
-export { RED };
+export const gameLeaderboardCommand = {
+  command: {
+    name: 'gameleaderboard',
+    aliases: ['glb', 'gtop'],
+    description: 'The precinct’s minigame leaderboard, sorted your way.',
+    emoji: '🏆',
+    args: [{ name: 'sort', type: 'string', choices: SORTS }],
+    async run(ctx, { sort = 'wins' }) {
+      const key = SORTS.includes(sort) ? sort : 'wins';
+      const spec = LEADERBOARD_SORTS[key];
+      const rows = leaderboard(ctx.guild.id, key);
+      const medals = ['🥇', '🥈', '🥉'];
+      await ctx.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(ARCADE)
+            .setTitle(`🏆 Minigames — top ${spec.label.toLowerCase()}`)
+            .setDescription(
+              rows.length === 0
+                ? 'Nobody has finished a game yet.'
+                : rows.map((r, i) => `${medals[i] ?? `\`#${i + 1}\``} <@${r.id}> — **${spec.render(r)}**`).join('\n'),
+            )
+            .setFooter({ text: `${ctx.prefix}gameleaderboard <${SORTS.join(' | ')}>` }),
+        ],
+        allowedMentions: { parse: [] },
+      });
+    },
+  },
+};
+
+export default minigamesGroup;

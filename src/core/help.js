@@ -7,7 +7,7 @@ import { usageFor } from './prefix/parse.js';
 
 export { usageFor };
 
-const MODULE_BADGES = {
+export const MODULE_BADGES = {
   core: '📻',
   enforcement: '🚨',
   records: '📋',
@@ -29,7 +29,10 @@ const MODULE_BADGES = {
   youtube: '📺',
   selfroles: '🎭',
   hunting: '🦹',
-  connect4: '🔴',
+  // Keyed by MODULE, not by command. S116 replaced the `connect4` module with
+  // `minigames` and this entry kept the old name, so the roster has been
+  // showing a bullet instead of a badge ever since (fixed S125).
+  minigames: '🎮',
   hangman: '🪢',
   russianroulette: '🔫',
   splitorsteal: '🤝',
@@ -131,6 +134,9 @@ export const COMMAND_CATEGORIES = {
   steal: 'games',
   pot: 'games',
   connect4: 'games',
+  tictactoe: 'games',
+  minigames: 'games',
+  gameleaderboard: 'games',
   mafia: 'games',
   hangman: 'games',
   russianroulette: 'games',

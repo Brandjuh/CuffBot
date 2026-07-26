@@ -6,6 +6,7 @@ import {
   EMBED_MAX_FIELDS,
   EMBED_PAGE_BUDGET,
   HELP_CATEGORIES,
+  MODULE_BADGES,
   RUNTIME_ADMIN_COMMANDS,
   buildCategorizedHelp,
   buildHelp,
@@ -111,6 +112,20 @@ test('every REAL command is categorized and every category key is valid', async 
       assert.ok(key, `command !${name} has no category — add it to COMMAND_CATEGORIES in core/help.js`);
       assert.ok(validKeys.has(key), `command !${name} maps to unknown category "${key}"`);
     }
+  }
+});
+
+test('every module badge names a module that actually exists (S125)', async () => {
+  // The category map above has been guarded since S43 and caught S125's
+  // missing `!tictactoe` immediately. MODULE_BADGES had no such guard, so when
+  // S116 replaced the `connect4` module with `minigames` the stale key sat
+  // there for nine sessions and the roster quietly showed a bullet instead of
+  // a badge. A map keyed by something the loader knows should be checked
+  // against the loader.
+  const { discoverModules } = await import('../src/core/loader.js');
+  const real = new Set((await discoverModules()).map((m) => m.name));
+  for (const name of Object.keys(MODULE_BADGES)) {
+    assert.ok(real.has(name), `MODULE_BADGES has "${name}", which is not a loaded module`);
   }
 });
 
