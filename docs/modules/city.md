@@ -20,6 +20,24 @@ The cog is ~7,000 lines, so it lands in slices, using the shape that worked for 
 
 All four slices are in: four crimes plus 46 one-off scores, random events, streaks, fines, sentences, bail, a one-shot jailbreak, a black market, six leaderboards and an admin surface.
 
+## The panel (M26.3a)
+
+Owner: *"Dit is niet hoe het spel werkt in de link die ik je stuurde, dat werkt met panelen niet enkel met commands."* He was right — S115's audit measured the source at **48** `discord.ui` references against our **0**, the largest divergence of any game in the repo.
+
+**`!crime` now opens a panel**: your wallet and streak, a select menu of the jobs with reward, risk and cooldown on each row, and the buttons that fit your situation. Jail replaces the picker entirely with **Pay Bail** and **Jail Break**, because those are the only two choices that exist there.
+
+A job on cooldown stays **visible but unselectable**, showing `⏳ wait 4m 00s`. Hiding it would make the list change shape between glances, and the wait is more useful than an absence.
+
+### Bail Out — the mechanic that did not exist
+
+This is why the divergence was a **gameplay** problem and not a navigation one. The source puts a `Bail Out!` button on screen *while the crime is resolving*: pick a job, watch it start, and you have a moment to walk away for a flat **100 🍩**. The cooldown still burns — that is the price, and without it Bail Out would be a free re-roll.
+
+A command-only surface has nowhere to put that decision, so for four sessions it simply was not in the game.
+
+> **Recorded deviation.** The cog re-checks the bail flag *between each narrated event*, giving a longer window. Our resolver settles a crime in one call, so the window is the 2-second beat the cog also has. Same decision, same price, fewer moments to take it. Splitting the resolver into narrated steps is 26.3b.
+
+**Still subcommands, not buttons yet:** the black market, the leaderboard, and picking a target for `pickpocket`/`mug`. The panel deliberately shows **no button for those** — a dead button is worse than a missing one.
+
 ## Commands
 
 | Command | What it does | Key options | Who may use it | Example |
@@ -126,6 +144,7 @@ test/city-service.test.js  record, gates, payouts, victim clamp, card, group sha
 
 | Session | Change |
 |---|---|
+| S122 (M26.3a) | **The panel.** `!crime` opens an interactive board — a select menu of jobs with reward/risk/cooldown per row, jail's two buttons when you are inside — instead of a wall of subcommands. Adds the source's **Bail Out** mechanic, which had no home on a command-only surface: pay 100 🍩 mid-attempt to walk away, cooldown still burns. **`city` is no longer an alias of `crime`** — the owner noticed they were the same command; in the source they are two. Market, leaderboard and target-picking stay subcommands until 26.3b, and the panel shows no buttons for them. |
 | S92 | **Slice D — M16.13 complete**: the black market (the permanent −20% sentence perk and the get-out-of-jail card, with an inventory on the member record), six leaderboards, and `!crime admin` (Manage Server) for bail and steal limits. The cog's third market item is deliberately not sold — see the deviation above. |
 | S91 | **Slice C**: the ways out of a cell and the 46 one-off scores. `!crime bail` (the cog's exact `int(multiplier × minutes left)` — slice A's formula was rounding the minutes up first, corrected), `!crime jailbreak` (one attempt per sentence, claimed before the roll; a drawn script's events all apply; a failure adds 30% of what was left), and `!crime random` (46 scenarios overriding the `random` crime's numbers). Both scenario tables dumped from the Python with their module constants resolved. |
 | S90 | **Slice B**: storage (`cityMembers`, `citySettings`), the `!crime` group (pickpocket/mug/store/bank/stats) with the cog's gate order, real money through the economy seam, the victim clamp, and a result card that prints the event lines and the reward arithmetic. Jail is a timer with no exit yet — bail lands in slice C. |

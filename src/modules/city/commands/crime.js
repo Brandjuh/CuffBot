@@ -2,7 +2,16 @@
 // surface over slice A's resolver. The cog drove this with buttons and a
 // confirm view; CuffBot is text-only (S68), so each crime is a subcommand and
 // the attempt resolves immediately.
-import { EmbedBuilder } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  MessageFlags,
+  StringSelectMenuBuilder,
+} from 'discord.js';
+import { attemptPanel, crimePanel, shortWait } from '../lib/panel.js';
+import { forgetAttempt, trackAttempt } from '../attempts.js';
 import { CRIMES } from '../lib/tables.js';
 import { streakBonus } from '../lib/resolve.js';
 import {
@@ -147,9 +156,16 @@ async function attempt(ctx, crimeType, targetUser = null) {
 export default {
   group: {
     name: 'crime',
-    aliases: ['city'],
+    // S122: `city` was an alias, which made `!city` and `!crime` literally the
+    // same command — the owner noticed ("de spellen Crime/city zijn hetzelfde").
+    // In the source they are TWO commands: `[p]city` is the hub and `[p]crime`
+    // the crime subsystem. Until the hub exists, one name is honest and two
+    // names for one thing is not.
+    aliases: [],
     description: 'The city underworld: pick pockets, mug, rob stores, hit banks — and hope the sirens stay quiet.',
     emoji: '🌃',
+    invokeWithoutSubcommand: true,
+    fallback: 'panel',
     status(ctx) {
       const criminal = getCriminal(ctx.guild.id, ctx.user.id);
       const jail = jailState(criminal);
@@ -176,6 +192,15 @@ export default {
       ];
     },
     subcommands: [
+      {
+        name: 'panel',
+        aliases: ['open'], // `board` is already the leaderboard
+        description: 'Open the city panel — pick a job from the menu.',
+        args: [],
+        async run(ctx) {
+          await ctx.reply(await panelPayload(ctx.guild, ctx.user));
+        },
+      },
       {
         name: 'pickpocket',
         aliases: ['pick', 'pocket'],
@@ -498,3 +523,144 @@ export default {
     ],
   },
 };
+
+// ── the panel (M26.3a) ───────────────────────────────────────────────────────
+
+/** Render the caller's personal city panel as a discord.js payload. */
+export async function panelPayload(guild, user) {
+  const criminal = getCriminal(guild.id, user.id);
+  const balance = await cityBalance(guild.id, user.id);
+  const view = crimePanel({
+    criminal,
+    balance,
+    jail: jailState(criminal),
+    cooldownLeft: (type, at) => cooldownFor(criminal, type, at),
+  });
+
+  const rows = [];
+  if (view.options.length) {
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId(`cty:pick:${user.id}`)
+      .setPlaceholder('Pick a job…')
+      .addOptions(
+        view.options.map((o) => ({
+          label: o.label,
+          value: o.type,
+          emoji: o.emoji,
+          // The reason a job is unavailable belongs in the row, not in a
+          // refusal after the fact.
+          description: o.selectable
+            ? `${o.reward} 🍩 · ${o.risk} risk${o.requiresTarget ? ' · needs a mark' : ''}`
+            : `⏳ ${o.unavailable}`,
+        })),
+      );
+    // Discord has no per-option disabling, so an all-cooldown board disables
+    // the whole menu rather than offering picks that would only be refused.
+    menu.setDisabled(view.options.every((o) => !o.selectable));
+    rows.push(new ActionRowBuilder().addComponents(menu));
+  }
+  if (view.buttons.length) {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        view.buttons.map((b) =>
+          new ButtonBuilder()
+            .setCustomId(`cty:${b.id}:${user.id}`)
+            .setLabel(b.label)
+            .setEmoji(b.emoji)
+            .setStyle(PANEL_STYLES[b.style]),
+        ),
+      ),
+    );
+  }
+
+  return {
+    embeds: [new EmbedBuilder().setTitle(view.title).setDescription(view.lines.join('\n')).setColor(0x8e44ad)],
+    components: rows,
+    allowedMentions: { parse: [] },
+  };
+}
+
+const PANEL_STYLES = {
+  success: ButtonStyle.Success,
+  danger: ButtonStyle.Danger,
+  secondary: ButtonStyle.Secondary,
+  primary: ButtonStyle.Primary,
+};
+
+/**
+ * Run a crime picked from the panel, with the source's Bail Out window.
+ *
+ * The cog posts the attempt, sleeps 2 s, then checks whether the player bailed
+ * before resolving — so the button is a live decision, not decoration. That
+ * sleep is the mechanic and is reproduced; `wait` is injectable so a test does
+ * not spend two real seconds per case.
+ *
+ * ⚠️ **Recorded deviation:** the cog re-checks `bailed` between each narrated
+ * event, giving a longer window. Our resolver settles a crime in one call, so
+ * the window is the 2 s beat. Same decision, same price, fewer chances to take
+ * it — splitting the resolver is 26.3b.
+ */
+export async function attemptFromPanel(interaction, crimeType, { wait = defaultWait } = {}) {
+  const criminal = getCriminal(interaction.guild.id, interaction.user.id);
+  const gate = canAttempt(interaction.guild.id, criminal, crimeType, {
+    target: CRIMES[crimeType]?.requiresTarget ? null : undefined,
+  });
+  if (gate.reason === 'target-required') {
+    await interaction.reply({
+      content: `🌃 That one needs a mark — \`${'!'}crime ${crimeType} @member\` picks one.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+  if (!gate.ok) {
+    await interaction.reply({
+      content:
+        gate.reason === 'jailed'
+          ? '🚨 You are behind bars.'
+          : gate.reason === 'cooldown'
+            ? `⏱️ Not yet — ${shortWait(gate.remainingMs)} to go.`
+            : '🚫 You cannot run that one right now.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const view = attemptPanel(crimeType, interaction.user.id);
+  const sent = await interaction
+    .reply({
+      embeds: [new EmbedBuilder().setTitle(view.title).setDescription(view.lines.join('\n')).setColor(0xe67e22)],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`cty:bail-out:${crimeType}:${interaction.user.id}`)
+            .setLabel(view.buttons[0].label)
+            .setEmoji(view.buttons[0].emoji)
+            .setStyle(ButtonStyle.Danger),
+        ),
+      ],
+      withResponse: true,
+      fetchReply: true,
+    })
+    .catch(() => null);
+
+  const messageId = sent?.id ?? sent?.resource?.message?.id ?? null;
+  const live = messageId ? trackAttempt(messageId) : { bailed: false, settled: false };
+
+  await wait(BEAT_MS);
+  if (live.bailed) return; // the button already replaced the message
+
+  live.settled = true;
+  if (messageId) forgetAttempt(messageId);
+
+  const outcome = await commitCrime(interaction.guild.id, interaction.user.id, crimeType);
+  await interaction
+    .editReply({
+      embeds: [crimeEmbed(outcome, interaction.member?.displayName ?? interaction.user.username, {})],
+      components: [],
+    })
+    .catch(() => {});
+}
+
+/** The cog's `asyncio.sleep(2)` after posting the attempt. */
+export const BEAT_MS = 2_000;
+const defaultWait = (ms) => new Promise((resolve) => setTimeout(resolve, ms).unref?.());

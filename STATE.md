@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 121 · 2026-07-26
+**Last updated:** Session 122 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -338,6 +338,20 @@ It is **100 transcriptions per UTC day, per guild**: `spendBudget` adds exactly 
 ⚠️ **The number is generous for memos and tight for live voice, and that asymmetry is the real finding.** A live "turn" ends after 800 ms of silence and is force-cut at 25 s, so a two-person conversation produces roughly 4–10 turns a minute — **100 is therefore about 10–25 minutes of live conversation**, after which everything including memos stops until midnight UTC. The default was chosen in **S101, when memos were the only spender**; auto-join (S110) changed what the unit means without anyone re-sizing it. Flagged to the owner as a decision rather than silently raised.
 
 Fixed: the status reads `3 / 100 transcriptions · resets at midnight UTC`, shows the length cap, and `!transcribe limit` states the unit each choice takes (`duration` in seconds, `daily` a count) and says out loud that live voice spends the same budget per turn.
+
+## S122 — City has a panel (M26.3a), and `!city` stopped being `!crime`
+
+Owner, for the second time: *"Dit is niet hoe het spel werkt in de link die ik je stuurde, dat werkt met panelen niet enkel met commands"* — plus a new observation, *"de spellen Crime/city zijn hetzelfde."*
+
+**Both were right.** `!city` was literally an **alias** of `!crime`; in the source they are two different commands (`[p]city` the hub, `[p]crime` the subsystem). The alias is gone — one honest name beats two names for one thing, and the hub can take the name properly when it exists.
+
+**`!crime` now opens a panel**: wallet and streak, a select menu of jobs carrying reward, risk and cooldown per row, and the buttons that fit the situation. Jail replaces the picker entirely with Pay Bail / Jail Break. A job on cooldown stays **visible but unselectable** (`⏳ wait 4m 00s`) rather than vanishing — a list that changes shape between glances is unreadable.
+
+**The Bail Out mechanic now exists**, and it is why the divergence was a *gameplay* problem rather than a navigation one. The source puts the button on screen while the crime resolves: 100 🍩 to walk away, and the cooldown still burns. Without that cost it would be a free re-roll. For four sessions a command-only surface had nowhere to put the decision, so it was simply absent.
+
+**Deliberate limits of this slice, each recorded rather than glossed:** the cog re-checks the bail flag between narrated events (longer window); ours settles in one call, so the window is the 2-second beat the cog also has — splitting the resolver is 26.3b. Market, leaderboard and target-picking remain subcommands, and **the panel shows no buttons for them**, because a dead button is the scaffolding-as-product trap (0.5.38) in miniature.
+
+⚠️ **The loader's duplicate-alias guard earned its place again**: `panel` was first given the alias `board`, which `!crime board` already used. Caught at test time rather than at boot on the Pi.
 
 ## Environment facts (S61)
 

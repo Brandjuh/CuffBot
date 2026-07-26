@@ -2244,3 +2244,31 @@ The answer: **100 transcriptions per UTC day, per guild.** `spendBudget` adds ex
 **Retrospective (skill 0.5.43, new rule):** **a number shown to a user must carry its unit and its window.** `3 / 100` is unanswerable; `3 / 100 transcriptions · resets at midnight UTC` is not. Two riders from this session: when an argument's unit **depends on another argument** (`limit duration` is seconds, `limit daily` is a count), the usage line cannot express it — so the reply and the description must; and **a default sized for one workload silently becomes wrong when a second workload starts spending it**, which is the same shape as S120's stale timeout one layer up. Both are cases of a number that was right when written and was never re-examined when its meaning changed.
 
 **Handoff:** awaiting the owner's decision on the daily cap. M26.2b / M26.3 / M26.4 remain the feature queue.
+
+## Session 122 — 2026-07-26 (M26.3a)
+
+**Goal:** the owner, for the second time — *"Dit is niet hoe het spel werkt in de link die ik je stuurde, dat werkt met panelen niet enkel met commands"* — plus a new observation: *"de spellen Crime/city zijn hetzelfde."*
+
+**Both were right, and the second one was a genuine defect I had not noticed.** `!city` was literally an **alias** of `!crime`, so the two were the same command wearing two names. In the source they are two different commands: `[p]city` is the hub and `[p]crime` the crime subsystem. The alias is gone. One honest name beats two names for one thing, and it leaves `city` free for the hub when it exists.
+
+**`!crime` now opens a panel.** Wallet and streak, a select menu of jobs carrying reward, risk and cooldown on each row, and the buttons that fit the situation. Jail replaces the picker entirely with Pay Bail / Jail Break, because those are the only two choices that exist there.
+
+A job on cooldown stays **visible but unselectable**, showing `⏳ wait 4m 00s`. Hiding it would make the list change shape between glances, and a stated wait is more useful than an absence. Discord has no per-option disabling, so an all-cooldown board disables the whole menu rather than offering picks that would only be refused.
+
+**Bail Out exists now, and it is the reason this was a gameplay problem rather than a navigation one.** The source puts the button on screen *while the crime resolves*: 100 🍩 to walk away, and the cooldown still burns. Without that cost it would be a free re-roll. A command-only surface has nowhere to put a mid-attempt decision, so for four sessions the mechanic was simply absent from the game — which is exactly the distinction S115's audit drew and the reason city was ranked the worst divergence in the repo.
+
+**Three limits of this slice, each recorded rather than glossed:**
+
+1. The cog re-checks the bail flag **between each narrated event**, giving a longer window. Our resolver settles a crime in one call, so the window is the 2-second beat the cog also has. Same decision, same price, fewer moments to take it. Splitting the resolver into narrated steps is 26.3b.
+2. Market, leaderboard and target-picking stay subcommands — and **the panel offers no buttons for them**. A dead button is the scaffolding-as-product trap (0.5.38) in miniature.
+3. The panel is a *personal* board, so unlike a Connect 4 table it has one owner. A stranger's press is answered privately with the command that gets them their own; handing them their own panel would recurse, since that copy would need its own buttons.
+
+**Corrections (Step 2/6):** none in the state files, but two caught by existing guards during the build — the loader's **duplicate-alias check** rejected `panel`'s first alias `board`, which `!crime board` already used (caught at test time, not at boot on the Pi), and the roster test caught the new subcommand. Both are the S117 guards doing exactly what they were written for.
+
+Also avoided rather than fixed: the pump and the command would have imported each other, so the Bail Out registry got its own tiny module. An ESM cycle that happens to work today is a trap for whoever edits it next.
+
+Tests **1095 → 1109**. Verified by rendering the real payload: 5 select options with reward/risk/target in each description, and the jail state swapping to its two buttons.
+
+**Retrospective (skill 0.5.43 → no change):** no new rule. The session is 0.5.38 being *applied* rather than learned — panel first, and no button that does not work. Worth one note for the candidate pile: **an alias that makes two concepts the same command is a documentation lie the loader cannot catch**, because it is legal. The duplicate-alias guard checks names *within* a group; nothing checks whether an alias claims a name that means something else in the source. One instance is not a pattern.
+
+**Handoff:** 26.3b (narrated events with a bail check between each, the target picker, market/leaderboard as buttons). Also outstanding and confirmed by the owner: **all three transcribe limit changes** — match Groq's real limits (20 rpm / 2,000 rpd / 7,200 audio-seconds per hour / 28,800 per day, minimum 10 s billed per request), add a per-minute throttle, and batch short voice turns toward the 10-second minimum so the budget buys up to 6× more conversation.
