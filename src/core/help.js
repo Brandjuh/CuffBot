@@ -42,6 +42,9 @@ const MODULE_BADGES = {
   city: '🌃',
   rules: '📜',
   killcounter: '💀',
+  transcribe: '🎙️',
+  goals: '🎯',
+  mafia: '🕵️',
 };
 
 /**
@@ -134,6 +137,7 @@ export const COMMAND_CATEGORIES = {
   'hunt-stats': 'games',
   'hunt-board': 'games',
   connect4: 'games',
+  mafia: 'games',
   hangman: 'games',
   russianroulette: 'games',
   splitorsteal: 'games',

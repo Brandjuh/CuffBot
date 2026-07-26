@@ -38,6 +38,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | killcounter | [`modules/killcounter.md`](modules/killcounter.md) | stable (S99) |
 | transcribe | [`modules/transcribe.md`](modules/transcribe.md) | stable (S101, live voice S102) |
 | goals | [`modules/goals.md`](modules/goals.md) | stable (S103) |
+| mafia | [`modules/mafia.md`](modules/mafia.md) | stable (S105, Classic mode) |
 | splitorsteal | [`modules/splitorsteal.md`](modules/splitorsteal.md) | stable (S79) |
 | hunting | [`modules/hunting.md`](modules/hunting.md) | stable (S66) |
 

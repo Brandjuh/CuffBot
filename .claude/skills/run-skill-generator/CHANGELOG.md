@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.32 — 2026-07-26 (Session 105)
+
+- `references/architecture.md` (Module pattern): **slice a staged port by feature depth, not by layer.** "Pure logic this session, command surface next session" is not an available slice for a NEW module — the loader requires an `index.js` manifest for every directory under `src/modules/`, so the pure half has nowhere legal to live.
+- Evidence: S105 planned M24.1 as an engine-only slice and hit exactly that wall — a `src/modules/mafia/` with only `lib/` fails `discoverModules`. Heist (S85–S88) and city (S89–S92) got away with layer slicing because they were slicing *within* a module that already had a manifest. The slice that does work is depth: Classic mode now, the other 53 roles later, each stopping cleanly with a playable game.
+
 ## 0.5.31 — 2026-07-26 (Session 102)
 
 - `references/architecture.md` (Verification habits): **a binary format must be verified against a foreign implementation.** Your own reader accepting your own writer is self-consistency, not evidence. Do the cross-check once in the session that writes the encoder and record it; keep an independently-written reader in the committed suite. Also: before planning around a library helper, check the *installed* version actually has it.
