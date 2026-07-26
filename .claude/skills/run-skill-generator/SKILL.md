@@ -73,6 +73,7 @@ Read `references/architecture.md` before writing bot code — it fixes the stack
 
 - Update `STATE.md`: phase, verified inventory, environment facts, open problems, and an **exact resume point** (file, next action, first command to run). Keep its Verification block runnable and current.
 - Append — never rewrite — an entry to `SESSION_LOG.md` using the template inside that file: session number, date, goal, what was done (with commit hashes), decisions and why, corrections found in Step 2, handoff notes for the next session.
+- **Owner-action items are written as CHECKS, not instructions.** A line that says "the owner must run X" can only be cleared by the owner volunteering that they did — and that state lives outside the repo, so it never gets cleared and every session repeats it. Write the item as *"is X true? — run this command, this is what done looks like"*, and **run the check before repeating the item**. Twice now this has cost the owner real irritation (S57 intents; S113 the ladder pin and an API key they had already added, after being told four times).
 - **Owner decisions stated in chat go into the repo the moment they land** (a STATE.md fact plus a log line — config if it is a product setting). Chat does not survive sessions; the repo does. (Promoted from LEARNINGS after S1–S3 confirmations.)
 
 ### 7. Improve — the self-improving part

@@ -12,7 +12,9 @@ import ranks from '../src/modules/academy/commands/ranks.js';
 const SETUP_SUB = ranks.group.subcommands.find((s) => s.name === 'setup');
 const EXCLUDE_SUB = ranks.group.subcommands.find((s) => s.name === 'exclude');
 const LIST_SUB = ranks.group.subcommands.find((s) => s.name === 'list');
-import { getGuildData } from '../src/core/store.js';
+import { getGuildData, setGuildData } from '../src/core/store.js';
+import { buildLadder } from '../src/modules/academy/lib/ladder.js';
+import { explainPin, isPinnedLadder, pinDiagnosis } from '../src/modules/academy/service.js';
 import { dispatchCommand } from '../src/core/prefix/command.js';
 import { dispatchGroup } from '../src/core/prefix/group.js';
 import { fakeMessage } from './fixtures/fake-message.js';
@@ -40,6 +42,12 @@ function roleCache(editable = true) {
   ].forEach(([id, name, position]) => cache.set(id, { id, name, position, editable }));
   return cache;
 }
+
+/** The same fixture as plain objects, highest position first (what buildLadder takes). */
+const rolesDesc = () =>
+  [...roleCache().values()]
+    .sort((a, b) => b.position - a.position)
+    .map((r) => ({ id: r.id, name: r.name, managed: false, position: r.position }));
 
 /**
  * S94: the academy commands are flat `{ command }` commands now, so these
@@ -253,4 +261,70 @@ test('rank-exclude refuses an action that is not add or remove', async () => {
   const outcome = await dispatchGroup(ranks.group, message, ['exclude', ...[`<@&${ROLE}>`, 'action:banish']], '!');
   assert.equal(outcome, 'usage-error');
   assert.match(message.sent[0].content, /`action` must be one of: add, remove/);
+});
+
+// ── the pin diagnosis (S113) ─────────────────────────────────────────────────
+//
+// The owner ran `!ranks setup` four times because "Ladder pinned: no" never
+// said WHICH no it was. These pin each distinct reason, and each has a
+// different fix.
+
+test('a matching stored pin reads as pinned', () => {
+  const guildId = '911157175948541001';
+  setGuildData(guildId, 'academyConfig', { headerRoleId: 'lvl-header', excludedRoleIds: [] });
+  const ladder = buildLadder(rolesDesc(), { headerRoleId: 'lvl-header' });
+  const d = pinDiagnosis(guildId, ladder);
+  assert.equal(d.pinned, true);
+  assert.equal(d.reason, 'ok');
+  assert.match(explainPin(d), /^yes/);
+});
+
+test('never pinned says so, and does not blame a missing role', () => {
+  const guildId = '911157175948541002';
+  const ladder = buildLadder(rolesDesc(), {});
+  const d = pinDiagnosis(guildId, ladder);
+  assert.equal(d.pinned, false);
+  assert.equal(d.reason, 'unpinned');
+  assert.match(explainPin(d), /never pinned/);
+});
+
+test('a pin whose role was deleted or re-created is reported as STALE, not as never-pinned', () => {
+  // The invisible case: the ladder silently falls back to the name heuristic,
+  // so `!ranks setup` kept showing a stored header while it counted for
+  // nothing. A re-created role gets a new id, which is how this happens
+  // without anyone touching the config.
+  const guildId = '911157175948541003';
+  setGuildData(guildId, 'academyConfig', { headerRoleId: 'deleted-role-id', excludedRoleIds: [] });
+  const ladder = buildLadder(rolesDesc(), { headerRoleId: 'deleted-role-id' });
+  const d = pinDiagnosis(guildId, ladder);
+  assert.equal(d.pinned, false);
+  assert.equal(d.reason, 'stale-pin', 'a dead pin must not look like an absent one — the fixes differ');
+  assert.equal(d.storedHeaderRoleId, 'deleted-role-id');
+  assert.equal(d.detectedHeaderRoleId, 'lvl-header', 'it fell back to the name heuristic');
+  const text = explainPin(d, '!');
+  assert.match(text, /no longer exists/);
+  assert.match(text, /ranks setup/);
+});
+
+test('a header with no ranks under it is its own reason', () => {
+  const guildId = '911157175948541004';
+  setGuildData(guildId, 'academyConfig', {
+    headerRoleId: 'lvl-header',
+    excludedRoleIds: ['r-legend', 'r-veteran', 'r-regular', 'r-rookie'],
+  });
+  const ladder = buildLadder(rolesDesc(), {
+    headerRoleId: 'lvl-header',
+    excludedRoleIds: ['r-legend', 'r-veteran', 'r-regular', 'r-rookie'],
+  });
+  const d = pinDiagnosis(guildId, ladder);
+  assert.equal(d.reason, 'no-ranks');
+  assert.match(explainPin(d), /no rank roles sit under it/);
+});
+
+test('isPinnedLadder still answers the same yes/no it always did', () => {
+  const guildId = '911157175948541005';
+  setGuildData(guildId, 'academyConfig', { headerRoleId: 'lvl-header', excludedRoleIds: [] });
+  const ladder = buildLadder(rolesDesc(), { headerRoleId: 'lvl-header' });
+  assert.equal(isPinnedLadder(guildId, ladder), true);
+  assert.equal(isPinnedLadder('911157175948541006', ladder), false);
 });

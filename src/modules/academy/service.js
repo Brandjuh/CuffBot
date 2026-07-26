@@ -50,9 +50,53 @@ export function resolveLadder(source) {
  * bot hands out roles from and seeds XP against.
  */
 export function isPinnedLadder(guildId, ladder) {
-  if (!ladder?.headerFound || ladder.ranks.length === 0) return false;
-  const pinned = getAcademyConfig(guildId).headerRoleId;
-  return Boolean(pinned && pinned === ladder.headerRoleId);
+  return pinDiagnosis(guildId, ladder).pinned;
+}
+
+/**
+ * WHY the ladder is or is not pinned (S113).
+ *
+ * `isPinnedLadder` answers yes/no, and a bare "no" is what made this expensive:
+ * the owner ran `!ranks setup` four times because nothing ever said which of
+ * the four different "no"s he was looking at. They need different fixes, and
+ * one of them is invisible — a pin whose role has since been **deleted or
+ * recreated** (a recreated role gets a NEW id) silently falls back to the name
+ * heuristic, so the stored pin is still displayed as configured while counting
+ * for nothing.
+ *
+ * @returns {{ pinned: boolean, reason: 'ok'|'no-header'|'no-ranks'|'unpinned'|'stale-pin',
+ *   storedHeaderRoleId: string|null, detectedHeaderRoleId: string|null }}
+ */
+export function pinDiagnosis(guildId, ladder) {
+  const storedHeaderRoleId = getAcademyConfig(guildId).headerRoleId ?? null;
+  const detectedHeaderRoleId = ladder?.headerRoleId ?? null;
+  const base = { pinned: false, storedHeaderRoleId, detectedHeaderRoleId };
+
+  if (!ladder?.headerFound) return { ...base, reason: 'no-header' };
+  if (ladder.ranks.length === 0) return { ...base, reason: 'no-ranks' };
+  if (!storedHeaderRoleId) return { ...base, reason: 'unpinned' };
+  if (storedHeaderRoleId !== detectedHeaderRoleId) return { ...base, reason: 'stale-pin' };
+  return { ...base, pinned: true, reason: 'ok' };
+}
+
+/** One line saying what to do about `pinDiagnosis`'s verdict. */
+export function explainPin(diagnosis, prefix = '!') {
+  switch (diagnosis.reason) {
+    case 'ok':
+      return `yes — pinned to <@&${diagnosis.storedHeaderRoleId}>`;
+    case 'stale-pin':
+      return (
+        `⚠️ **no — the pinned role \`${diagnosis.storedHeaderRoleId}\` no longer exists.** ` +
+        `A deleted or re-created role gets a new id, so the old pin counts for nothing. ` +
+        `Re-run \`${prefix}ranks setup @<your divider role>\`.`
+      );
+    case 'no-header':
+      return `⚠️ no — no header/divider role found at all. \`${prefix}ranks setup @<your divider role>\`.`;
+    case 'no-ranks':
+      return `⚠️ no — the header was found but no rank roles sit under it (all excluded, or the section is empty).`;
+    default:
+      return `⚠️ no — never pinned. \`${prefix}ranks setup @<your divider role>\`.`;
+  }
 }
 
 /** Verify the bot can assign/remove the roles a rank change needs. */
