@@ -249,7 +249,9 @@ Full audit in **`docs/porting/S115-game-interaction-audit.md`**. Method: count e
 
 **S68 did not cause this, and the real pattern is more useful.** Text-only never meant component-free; trivia, connect4, the patrol wizard and the help panel all use buttons today. Both divergences are in ports sliced *engine → storage → commands → extras*: the command surface was built in slice B as scaffolding to reach the engine, and by slice D it **was** the product, because every later slice added features to the commands that already existed. The panel was never dropped — it was never scheduled. **Slicing rule recorded: when a staged port's source is panel-driven, the panel belongs in the first slice a player can touch.**
 
-⚠️ **Two owner decisions block nothing but change what M26.2 means** — whether the S100 negamax solo AI survives the Connect4 replacement (the `minigames` cog ships a weaker heuristic bot of its own), and whether **Tic-Tac-Toe** comes along (it is in the cog he pointed at, so the plain reading is yes). Recorded rather than guessed.
+✅ **Both M26.2 decisions answered by the owner (2026-07-26), before any code was written:**
+- **Full replacement, the cog's bot included.** The S100 negamax solo AI and its three difficulty levels are **retired** — the owner chose this with the trade-off stated out loud (the cog's opponent is a weaker scoring heuristic). Port that heuristic verbatim, randomness and all; do not quietly keep ours behind it.
+- **Everything comes along:** Tic-Tac-Toe, donut staking (bet 100, winner takes a random 400–600, refunded on pre-start cancel, through the `adjustBalance` seam), and stats + leaderboard.
 
 ## Environment facts (S61)
 
