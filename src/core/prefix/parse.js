@@ -46,3 +46,26 @@ export function parseCommandLine(content, prefix) {
   const argString = firstSpace === -1 ? '' : body.slice(firstSpace + 1).trim();
   return { name, argString, tokens: tokenize(argString) };
 }
+
+/**
+ * How one argument is written in a usage line (S117, owner: *"er staat in de
+ * help `<kind>` en `<state>` maar nergens staat uitgelegd welke states of
+ * kinds er zijn"*).
+ *
+ * The name alone is useless for a closed set: `<kind>` tells you a word goes
+ * there, not which words are legal — and the only way to find out was to guess
+ * wrong and read the error. When the spec already knows the answer, print it.
+ *
+ *   choices  → `voice|files`
+ *   boolean  → `true|false`   (the parser also takes yes/no/on/off/ja/nee/1/0,
+ *                              but two canonical words are the useful hint)
+ *   greedy   → `name…`
+ */
+export function argLabel(spec) {
+  if (spec.choices?.length) return spec.choices.join('|');
+  if (spec.type === 'boolean') return 'true|false';
+  return spec.greedy ? `${spec.name}…` : spec.name;
+}
+
+/** `<label>` when required, `[label]` when not. */
+export const argToken = (spec) => (spec.required ? `<${argLabel(spec)}>` : `[${argLabel(spec)}]`);

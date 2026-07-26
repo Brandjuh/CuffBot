@@ -138,3 +138,42 @@ export function humansIn(voiceChannel) {
   const list = typeof members.values === 'function' ? [...members.values()] : Array.isArray(members) ? members : [];
   return list.filter((m) => !m?.user?.bot).length;
 }
+
+/**
+ * Why auto-join would or would not fire right now (S117).
+ *
+ * The owner reported *"de bot joint niet automatisch de VC"* and had no way to
+ * find out why: every refusal in the handler is a silent `return`, which is
+ * right for a background feature and useless for diagnosing one. This turns
+ * the same conditions into a sentence for the bare `!transcribe` status, so
+ * the answer is one command away instead of a journal dive.
+ *
+ * @returns {{ ok: boolean, reason: string, detail: string }}
+ */
+export function autoJoinDiagnosis(config, { hasKey, inVoice }) {
+  if (!config.enabled) {
+    return { ok: false, reason: 'disabled', detail: 'the desk is off — `!transcribe on`' };
+  }
+  if (!config.autoJoin) {
+    return { ok: false, reason: 'auto-join-off', detail: 'auto-join is off — `!transcribe autojoin true`' };
+  }
+  if (!hasKey) {
+    return { ok: false, reason: 'no-key', detail: 'no `GROQ_API_KEY` on the host — joining would do nothing, so it stays out' };
+  }
+  if (inVoice) {
+    return { ok: false, reason: 'busy', detail: 'already recording a channel — one at a time' };
+  }
+  if (config.voiceChannelIds?.length > 0) {
+    return {
+      ok: true,
+      reason: 'scoped',
+      detail: `armed, but only for ${config.voiceChannelIds.map((id) => `<#${id}>`).join(', ')}`,
+    };
+  }
+  const minimum = config.autoJoinMinimum ?? 1;
+  return {
+    ok: true,
+    reason: 'ok',
+    detail: `armed — I follow the first ${minimum === 1 ? 'person' : `${minimum} people`} into any voice channel`,
+  };
+}

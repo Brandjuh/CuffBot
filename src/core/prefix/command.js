@@ -15,6 +15,7 @@
 //     args: [{ name, type, required?, greedy?, choices?, postable? }],
 //     run(ctx, values),                                   // happy path only
 //   } }
+import { argToken } from './parse.js';
 import { logger } from '../logger.js';
 import { buildCtx } from './context.js';
 import { hasPermission, refusalFor } from './permissions.js';
@@ -22,10 +23,8 @@ import { resolveSubArgs } from './group.js';
 
 /** `!command <a> [b…]` — the usage line shown on an arg error and in help. */
 export function commandUsage(prefix, command) {
-  const parts = (command.args ?? []).map((a) => {
-    const label = a.greedy ? `${a.name}…` : a.name;
-    return a.required ? `<${label}>` : `[${label}]`;
-  });
+  // S117: see `argToken` — a closed set is spelled out rather than named.
+  const parts = (command.args ?? []).map(argToken);
   return `${prefix}${command.name}${parts.length ? ` ${parts.join(' ')}` : ''}`;
 }
 

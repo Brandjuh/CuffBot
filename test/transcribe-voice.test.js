@@ -28,7 +28,6 @@ import {
   packetsToMs,
   shouldFlush,
 } from '../src/modules/transcribe/lib/voice-session.js';
-import transcribeCommand from '../src/modules/transcribe/commands/transcribe.js';
 import {
   DEFAULT_VOICE_PAIRS,
   humansIn,
@@ -39,6 +38,11 @@ import {
 } from '../src/modules/transcribe/lib/pairing.js';
 import { DEFAULT_TRANSCRIBE_CONFIG } from '../src/modules/transcribe/lib/transcribe.js';
 import { PermissionFlagsBits } from 'discord.js';
+import { speakerEligibility } from '../src/modules/transcribe/lib/transcribe.js';
+import { autoJoinDiagnosis } from '../src/modules/transcribe/lib/pairing.js';
+import { argToken } from '../src/core/prefix/parse.js';
+import { subUsage } from '../src/core/prefix/group.js';
+import transcribeCommand from '../src/modules/transcribe/commands/transcribe.js';
 
 // ── an independent Ogg reader ────────────────────────────────────────────────
 
@@ -448,4 +452,70 @@ test('a guild’s own pairings override the committed defaults', () => {
   const texts = [tc('t-override', 'somewhere-else'), tc(DEFAULT_VOICE_PAIRS[ownerVoice], 'the-default')];
   const merged = { ...DEFAULT_VOICE_PAIRS, [ownerVoice]: 't-override' };
   assert.equal(pairTextChannel(vc(ownerVoice, 'x'), texts, merged).id, 't-override');
+});
+
+// ── S117: the three things the owner reported in one message ─────────────────
+
+test('the auto-join status names WHICH condition is blocking it', () => {
+  // "De bot joint niet automatisch de VC" was un-diagnosable: every refusal in
+  // the handler is a silent `return`. Each of these is a different fix.
+  const on = { ...DEFAULT_TRANSCRIBE_CONFIG };
+  const ctx = { hasKey: true, inVoice: false };
+
+  assert.equal(autoJoinDiagnosis({ ...on, enabled: false }, ctx).reason, 'disabled');
+  assert.equal(autoJoinDiagnosis({ ...on, autoJoin: false }, ctx).reason, 'auto-join-off');
+  assert.equal(autoJoinDiagnosis(on, { ...ctx, hasKey: false }).reason, 'no-key');
+  assert.equal(autoJoinDiagnosis(on, { ...ctx, inVoice: true }).reason, 'busy');
+  assert.equal(autoJoinDiagnosis({ ...on, voiceChannelIds: ['1'] }, ctx).reason, 'scoped');
+
+  const armed = autoJoinDiagnosis(on, ctx);
+  assert.equal(armed.ok, true);
+  assert.match(armed.detail, /armed/);
+});
+
+test('each blocked reason states the fix, not just the fault', () => {
+  const on = { ...DEFAULT_TRANSCRIBE_CONFIG };
+  assert.match(autoJoinDiagnosis({ ...on, enabled: false }, { hasKey: true }).detail, /transcribe on/);
+  assert.match(autoJoinDiagnosis({ ...on, autoJoin: false }, { hasKey: true }).detail, /autojoin true/);
+  assert.match(autoJoinDiagnosis(on, { hasKey: false }).detail, /GROQ_API_KEY/);
+});
+
+test('a scoped auto-join is armed, not blocked', () => {
+  // A narrowed list is a deliberate setting, so it must not read as a fault.
+  const verdict = autoJoinDiagnosis({ ...DEFAULT_TRANSCRIBE_CONFIG, voiceChannelIds: ['9'] }, { hasKey: true });
+  assert.equal(verdict.ok, true);
+});
+
+test('other bots are skipped by default — that is what ignores music', () => {
+  // "Is er ook een manier om muziek te negeren?" A music bot is an ordinary
+  // speaker to the receiver, so its stream used to be uploaded to Whisper and
+  // written into the channel as lyrics, on the daily budget.
+  assert.equal(DEFAULT_TRANSCRIBE_CONFIG.ignoreBots, true);
+  assert.deepEqual(speakerEligibility({ id: 'u1', bot: true }), { listen: false, reason: 'bot' });
+  assert.deepEqual(speakerEligibility({ id: 'u1', bot: false }), { listen: true, reason: 'ok' });
+});
+
+test('a named member can be ignored, and the list is strings', () => {
+  const config = { ...DEFAULT_TRANSCRIBE_CONFIG, ignoredUserIds: ['800000000000000001'] };
+  assert.equal(speakerEligibility({ id: '800000000000000001', bot: false }, config).reason, 'ignored');
+  assert.equal(speakerEligibility({ id: '800000000000000002', bot: false }, config).listen, true);
+  assert.equal(typeof config.ignoredUserIds[0], 'string', 'a bare snowflake would be rounded');
+});
+
+test('turning bot-skipping off really does transcribe bots again', () => {
+  const config = { ...DEFAULT_TRANSCRIBE_CONFIG, ignoreBots: false };
+  assert.equal(speakerEligibility({ id: 'u1', bot: true }, config).listen, true);
+});
+
+test('usage lines spell out a closed set instead of naming it', () => {
+  // "er staat <kind> en <state> maar nergens staat uitgelegd welke er zijn"
+  assert.equal(argToken({ name: 'kind', type: 'string', required: true, choices: ['voice', 'files'] }), '<voice|files>');
+  assert.equal(argToken({ name: 'state', type: 'boolean', required: true }), '<true|false>');
+  assert.equal(argToken({ name: 'member', type: 'user' }), '[member]');
+  assert.equal(argToken({ name: 'reason', type: 'string', required: true, greedy: true }), '<reason…>');
+});
+
+test('the real !transcribe auto usage line now lists both sets', () => {
+  const auto = transcribeCommand.group.subcommands.find((s) => s.name === 'auto');
+  assert.equal(subUsage('!', 'transcribe', auto), '!transcribe auto <voice|files> <true|false>');
 });

@@ -86,6 +86,14 @@ export const DEFAULT_TRANSCRIBE_CONFIG = {
    * `lib/pairing.js`), so a guild can correct a default without editing code.
    */
   voicePairs: {},
+  // S117, owner: "Is er ook een manier om muziek te negeren?" — yes, and this
+  // is the case that actually matters. A music bot in the channel is a normal
+  // speaker to the receiver, so its stream was captured, uploaded to Whisper
+  // and transcribed as garbled lyrics, spending the daily budget on it.
+  ignoreBots: true,
+  // Anyone else who should never be transcribed (a soundboard account, a
+  // member who asked not to be). Ids as STRINGS — a bare snowflake is rounded.
+  ignoredUserIds: [],
 };
 
 /**
@@ -240,4 +248,20 @@ export function spendBudget(counter, limit, now = Date.now()) {
   const used = counter?.day === today ? Number(counter.used) || 0 : 0;
   if (limit > 0 && used >= limit) return { counter: { day: today, used }, allowed: false };
   return { counter: { day: today, used: used + 1 }, allowed: true };
+}
+
+/**
+ * Should this speaker be transcribed at all? (S117)
+ *
+ * Returns a reason rather than a boolean so the caller can log a skip that
+ * looks like a bug ("the bot ignored me") differently from one that is the
+ * whole point ("it ignored the music bot").
+ *
+ * @param {{ id: string, bot?: boolean }} speaker
+ * @returns {{ listen: boolean, reason: 'ok'|'bot'|'ignored' }}
+ */
+export function speakerEligibility(speaker, config = DEFAULT_TRANSCRIBE_CONFIG) {
+  if (config.ignoreBots !== false && speaker?.bot) return { listen: false, reason: 'bot' };
+  if ((config.ignoredUserIds ?? []).includes(speaker?.id)) return { listen: false, reason: 'ignored' };
+  return { listen: true, reason: 'ok' };
 }

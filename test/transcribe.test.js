@@ -440,8 +440,10 @@ const runGroup = (message, line) =>
 test('the group offers exactly the documented subcommands', () => {
   assert.deepEqual(
     SUBS.map((s) => s.name),
-    // S102 the live-voice trio, S110 the auto-join pair, S111 the pairings.
-    ['now', 'join', 'leave', 'autojoin', 'voicechannel', 'pair', 'pairs', 'timestamps', 'on', 'off', 'auto', 'english', 'channel', 'everywhere', 'limit'],
+    // S102 the live-voice trio, S110 the auto-join pair, S111 the pairings,
+    // S117 the two "don't transcribe this" knobs.
+    // prettier-ignore
+    ['now', 'join', 'leave', 'autojoin', 'voicechannel', 'pair', 'pairs', 'ignore', 'bots', 'timestamps', 'on', 'off', 'auto', 'english', 'channel', 'everywhere', 'limit'],
   );
   assert.deepEqual(transcribeCommand.group.aliases, ['stt', 'statement']);
 });

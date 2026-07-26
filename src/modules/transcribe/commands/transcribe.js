@@ -3,7 +3,7 @@
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { hasAudioKey } from '../lib/audio-provider.js';
 import { audioAttachmentsOf, refusalFor } from '../lib/transcribe.js';
-import { DEFAULT_VOICE_PAIRS } from '../lib/pairing.js';
+import { DEFAULT_VOICE_PAIRS, autoJoinDiagnosis } from '../lib/pairing.js';
 import { getBudget, getTranscribeConfig, setTranscribeConfig, transcribeMessage } from '../service.js';
 import { isListening, sessionFor, startListening, stopListening } from '../voice/session.js';
 
@@ -57,6 +57,19 @@ export default {
           isListening(ctx.guild.id)
             ? `🔴 recording <#${sessionFor(ctx.guild.id).channelId}>`
             : `not in a voice channel — \`${ctx.prefix}transcribe join\``
+        }`,
+        // S117: the owner reported auto-join not working and had no way to see
+        // why — every refusal in the handler is a silent return. Now the same
+        // conditions are one command away.
+        (() => {
+          const d = autoJoinDiagnosis(config, {
+            hasKey: hasAudioKey(process.env),
+            inVoice: isListening(ctx.guild.id),
+          });
+          return `**Auto-join:** ${d.ok ? '🟢' : '⚪'} ${d.detail}`;
+        })(),
+        `**Skipping:** other bots ${config.ignoreBots === false ? '❌ (music IS transcribed)' : '✅ (music is ignored)'}${
+          config.ignoredUserIds?.length ? ` · ${config.ignoredUserIds.map((id) => `<@${id}>`).join(', ')}` : ''
         }`,
         `**Auto-join:** ${
           config.autoJoin
@@ -245,6 +258,38 @@ export default {
                 : `🎙️ **Voice → text pairings**\n${rows.join('\n')}\n\nAnything not listed is matched by name.`,
             allowedMentions: { parse: [] },
           });
+        },
+      },
+      {
+        name: 'ignore',
+        description: 'Never transcribe this member (music bots are already skipped).',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'member', type: 'user', required: true }],
+        async run(ctx, { member }) {
+          const set = new Set(getTranscribeConfig(ctx.guild.id).ignoredUserIds);
+          const removed = set.delete(member.id);
+          if (!removed) set.add(member.id);
+          setTranscribeConfig(ctx.guild.id, { ignoredUserIds: [...set] });
+          await ctx.reply({
+            content: removed
+              ? `🎙️ ${member} is transcribed again.`
+              : `🎙️ ${member} is never transcribed. Run it again to undo.`,
+            allowedMentions: { parse: [] },
+          });
+        },
+      },
+      {
+        name: 'bots',
+        description: 'Transcribe other bots too — off by default, which is what skips music.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'state', type: 'boolean', required: true }],
+        async run(ctx, { state }) {
+          setTranscribeConfig(ctx.guild.id, { ignoreBots: !state });
+          await ctx.reply(
+            state
+              ? '🎙️ Other bots **are** transcribed now — a music bot in the channel will be written down as lyrics, and it spends the daily budget.'
+              : '🎙️ Other bots are skipped. Music playing through a bot is ignored.',
+          );
         },
       },
       {

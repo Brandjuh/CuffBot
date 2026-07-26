@@ -2120,3 +2120,37 @@ Tests **1049 → 1067**. Mutation-checked: reverting the hangman flag fails the 
 **Retrospective (skill 0.5.40, new rule):** **a sweep only inspects what it is changing, so the things that already look like the target shape are invisible to it.** Twice now: S106's `invokeWithoutSubcommand` sweep skipped the modules that were already groups (this session), and S115 found the panel-driven ports skipped for the same reason. The general fix is cheap and belongs with the sweep, not with the reviewer — **after a sweep, enumerate every member of the target category and check it, not just the ones the sweep edited.** The second half is what made this session's fix durable rather than a patch: the enumeration became a test, so the category is checked forever instead of once.
 
 **Handoff:** M26.2b (Tic-Tac-Toe, staking, sortable leaderboard, admin config), **M26.3 city → panels** (the owner's report, real gameplay missing), M26.4 heist's seven panels. Worth noting for M26.3/M26.4: this session's guard only covers *bare-command* fidelity — nothing yet checks that a game's rules match its source, and that is the dimension the owner keeps finding things in.
+
+## Session 118 — 2026-07-26
+
+**Goal:** three reports in one owner message — *"De bot joint niet automatisch de VC ook staat er in de help `<kind>` en `<state>` maar wanneer ik bijvoorbeeld het transcribe auto type staat er nergens uitgelegd welke states of kinds er zijn. Is er ook een manier om muziek te negeren?"*
+
+### Auto-join: the code was right, the silence was the bug
+
+I drove the real `VoiceStateUpdate` handler with a realistic fake before changing anything. Config correct, `humansIn` correct, `shouldAutoJoin` returning ok, the pairing resolving to the owner's own declared channel, and `GuildVoiceStates` present in `BASE_INTENTS` and never dropped by the privileged-intent cascade. The only failure was my fake lacking a `voiceAdapterCreator`.
+
+**So the honest finding is that I could not reproduce it — and that is itself the defect.** Every refusal in the handler is a silent `return`: auto-join off, desk off, out of scope, no API key, no Connect, no Send Messages. That silence is correct for a background feature and useless the moment somebody asks why it did not fire. The owner had no way to distinguish "not deployed" from "no permission" from "no key", and neither did I.
+
+Bare `!transcribe` now carries an **Auto-join** line that names which of five conditions is blocking it *and the fix for each*. A narrowed `voiceChannelIds` reports as **armed**, not blocked, because it is a deliberate setting rather than a fault. What remains, if it reads 🟢 on the Pi and still nothing happens, is the layer only the Pi can show: per-channel Connect/Send-Messages, or a checkout that has not taken S110 yet.
+
+### Music: a real bug, and the answer is yes
+
+**A music bot is an ordinary speaker to the voice receiver.** `connection.receiver.speaking` fires for any user id, and `captureSpeaker` subscribed to all of them — so the music was captured, muxed into Ogg, uploaded to Whisper and written into the text channel as garbled lyrics, spending the precinct's daily budget on it. Nobody had reported that half; the owner asked whether music *could* be ignored, and the true answer was "it should already have been, and instead it was being transcribed".
+
+`ignoreBots` defaults **true** and is evaluated **before** a subscription exists, so a skipped speaker costs nothing at all rather than being filtered after the upload. `!transcribe ignore @member` covers a soundboard account or somebody who asked not to be recorded.
+
+Stated in the manual rather than glossed: **music through a human's microphone is not covered.** At the stream level it is indistinguishable from speech, and pretending otherwise would be a promise the module cannot keep.
+
+### `<kind>` and `<state>`: a framework gap, not a transcribe one
+
+All three usage builders (`subUsage`, `commandUsage`, `usageFor`) printed only the arg **name**. For a closed set that is actively unhelpful — `<kind>` tells you a word goes there, not which words are legal, and the only way to find out was to guess wrong and read the error message. The spec already knew the answer the whole time.
+
+One new `argToken` in `prefix/parse.js` renders `choices` as `voice|files` and booleans as `true|false`, and both dispatchers use it. Every group and flat command in the bot gained it at once — this was never a transcribe problem.
+
+Tests **1067 → 1075**. Mutation-checked: un-ignoring bots fails the music test, and removing the choices branch fails both usage tests including one asserting the literal string `!transcribe auto <voice|files> <true|false>`.
+
+**Corrections (Step 2/6):** none in the state files. Worth recording that the first report resolved to "cannot reproduce, and the absence of evidence is the thing to fix" rather than a code change — the temptation was to change something in the handler so the session had a fix to show.
+
+**Retrospective (skill 0.5.41, new rule):** **a silent refusal path needs a way to ask it why.** Auto-join, the memo auto-path and every other "quietly do nothing" branch are correct to stay quiet in the channel — but a feature whose non-action cannot be interrogated is one nobody can support, including the session that wrote it. The cheap general fix is the one applied here: whatever the branch decided, expose it in the module's bare status line, with the fix beside the reason. This is the same shape as 0.5.37 (*an owner-action item must be a check, not an instruction*) pointed at code instead of documentation — both are about state that only exists outside the repo, and both are fixed by making the bot answer the question itself.
+
+**Handoff:** M26.2b, then **M26.3 city → panels** (still the biggest outstanding item, with real gameplay missing), M26.4 heist panels. For M26.3, note S117's guard covers *bare-command* fidelity only — nothing yet checks that a game's rules match its source.
