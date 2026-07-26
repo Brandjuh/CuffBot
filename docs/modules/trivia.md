@@ -15,6 +15,8 @@
 
 ## Commands
 
+> **`!trivia` is a group** (S106). Bare `!trivia` runs `play`, so nothing changed for players; `!trivia play [set]` is the explicit name, and `!trivia help` lists the family.
+
 ### !trivia [set]
 
 - **Options:** `set` (optional; choices are generated from the installed data files — default: random set).

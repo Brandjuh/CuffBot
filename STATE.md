@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 106 · 2026-07-26
+**Last updated:** Session 107 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -146,6 +146,22 @@ Owner, 2026-07-26: *"Pas alle commando's van alle modules aan, zodat we geen `!c
 3. **`permission: null` on a subcommand drops the group's gate**, and **the group card now filters per viewer**. Folding public readers into admin groups (`!xp ladder`, `!hunting stats`) makes "open group, gated subs" the normal shape; the card used to advertise every sub including ones the viewer would be refused. Groups that members use (`!birthday`, `!claims`, `!ranks`) are open at the top with each admin sub carrying its own flag.
 
 **Commands 76 → 60.** That drop is the point, not a regression: sixteen names collapsed into the families they belonged to.
+
+## S107 — full-repo audit (owner asked for it explicitly)
+
+Twenty-four checks over the whole repository. **The headline: a real clone + `npm ci` + `npm test` is 962/962 in 2 seconds with no compiler — the Pi's update gate will pass the S102 dependency change.** That was the single biggest open risk and it is now measured rather than assumed.
+
+**Clean:** no module without a manual and no manual without a module; no orphaned command or event files; no duplicate subcommand names and no alias colliding with another command; no TODO/FIXME markers; no hardcoded secrets; `.env` untracked and `data/` ignored; `package.json` and the lockfile in sync; every path named in every manual exists; the boot guard still fails fast without credentials; both shell scripts parse; `Math.random` appears in `lib/` only as an injectable default; no `console.log` outside the logger; the only `process.exit` in module code is `!restart`, which means it.
+
+**Fixed during the audit (5 small things, all real):**
+1. `CUFFBOT_DATA_DIR` and `LOG_LEVEL` were read by the code and documented nowhere — now in `.env.example`.
+2. `!birthday` and `!claims` still described themselves as *"(admin)"* after S106 made them member-facing. That string is what `!help` prints, so it was actively telling members not to try.
+3. `docs/modules/leveling.md` and `docs/modules/hunting.md` still listed command files S106 deleted.
+4. `academy`, `dispatch`, `economy` and `trivia` manuals gained a line explaining their folded family, so `!trivia play` and `!ranks list` are discoverable even though nobody types them.
+
+**Verified by driving the real router, not by reading the diff:** 37 invocations — new names, every retired alias, and the bare forms — dispatch cleanly; and seven behaviour checks confirm bare `!ranks` still lists the ladder, bare `!donuts`/`!claims`/`!patrol` still do their old job, `!ranks help` still reaches the menu, a member can run `!xp ladder` inside the admin group, and a member's `!birthday` card shows only `set`/`remove`.
+
+**Not defects, but worth knowing:** 163 `.catch(() => …)` swallows across `src/` — that is the deliberate "degrade, never block" convention (S8), and every one sits on a cosmetic or auxiliary path; `src/modules/wordle/data/dictionary-en.txt` is 2 MB, by far the largest committed file, and is the cog's verbatim word list.
 
 ## Environment facts (S61)
 

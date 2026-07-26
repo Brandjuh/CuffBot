@@ -114,7 +114,6 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 | `src/modules/leveling/commands/level.js` | `!level` card |
 | `src/modules/leveling/commands/leaderboard.js` | `!leaderboard` |
 | `src/modules/leveling/commands/xp.js` | The `!xp` admin group |
-| `src/modules/leveling/commands/xp-ladder.js` | `!xp ladder` — the XP-per-rank list |
 | `src/modules/leveling/events/message-xp.js` | Message XP + promotion announce |
 | `src/modules/leveling/events/voice-sweep.js` | 60-second voice XP sweep |
 | `src/modules/leveling/events/ladder-watch.js` | Ladder-change detection (role events + boot) → quiet reconciliation |

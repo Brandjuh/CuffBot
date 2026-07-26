@@ -19,7 +19,7 @@ export default {
   group: {
     name: 'birthday',
     aliases: ['birthday-config', 'birthday-set', 'birthday-remove'],
-    description: 'Birthday announcements: channel and the birthday role (admin).',
+    description: 'Birthdays: register your own, and (admins) the announcement channel and role.',
     emoji: '🎂',
     status(ctx) {
       const config = getBirthdayConfig(ctx.guild.id);

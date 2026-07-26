@@ -11,6 +11,8 @@ The academy runs the precinct's career ladder — but it does **not** impose a f
 
 ## Commands
 
+> **`!ranks` is a group** (S106, was `!rank-setup` / `!rank-exclude`). Bare `!ranks` runs `list`, so reading the ladder is unchanged; `!ranks setup` and `!ranks exclude` are Manage Server, and `!ranks help` lists the family. The old names still work as aliases.
+
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
 | `!promote` | Move a member one rank up (or straight to a rank role) | `<target> [to:@Rank]` | Manage Roles | `!promote @user` |
