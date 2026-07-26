@@ -28,7 +28,7 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | starboard | [`modules/starboard.md`](modules/starboard.md) | stable (S22) |
 | channellist | [`modules/channellist.md`](modules/channellist.md) | stable (S36) |
 | chat-starter | [`modules/chat-starter.md`](modules/chat-starter.md) | stable (S23) |
-| connect4 | [`modules/connect4.md`](modules/connect4.md) | stable (S71) |
+| minigames | [`modules/minigames.md`](modules/minigames.md) | Connect 4 on a panel — challenge an officer or the bot, played on one message the bot edits in place |
 | logbook | [`modules/logbook.md`](modules/logbook.md) | stable (S35) |
 | welcome | [`modules/welcome.md`](modules/welcome.md) | stable (S35) |
 | economy | [`modules/economy.md`](modules/economy.md) | stable (S38) |

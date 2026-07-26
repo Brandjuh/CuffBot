@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.39 — 2026-07-26 (Session 116)
+
+- `references/architecture.md` (Module pattern, next to 0.5.32): **the loader's invariants are part of the slicing constraint — check them while planning slices, not while running tests.** Every module directory needs an `index.js`, and command names *and aliases* are unique across all modules. So **"build the replacement alongside the original" is not a slice that exists in this codebase**, and neither is a `lib/`-only module.
+- Evidence: twice now a session has planned a slice the loader forbids. S105 planned an engine-only mafia slice and hit the `index.js` requirement (recorded then as a fact about that one file). S116 planned to keep the old `connect4` module alive until 26.2b "so nothing regresses mid-way" — both modules register `!connect4`, the uniqueness check failed, and the old module had to be deleted a slice early. That in turn would have removed the precinct's scoreboard, so stats had to be pulled forward too: one unenforceable plan assumption cascaded into re-scoping two slices.
+
 ## 0.5.38 — 2026-07-26 (Session 115)
 
 - `references/architecture.md` (Module pattern, extending 0.5.32): layer-slicing a staged port has a **second and larger** cost than the mechanical one already recorded. When the source is panel-driven, an intermediate command surface built as scaffolding **becomes the product** — it is genuinely usable, so every later slice adds features to it, and the panel is never dropped so much as never scheduled. **When a staged port's source is panel-driven, the panel belongs in the first slice a player can touch.**
