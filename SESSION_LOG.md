@@ -2564,3 +2564,31 @@ Tests **1310 → 1313**.
 Tests **1313 → 1327**.
 
 **Handoff:** **M26 is finished.** The only scheduled work left is **M24.3** (mafia anomalies/achievements), still gated on an owner decision — it was never scoped, so a session picking it up should ask rather than invent. Standing items: `!minigames betvsbot` is the lever if the donut supply climbs, and the updater is verified self-maintaining (S129), so nothing there needs re-checking.
+
+---
+
+## Session 131 — 2026-07-27
+
+**Goal:** owner said *"ga autonoom verder."* M26 closed last session and the only scheduled item left (**M24.3**) is explicitly gated on an owner decision and was never scoped — inventing content for a game with no evidence of demand is exactly what the roadmap says not to do. So the useful autonomous work was to check what had rotted while six sessions of features went by.
+
+**Found: the fourth hand-maintained list to go stale, and it was in the file that is supposed to catch staleness.** `STATE.md`'s verification block claimed the manuals were `academy, …, connect4, …` — naming a module **S116 deleted seven sessions ago** and omitting `minigames`, which replaced it. S124 had already hand-corrected the *other* two rows in that same block for the same reason.
+
+The docs themselves were fine — 37 modules, 37 manuals, all linked. The **check** was the thing that was wrong, which is the worst version of this: a verification block that has drifted verifies nothing, and gets skipped because "it always looks a bit off".
+
+**So the lists are gone rather than corrected a fourth time.** `test/docs-consistency.test.js` walks the real loader and asserts:
+
+- every module has a manual;
+- **every manual describes a module that still exists** — the direction that actually rotted, and the one that matters, because a manual for a deleted module documents behaviour the bot no longer has;
+- the index links every manual, and links no manual that is gone.
+
+`STATE.md` now quotes a **count**, not a list, and one of the new tests fails if a literal module list is ever pasted back into that block. The block says what number to expect; `npm test` is the verification.
+
+That is the same move three earlier sessions arrived at from different directions (0.5.46 the badge map, 0.5.49 the shell scripts, and S124's own correction) — applied this time to the docs tree, which is just another hand-maintained list of the modules.
+
+**Four mutations, all caught:** an orphan manual, a module with no manual, the index dropping a link, and a literal list pasted back into `STATE.md`. (One mutation appeared to pass at first — the perl escaping in my shell heredoc never applied it; re-run with Python it failed correctly. Worth noting because "the mutation passed" and "the mutation never ran" look identical from the outside.)
+
+**Also confirmed closed, so no future session re-opens them:** hangman was genuinely fixed in S117 (the bare-word fallback, alongside six other games with the same defect) — `STATE.md` already records it, and the owner's report is not outstanding.
+
+Tests **1327 → 1333**.
+
+**Handoff:** the roadmap is empty except **M24.3**, which needs the owner to say whether the precinct plays mafia enough to want a long tail — **ask, do not invent**. Standing items unchanged: `!minigames betvsbot` is the lever if donuts inflate, and the updater is self-maintaining and verified (S129).

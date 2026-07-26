@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.51 — 2026-07-27 (Session 131)
+
+- `references/architecture.md` (Verification habits): extends 0.5.46 with its sharpest case — **when a hand-copied list rots for the third time, delete the copy instead of correcting it.**
+- Evidence: `STATE.md`'s verification block is the thing that is supposed to catch staleness, and its manuals row named `connect4` — a module deleted **seven sessions earlier** — while omitting the `minigames` that replaced it. S124 had already hand-corrected the other two rows of that same block. The docs themselves were correct; only the check was wrong, which is the worst version: a drifted verification block verifies nothing and gets skipped as "always a bit off". The fix was not a fourth correction but `test/docs-consistency.test.js` (modules ↔ manuals ↔ index, walked from the loader) plus a guard that fails if a literal module list is ever pasted back into that block. `STATE.md` now quotes a count and `npm test` is the verification. Same move as 0.5.46 (the badge map) and 0.5.49 (the shell scripts), now applied to the docs tree. Also worth recording from the mutation run: one mutation appeared to pass when a shell-escaping slip meant it never applied — **"the mutation passed" and "the mutation never ran" look identical**, so confirm the file actually changed before trusting a green.
+
 ## 0.5.50 — 2026-07-27 (Session 130)
 
 - `references/architecture.md` (Verification habits): **a permission on a command does not protect the panel that command opens.**
