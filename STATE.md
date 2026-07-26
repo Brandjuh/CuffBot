@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 103 · 2026-07-26
+**Last updated:** Session 104 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -116,7 +116,9 @@ Two more owner requests arrived during S97 and are written up in `ROADMAP.md` wi
 
 ✅ **M14 — Goal tracker — built in S103.** Module `goals`: precinct goals with progress bars and 25/50/75/100% milestone announcements, **plus** personal member goals and a board. The owner's request never said whose goals, so **one structure answers both readings** rather than a guess being made — the only differences are who may edit and where milestones go. Auto-tracked sources (`track:members`, `track:boosts`) read straight off the guild, so there is no counter to maintain, nothing to drift, nothing to rebuild after a restart, and an auto goal shows its real number the moment it is created rather than sitting at 0 until the first sweep. Milestones are recorded **in the same write as the progress** (S22), which is what makes a 15-minute sweep safe to run forever. `!goal set` on an auto-tracked goal is refused with the fix named, because accepting it would look like it worked until the sweep undid it. Manual `goals.md`.
 
-**The roadmap has nothing unchecked left.** Still open from before: **mafiagame** (AAA3A, the one cog from the S65 batch never surveyed — read it before planning). Everything else is owner-side: the live actions listed below.
+**The roadmap has nothing unchecked left, and the last loose end is closed.** **mafiagame has now been surveyed (S104)** and written up as **M24** in ROADMAP with a three-slice plan. The survey's finding: the cog is **11,927 lines with 57 roles** — several times `city` or `heist` — but **Classic mode needs only 5 players and four roles** (GodFather, Detective, Doctor, Villagers), and everything else is additive. So M24.1 is ≈2 sessions for a playable game rather than an eight-session commitment. It is **not scheduled**, because the real question is not whether it can be built but whether the precinct has 5+ people online at once for a multi-hour game — every other M16 game works with one or two players. Nothing about M24.1 changes if that answer arrives later.
+
+Everything else outstanding is owner-side: the live actions listed below.
 
 ## Environment facts (S61)
 
