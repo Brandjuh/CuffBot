@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 35 modules, 74 commands. **CuffBot is text-only (S68): every command is a `!command`**, and **every** command is either a Red-style group (`!group sub <args>`) or a flat `!command` — the legacy path is gone as of S96 (M17 complete). Type `!help` for the full roster. Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 36 modules, 75 commands. **CuffBot is text-only (S68): every command is a `!command`**, and **every** command is either a Red-style group (`!group sub <args>`) or a flat `!command` — the legacy path is gone as of S96 (M17 complete). Type `!help` for the full roster. Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -12,6 +12,8 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 |---|---|---|
 | **Core** 📻 | `!radio-check`, `!help`, `!update`, `!restart` | [core](docs/modules/core.md) |
 | **Rules** 📜 | `!rules` group — write the precinct's rules; the bot keeps one tidy post current by editing it in place | [rules](docs/modules/rules.md) |
+| **Goals** 🎯 | `!goal` group — precinct targets with progress bars and milestone announcements, plus personal goals and a board | [goals](docs/modules/goals.md) |
+| **Transcribe** 🎙️ | `!transcribe` group — voice memos and live voice chat written down, in English | [transcribe](docs/modules/transcribe.md) |
 | **Kill Counter** 💀 | `!killcounter` group — go quiet after someone speaks and the last word scores; leaderboard included | [killcounter](docs/modules/killcounter.md) |
 | **Selfroles** 🎭 | `!selfroles` group (button list: press to get a role, press again to remove) | [selfroles](docs/modules/selfroles.md) |
 | **Hunting** 🦹 | `!hunting` group, `!hunt-stats`, `!hunt-board` — STOP POLICE crook hunt with the undercover officer | [hunting](docs/modules/hunting.md) |
@@ -25,7 +27,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Detective** 🕵️ | `!ask`, `!ai` group — talk to the bot (AI, or just @mention it) | [detective](docs/modules/detective.md) |
 | **Birthdays** 🎂 | `!birthday-set`, `!birthday-remove`, `!birthdays`, `!birthday` group | [birthdays](docs/modules/birthdays.md) |
 | **Trivia** ❓ | `!trivia`, `!trivia-scores`, `!trivia-sets` — buttoned quiz rounds | [trivia](docs/modules/trivia.md) |
-| **Connect 4** 🔴 | `!connect4 @officer` — 7×6 button duels with a precinct scoreboard | [connect4](docs/modules/connect4.md) |
+| **Connect 4** 🔴 | `!connect4 @officer` or `!connect4 solo` — 7×6 button duels, against a member or the bot | [connect4](docs/modules/connect4.md) |
 | **Hangman** 🪢 | `!hangman play` — solo word-guessing against the gallows | [hangman](docs/modules/hangman.md) |
 | **Russian roulette** 🔫 | `!rr play` — last-officer-standing party game (mod opens the lobby) | [russianroulette](docs/modules/russianroulette.md) |
 | **Split or Steal** 🤝 | `!sos play` — two random contestants, one secret trust dilemma | [splitorsteal](docs/modules/splitorsteal.md) |
