@@ -2624,3 +2624,41 @@ Five objectively checkable classes, chosen because each is verifiable rather tha
 Tests **1333/1333**, unchanged: nothing in this session changed behaviour, which is exactly what it set out to establish.
 
 **Handoff:** the roadmap holds one item, **M24.3**, and it needs the owner to say whether mafia is played enough to warrant a long tail. There is no other scheduled work and no defect under evidence. A session arriving here with no new owner input should say so rather than manufacture a milestone — the honest report is the deliverable.
+
+## Session 133 — 2026-07-26
+
+**Goal:** the owner, third report on this game — *"Crime, dat werkt met een panel en knoppen, dat heb je niet."*
+
+**I verified `!crime` before answering, and it was fine.** Driven through the real dispatcher a bare `!crime` returns a select menu of five jobs plus three buttons — on `main` and on `cd6ad2c`, the commit the Pi's own `!update status` had reported. So this was not the S127 staleness story repeating, and it was not a dispatch bug either: `group.js:336` sets `subName = tokens[0]?.toLowerCase() ?? null`, so the `subName === null` strict check on line 364 is correct and `invokeWithoutSubcommand` routes bare `!crime` to `panel` exactly as intended. My earlier probe had reported otherwise because I passed `dispatchGroup(message, group, …)` with the first two arguments swapped, which made `group.subcommands` undefined.
+
+**The defect was `!city`, and it failed in the quietest way available.** S122 removed `city` as an *alias* of `crime` — correctly; the owner himself had noticed the two were one command (*"de spellen Crime/city zijn hetzelfde"*), and in the source they are two — and wrote that this "leaves `city` free for the hub when it exists". Nothing built the hub. **M26.3 was closed as COMPLETE two sessions later.** And because `router.js` drops an unknown command without a word (`if (!command) return`), `!city` did not fall back to the crime panel, print a hint, or write a log line. It did nothing at all, for eleven sessions, to a command the owner had typed since S90.
+
+⚠️ **M26.3 carried a written inventory of the source's eight views, and `MainMenuView` was the one with no counterpart.** `CrimeListView`/`CrimeView`/`CrimeButton`, `BailView`, `JailOptionsView`, `TargetSelectionView`, `BlackmarketView` and `CrimeAttemptView` were all built in S122 or S124. The list was right there in the roadmap entry. Nobody diffed it against the code before writing COMPLETE. **Closing a milestone against a list is worth nothing if nobody diffs the list.**
+
+**What shipped.** `!city` (flat command — the hub has no subcommands; everything it leads to is a button) opens `lib/hub.js`: wallet, record, streak, cell, and 🌃 Jobs / 🕯️ Market / 🏆 Board / 📋 Record. It is deliberately ≤6 lines, pinned by a test — a menu is the one screen with nothing to say, and the owner has twice complained these screens run too long. The crime panel gains 🌆 **Streets** on both the street and jail views (jail's row is now at Discord's five-button limit, also pinned).
+
+**Back returns where you came from.** The market's and board's Back was hard-coded to `cty:refresh`, so opening the market *from the hub* dropped the player on the jobs board — a Back button leading somewhere they had never been. The origin now rides in the custom id (`cty:market:hub:<owner>`), which is the trick the panel already used for the owner id, and it survives switching leaderboard category and buying an item. `!crime stats` and the Record button render **one** card from one extracted builder: a panel view drifting from the command it replaced is the exact shape of the M26 complaint.
+
+**Two defects in my own new code, both found by mutation testing rather than by reading it:**
+
+1. `lines.filter(Boolean)` stripped the `''` separator along with the nulls, so the hub's blank line never rendered. The mutation that exposed it was one I had written *wrong* — I filled the hub with empty strings to make it "too long", the code silently swallowed them, and the guard survived. The bad mutation is what pointed at the real bug.
+2. **Four guards were vacuous.** Two origin tests read only the rendered Back button — but the pump recomputes Back from the *incoming* id, so a select that drops the origin looks correct for exactly one press and forgets on the next; the fix presses the id the previous render produced. The record-card comparison checked the description only, so a `.setFooter()` divergence survived; it compares the whole embed now.
+
+All **18** mutations are killed, and the harness reports a mutation whose pattern did not match exactly once as **BROKEN** rather than as a pass — S131's lesson that *"the mutation passed" and "the mutation never ran" look identical*. Two of mine were broken this session (a non-unique `backRow(user.id, back),` anchor and the empty-string filler), and both would have read as green.
+
+**The general guard — `test/docs-consistency.test.js` +2: every command name a manual's command table documents must be registered by the loader.** 57 documented names across 37 manuals, all resolving today. This is the **fifth** hand-maintained list in this repo caught rotting (after `COMMAND_CATEGORIES`, `MODULE_BADGES`, STATE.md's verification block, and the docs tree itself) and the first whose rot the owner experienced as a *missing feature* rather than as stale prose — and the city manual's own table kept claiming `!city` for two sessions after S122 deleted it, which S124 noted in passing without fixing the mechanism. Mutation-proven three ways, including S122's exact mistake: unregister `city` while the manual still documents it, and the build fails naming `!city`.
+
+**Correction found in Step 2:** STATE.md's environment facts still told a future session to run `journalctl -u cuffbot-update` when the owner reports staleness. S127 rebuilt the updater and S128's setup step 8 **deletes** that unit — the instruction pointed at something that no longer exists. Replaced with the real surfaces (`!update status`, `journalctl -u cuffbot`).
+
+**Definition of Done — city:**
+- [x] Layout per architecture.md; `node --check` clean on every touched file
+- [x] Pure logic tested: `city-hub` (18 tests) + the existing `city-panel`/`city-narrate`/`city-targets`/`city-attempt`
+- [x] Manual `docs/modules/city.md` updated — hub section, command table row, changelog row, four new live-checklist steps
+- [x] Listed in `docs/README.md` (unchanged — city was already there; no new module)
+- [x] `STATE.md` + `SESSION_LOG.md` updated
+
+Tests **1353/1353** (from 1333: +18 hub, +2 docs-consistency).
+
+**Retrospective (skill 0.5.53–0.5.54):** two new rules, both earned this session and neither a restatement. **0.5.53 — a milestone closed against a written inventory must diff the inventory against the code, in the session that closes it.** M26.3's own entry listed eight source views and shipped seven; the ninth line of that entry was the evidence and nobody read it back. **0.5.54 — deleting a command with a plan to replace it leaves nothing behind that fails.** The router's silence on unknown commands is correct behaviour for chatter and catastrophic for a *removed* command: no test, no log, no degraded reply. Either keep the name pointing somewhere until the replacement lands, or write the guard in the same commit as the deletion. The docs↔loader test is that guard, generalised.
+
+**Handoff:** M26.3 is genuinely complete now, with the inventory diffed. The only scheduled item left is **M24.3** (mafia's anomalies/achievements), still gated on the owner saying whether mafia is played often enough to warrant a long tail — do not invent that scope. If the owner reports a game misbehaving again, the pattern from this session is worth repeating: **verify the thing he named actually works before believing it is broken, then look for what is missing next to it.** Twice now the report has been accurate about the *game* while pointing at a different mechanism than the words suggested.

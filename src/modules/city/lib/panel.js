@@ -112,17 +112,22 @@ export function crimePanel({ criminal, balance, jail, cooldownLeft, now = Date.n
   // render both in place, the buttons lead somewhere and belong here. They sit
   // on BOTH views on purpose: buying a Get Out of Jail Free card is exactly
   // what a jailed player wants the market for.
+  // S133 adds Streets to both views, so the hub `!city` opens is one press from
+  // the board rather than a command you have to remember. Jail's set is now at
+  // Discord's five-per-row limit, which `city-panel.test.js` pins.
   const buttons = jailed
     ? [
         { id: 'bail', label: 'Pay Bail', style: 'success', emoji: '💸' },
         { id: 'jailbreak', label: 'Jail Break', style: 'danger', emoji: '🔓' },
         { id: 'market', label: 'Market', style: 'secondary', emoji: '🕯️' },
         { id: 'board', label: 'Board', style: 'secondary', emoji: '🏆' },
+        { id: 'hub', label: 'Streets', style: 'secondary', emoji: '🌆' },
       ]
     : [
         { id: 'refresh', label: 'Refresh', style: 'secondary', emoji: '🔄' },
         { id: 'market', label: 'Market', style: 'secondary', emoji: '🕯️' },
         { id: 'board', label: 'Board', style: 'secondary', emoji: '🏆' },
+        { id: 'hub', label: 'Streets', style: 'secondary', emoji: '🌆' },
       ];
 
   return {

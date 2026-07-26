@@ -490,33 +490,7 @@ export default {
         description: 'Your criminal record, or someone else’s.',
         args: [{ name: 'member', type: 'user', required: false }],
         async run(ctx, { member }) {
-          const target = member ?? ctx.user;
-          const criminal = getCriminal(ctx.guild.id, target.id);
-          const stats = criminal.stats;
-          const attempts = stats.successes + stats.failures;
-          const rate = attempts > 0 ? ((stats.successes / attempts) * 100).toFixed(1) : '0.0';
-          const jail = jailState(criminal);
-          await ctx.reply({
-            embeds: [
-              new EmbedBuilder()
-                .setColor(CRIME_COLOUR)
-                .setTitle(`🌃 ${target.username}'s record`)
-                .setDescription(
-                  [
-                    `**Jobs pulled:** ${stats.successes} clean · ${stats.failures} busted (${rate}% success)`,
-                    `**Earned:** ${money(stats.earned)} 🍩 · **biggest score:** ${money(stats.largestHeist)} 🍩`,
-                    `**Fines paid:** ${money(stats.finesPaid)} 🍩`,
-                    `**Lifted off others:** ${money(stats.stolenFrom)} 🍩 · **lost to others:** ${money(stats.stolenBy)} 🍩`,
-                    `**Streak:** ${criminal.streak} now · ${criminal.highest} best`,
-                    criminal.perks.length > 0 || Object.keys(criminal.items).length > 0
-                      ? `**Kit:** ${[...criminal.perks.map((id) => `${MARKET_ITEMS[id]?.emoji ?? '•'} ${MARKET_ITEMS[id]?.name ?? id}`), ...Object.entries(criminal.items).map(([id, n]) => `${MARKET_ITEMS[id]?.emoji ?? '•'} ${MARKET_ITEMS[id]?.name ?? id} ×${n}`)].join(' · ')}`
-                      : null,
-                    jail.jailed ? `**🚨 In a cell** until ${relative(jail.releaseAt)}` : '**Status:** at large',
-                  ].filter(Boolean).join('\n'),
-                ),
-            ],
-            allowedMentions: { parse: [] },
-          });
+          await ctx.reply(recordPayload(ctx.guild, member ?? ctx.user));
         },
       },
     ],
@@ -558,19 +532,7 @@ export async function panelPayload(guild, user) {
     menu.setDisabled(view.options.every((o) => !o.selectable));
     rows.push(new ActionRowBuilder().addComponents(menu));
   }
-  if (view.buttons.length) {
-    rows.push(
-      new ActionRowBuilder().addComponents(
-        view.buttons.map((b) =>
-          new ButtonBuilder()
-            .setCustomId(`cty:${b.id}:${user.id}`)
-            .setLabel(b.label)
-            .setEmoji(b.emoji)
-            .setStyle(PANEL_STYLES[b.style]),
-        ),
-      ),
-    );
-  }
+  if (view.buttons.length) rows.push(buttonRow(user.id, view.buttons));
 
   return {
     embeds: [new EmbedBuilder().setTitle(view.title).setDescription(view.lines.join('\n')).setColor(0x8e44ad)],
@@ -586,14 +548,33 @@ const PANEL_STYLES = {
   primary: ButtonStyle.Primary,
 };
 
-/** The Back button that returns any sub-view to the panel proper. */
-const backRow = (userId) =>
+/**
+ * The Back button that returns a sub-view to wherever it was opened from.
+ *
+ * S133: `back` is a `cty:` action id, and the market/board/record ids carry it
+ * so a press lands back on the screen the player came from. Without it, opening
+ * the market from the hub and pressing Back dropped you on the jobs board —
+ * a Back button that goes somewhere you have never been.
+ */
+const backRow = (userId, back = 'refresh') =>
   new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`cty:refresh:${userId}`)
+      .setCustomId(`cty:${back}:${userId}`)
       .setLabel('Back')
       .setEmoji('◀️')
       .setStyle(ButtonStyle.Secondary),
+  );
+
+/** One row of `cty:` buttons from a pure view's button list. */
+export const buttonRow = (userId, buttons) =>
+  new ActionRowBuilder().addComponents(
+    buttons.map((b) =>
+      new ButtonBuilder()
+        .setCustomId(`cty:${b.id}:${userId}`)
+        .setLabel(b.label)
+        .setEmoji(b.emoji)
+        .setStyle(PANEL_STYLES[b.style]),
+    ),
   );
 
 /**
@@ -602,7 +583,7 @@ const backRow = (userId) =>
  * `!crime market` prints a catalogue and tells you to type `!crime buy <item>`.
  * On the panel that second step is a select, so buying is one press.
  */
-export async function marketPayload(guild, user) {
+export async function marketPayload(guild, user, { back = 'refresh' } = {}) {
   const criminal = getCriminal(guild.id, user.id);
   const balance = await cityBalance(guild.id, user.id);
   const catalogue = marketCatalogue();
@@ -615,7 +596,9 @@ export async function marketPayload(guild, user) {
   const rows = [
     new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId(`cty:buy:${user.id}`)
+        // The origin rides along so a purchase re-renders the shelf with the
+        // same Back button the player arrived with.
+        .setCustomId(`cty:buy:${back}:${user.id}`)
         .setPlaceholder('Buy something…')
         .addOptions(
           catalogue.map((item) => ({
@@ -631,7 +614,7 @@ export async function marketPayload(guild, user) {
         // a dead menu rather than a refusal after the fact (the picker's rule).
         .setDisabled(catalogue.every((item) => owned(item) || item.cost > balance)),
     ),
-    backRow(user.id),
+    backRow(user.id, back),
   ];
 
   return {
@@ -662,7 +645,7 @@ export async function marketPayload(guild, user) {
 }
 
 /** The leaderboard, rendered into the panel with a category switcher (S124). */
-export function boardPayload(guild, user, requested = 'earned') {
+export function boardPayload(guild, user, requested = 'earned', { back = 'refresh' } = {}) {
   // Normalise BEFORE the lookup: `cityLeaderboard` returns null for a category
   // it does not know, and falling back on the spec alone while passing the raw
   // key through would render `null.map(...)`.
@@ -687,7 +670,7 @@ export function boardPayload(guild, user, requested = 'earned') {
     components: [
       new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
-          .setCustomId(`cty:board-cat:${user.id}`)
+          .setCustomId(`cty:board-cat:${back}:${user.id}`)
           .setPlaceholder('Another category…')
           .addOptions(
             Object.entries(LEADERBOARD_CATEGORIES).map(([id, cat]) => ({
@@ -697,8 +680,55 @@ export function boardPayload(guild, user, requested = 'earned') {
             })),
           ),
       ),
-      backRow(user.id),
+      backRow(user.id, back),
     ],
+    allowedMentions: { parse: [] },
+  };
+}
+
+/**
+ * A criminal record card (S90, extracted S133).
+ *
+ * `!crime stats` and the hub's Record button render THIS, not two cards that
+ * happen to agree today — the divergence between a command and the panel that
+ * replaced it is the whole shape of the M26 complaint.
+ *
+ * `back` is a `cty:` action id when the card is a panel view, and null when it
+ * is a standalone reply, which has nowhere to go back to.
+ */
+export function recordPayload(guild, target, { back = null } = {}) {
+  const criminal = getCriminal(guild.id, target.id);
+  const stats = criminal.stats;
+  const attempts = stats.successes + stats.failures;
+  const rate = attempts > 0 ? ((stats.successes / attempts) * 100).toFixed(1) : '0.0';
+  const jail = jailState(criminal);
+  const kit = [
+    ...criminal.perks.map((id) => `${MARKET_ITEMS[id]?.emoji ?? '•'} ${MARKET_ITEMS[id]?.name ?? id}`),
+    ...Object.entries(criminal.items).map(
+      ([id, n]) => `${MARKET_ITEMS[id]?.emoji ?? '•'} ${MARKET_ITEMS[id]?.name ?? id} ×${n}`,
+    ),
+  ];
+
+  return {
+    embeds: [
+      new EmbedBuilder()
+        .setColor(CRIME_COLOUR)
+        .setTitle(`🌃 ${target.username}'s record`)
+        .setDescription(
+          [
+            `**Jobs pulled:** ${stats.successes} clean · ${stats.failures} busted (${rate}% success)`,
+            `**Earned:** ${money(stats.earned)} 🍩 · **biggest score:** ${money(stats.largestHeist)} 🍩`,
+            `**Fines paid:** ${money(stats.finesPaid)} 🍩`,
+            `**Lifted off others:** ${money(stats.stolenFrom)} 🍩 · **lost to others:** ${money(stats.stolenBy)} 🍩`,
+            `**Streak:** ${criminal.streak} now · ${criminal.highest} best`,
+            kit.length > 0 ? `**Kit:** ${kit.join(' · ')}` : null,
+            jail.jailed ? `**🚨 In a cell** until ${relative(jail.releaseAt)}` : '**Status:** at large',
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        ),
+    ],
+    components: back ? [backRow(target.id, back)] : [],
     allowedMentions: { parse: [] },
   };
 }

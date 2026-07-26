@@ -147,6 +147,7 @@ export const COMMAND_CATEGORIES = {
   wordle: 'games',
   heist: 'games',
   crime: 'games',
+  city: 'games', // S133: the hub `!crime`'s panel hangs off
   rules: 'info',
   killcounter: 'games',
   daily: 'games',

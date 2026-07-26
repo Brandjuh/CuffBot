@@ -2,8 +2,8 @@
 
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
-**Status:** stable — **the staged port is complete (S89–S92)**
-**Last updated:** Session 92 · 2026-07-25
+**Status:** stable — the staged port is complete (S89–S92), panel-driven since S122/S124, hub since S133
+**Last updated:** Session 133 · 2026-07-26
 
 ## Purpose
 
@@ -75,11 +75,30 @@ Both are now buttons on the panel — **including in jail**, because buying a Ge
 
 S122 deliberately left these buttons off because they had nowhere to go — that was the scaffolding-as-product trap avoided, not a permanent decision. The test that guarded it was a hard-coded `['refresh']`, which a literal list cannot express; it now asserts the real rule instead — **every button the panel offers is an action the pump handles** — which survives the next slice adding one.
 
+## The hub (S133)
+
+Owner, third report: *"Crime, dat werkt met een panel en knoppen, dat heb je niet."*
+
+`!crime` did have its panel — that part shipped in S122 and was verified working, on the deployed commit as well as on `main`. What did not exist was **`!city`**, and it did not exist in the worst possible way.
+
+S122 removed `city` as an *alias* of `crime` — correctly; the owner had noticed the two were one command (*"de spellen Crime/city zijn hetzelfde"*), and in the source they are two. It wrote that this "leaves `city` free for the hub when it exists". No session built the hub. M26.3 was closed as **COMPLETE** two sessions later. And because the router drops an unknown command without a word — `router.js`: `if (!command) return` — `!city` did not degrade to the crime panel, print a hint, or log anything. It did **nothing at all**, for eleven sessions, to a command the owner had typed since S90.
+
+`MainMenuView` is, tellingly, the one view in M26.3's own inventory of the source's `crime/views.py` with no CuffBot counterpart: `CrimeListView`, `BailView`, `JailOptionsView`, `TargetSelectionView`, `BlackmarketView` and `CrimeAttemptView` were all built in S122 or S124.
+
+**`!city` now opens the hub** — wallet, record, streak, cell — with four buttons: **🌃 Jobs** (the crime panel), **🕯️ Market**, **🏆 Board**, **📋 Record**. It reads deliberately short (≤ 6 lines, pinned by a test): a menu is the one screen with nothing to say, and the owner has twice said these screens run too long.
+
+The crime panel gained a **🌆 Streets** button on both views, so the hub is one press away from the board rather than a command you have to remember.
+
+**Back now returns where you came from.** The market's and board's Back was hard-coded to `cty:refresh`, so opening the market from the hub dropped you on the jobs board — a Back button leading somewhere you had never been. The origin rides in the custom id (`cty:market:hub:<owner>`), which is the same trick the panel already used for the owner id, and it survives switching leaderboard category and buying an item.
+
+`!crime stats` and the Record button render **one** card from one builder. A panel view drifting from the command it replaced is exactly the shape of the M26 complaint, so a test pins that they stay identical.
+
 ## Commands
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| `!crime` | Group: four crimes plus your record; bare = **the panel** (S122 removed the `!city` alias — this table still claimed it until S124) | subs below | Everyone | `!crime bank` |
+| `!city` | **The hub** (S133): where you stand, and four buttons — Jobs, Market, Board, Record | none — everything is a button | Everyone | `!city` |
+| `!crime` | Group: four crimes plus your record; bare = **the jobs board panel** | subs below | Everyone | `!crime bank` |
 
 ### !crime (S69-style group)
 
@@ -212,6 +231,7 @@ test/city-attempt.test.js  the narrated attempt end to end, market/board payload
 
 | Session | Change |
 |---|---|
+| S133 | **`!city` exists again.** The owner reported City/Crime a third time; the crime panel was fine, but `!city` — removed as an alias in S122 with the name reserved "for the hub when it exists" — had been answering with **silence** for eleven sessions, because the router drops an unknown command without a word. The hub is the source's `MainMenuView`, the one view in M26.3's inventory that was never built: wallet/record/streak/cell plus 🌃 Jobs, 🕯️ Market, 🏆 Board, 📋 Record. The crime panel gains 🌆 **Streets**; the market/board **Back** now returns to whichever screen opened it (origin in the custom id) instead of always the jobs board; `!crime stats` and the Record button share one builder. The regression test resolves `!city` **through the loader**, because a file existing on disk is not the same fact as the bot having the command — and it was the second that was false. |
 | S124 (M26.3b) | **The crime plays out.** Events are narrated one at a time (2 s opening, 4 s per event, 4–6 s of suspense by risk) with **the bail flag checked before every beat** — a four-event bank job now offers six chances to walk away instead of S122's one. The narrator draws the events and hands the same list to the resolver, so the story and the outcome are one crime. **The mark picker** replaces the panel's pointer back to `!crime pickpocket @member`: a user select, a 🎯 random roll that skips bots/you/cellmates/the too-poor/your last victim, and Cancel. **Market and Board are panel buttons** on both the street and jail views, each with a Back button; buying is one press. Fixed on the way: `boardPayload` crashed on an unknown category (`cityLeaderboard` returns `null`, and the raw key was passed through while only the label fell back). |
 | S122 (M26.3a) | **The panel.** `!crime` opens an interactive board — a select menu of jobs with reward/risk/cooldown per row, jail's two buttons when you are inside — instead of a wall of subcommands. Adds the source's **Bail Out** mechanic, which had no home on a command-only surface: pay 100 🍩 mid-attempt to walk away, cooldown still burns. **`city` is no longer an alias of `crime`** — the owner noticed they were the same command; in the source they are two. Market, leaderboard and target-picking stay subcommands until 26.3b, and the panel shows no buttons for them. |
 | S92 | **Slice D — M16.13 complete**: the black market (the permanent −20% sentence perk and the get-out-of-jail card, with an inventory on the member record), six leaderboards, and `!crime admin` (Manage Server) for bail and steal limits. The cog's third market item is deliberately not sold — see the deviation above. |
