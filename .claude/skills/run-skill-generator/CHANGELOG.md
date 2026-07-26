@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.46 — 2026-07-26 (Session 125)
+
+- `references/architecture.md` (Verification habits): **a map keyed by something the loader knows should be checked against the loader.**
+- Evidence: `core/help.js` holds `COMMAND_CATEGORIES` and `MODULE_BADGES` side by side. The first has been walked against the real loader output since S43 and failed the build the moment S125 added `!tictactoe` without a category. The second had no such test, so when S116 deleted the `connect4` module in favour of `minigames` the stale key survived — the command roster printed a bullet instead of a badge for **nine sessions**, and it was found by reading the file, not by a failure. Two maps, one guarded, and only the unguarded one had rotted. The guard is four lines and belongs in the same commit as the table. Also this session, and worth noting as a second instance of 0.5.34 rather than a new rule: seven mutations were run against new guards before trusting them, catching a tie that keeps the stakes, a settle with no once-only guard (a double *payout*, not just a double stat line), a refund that does not clear its flag, and a failed buy-in that charges the solvent player anyway.
+
 ## 0.5.45 — 2026-07-26 (Session 124)
 
 - `references/architecture.md` (Verification habits): **a test that two things share a source needs a source that can tell them apart** — plus **a guard written as a literal list stops guarding the moment the list is right to change.**

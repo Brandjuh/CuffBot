@@ -2344,3 +2344,45 @@ One message, edited in place, rather than the source's message-per-event-then-de
 Tests **1124 → 1171**. **M26.3 is complete.**
 
 **Handoff:** M26.2b (Tic-Tac-Toe, donut staking — bet 100, winner takes 400–600, refunded on a pre-start cancel — sortable `!gameleaderboard`, admin config), then M26.4 (heist's seven remaining panels). M24.3 stays unscheduled pending an owner decision. The City engine from S89–S92 has still not been touched: every session since has been presentation, which is what the audit said was wrong.
+
+---
+
+## Session 125 — 2026-07-26
+
+**Goal:** M26.2b — the last of the owner's minigames scope: *"Tic-Tac-Toe erbij, Inzetten met donuts, Statistieken + leaderboard."*
+
+**Tic-Tac-Toe** went onto M26.2a's frame with no new primitives: the same `Board`, the same `findLines`, and `tryCompleteLine` — which has sat in `board.js` since S116 with a comment saying it was for this opponent and had **no caller until now**. Its board IS the buttons, nine of them three per row.
+
+⚠️ **A test caught a real defect in my own port.** I dropped the slot buttons on finish, the way Connect 4 does — but Connect 4 can only do that because its board is drawn in the embed *text*. Tic-Tac-Toe's board is nothing but buttons, so dropping them **deleted the finished game from the screen**, and the winning-line highlight I had just written was computed and could never be seen by anyone. The source keeps the board (`get_view` builds a RematchView and then adds all nine buttons anyway). Fixed: the finished board stays, disabled, with Rematch beneath it.
+
+**Two deliberate divergences from the source**, both written into the file: it gives CROSS and CIRCLE the same red (unreadable with two players on screen), and it hard-codes CROSS to move first — a real edge in a 3×3 game, and these games are now staked, so the opener is randomised the way Connect 4's already was.
+
+**Staking**, through the existing `adjustBalance` seam: 100 from each human **on accept** (never on invite — an unanswered invitation must cost nothing), a 400–600 prize drawn at creation so both players see it before committing, refunded on a tie or a cancel before anyone moves, never charged to or paid to a bot. Affordability is checked before the panel goes up *and* again on accept, and nobody is charged when the other player comes up short.
+
+⚠️ **`betvsbot` is a knob the cog does not have, and I added it deliberately.** The cog charges the human and pays in full against its own bot. Against a heuristic with **no lookahead**, that is a repeatable **+300 to +500 donuts per game** — a faucet nothing else in CuffBot's economy comes close to. The owner asked for the cog, so the cog's behaviour is the **default**; the knob means closing it is one command instead of a release. Flagged to the owner rather than decided for him.
+
+**One board for both games.** `!connect4 stats` and `!connect4 board` are **gone**, replaced by `!minigames stats` and `!gameleaderboard <wins|earnings|games|winrate>`. Both games always wrote to one set of counters (the cog pools them too), so a Connect-4-branded board showing Tic-Tac-Toe results would have been a lie — and keeping the old names as aliases would have recreated exactly the `!city`/`!crime` duplication the owner complained about. The **storage key stays `connect4Stats`**: renaming it is cosmetic and would cost the precinct its history.
+
+**Restructured rather than grown:** three command files sharing `commands/open.js`, and a module-root `runtime.js` where everything that differs between the two games is a row in one `RULES` table. `runtime.js` is not under `commands/` because it is not a command — the loader reads the `index.js` manifest, so a helper can live at the module root safely.
+
+### What went wrong, and what it taught
+
+**Corrections found in Step 2:** `MODULE_BADGES` in `core/help.js` still named the **`connect4` module S116 deleted**, so the roster has printed a bullet instead of a badge for nine sessions. The neighbouring `COMMAND_CATEGORIES` map has been guarded against the real loader since S43 and caught my missing `!tictactoe` entry the first time I ran the suite. **Two maps, side by side, one guarded and one not — and only the unguarded one had rotted.** Recorded as skill 0.5.46: *a map keyed by something the loader knows should be checked against the loader*.
+
+**Two of my own test premises were wrong, not the code:** I assumed an unfunded member was broke (everyone starts on the economy's 10,000, which already covers the jail pass), and I wrote a "the two marks differ in colour" test where both scripted games were won by the same mark. Both fixed in the tests.
+
+**One test I weakened and then repaired:** updating the stats-shape expectations for the new `earnings` field, I also added `earnings: 0` to the record the back-compat test *seeds* — which is meant to be a pre-S125 record with no such field. That would have quietly stopped testing the thing it exists for.
+
+**Mutation testing, seven runs, all caught:** a tie that keeps the stakes, a settle with no once-only guard (a double payout now, not just a double stat line), a refund that does not clear its flag, a failed buy-in that charges the solvent player anyway, a market menu never disabled, a dead panel button, and a board key with no fallback.
+
+### Definition of Done — minigames
+
+- [x] Layout per architecture.md; `node --check` clean across `src` and `test`
+- [x] Pure logic tested: `minigames-tictactoe` (25), `minigames-staking` (29), `minigames-money` (17), plus the existing 46
+- [x] Manual `docs/modules/minigames.md` rewritten: the new command table, the staking rules, the `betvsbot` warning, the config table, the file map, and the changelog row
+- [x] Listed in `docs/README.md` (unchanged — already there)
+- [x] `STATE.md` + `SESSION_LOG.md` + `ROADMAP.md` reflect reality
+
+Tests **1171 → 1243**. **M26.2 is complete**, and with it everything in M26 except 26.4.
+
+**Handoff:** **M26.4** — heist's seven remaining panels (`HeistSelectionView`, `ShopView`, `EquipView`, `CraftView`, `HeistConfigView`, `ItemPriceConfigView`, `EventView`; only the crew lobby exists). After that M26 is finished and M24.3 is the only thing left, still gated on an owner decision. **Tell the owner about `betvsbot`** — beating the bot pays a net +300–500 and the default follows the cog.

@@ -35,7 +35,10 @@ import {
   seatOf,
   touch,
 } from '../src/modules/minigames/service.js';
-import { settleIfOver } from '../src/modules/minigames/commands/minigames.js';
+// S125 moved the shared game runtime out of commands/ (three command files
+// now share it) and made settling async, because a staked game pays out
+// through the economy seam before it records.
+import { settleIfOver } from '../src/modules/minigames/runtime.js';
 
 let seq = 0;
 const freshGuildId = () => `41115717594854${String((seq += 1)).padStart(4, '0')}`;
@@ -190,48 +193,48 @@ test('a game against the bot needs no invitation', () => {
 
 // ── recording the result ─────────────────────────────────────────────────────
 
-test('a decisive game credits one win and one loss', () => {
+test('a decisive game credits one win and one loss', async () => {
   const guildId = freshGuildId();
   const game = session({ guildId });
   game.accepted = true;
   for (const c of [0, 6, 1, 6, 2, 6, 3]) game.state = playColumn(game.state, c);
-  settleIfOver(game);
+  await settleIfOver(game);
 
   const all = getStats(guildId);
   assert.equal(all.played, 1);
-  assert.deepEqual(playerStats(all, HUMAN_A.id), { wins: 1, losses: 0, ties: 0 });
-  assert.deepEqual(playerStats(all, HUMAN_B.id), { wins: 0, losses: 1, ties: 0 });
+  assert.deepEqual(playerStats(all, HUMAN_A.id), { wins: 1, losses: 0, ties: 0, earnings: 0 });
+  assert.deepEqual(playerStats(all, HUMAN_B.id), { wins: 0, losses: 1, ties: 0, earnings: 0 });
 });
 
-test('settling twice does not record the game twice', () => {
+test('settling twice does not record the game twice', async () => {
   // Every ending path funnels through settleIfOver; a double call would
   // double a player's win on one game (the S22 claim-before-act shape).
   const guildId = freshGuildId();
   const game = session({ guildId });
   game.accepted = true;
   for (const c of [0, 6, 1, 6, 2, 6, 3]) game.state = playColumn(game.state, c);
-  settleIfOver(game);
-  settleIfOver(game);
-  settleIfOver(game);
+  await settleIfOver(game);
+  await settleIfOver(game);
+  await settleIfOver(game);
   assert.equal(getStats(guildId).played, 1);
   assert.equal(playerStats(getStats(guildId), HUMAN_A.id).wins, 1);
 });
 
-test('an unfinished game records nothing', () => {
+test('an unfinished game records nothing', async () => {
   const guildId = freshGuildId();
   const game = session({ guildId });
   game.accepted = true;
   game.state = playColumn(game.state, 3);
-  settleIfOver(game);
+  await settleIfOver(game);
   assert.equal(getStats(guildId).played, 0);
   assert.equal(game.finished, false);
 });
 
-test('games against the bot stay off the scoreboard', () => {
+test('games against the bot stay off the scoreboard', async () => {
   const guildId = freshGuildId();
   const game = session({ guildId, players: [HUMAN_A, BOT], againstBot: true });
   for (const c of [0, 6, 1, 6, 2, 6, 3]) game.state = playColumn(game.state, c);
-  settleIfOver(game);
+  await settleIfOver(game);
   assert.equal(getStats(guildId).played, 0, 'a human record is only meaningful against humans');
   assert.equal(game.finished, true, 'but the game is still over');
 });
@@ -259,11 +262,14 @@ test('existing scores survive the module swap — the storage key is unchanged',
   setGuildData(guildId, 'connect4Stats', {
     played: 7,
     ties: 1,
+    // Deliberately WITHOUT `earnings` — a record written before S125 added
+    // staking has no such field, and that is precisely the shape that has to
+    // survive. Seeding the new field here would test nothing.
     players: { [HUMAN_A.id]: { wins: 5, losses: 1, ties: 1 } },
   });
   const carried = getStats(guildId);
   assert.equal(carried.played, 7);
-  assert.deepEqual(playerStats(carried, HUMAN_A.id), { wins: 5, losses: 1, ties: 1 });
+  assert.deepEqual(playerStats(carried, HUMAN_A.id), { wins: 5, losses: 1, ties: 1, earnings: 0 });
 
   // A new result adds to the old total instead of starting over.
   recordResult(guildId, { winnerId: HUMAN_A.id, loserId: HUMAN_B.id });
