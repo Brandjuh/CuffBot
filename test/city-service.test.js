@@ -260,11 +260,18 @@ test('the result card shows the events, the maths and the sentence', () => {
 test('!crime group shape: the full surface, admin gated', () => {
   const group = crimeCommand.group;
   assert.equal(group.name, 'crime');
-  assert.ok(group.aliases.includes('city'));
+  // S122: `city` is NO LONGER an alias. The owner noticed that `!city` and
+  // `!crime` were literally the same command; in the source they are two
+  // different ones (`[p]city` the hub, `[p]crime` the subsystem). One honest
+  // name beats two names for one thing.
+  assert.deepEqual(group.aliases, []);
+  assert.equal(group.invokeWithoutSubcommand, true, 'bare !crime opens the panel');
+  assert.equal(group.fallback, 'panel');
   assert.equal(group.permission, undefined, 'the underworld is public');
   assert.deepEqual(
     group.subcommands.map((s) => s.name),
     [
+      'panel',
       'pickpocket',
       'mug',
       'store',
