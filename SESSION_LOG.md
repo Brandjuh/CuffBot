@@ -2226,3 +2226,21 @@ Tests **1087 → 1095**, including one asserting the phrase "never ran" is gone 
 Also worth carrying: **timeouts sized against a workload go stale as the workload grows.** Three minutes was generous for 350 tests and wrong for 1,095. Anything of the form "this comfortably fits" needs the assumption written next to it, so a later session sees what it was sized against.
 
 **Handoff:** the manual path should now take the fast route and report honestly. If the timer still does not fire on its own, the next thing to check is `systemctl list-timers cuffbot-update` on the Pi — the unit's `OnUnitActiveSec=15min` counts from the last activation, so a timer enabled long after boot can wait a full interval before its first run. M26.2b / M26.3 / M26.4 remain the feature queue.
+
+## Session 121 — 2026-07-26
+
+**Goal:** owner — *"Transcribe, ik zie dat de rate limit 100 is, is dat 100 minuten? 100 seconden? 100 berichten?"*
+
+**The question was the bug report.** The status rendered `**Today:** 3 / 100 transcribed` — a bare number beside a slash, with no unit, no window, and no hint of when it resets. The recording-length cap was not displayed anywhere at all, and `!transcribe limit <duration|daily> <value>` gave `value` no unit even though it means *seconds* for one choice and a *count* for the other. S118 taught the usage builder to spell out a closed set; this is the layer under it — **the unit of an argument can depend on another argument, and nothing was saying so.**
+
+The answer: **100 transcriptions per UTC day, per guild.** `spendBudget` adds exactly 1 per successful call **regardless of audio length**, so a 9-minute memo and a 3-second one cost the same.
+
+**The follow-up question found something more important.** He asked *"ongeacht welke lengte?"* — and reading the accounting through to live voice gives an answer worth acting on: a live **turn** also costs 1. A turn ends after 800 ms of silence and is force-cut at 25 s, so a two-person conversation runs at roughly 4–10 turns a minute. **100 is about 10–25 minutes of live conversation**, after which everything — memos included — stops until midnight UTC.
+
+**The default was set in S101, when memos were the only spender.** Auto-join (S110) changed what a "transcription" costs in practice without anyone re-sizing the cap, and the failure mode is bad: the bot follows people into a voice channel by default and then goes quiet mid-conversation. Raised with the owner as a decision rather than silently changed — the sensible options differ materially (raise the cap / separate budgets / charge voice by audio minutes) and it is his server's usage that decides.
+
+**Corrections (Step 2/6):** none. The manual's `dailyLimit` row was already technically correct ("Transcriptions per UTC day") — it simply never survived the trip to the user's screen, which is the useful lesson: **a doc row is not a substitute for the interface saying it.**
+
+**Retrospective (skill 0.5.43, new rule):** **a number shown to a user must carry its unit and its window.** `3 / 100` is unanswerable; `3 / 100 transcriptions · resets at midnight UTC` is not. Two riders from this session: when an argument's unit **depends on another argument** (`limit duration` is seconds, `limit daily` is a count), the usage line cannot express it — so the reply and the description must; and **a default sized for one workload silently becomes wrong when a second workload starts spending it**, which is the same shape as S120's stale timeout one layer up. Both are cases of a number that was right when written and was never re-examined when its meaning changed.
+
+**Handoff:** awaiting the owner's decision on the daily cap. M26.2b / M26.3 / M26.4 remain the feature queue.

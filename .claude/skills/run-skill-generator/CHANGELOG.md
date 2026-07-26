@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.43 — 2026-07-26 (Session 121)
+
+- `references/architecture.md` (Verification habits): **a number shown to a user must carry its unit and its window.** Riders: when an argument's unit depends on *another* argument the usage line cannot express it, so the description and the reply must; and **a default sized for one workload silently becomes wrong when a second workload starts spending it**.
+- Evidence: the owner asked whether transcribe's `100` meant minutes, seconds or messages — the status said `3 / 100 transcribed`, and nothing named the unit or the reset. Reading the accounting to answer him surfaced the larger problem: `spendBudget` charges 1 per call regardless of length, and a live-voice *turn* costs the same as a memo, so 100 is ~10–25 minutes of conversation. The default was chosen in S101 when memos were the only spender; S110's auto-join changed what it buys without anyone re-sizing it. Same shape as 0.5.42's stale timeout, one layer up: a number that was right when written and was never re-examined when its meaning changed. The manual's config row said "Transcriptions per UTC day" all along — **a doc row is not a substitute for the interface saying it**.
+
 ## 0.5.42 — 2026-07-26 (Session 120)
 
 - `references/architecture.md` (Verification habits): **a safety fallback that succeeds hides the failure it covers for.** Make fallbacks audible — log which path was taken and why — or a permanently degraded system stays permanently silent. Plus: **a timeout sized against a workload goes stale as the workload grows**; write down what it was sized against.

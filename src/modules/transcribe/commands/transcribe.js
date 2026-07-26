@@ -2,7 +2,7 @@
 // public; every knob is Manage Server.
 import { ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { hasAudioKey } from '../lib/audio-provider.js';
-import { audioAttachmentsOf, refusalFor } from '../lib/transcribe.js';
+import { audioAttachmentsOf, formatDuration, refusalFor } from '../lib/transcribe.js';
 import { DEFAULT_VOICE_PAIRS, HOW_LABEL, autoJoinDiagnosis, describePairings } from '../lib/pairing.js';
 import { getBudget, getTranscribeConfig, setTranscribeConfig, transcribeMessage } from '../service.js';
 import { isListening, sessionFor, startListening, stopListening } from '../voice/session.js';
@@ -52,7 +52,15 @@ export default {
             ? 'everywhere'
             : config.channelIds.map((id) => `<#${id}>`).join(', ')
         }`,
-        `**Today:** ${used}${config.dailyLimit > 0 ? ` / ${config.dailyLimit}` : ''} transcribed`,
+        // S121, owner: "ik zie dat de rate limit 100 is, is dat 100 minuten?
+        // 100 seconden? 100 berichten?" — a bare number next to a slash is a
+        // unit-less quantity, and the reset window was nowhere at all.
+        `**Today:** ${used} / ${config.dailyLimit > 0 ? `${config.dailyLimit} transcriptions` : '∞'}${
+          config.dailyLimit > 0 ? ' · resets at midnight UTC' : ''
+        }`,
+        `**Longest recording:** ${
+          config.maxDurationSecs > 0 ? `${formatDuration(config.maxDurationSecs)} — longer ones are skipped` : 'no limit'
+        }`,
         `**Live voice:** ${
           isListening(ctx.guild.id)
             ? `🔴 recording <#${sessionFor(ctx.guild.id).channelId}>`
@@ -454,7 +462,7 @@ export default {
       },
       {
         name: 'limit',
-        description: 'Longest recording to transcribe, and how many per day.',
+        description: 'Caps: `duration` in SECONDS per recording, `daily` a COUNT of transcriptions.',
         permission: PermissionFlagsBits.ManageGuild,
         args: [
           { name: 'what', type: 'string', required: true, choices: ['duration', 'daily'] },
@@ -466,7 +474,7 @@ export default {
             await ctx.reply(
               value === 0
                 ? '🎙️ Recordings of any length are accepted.'
-                : `🎙️ Recordings longer than **${value} s** are skipped.`,
+                : `🎙️ Recordings longer than **${formatDuration(value)}** (${value} seconds) are skipped. Everything shorter is transcribed as usual.`,
             );
             return;
           }
@@ -474,7 +482,7 @@ export default {
           await ctx.reply(
             value === 0
               ? '🎙️ No daily transcription limit.'
-              : `🎙️ At most **${value}** transcriptions per day.`,
+              : `🎙️ At most **${value} transcriptions per day** — not minutes, not messages: ${value} pieces of audio actually turned into text, counted across the whole server and reset at midnight UTC. Live voice spends from the same budget.`,
           );
         },
       },
