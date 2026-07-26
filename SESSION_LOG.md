@@ -2176,4 +2176,53 @@ Tests **1075 → 1087**. Mutation-checked: reverting to "list only the paired ch
 
 **Retrospective (skill 0.5.41 → no change):** no new rule. This is 0.5.41 from last session (*a silent refusal path needs a way to ask it why*) in a second guise — the name matcher was not silent, it was simply never asked to show its work. The candidate worth watching, not yet a rule: **a listing command should enumerate the domain, not the configuration.** `pairs` listed config; the user's mental model is channels. Same shape as a permissions UI that lists overrides instead of resources. One instance is not a pattern; if it recurs it earns a rule.
 
-**Handoff (urgent, owner-reported mid-session):** **the Pi is 23 commits behind and the updater never ran** — CuffBot's own diagnosis says the update service or its sudo rights are missing. That makes every session since S110 undeployed, and it explains the auto-join report in S118: the feature is not on the Pi at all. Next session should treat the update chain as the priority; the pairs/unpair work here is invisible to the owner until it lands.
+**Handoff (urgent, owner-reported mid-session):** **the Pi is 23 commits behind.** *(Corrected in S120: the rest of this line repeated CuffBot's own claim that "the updater never ran — the update service or its sudo rights are probably missing". The bot had never checked that; it only knew HEAD had not moved within three minutes. The 23 was real, the diagnosis was invented.)* That makes every session since S110 undeployed, and it explains the auto-join report in S118: the feature is not on the Pi at all. Next session should treat the update chain as the priority; the pairs/unpair work here is invisible to the owner until it lands.
+
+## Session 120 — 2026-07-26
+
+**Goal:** owner — *"Raar, ik heb net de setup via de PI afgerond, ik deed een paar minuten geleden het update command en ik krijg weer te zien dat er 2 nieuwe updates zijn en het niet automatisch wordt geüpdatet."*
+
+Two bugs, and the more interesting one is that **the bot was lying to him about the first**.
+
+### Bug 1 — `sudo` has never matched, since S7
+
+`triggerUpdate()` ran:
+
+```
+sudo -n systemctl start --no-block cuffbot-update.service
+```
+
+while the sudoers rule `setup-pi.sh` writes permits:
+
+```
+NOPASSWD: /usr/bin/systemctl start cuffbot-update.service
+```
+
+**sudo matches the entire command line.** The extra `--no-block` meant the rule never applied, `sudo -n` refused every time, and the preferred path — the one that runs the update outside the bot's own cgroup — has never once worked. The bash fallback hid it perfectly: updates still happened, always down the slower route, so nothing ever looked broken.
+
+`--no-block` is gone, and the sudoers line now lists both forms so re-adding a flag cannot break it the same invisible way. The comment at the call site says to change both in one commit.
+
+**A consequence that had to be fixed in the same change**, or the fix would have been worse than the bug: without `--no-block`, `systemctl start` on a `Type=oneshot` unit blocks until the update *finishes*. A late non-zero exit is then the update's **own** failure — red tests, rolled back — and the old "any non-zero exit → run the fallback" rule would have re-run the whole update on top of it. The fallback now fires only on a **fast** non-zero exit, which is the only kind that means sudo turned us away.
+
+### Bug 2 — the diagnosis asserted a cause it never checked
+
+`!update` polled for three minutes and, if `HEAD` had not moved, announced *"the updater never ran — the update service or its sudo rights are probably missing."* It knew nothing of the sort. All it had observed was that HEAD had not moved.
+
+**The three-minute limit was sized when the suite was ~350 tests with no dependencies.** It is 1,095 tests plus an `npm install` now, and a Pi is far slower than this container, where the suite alone takes 18 seconds. So a completely healthy update, still running its tests, was reported as a broken installation — and the owner was sent to re-run `setup-pi.sh` for nothing. He did, twice, and the message came back.
+
+Raised to twelve minutes, and the message now **asks systemd** — `LoadState`, `ActiveState`, `Result`, `ExecMainStartTimestamp` — and says only what it finds:
+
+- **activating** → "still installing, it will restart me when it goes green", and explicitly *not* a pointer at `setup-pi.sh`
+- **not loaded** → the service really is missing; this is the one branch where `setup-pi.sh` is the answer
+- **Result ≠ success** → the last run failed, here is the journal command
+- **loaded, healthy, idle** → the likeliest state of all, and the one the old message got most wrong: it simply has not fired yet, the timer runs every 15 minutes
+
+Tests **1087 → 1095**, including one asserting the phrase "never ran" is gone from the healthy-idle branch, and a mutation check that removing the running-detection turns the running case red.
+
+**Corrections (Step 2/6):** none in the state files, but a correction to my own S119 handoff, which recorded the owner's report as fact: *"the Pi is 23 commits behind and the updater never ran"*. The 23 was real; **"the updater never ran" was the bot's unfounded claim, and I repeated it into the log as though it were evidence.**
+
+**Retrospective (skill 0.5.42, new rule):** two rules meet here and the intersection is worth naming. **A safety fallback that succeeds hides the failure it is covering for** — the sudo mismatch produced no symptom for over a hundred sessions because the fallback always worked, so the system was permanently degraded and permanently silent about it. The fix is not to remove fallbacks but to make them **audible**: the fallback now logs *why* it fired, so the next time the preferred path breaks there is a line saying so instead of nothing at all. Related and already recorded: 0.5.41 says a diagnosis must not claim more than it measured — bug 2 is its most expensive instance yet, because the false claim sent the owner to do manual work twice.
+
+Also worth carrying: **timeouts sized against a workload go stale as the workload grows.** Three minutes was generous for 350 tests and wrong for 1,095. Anything of the form "this comfortably fits" needs the assumption written next to it, so a later session sees what it was sized against.
+
+**Handoff:** the manual path should now take the fast route and report honestly. If the timer still does not fire on its own, the next thing to check is `systemctl list-timers cuffbot-update` on the Pi — the unit's `OnUnitActiveSec=15min` counts from the last activation, so a timer enabled long after boot can wait a full interval before its first run. M26.2b / M26.3 / M26.4 remain the feature queue.

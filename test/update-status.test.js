@@ -12,7 +12,9 @@ import {
   MARKER_FRESH_MS,
   rememberVersion,
   takeFreshUpdateMarker,
+  stalledUpdateReport,
   updateAnnouncement,
+  updaterUnitStatus,
   versionChange,
   writeUpdateMarker,
 } from '../src/modules/core/update-status.js';
@@ -231,4 +233,85 @@ test('a second boot on the same commit says nothing', async () => {
   await updateAnnounce.execute(client); // first boot: records, silent
   await updateAnnounce.execute(client); // same commit: still silent
   assert.deepEqual(sent, [], 'restarts must not spam the channel');
+});
+
+// ── S120: the updater diagnosis stops guessing ───────────────────────────────
+//
+// `!update` used to time out after 3 minutes and announce "the updater never
+// ran". It knew no such thing — it had only observed that HEAD had not moved.
+// On a Pi, npm install plus 1,087 tests takes longer than that, so a healthy
+// update in progress was reported as a broken one and the owner was sent to
+// re-run setup-pi.sh for nothing.
+
+const unit = (over = {}) => ({
+  known: true,
+  loaded: true,
+  active: 'inactive',
+  result: 'success',
+  lastRun: 'Sat 2026-07-26 10:00:00 UTC',
+  running: false,
+  ...over,
+});
+
+test('an update still running is reported as running, not as broken', () => {
+  const text = stalledUpdateReport(unit({ active: 'activating', running: true }), 2, 12);
+  assert.match(text, /running right now/);
+  assert.doesNotMatch(text, /setup-pi/, 'do not send someone to reinstall a working updater');
+});
+
+test('a missing service is named as missing, and that IS a setup-pi job', () => {
+  const text = stalledUpdateReport(unit({ loaded: false }), 2, 12);
+  assert.match(text, /not installed/);
+  assert.match(text, /setup-pi\.sh/);
+});
+
+test('a failed last run points at the journal, not at reinstalling', () => {
+  const text = stalledUpdateReport(unit({ result: 'exit-code' }), 2, 12);
+  assert.match(text, /failed/);
+  assert.match(text, /journalctl/);
+  assert.doesNotMatch(text, /setup-pi/);
+});
+
+test('an installed, healthy, idle updater is reported as "has not fired yet"', () => {
+  // The likeliest state of all, and the one the old message got most wrong:
+  // the timer runs every 15 minutes, so "behind" is normal for a while.
+  const text = stalledUpdateReport(unit(), 2, 12);
+  assert.match(text, /has not fired yet|not fired/);
+  assert.match(text, /15 minutes/);
+  assert.doesNotMatch(text, /never ran/, 'the claim it could never support');
+});
+
+test('when systemd cannot be queried at all, it says so instead of inventing a cause', () => {
+  const text = stalledUpdateReport({ known: false, loaded: false, running: false }, 2, 12);
+  assert.match(text, /cannot query systemd/);
+});
+
+test('every branch names the number of commits behind', () => {
+  for (const u of [unit(), unit({ loaded: false }), unit({ result: 'timeout' }), { known: false, running: false }]) {
+    assert.match(stalledUpdateReport(u, 7, 12), /7 commit/);
+  }
+});
+
+test('updaterUnitStatus parses systemctl show, and survives it being absent', () => {
+  const ok = updaterUnitStatus(() => ({
+    status: 0,
+    stdout: 'LoadState=loaded\nActiveState=activating\nResult=success\nExecMainStartTimestamp=Sat 2026-07-26 10:00:00 UTC\n',
+  }));
+  assert.equal(ok.loaded, true);
+  assert.equal(ok.running, true, 'a Type=oneshot unit is "activating" while it runs');
+  assert.equal(ok.lastRun, 'Sat 2026-07-26 10:00:00 UTC');
+
+  const missing = updaterUnitStatus(() => ({ status: 1, stdout: '' }));
+  assert.equal(missing.known, false);
+  assert.equal(missing.running, false);
+});
+
+test('an unloaded unit is reported unloaded, not merely idle', () => {
+  const gone = updaterUnitStatus(() => ({
+    status: 0,
+    stdout: 'LoadState=not-found\nActiveState=inactive\nResult=success\nExecMainStartTimestamp=\n',
+  }));
+  assert.equal(gone.known, true);
+  assert.equal(gone.loaded, false);
+  assert.equal(gone.lastRun, null, 'an empty timestamp is not a timestamp');
 });

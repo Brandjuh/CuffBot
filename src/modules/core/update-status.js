@@ -140,3 +140,68 @@ export function updateAnnouncement({ from, to, subject }) {
     .filter(Boolean)
     .join('\n');
 }
+
+/**
+ * What the update UNIT actually did — asked, not guessed (S120).
+ *
+ * `!update` used to time out after three minutes and announce *"the updater
+ * never ran"*. It knew no such thing: all it had observed was that `HEAD` had
+ * not moved yet. On a Pi, `npm install` plus 1,087 tests takes longer than
+ * three minutes, so a perfectly healthy update in progress was reported as a
+ * broken one — and the owner was sent to re-run `setup-pi.sh` for nothing.
+ *
+ * systemd already knows the answer, so ask it.
+ *
+ * @returns {{known: boolean, loaded: boolean, active: string|null,
+ *   result: string|null, lastRun: string|null, running: boolean}}
+ */
+export function updaterUnitStatus(runner = spawnSync) {
+  const res = runner(
+    'systemctl',
+    ['show', 'cuffbot-update.service', '-p', 'LoadState', '-p', 'ActiveState', '-p', 'Result', '-p', 'ExecMainStartTimestamp'],
+    { encoding: 'utf8', timeout: 10_000 },
+  );
+  if (res.status !== 0 || !res.stdout) {
+    return { known: false, loaded: false, active: null, result: null, lastRun: null, running: false };
+  }
+  const fields = Object.fromEntries(
+    res.stdout
+      .split('\n')
+      .map((line) => line.split('='))
+      .filter((p) => p.length >= 2)
+      .map(([k, ...v]) => [k, v.join('=').trim()]),
+  );
+  const active = fields.ActiveState || null;
+  return {
+    known: true,
+    loaded: fields.LoadState === 'loaded',
+    active,
+    result: fields.Result || null,
+    lastRun: fields.ExecMainStartTimestamp || null,
+    // A Type=oneshot unit is "activating" while it runs.
+    running: active === 'activating' || active === 'reloading',
+  };
+}
+
+/**
+ * The honest sentence for "HEAD has not moved and we are out of patience".
+ *
+ * Each branch says only what is actually known, and names the command that
+ * settles the rest — the previous single message asserted a cause it had not
+ * checked (skill 0.5.41).
+ */
+export function stalledUpdateReport(unit, behind, minutes) {
+  if (unit.running) {
+    return `⏳ Still installing after ${minutes} min — the update service is **running right now**. A full test run on a Pi takes a while; it will restart me when it goes green. Watch it: \`journalctl -u cuffbot-update -f\`.`;
+  }
+  if (!unit.known) {
+    return `⚠️ ${behind} commit(s) behind, and I cannot query systemd from here to say why. On the Pi: \`bash scripts/update.sh\` runs it now, \`npm run doctor\` names what is broken.`;
+  }
+  if (!unit.loaded) {
+    return `🚨 ${behind} commit(s) behind and **the \`cuffbot-update\` service is not installed**. On the Pi: \`bash scripts/setup-pi.sh\` once installs and arms it.`;
+  }
+  if (unit.result && unit.result !== 'success') {
+    return `🚨 ${behind} commit(s) behind and the last update **failed** (\`${unit.result}\`)${unit.lastRun ? `, last run ${unit.lastRun}` : ''}. The tests probably went red and it rolled back: \`journalctl -u cuffbot-update -n 40\`.`;
+  }
+  return `⚠️ ${behind} commit(s) behind. The update service is installed and its last run succeeded${unit.lastRun ? ` (${unit.lastRun})` : ''}, so it most likely has not fired yet — the timer runs every 15 minutes. \`bash scripts/update.sh\` on the Pi does it now.`;
+}

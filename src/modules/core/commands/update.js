@@ -27,25 +27,44 @@ import {
   classifyPollTick,
   clearUpdateMarker,
   getHead,
+  stalledUpdateReport,
+  updaterUnitStatus,
   writeUpdateMarker,
 } from '../update-status.js';
 
 const REPO_DIR = path.resolve(fileURLToPath(new URL('../../../../', import.meta.url)));
 const POLL_MS = 5_000;
-const POLL_LIMIT_MS = 3 * 60_000; // fetch+install+tests comfortably fit; then we stop editing
+// S120: was 3 min, sized when the suite was ~350 tests with no dependencies.
+// It is 1,087 tests plus an `npm install` now, and a Pi is far slower than the
+// build container — three minutes reported healthy updates as broken ones.
+const POLL_LIMIT_MS = 12 * 60_000;
+
+/** How quickly a non-zero exit still means "sudo refused" rather than "the unit failed". */
+const SUDO_REFUSAL_MS = 5_000;
 
 function triggerUpdate() {
   // Preferred: the dedicated systemd unit runs outside the bot's own cgroup,
   // so the update's service-restart cannot kill the update mid-run.
-  const viaService = spawn(
-    'sudo',
-    ['-n', 'systemctl', 'start', '--no-block', 'cuffbot-update.service'],
-    { stdio: 'ignore', detached: true },
-  );
+  //
+  // ⚠️ The argument list must match the sudoers rule setup-pi.sh writes
+  // EXACTLY. sudo matches the whole command line, so the `--no-block` this
+  // used to pass meant the rule
+  //   NOPASSWD: /usr/bin/systemctl start cuffbot-update.service
+  // never matched — `sudo -n` refused every time and the preferred path had
+  // silently never worked since S7. The fallback hid it: updates still
+  // happened, just always down the slower route. If you add a flag here, add
+  // it to the sudoers line in the same commit or it will break again the same
+  // invisible way.
+  const startedAt = Date.now();
+  const viaService = spawn('sudo', ['-n', 'systemctl', 'start', 'cuffbot-update.service'], {
+    stdio: 'ignore',
+    detached: true,
+  });
   let fellBack = false;
-  const fallback = () => {
+  const fallback = (why) => {
     if (fellBack) return;
     fellBack = true;
+    logger.warn(`Update: systemd path unavailable (${why}); running scripts/update.sh directly.`);
     const child = spawn('bash', [path.join(REPO_DIR, 'scripts', 'update.sh')], {
       cwd: REPO_DIR,
       stdio: 'ignore',
@@ -54,9 +73,15 @@ function triggerUpdate() {
     child.on('error', (err) => logger.error('Manual update fallback failed:', err));
     child.unref();
   };
-  viaService.on('error', fallback);
+  viaService.on('error', () => fallback('spawn failed'));
   viaService.on('exit', (code) => {
-    if (code !== 0) fallback();
+    if (code === 0) return;
+    // Without `--no-block`, `systemctl start` on a Type=oneshot unit blocks
+    // until the update FINISHES — so a late non-zero exit is the update's own
+    // failure (red tests, rolled back), and re-running it would repeat the
+    // whole thing. Only a fast refusal means sudo turned us away.
+    if (Date.now() - startedAt < SUDO_REFUSAL_MS) fallback(`sudo exited ${code}`);
+    else logger.warn(`Update: the update service finished with code ${code} — see journalctl -u cuffbot-update.`);
   });
   viaService.unref();
 }
@@ -151,7 +176,9 @@ export default {
                   ? `✅ Already up to date — \`${started.head}\` is the latest version. Nothing changed.`
                   : behind === null
                     ? '⚠️ Could not verify against GitHub (network/credentials?) — run `npm run doctor` on the Pi; it names the problem.'
-                    : `🚨 There IS a newer version (${behind} commit(s) ahead) but the updater never ran — the update service or its sudo rights are probably missing. On the Pi: \`bash scripts/update.sh\` now, and \`bash scripts/setup-pi.sh\` once to fix it permanently.`,
+                    : // S120: ASK systemd rather than asserting a cause. This used to
+                      // claim "the updater never ran", which it had no way to know.
+                      stalledUpdateReport(updaterUnitStatus(), behind, Math.round(POLL_LIMIT_MS / 60_000)),
               );
             }
           }
