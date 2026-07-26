@@ -5,12 +5,28 @@
 // a SHARED message with several legitimate pressers, and these four are
 // personal boards with exactly one owner. Folding them together would mean one
 // handler carrying two different answers to "may you press this?".
-import { Events, MessageFlags } from 'discord.js';
+import { Events, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../../../core/logger.js';
-import { PAYLOADS, decodeId } from '../panel-runtime.js';
-import { buyItem, craftItem, equipItem, getPlayer, unequipSlot } from '../service.js';
+import { ADMIN_VIEWS, PAYLOADS, decodeId, valueModal } from '../panel-runtime.js';
+import {
+  buyItem,
+  craftItem,
+  equipItem,
+  getPlayer,
+  resetHeistOverrides,
+  setHeistOverride,
+  setItemPrice,
+  startHeistEvent,
+  stopHeistEvent,
+  unequipSlot,
+} from '../service.js';
 import { fmt } from '../lib/tables.js';
+import { packSelection, unpackSelection } from '../lib/panels.js';
 import { startHeistFromPanel } from '../commands/heist.js';
+
+/** The event panel's Start button uses the cog's own defaults. */
+export const EVENT_MULTIPLIER = 2;
+export const EVENT_HOURS = 24;
 
 const quiet = (interaction, content) =>
   interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
@@ -24,6 +40,17 @@ export default {
     if (!state) return;
 
     try {
+      // The three admin views change the game for EVERYONE, so ownership of
+      // the message is not enough — the presser must still hold the
+      // permission. Checked before the owner check so a non-admin who somehow
+      // owns the panel is refused for the right reason.
+      if (ADMIN_VIEWS.has(state.view)) {
+        const perms = interaction.channel?.permissionsFor?.(interaction.member) ?? interaction.member?.permissions;
+        if (!perms?.has?.(PermissionFlagsBits.ManageGuild)) {
+          await quiet(interaction, '🚫 Tuning the heist needs **Manage Server**.');
+          return;
+        }
+      }
       // These are personal boards — your level, your wallet, your locker — so
       // a stranger gets a pointer to their own rather than silence (S98).
       if (interaction.user.id !== state.owner) {
@@ -97,6 +124,83 @@ export default {
         await refresh({ selected: interaction.values?.[0] });
         return;
       }
+      // ── the admin panels (S130) ──────────────────────────────────────────
+      if (state.action === 'cfg-job') {
+        // Choosing a different job clears the field: the fields are per-job in
+        // meaning even where they share a name, and carrying a selection
+        // across would let a press edit something the admin never looked at.
+        await refresh({ selected: packSelection(interaction.values?.[0], null) });
+        return;
+      }
+      if (state.action === 'cfg-field') {
+        const { job } = unpackSelection(state.selected);
+        await refresh({ selected: packSelection(job, interaction.values?.[0]) });
+        return;
+      }
+      if (state.action === 'price-pick') {
+        await refresh({ selected: interaction.values?.[0] });
+        return;
+      }
+
+      if (state.action === 'cfg-set' || state.action === 'price-set') {
+        await interaction.showModal(valueModal(state)).catch(() => {});
+        return;
+      }
+
+      if (state.action === 'value-modal') {
+        const raw = interaction.fields?.getTextInputValue?.('value') ?? '';
+        if (state.view === 'prices') {
+          const result = setItemPrice(guildId, state.selected, Number.parseInt(raw, 10));
+          if (!result.ok) {
+            await quiet(
+              interaction,
+              result.error === 'out-of-range'
+                ? '💰 A price has to be a whole number between 0 and 10,000,000.'
+                : '💰 That item is not for sale, so it has no price to set.',
+            );
+            return;
+          }
+          await interaction.update(await PAYLOADS.prices(guildId, userId, state)).catch(() => {});
+          return;
+        }
+        const { job, field } = unpackSelection(state.selected);
+        const result = setHeistOverride(guildId, job, field, raw);
+        if (!result.ok) {
+          await quiet(
+            interaction,
+            result.error === 'out-of-range'
+              ? `⚙️ That has to be between **${result.min}** and **${result.max}**.`
+              : result.error === 'not-a-number'
+                ? '⚙️ That is not a number.'
+                : '⚙️ Unknown job or field.',
+          );
+          return;
+        }
+        await interaction.update(configPayloadFor(guildId, userId, state)).catch(() => {});
+        return;
+      }
+
+      if (state.action === 'cfg-reset') {
+        const { job } = unpackSelection(state.selected);
+        resetHeistOverrides(guildId, job);
+        await refresh();
+        await interaction
+          .followUp({ content: `↩️ **${fmt(job)}** is back to its shipped values.`, flags: MessageFlags.Ephemeral })
+          .catch(() => {});
+        return;
+      }
+
+      if (state.action === 'event-start') {
+        startHeistEvent(guildId, EVENT_MULTIPLIER, EVENT_HOURS);
+        await refresh();
+        return;
+      }
+      if (state.action === 'event-stop') {
+        stopHeistEvent(guildId);
+        await refresh();
+        return;
+      }
+
       if (state.action === 'craft:make') {
         if (!state.selected) {
           await quiet(interaction, '🔨 Pick a recipe first.');
@@ -125,3 +229,9 @@ export default {
 
 /** Exported for the tests: the player record a panel reads. */
 export const panelPlayer = getPlayer;
+
+/** A modal submit cannot `refresh()` through the shared helper (its state has
+ *  no page), so the config view gets its payload directly. */
+function configPayloadFor(guildId, userId, state) {
+  return PAYLOADS.config(guildId, userId, state);
+}

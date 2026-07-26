@@ -428,6 +428,17 @@ export function eventMultiplier(guildId, now = Date.now()) {
   return event.multiplier;
 }
 
+/**
+ * When the running event ends, or 0 when nothing is running (S130).
+ *
+ * The event panel needs the deadline, not just the multiplier — "2× rewards"
+ * with no end in sight reads as permanent.
+ */
+export function heistEventEndsAt(guildId, now = Date.now()) {
+  const event = rawSettings(guildId).event;
+  return event && now <= event.endsAt ? event.endsAt : 0;
+}
+
 export function startHeistEvent(guildId, multiplier, hours, now = Date.now()) {
   if (!Number.isInteger(multiplier) || multiplier < 2 || multiplier > 5) return { ok: false, error: 'bad-multiplier' };
   if (!Number.isFinite(hours) || hours <= 0 || hours > 168) return { ok: false, error: 'bad-duration' };

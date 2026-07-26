@@ -367,11 +367,15 @@ test('!heist group shape: public play, admin gated on Manage Server', () => {
       'paydebt',
       'crew',
       'admin',
+      // S130 (M26.4b): the three admin panels.
+      'tune',
+      'pricing',
+      'event',
       'level',
     ],
   );
   const gated = group.subcommands.filter((s) => s.permission !== undefined).map((s) => s.name);
-  assert.deepEqual(gated, ['admin'], 'only the tuning surface is gated');
+  assert.deepEqual(gated, ['admin', 'tune', 'pricing', 'event'], 'every tuning surface is gated');
   assert.equal(group.subcommands.find((s) => s.name === 'admin').permission, PermissionFlagsBits.ManageGuild);
   assert.deepEqual(group.subcommands.find((s) => s.name === 'unequip').args[0].choices, ['shield', 'tool']);
   // S126: `equip` opens the rack when bare, so its argument became optional.
