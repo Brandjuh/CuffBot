@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.42 — 2026-07-26 (Session 120)
+
+- `references/architecture.md` (Verification habits): **a safety fallback that succeeds hides the failure it covers for.** Make fallbacks audible — log which path was taken and why — or a permanently degraded system stays permanently silent. Plus: **a timeout sized against a workload goes stale as the workload grows**; write down what it was sized against.
+- Evidence: `!update`'s preferred path ran `sudo -n systemctl start --no-block cuffbot-update.service` while the sudoers rule permitted `systemctl start cuffbot-update.service`. sudo matches the whole command line, so the rule never matched and sudo refused **every time since S7** — invisible, because the bash fallback always worked. Separately, the 3-minute poll limit was set when the suite was ~350 tests with no dependencies; at 1,095 tests plus `npm install` a healthy Pi update timed out and was announced as *"the updater never ran"*, sending the owner to re-run `setup-pi.sh` twice for nothing. Fixing the flag also required fixing the fallback trigger: without `--no-block` a `Type=oneshot` start blocks until the update finishes, so "any non-zero exit → fall back" would have re-run a rolled-back update in full.
+
 ## 0.5.41 — 2026-07-26 (Session 118)
 
 - `references/architecture.md` (Verification habits): **a silent refusal path needs a way to ask it why.** Staying quiet in the channel is usually right for a background feature; being unable to say afterwards which branch fired is not. Expose the decision — and the fix for it — in the module's bare status line.

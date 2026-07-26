@@ -190,7 +190,7 @@ UNIT
       # password prompt. Scoped to these commands only; nothing else.
       SUDOERS=/etc/sudoers.d/cuffbot
       sudo tee "$SUDOERS" >/dev/null <<SUDO
-$USER ALL=(root) NOPASSWD: /bin/systemctl restart cuffbot, /bin/systemctl start cuffbot-update.service, /usr/bin/systemctl restart cuffbot, /usr/bin/systemctl start cuffbot-update.service
+$USER ALL=(root) NOPASSWD: /bin/systemctl restart cuffbot, /bin/systemctl start cuffbot-update.service, /bin/systemctl start --no-block cuffbot-update.service, /usr/bin/systemctl restart cuffbot, /usr/bin/systemctl start cuffbot-update.service, /usr/bin/systemctl start --no-block cuffbot-update.service
 SUDO
       sudo chmod 440 "$SUDOERS"
       if sudo visudo -cf "$SUDOERS" >/dev/null 2>&1; then
