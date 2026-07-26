@@ -61,6 +61,37 @@ export function refundBudget(guildId) {
 }
 
 /**
+ * Transcribe audio we already hold in memory (S102: the live-voice path, whose
+ * bytes come off the voice gateway rather than from a URL). Shares the key
+ * check, the budget and the language setting with the memo path, because a
+ * second copy of those would be a second thing to keep in step.
+ *
+ * @returns {Promise<{ ok: true, text: string } | { ok: false, reason: string, detail?: string }>}
+ */
+export async function transcribeBuffer(
+  guildId,
+  bytes,
+  { filename = 'audio.ogg', contentType = 'audio/ogg', env = process.env, fetchImpl = fetch, now = Date.now() } = {},
+) {
+  if (!hasAudioKey(env)) return { ok: false, reason: 'no-key' };
+  if (!claimBudget(guildId, now)) return { ok: false, reason: 'daily-limit' };
+  try {
+    const text = await transcribeAudio({
+      bytes,
+      filename,
+      contentType,
+      translate: getTranscribeConfig(guildId).translateToEnglish,
+      env,
+      fetchImpl,
+    });
+    return { ok: true, text };
+  } catch (error) {
+    refundBudget(guildId);
+    return { ok: false, reason: 'failed', detail: String(error?.message ?? error) };
+  }
+}
+
+/**
  * Transcribe the audio on a message.
  *
  * Returns a discriminated result rather than throwing, because both callers —

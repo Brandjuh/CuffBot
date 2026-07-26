@@ -440,7 +440,8 @@ const runGroup = (message, line) =>
 test('the group offers exactly the documented subcommands', () => {
   assert.deepEqual(
     SUBS.map((s) => s.name),
-    ['now', 'on', 'off', 'auto', 'english', 'channel', 'everywhere', 'limit'],
+    // S102 added the live-voice trio (join/leave/timestamps).
+    ['now', 'join', 'leave', 'timestamps', 'on', 'off', 'auto', 'english', 'channel', 'everywhere', 'limit'],
   );
   assert.deepEqual(transcribeCommand.group.aliases, ['stt', 'statement']);
 });

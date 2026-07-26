@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.31 — 2026-07-26 (Session 102)
+
+- `references/architecture.md` (Verification habits): **a binary format must be verified against a foreign implementation.** Your own reader accepting your own writer is self-consistency, not evidence. Do the cross-check once in the session that writes the encoder and record it; keep an independently-written reader in the committed suite. Also: before planning around a library helper, check the *installed* version actually has it.
+- Evidence: S102 wrote an Ogg/Opus muxer so live-voice transcription needs no audio decoder. Ogg's CRC is its own variant, and the plausible wrong answer (zlib's CRC-32) produces bytes that pass every structural check while every real decoder rejects them — a failure with no error anywhere in our own stack. Running the output through **mutagen**, an unrelated implementation, gave byte-identical re-serialised pages and a duration matching to the millisecond, which is what actually proved the CRC, the granule and the pre-skip. The sibling half of the rule was earned in the same session: the plan was to use prism-media's `OggLogicalBitstream`, and checking the installed tree first revealed `@discordjs/voice` bundles prism-media 1.3.5, where that class does not exist. Checking cost a minute; discovering it on the Pi would have cost a red update gate.
+- Filed next to 0.5.29's fixture rule deliberately — both are the same principle: do not let your own code be the only witness.
+
 ## 0.5.30 — 2026-07-26 (Session 101)
 
 - `SKILL.md` (Step 3 Plan): **a blocking owner decision is the current session's job to ask, not the next session's.** Put the options in front of the owner with their real costs, then keep building the unblocked work while the answer comes back. Forwarding the flag is not handling it.
