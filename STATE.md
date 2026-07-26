@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 113 · 2026-07-26
+**Last updated:** Session 114 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1031/1031 pass as of S113 |
+| Tests green | `npm test` | 1033/1033 pass as of S114 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'connect4', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, city, connect4, core, detective, dispatch, economy, enforcement, goals, guessthecandy, hammertime, hangman, heist, hunting, killcounter, leveling, logbook, mafia, memorial, memory, patrol, public-affairs, records, rollout, rules, russianroulette, selfroles, splitorsteal, starboard, transcribe, trivia, welcome, wordle, youtube |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
@@ -83,7 +83,7 @@
 - **Enforcement (M2, S7; animated S10):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`. **S10:** `/cite` emits an animated GIF (prints out of a slot) via a zero-dependency GIF89a encoder (`lib/gif.js`); added the public for-fun `/fine` (no perms, no records).
 - **Deployment/ops (M8 slices):** `scripts/setup-pi.sh` (8 steps incl. invite gate and self-update arming), `scripts/update.sh` (fetch → ff → npm install → **test gate** → deploy-commands → restart; rollback on red — proven in a clone-pair simulation incl. failure path and exit codes), runbook `docs/operations/raspberry-pi.md`.
 - **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated; **CuffBot's XP replaces the old leveler bot** and **existing members' XP is seeded from their current rank role** (S16); **XP curve is deliberately hard (S45 owner decision): voice 1 XP/min, baseXp 1000, exponent 1.8 — tunable live via /xp-config base-xp/exponent.** AI (M9) uses a free-tier provider with a GLOBAL rate limit — 1 msg / 7 s AND max 62 msgs / hour, shared across all users (S16); **Gemini model = gemini-2.5-flash-lite with a 20/day bot-side cap** (owner decision S27: RPM 10 / TPM 250K / RPD 20); **Groq llama-3.1-8b-instant limits enforced too (S33: RPM 30 / RPD 14.4K / TPM 6K / TPD 500K)** — request AND estimated-token windows live in the shared limiter, history is token-trimmed, chat-starter AI draws from the same budget.
-- **Tests:** 1031 via `node:test` (was recorded as 358 until S93 caught the drift) — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges incl. token windows, prompt limits, both providers via fake fetch, pipeline branches, mention gates, desk-pile queue — **no network, ambient AI keys deleted at suite start**), birthdays, trivia, memorial RSS, starboard, chat-starter, logbook (models, gate matrix, event fakes), welcome, packaging (module data files git-tracked), and command smokes. **Command smokes are moving off fake interactions onto the real dispatch path** (`dispatchCommand`/`dispatchGroup` + `test/fixtures/fake-message.js`) as M17.3 converts each module — **every module is converted (S96) — there is no other kind of command test left.**
+- **Tests:** 1033 via `node:test` (was recorded as 358 until S93 caught the drift) — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges incl. token windows, prompt limits, both providers via fake fetch, pipeline branches, mention gates, desk-pile queue — **no network, ambient AI keys deleted at suite start**), birthdays, trivia, memorial RSS, starboard, chat-starter, logbook (models, gate matrix, event fakes), welcome, packaging (module data files git-tracked), and command smokes. **Command smokes are moving off fake interactions onto the real dispatch path** (`dispatchCommand`/`dispatchGroup` + `test/fixtures/fake-message.js`) as M17.3 converts each module — **every module is converted (S96) — there is no other kind of command test left.**
 
 ## Resume point
 
@@ -223,6 +223,16 @@ Now reported, via a new pure `logbook/lib/permissions.js`: **role** permission g
 **The pin diagnosis.** Owner: *"Nog een keer de leveler? dat heb ik inmiddels 4x gedaan, die API key staat er ook al in."* He was right on both counts, and the second one is the more useful failure: **`Ladder pinned: no` never said which "no" it was.** There are four, with four different fixes, and one of them was invisible — a pin whose role has since been deleted or **re-created** (a re-created role gets a new id) silently falls back to the name heuristic while `!ranks setup` keeps displaying the stored id as if configured. `pinDiagnosis()` now names the reason and `!xp` prints it.
 
 **And the reminder itself was the bug.** STATE's *Owner actions pending* list said "do X" and could only be cleared by the owner saying so — which nobody ever did, so it was re-read and re-issued every session. It is now a table of **checks with the command that answers each**, so any session settles an item in one line instead of repeating it. Never re-issue one of those without running the check first.
+
+## S114 — embeds stopped shouting (owner request)
+
+Owner: *"Heist / pot / embeds — sommige teksten zijn veelste groot, zelfs een blinde kan die lezen, dit mag wel wat kleiner."*
+
+Four places used `#`, which is **Discord's H1** — the largest text it renders — for a donut amount: `!steal` on success and on failure, `!pot` for the balance, and `!pot crack` on a win. ("Heist" is the `!steal` embed, whose title is literally `🕶️ HEIST!`; the `heist` module itself only uses `-#`, which is *subtext* and the opposite problem.)
+
+They now go through one `headline()` helper in `economy/lib/bank.js` that renders `### ` (H3) — still a headline, still scannable on its own line, roughly the weight of a bold line rather than four times it. **One helper rather than four literals**, so the size is a single decision that cannot drift apart again.
+
+**The taste decision is enforced, not documented.** `test/embed-style.test.js` scans every file under `src/` and fails on any H1 or H2 in user-facing text, naming the file and line. A future session writing an embed has no way to know H1 was rejected unless something says so out loud — and this is exactly the kind of rule that quietly comes back. `-# ` (subtext) is explicitly allowed.
 
 ## Environment facts (S61)
 

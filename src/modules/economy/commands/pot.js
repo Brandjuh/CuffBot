@@ -1,9 +1,9 @@
 // The donut-pot group (`!pot`). S106 folded `!pot crack` in as `crack`.
 // Bare `!pot` still shows the pot.
+import { gold, headline } from '../lib/bank.js';
 import { EmbedBuilder } from 'discord.js';
 import { getPot, hasPotTryToday, tryPot } from '../service.js';
 
-const gold = (n) => `${n.toLocaleString('en-US')} 🍩`;
 
 export default {
   group: {
@@ -29,7 +29,7 @@ export default {
             .setTitle('🍯 The Donut Pot')
             .setDescription(
               [
-                `# ${pot.balance.toLocaleString('en-US')} 🍩`,
+                headline(gold(pot.balance)),
                 '',
                 `**How it fills** — busted \`${ctx.prefix}steal\` attempts, escaped crooks, and **+500** 🍩 every day.`,
                 `**Your daily shot** — ${
@@ -69,7 +69,7 @@ export default {
                   .setColor(0x2ecc71)
                   .setTitle('💥 JACKPOT!')
                   .setDescription(
-                    `**${who}** cracked the pot wide open!\n# +${gold(result.amount)}\nThe pot starts over at zero.`,
+                    `**${who}** cracked the pot wide open!\n${headline(`+${gold(result.amount)}`)}\nThe pot starts over at zero.`,
                   )
               : new EmbedBuilder()
                   .setColor(0xf1c40f)

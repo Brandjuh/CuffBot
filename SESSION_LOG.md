@@ -2018,3 +2018,23 @@ Tests **1003 → 1031** (23 permission, 5 pin diagnosis). Every one was mutation
 **Retrospective (skill 0.5.37, new rule):** a **standing to-do list addressed to a human is a claim like any other, and it is the one kind of claim that decays silently** — the state that would clear it lives outside the repo, in a server nobody in the session can see. So it never gets cleared, and every session dutifully repeats it. The fix generalises: **an owner-action item must be written as a check, not an instruction** — name the command whose output settles it, and run that command before ever repeating the item. This has now cost the owner real irritation twice (S57 on intents, which produced a "stop telling me" mandate, and S113 on the ladder pin and the API key). The S57 mandate patched one instance; this patches the shape.
 
 **Handoff:** a new owner batch arrived at the end of this session and is the queue now — replace Connect4 with the `minigames` cog from `Brandjuh/FireAndRescueAcademyCogs`, rework City crime to the **panel-driven** interaction its source uses rather than the command-only surface S89–S92 shipped, and audit **every** game against its source for the same class of divergence. Written up as M26 in `ROADMAP.md`. The audit comes first: the City report says the divergence is systematic, so the survey decides how many sessions the rest is.
+
+## Session 114 — 2026-07-26
+
+**Goal:** owner — *"Heist / pot / embeds — sommige teksten zijn veelste groot, zelfs een blinde kan die lezen, dit mag wel wat kleiner."*
+
+**Done:** four embeds used `#` — **Discord's H1**, the largest text it renders — for a donut amount. `!steal` on success and on failure, `!pot` for the balance, `!pot crack` on a win. All four now render `### ` (H3) through one `headline()` helper in `economy/lib/bank.js`.
+
+**"Heist" is the `!steal` embed, not the heist module.** Its title is literally `🕶️ HEIST!`, and it carried two of the four H1s. The `heist` module itself uses `-#` throughout, which is **subtext** — the smallest thing Discord renders, and the exact opposite problem. Worth writing down because the obvious reading of the request sends you to the wrong file.
+
+**One helper, not four literals.** The size is now a single decision in a single place. Four separate `#` literals is precisely how a style choice ends up inconsistent three sessions later, with two of them fixed and two missed.
+
+**The taste decision is enforced.** `test/embed-style.test.js` scans every file under `src/` and fails on any H1 or H2 in user-facing text, naming file and line. This matters more than the fix: a future session writing an embed has no way to know H1 was rejected — the reasoning lived only in a chat message that does not survive the session. Comments in one file would not have covered the next module. `-# ` (subtext) is explicitly allowed, so heist's XP footnotes are untouched.
+
+Tests **1031 → 1033**. Mutation-checked: restoring the original `# ${gold(pot.balance)}` fails the guard with the exact file and line.
+
+**Corrections (Step 2/6):** none. Worth noting that the full suite passed **unchanged** after the H1 → H3 edit, which is what prompted the guard — 1031 tests and not one of them had an opinion about how the output looks.
+
+**Retrospective (skill 0.5.37 → no change):** no new rule. This is the existing "pure logic in `lib/`, one decision in one place" habit applied to presentation, plus 0.5.34's *confirm the check could have failed* — which is what caught that the suite was indifferent to the change. The one thing worth noticing is that **a subjective rule needs a test more than an objective one does**, because nothing else will carry it forward; that is close enough to the existing rules that it is a candidate in `LEARNINGS.md` rather than a promotion.
+
+**Handoff:** M26 is the queue — audit every game against its source (M26.1), then Connect4 → the `minigames` cog (M26.2) and City → panel-driven (M26.3). The audit comes first; the City report suggests the divergence is systematic, and the survey is what makes the rest schedulable.

@@ -4,10 +4,9 @@
 // S95 (M17.3 slice C): converted to the flat { command } shape. The busted
 // message pointed at `/crack-pot`, which has not existed since S68.
 import { EmbedBuilder } from 'discord.js';
-import { formatWaitMs } from '../lib/bank.js';
+import { formatWaitMs, gold, headline } from '../lib/bank.js';
 import { attemptHeist, getEconomyConfig } from '../service.js';
 
-const gold = (n) => `${n.toLocaleString('en-US')} 🍩`;
 
 export default {
   command: {
@@ -47,7 +46,7 @@ export default {
               result.amount > 0
                 ? [
                     `**${thief}** slipped past **${victim}**.`,
-                    `# +${gold(result.amount)}`,
+                    headline(`+${gold(result.amount)}`),
                     ...(result.amount < config.heistAmount
                       ? ['_That was everything they carried._']
                       : []),
@@ -66,7 +65,7 @@ export default {
               result.amount > 0
                 ? [
                     `**${thief}** got caught robbing **${victim}**.`,
-                    `# −${gold(result.amount)}`,
+                    headline(`−${gold(result.amount)}`),
                     `_Confiscated into the donut pot — now **${gold(result.potBalance)}**. Your shot: \`${ctx.prefix}pot crack\`._`,
                   ].join('\n')
                 : `**${thief}** got caught robbing **${victim}** — with already-empty pockets. The pot sighs.`,

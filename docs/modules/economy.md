@@ -92,6 +92,7 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 
 | Session | Change |
 |---|---|
+| S114 | **Embed text sized down** (owner: *"Sommige teksten zijn veelste groot, zelfs een blinde kan die lezen"*). The donut amount in `!steal` and `!pot` was an `#` H1 — Discord's largest text — which turned a payout into a billboard. Now `### ` (H3) via one `headline()` helper in `lib/bank.js`, so the size is a single decision rather than four literals. `test/embed-style.test.js` fails the build on any H1/H2 anywhere in `src/`, because a taste decision nobody wrote down comes back. |
 | S38 | Created: 10k starting balance, activity pay, crook hunt (active-channel spawns, 5–20 s window, STOP POLICE catch, escape-steal from a random member), 50k birthday gift announced in the birthday message, `!donuts`, `!donuts board`, `/economy-config` with test-hunt. |
 | S40 | `!steal` heist: 30% → 500 🍩 victim→thief; busted → 500 🍩 thief→server owner; 5-min lay-low cooldown; honest capped amounts. |
 | S41 | The donut pot: all lost donuts (busted steals — replacing the S40 to-owner rule — and crook loot) pool up, +500/day, one 0.5% crack attempt per member per day, winner takes all. |

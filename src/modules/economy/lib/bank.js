@@ -118,3 +118,21 @@ export function evaluateClaim({ amount, streakBonus = 0, streakPercent = false, 
   const bonus = onStreak ? (streakPercent ? amount * Math.floor(streakBonus / 100) : streakBonus) : 0;
   return { code: 'claim', amount, bonus };
 }
+
+/**
+ * The one big number an economy embed is about: the amount stolen, lost, or
+ * won. It sits on its own line so it is scannable at a glance.
+ *
+ * **`###` (H3), not `#` (H1)** — S113/S114, owner: *"Sommige teksten zijn
+ * veelste groot, zelfs een blinde kan die lezen, dit mag wel wat kleiner."*
+ * `#` is Discord's largest heading and it turned a payout into a billboard.
+ * H3 still reads as a headline and still stands off the surrounding text,
+ * at roughly the size of a bold line rather than four times it.
+ *
+ * Every call site goes through here so the size is one decision in one place
+ * instead of four literals that drift apart.
+ */
+export const headline = (text) => `### ${text}`;
+
+/** A donut amount with its emoji, the standard economy money format. */
+export const gold = (n) => `${Number(n).toLocaleString('en-US')} 🍩`;
