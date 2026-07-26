@@ -3,30 +3,47 @@
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
 **Status:** stable
-**Last updated:** Session 101 · 2026-07-26
+**Last updated:** Session 102 · 2026-07-26
 
 ## Purpose
 
-The transcription desk (M21.1, owner request: *"voice chats en voice memos worden in het engels getranscribeerd"*). Post a voice message and the bot replies with what was said, **in English**, whatever language it was spoken in. Anyone who cannot listen right now — in a meeting, on a train, deaf or hard of hearing — can still read the room.
+The transcription desk (M21, owner request: *"Speech to text, voice chats en voice memos worden in het engels getranscribeerd"*). Two halves, one module:
 
-This is the **voice-memo half** of M21. It never touches the voice gateway: a voice message is an ordinary attachment on an ordinary message, so the whole feature is "download a file, POST it, post the answer". The **live voice chat** half (the bot joining a VC and transcribing as people speak) is M21.2 and is a separate module.
+- **Voice memos (M21.1, S101).** Post a voice message and the bot replies with what was said.
+- **Live voice chat (M21.2, S102).** `!transcribe join` and the bot sits in the voice channel writing down the conversation as it happens.
+
+Both produce **English**, whatever language was spoken. Anyone who cannot listen right now — in a meeting, on a train, deaf or hard of hearing — can still read the room.
 
 ## Commands
 
-Transcribing on request is public; every knob is **Manage Server**.
+Transcribing a memo on request is public; every knob, and everything to do with live voice, is **Manage Server**.
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| `!transcribe` | Status: on/off, the service, the language, the scope, today's usage | none | Everyone | `!transcribe` |
+| `!transcribe` | Status: on/off, the service, the language, the scope, today's usage, whether it is in a voice channel | none | Everyone | `!transcribe` |
 | `!transcribe now` | Transcribe the recording you replied to | none | Everyone | *(reply to a memo)* `!transcribe now` |
-| `!transcribe on` / `off` | Start / stop transcribing automatically | none | Manage Server | `!transcribe off` |
+| `!transcribe join` | Join **your** voice channel and transcribe it into this channel | none | Manage Server | `!transcribe join` |
+| `!transcribe leave` | Leave the voice channel and stop | none | Manage Server | `!transcribe leave` |
+| `!transcribe timestamps` | Stamp each live line with `HH:MM` | `<true\|false>` | Manage Server | `!transcribe timestamps false` |
+| `!transcribe on` / `off` | Start / stop transcribing memos automatically | none | Manage Server | `!transcribe off` |
 | `!transcribe auto` | Which attachments are transcribed uninvited | `<voice\|files> <true\|false>` | Manage Server | `!transcribe auto files true` |
 | `!transcribe english` | Always English, or keep the spoken language | `<true\|false>` | Manage Server | `!transcribe english false` |
 | `!transcribe channel` | Toggle a channel in the covered list | `<channel>` | Manage Server | `!transcribe channel #general` |
 | `!transcribe everywhere` | Cover every channel again | none | Manage Server | `!transcribe everywhere` |
 | `!transcribe limit` | Longest recording, and how many per day | `<duration\|daily> <value>` | Manage Server | `!transcribe limit duration 120` |
 
-Aliases: the group answers to `!stt` and `!statement`.
+Aliases: the group answers to `!stt` and `!statement`; `join` takes `listen`, `leave` takes `stop`.
+
+### Live voice, exactly
+
+1. Be in a voice channel, then run `!transcribe join` in the text channel where you want the transcript.
+2. **The bot announces the recording in that channel, unprompted.** It is recording people; everyone within earshot is entitled to know without having to run a command to find out.
+3. Each speaker's **turn** is transcribed separately. A turn ends when they stop talking for **800 ms** — long enough that a breath mid-sentence does not split a line in two, short enough that the transcript keeps up. A monologue is force-cut every **25 s** so nothing waits for the speaker to finish.
+4. Turns shorter than **700 ms** are dropped without an API call: Discord opens a stream for a cough, a keyboard click and an "mm".
+5. Lines are batched and posted every few seconds, or sooner when there are enough of them — one message per utterance would flood the channel.
+6. `!transcribe leave` stops it and flushes whatever is still buffered.
+
+The bot joins **muted**, because it is never going to talk back, and stays undeafened, because deafening itself would stop the receiver.
 
 ### `!transcribe now`, exactly
 
@@ -38,11 +55,22 @@ Aliases: the group answers to `!stt` and `!statement`.
 
 `MessageCreate` — checks for an audio attachment (a cheap test that fails for almost every message) and hands the rest to the service.
 
+Live voice uses **no gateway event**: `@discordjs/voice`'s receiver has its own `speaking` stream, subscribed per speaker while a session is open.
+
 **A refusal on the automatic path is silent by design.** "That channel is not covered" or "no key configured" is an answer to a question nobody asked, and posting it under every audio file would turn the feature into noise. `!transcribe now` says all of it out loud, which is where an admin will be looking when they wonder why nothing happened.
 
 ## Configuration
 
 `GROQ_API_KEY` in `.env` on the Pi — the **same key the detective module uses**. See `.env.example`. Without it the module loads, the commands work, and `!transcribe` tells you plainly that no service is configured.
+
+**Dependencies (S102).** Live voice is the first thing in CuffBot that needs more than discord.js. Two declared packages, both installing on a Raspberry Pi with **no compiler**:
+
+| Package | Why | Pi story |
+|---|---|---|
+| `@discordjs/voice` | Joining a voice channel and receiving audio | Pure JS. Pulls `prism-media` and `@snazzah/davey`; davey ships **prebuilt binaries** for `linux-arm64-gnu` and `linux-arm-gnueabihf`, so `npm ci` downloads rather than builds |
+| `@noble/ciphers` | Voice needs an encryption backend or it refuses to connect | Pure JS, **zero transitive dependencies**. Chosen over `sodium-native` (needs a compiler) and `libsodium-wrappers` (WASM blob) |
+
+**No opus binding is installed, and none is needed** — see *How it works*. `npm run doctor` has a **Voice stack** section that reports exactly this and names the fix when something is missing.
 
 Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 
@@ -54,15 +82,17 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 | `autoAudioFiles` | `false` | Transcribe ordinary attached audio files without being asked. |
 | `translateToEnglish` | `true` | English out, whatever went in — the owner's literal request. |
 | `maxDurationSecs` | `600` | Skip recordings longer than this. `0` = no limit. |
-| `dailyLimit` | `100` | Transcriptions per UTC day, per guild. `0` = uncapped. |
+| `dailyLimit` | `100` | Transcriptions per UTC day, per guild. `0` = uncapped. **Live voice spends from the same budget** — one turn in a voice channel costs what one memo costs. |
+| `voiceTimestamps` | `true` | Prefix each live line with `HH:MM` (UTC). |
 
 **On the two `auto` switches:** a Discord voice message is unambiguous — somebody recorded a message *for this channel*, so transcribing it uninvited is helpful. An attached `.mp3` is as likely to be a song as a memo, and spending the precinct's API budget on someone's music is the wrong default. Hence: voice messages on, files off, and `!transcribe now` for the rest.
 
 ## Permissions & safety
 
-- **Bot permissions needed:** View Channel, Read Message History and Send Messages wherever recordings are posted. Reading attachments needs the **Message Content intent**, already required for every `!command` (S57).
-- **Member permissions:** `now` is open to everyone; every configuration subcommand requires Manage Server.
+- **Bot permissions needed:** View Channel, Read Message History and Send Messages wherever recordings are posted. Reading attachments needs the **Message Content intent**, already required for every `!command` (S57). Live voice additionally needs **Connect** on the voice channel; the `GuildVoiceStates` intent is already enabled (leveling has used it since S45).
+- **Member permissions:** `now` is open to everyone; every configuration subcommand — **and `join`/`leave`** — requires Manage Server. Starting a recording of everyone in a voice channel is not something any member may do.
 - **Audio leaves the Pi.** A transcribed recording is uploaded to Groq. That is inherent to the owner's chosen backend and worth stating plainly: do not turn on automatic transcription in a channel where members would not expect their voice notes to be processed by a third party. `!transcribe off` and the channel list are both ways to bound it.
+- **A live recording announces itself.** `!transcribe join` posts "🔴 Recording #channel" in the text channel before a single word is captured, and `!transcribe` shows the state at any time. The bot is recording people; that must never be something they have to discover.
 - **No pings.** Every transcript carries `allowedMentions: { parse: [] }`; the speaker is named with a rendered mention that notifies nobody.
 - **Nothing is stored.** The audio is held in memory for the length of one request and never written to disk; only the daily counter and the config are persisted. The transcript lives in the reply, like any other message.
 - **A truncated transcript says it was truncated.** Silently posting half a statement is worse than posting a short one, because the reader cannot tell which they are looking at.
@@ -77,6 +107,17 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 - **The advertised size is a claim; the bytes are the fact.** The 25 MB ceiling is enforced on the downloaded buffer, not only on the size Discord reported.
 - **Only the first audio attachment on a message is transcribed** — otherwise one message's cost is multiplied by however many files it carried.
 
+### Live voice (S102)
+
+- **No audio is ever decoded.** Discord's receiver hands over **Opus packets**; Groq accepts **Ogg/Opus**; so the only missing piece is the container between them. `lib/ogg.js` is a ~150-line pure Ogg muxer (RFC 3533 + RFC 7845) that writes the OpusHead and OpusTags pages and packs the packets. Decoding to PCM instead would have meant a native opus binding — a compiler on the Pi — or `opusscript`, which is pure JS and slow, for no gain at all.
+- **Why it is hand-written rather than borrowed:** the obvious answer is prism-media's `OggLogicalBitstream`, but `@discordjs/voice` bundles **prism-media 1.3.5**, whose `opus` export is only Decoder/Encoder/OggDemuxer/WebmDemuxer — `OggLogicalBitstream` exists in the 2.x alpha. That was checked before a line was written, not assumed.
+- **Ogg's CRC is its own variant** (polynomial `0x04c11db7`, init 0, no reflection, no final xor) and is *not* zlib's CRC-32. The muxer was cross-checked against **mutagen**, an unrelated Ogg implementation: parsing and re-serialising the output produced byte-identical pages, and `OggOpus` reported exactly the expected duration. The test suite re-checks the round trip with its own reader written independently of the writer — two mirrors of the same mistake would agree with each other.
+- **The packet count IS the clock.** Every Opus frame Discord sends is 20 ms, so 50 packets is exactly one second — no wall-clock arithmetic, no drift, and every timing rule is a pure function of an integer. That is what makes `shouldFlush`, `isOverCap` and `isWorthTranscribing` testable without waiting.
+- **A turn is a natural unit, not a fixed window.** The receiver's `AfterSilence` behaviour ends a speaker's stream 800 ms after they stop, and that stream is the chunk. A 25 s force-cut handles the monologue case; a 60 s hard cap keeps a stuck stream from growing without bound.
+- **Whisper's silence hallucinations are filtered by name.** Given a second of room tone it returns a confident "Thank you." — the same handful of phrases every time. Matching that known set is cheaper and far more reliable than trying to detect silence ourselves, and `formatLine` returns `null` for them so no line is ever created.
+- **Lines are batched.** `createLineBuffer` flushes on time *or* on size, so a busy channel does not wait and a quiet one never strands a line; `packLines` splits between lines and hard-splits an over-long one rather than dropping it.
+- **The session map is RAM-only.** A restart leaves the voice channel, which is the honest outcome: silently resuming a recording nobody re-authorised would be worse than stopping.
+
 ## Files
 
 | Path | Role |
@@ -87,11 +128,15 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 | `src/modules/transcribe/service.js` | Config, the persisted budget, the download → transcribe → format sequence |
 | `src/modules/transcribe/events/message.js` | `MessageCreate` auto path |
 | `src/modules/transcribe/commands/transcribe.js` | The `!transcribe` group |
-| `test/transcribe.test.js` | Coverage |
+| `src/modules/transcribe/lib/ogg.js` | Pure Ogg/Opus muxer (S102) — the reason no decoder is needed |
+| `src/modules/transcribe/lib/voice-session.js` | Pure live-voice policy (S102): chunking, hallucination filter, line batching |
+| `src/modules/transcribe/voice/session.js` | The only file that touches the voice gateway |
+| `test/transcribe.test.js` | Memo coverage |
+| `test/transcribe-voice.test.js` | Ogg + live-voice policy coverage |
 
 ## Testing
 
-- **Automated:** `npm test` — `test/transcribe.test.js` (27 tests) with **no network and no API key**: audio detection by type and by extension incl. the missing-type case; voice message vs attached file incl. the BitField and waveform shapes; every `eligibility` refusal reason and the manual override of the soft ones (but not of size, duration or "that is a bot"); first-attachment-only; duration formatting; truncation at a word boundary with the notice; the embed's speaker/length/language line and the empty-transcript case; the budget's count, block and UTC rollover. Then the provider through an injected `fetch`: translation and transcription hit **different endpoints with different models**, the upload is `FormData` with **no hand-set `Content-Type`** and `temperature: 0`, a missing key / a 429 / a bodyless 200 all throw loudly, and the download enforces the ceiling on real bytes. Then the service: sparse config, claim-and-refund, a full happy path returning a ready embed, honest refusals that never reach the network, over-budget, and a failure refunding its slot. Then the command surface: the subcommand list, the permission split, the status embed naming a missing key, the reply lookup, and every knob writing what it says.
+- **Automated:** `npm test` — **`test/transcribe-voice.test.js` (16 tests)** covers the container and the policy with no gateway anywhere: the lacing rules including the 255-multiple trap (a packet of exactly 255 bytes needs a terminating zero); the CRC being Ogg's variant rather than zlib's; OpusHead/OpusTags against RFC 7845; a page refusing to exceed 255 segments instead of silently truncating; a full round trip through **a reader written independently of the writer**, checking BOS/EOS flags, contiguous sequence numbers, one serial, every packet byte-identical and the final granule; an empty capture still being a valid file; an oversized packet refused. Then the policy: packet↔ms conversion, the monologue cut and the hard cap, a cough not being a turn, every known Whisper hallucination filtered while a real sentence that merely starts the same way survives, line formatting with and without stamps, packing that splits only between lines, a single over-long line split rather than dropped, and the buffer flushing on time OR on size and resetting its clock on drain. Then `test/transcribe.test.js` (27 tests) with **no network and no API key**: audio detection by type and by extension incl. the missing-type case; voice message vs attached file incl. the BitField and waveform shapes; every `eligibility` refusal reason and the manual override of the soft ones (but not of size, duration or "that is a bot"); first-attachment-only; duration formatting; truncation at a word boundary with the notice; the embed's speaker/length/language line and the empty-transcript case; the budget's count, block and UTC rollover. Then the provider through an injected `fetch`: translation and transcription hit **different endpoints with different models**, the upload is `FormData` with **no hand-set `Content-Type`** and `temperature: 0`, a missing key / a 429 / a bodyless 200 all throw loudly, and the download enforces the ceiling on real bytes. Then the service: sparse config, claim-and-refund, a full happy path returning a ready embed, honest refusals that never reach the network, over-budget, and a failure refunding its slot. Then the command surface: the subcommand list, the permission split, the status embed naming a missing key, the reply lookup, and every knob writing what it says.
 - **Manual (live server) checklist:**
   1. `!transcribe` → the status card. If it says the service is not configured, the key is missing from the Pi's `.env`.
   2. Record a Discord voice message in any channel → within a few seconds the bot replies with a **🎙️ Statement on the record** embed.
@@ -99,6 +144,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
   4. Attach an `.mp3` → nothing happens (files are off by default). Reply to it with `!transcribe now` → it is transcribed.
   5. `!transcribe channel #general` → the status shows only that channel; a memo elsewhere is ignored. `!transcribe everywhere` puts it back.
   6. `!transcribe limit daily 1`, transcribe twice → the second is refused with the budget message.
+  7. **Live voice, the part only the Pi can prove:** `npm run doctor` → the **Voice stack** section is all ✅. Join a voice channel, run `!transcribe join` → the bot announces the recording and appears in the channel, muted. Talk → a line appears within a few seconds. Have two people talk → both are named correctly. Stay silent for a minute → **nothing is posted** (this is the hallucination filter earning its place). `!transcribe leave` → the bot leaves and the last lines are flushed.
 
 ## Troubleshooting
 
@@ -111,10 +157,15 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 | "The precinct has used its transcription budget" | The daily cap was reached | It resets at midnight UTC; `!transcribe limit daily <n>` raises it, `0` removes it |
 | "That file is over the 25 MB…" | Groq's upload ceiling | Nothing to fix — shorter recordings, or split the file |
 | A transcript ends in *(transcript truncated)* | The speech was longer than one embed holds | Expected. The recording itself is still in the channel |
+| `!transcribe join` says it cannot connect | The bot lacks **Connect** on that voice channel, or the gateway refused | Check the channel's permissions; `npm run doctor` → Voice stack rules out a broken install |
+| The bot joins but no lines ever appear | No API key, the daily budget is spent, or nobody spoke for longer than 700 ms | `!transcribe` shows the key and the budget; the 700 ms floor is deliberate |
+| Lines appear for silence | A Whisper hallucination not yet in the filter list | Add it to `HALLUCINATIONS` in `lib/voice-session.js` — the list is data, not logic |
+| The bot left the voice channel on its own | The process restarted, or the connection dropped and could not resume | By design: a recording nobody re-authorised must not resume silently. `!transcribe join` again |
 | The transcript is nonsense over a silent recording | Whisper hallucinating on silence | Known model behaviour; temperature is already pinned to 0, which minimises it |
 
 ## Changelog
 
 | Session | Change |
 |---|---|
+| S102 | Live voice chat (M21.2): `!transcribe join`/`leave` — the bot sits in a voice channel and writes the conversation into a text channel, per speaker, announcing the recording unprompted. **No audio decoder**: Opus packets are muxed straight into Ogg by a hand-written pure muxer, cross-checked against `mutagen`. First dependencies beyond discord.js (`@discordjs/voice`, `@noble/ciphers`), both compiler-free on a Pi; `npm run doctor` gained a Voice stack section. 16 more tests, still none touching a gateway. |
 | S101 | Created (M21.1, owner request + owner backend decision): voice messages and audio attachments are transcribed to English via Groq/Whisper, with **zero new dependencies** — the key is the one the detective module already uses. Automatic for voice messages, on request for files, `!transcribe now` for anything out of scope. Per-guild on/off, channel scope, language, duration and daily-budget knobs. 27 tests, none touching the network. |

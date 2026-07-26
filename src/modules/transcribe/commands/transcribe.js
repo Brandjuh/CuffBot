@@ -4,6 +4,7 @@ import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { hasAudioKey } from '../lib/audio-provider.js';
 import { audioAttachmentsOf, refusalFor } from '../lib/transcribe.js';
 import { getBudget, getTranscribeConfig, setTranscribeConfig, transcribeMessage } from '../service.js';
+import { isListening, sessionFor, startListening, stopListening } from '../voice/session.js';
 
 /**
  * Find the recording the member means: the message they replied to, else the
@@ -51,6 +52,11 @@ export default {
             : config.channelIds.map((id) => `<#${id}>`).join(', ')
         }`,
         `**Today:** ${used}${config.dailyLimit > 0 ? ` / ${config.dailyLimit}` : ''} transcribed`,
+        `**Live voice:** ${
+          isListening(ctx.guild.id)
+            ? `🔴 recording <#${sessionFor(ctx.guild.id).channelId}>`
+            : `not in a voice channel — \`${ctx.prefix}transcribe join\``
+        }`,
         '',
         `Reply to a recording and run \`${ctx.prefix}transcribe now\` to transcribe it on demand.`,
       ];
@@ -83,6 +89,84 @@ export default {
             embeds: [new EmbedBuilder(result.embed)],
             allowedMentions: { parse: [] },
           });
+        },
+      },
+      {
+        name: 'join',
+        aliases: ['listen'],
+        description: 'Join your voice channel and write down what is said.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [],
+        async run(ctx) {
+          const voiceChannel = ctx.member?.voice?.channel;
+          if (!voiceChannel) {
+            await ctx.reply('🎙️ Join a voice channel first, then run this there.');
+            return;
+          }
+          if (isListening(ctx.guild.id)) {
+            await ctx.reply(
+              `🎙️ Already recording <#${sessionFor(ctx.guild.id).channelId}>. \`${ctx.prefix}transcribe leave\` first.`,
+            );
+            return;
+          }
+          if (!hasAudioKey(process.env)) {
+            await ctx.reply(`🎙️ ${refusalFor('no-key')}`);
+            return;
+          }
+          const me = ctx.guild.members.me;
+          const allowed = voiceChannel.permissionsFor?.(me);
+          if (allowed && !allowed.has(PermissionFlagsBits.Connect)) {
+            await ctx.reply(`🎙️ I am not allowed to connect to ${voiceChannel}.`);
+            return;
+          }
+
+          await ctx.typing();
+          const result = await startListening(ctx.guild, voiceChannel, ctx.channel);
+          if (!result.ok) {
+            await ctx.reply(
+              result.reason === 'join-failed'
+                ? '🎙️ I could not connect to that voice channel.'
+                : '🎙️ I am already listening somewhere.',
+            );
+            return;
+          }
+          // Say it out loud, in the channel, unprompted: the bot is recording
+          // people, and everyone within earshot is entitled to know that
+          // without having to run a command to find out.
+          await ctx.reply({
+            content: `🔴 **Recording ${voiceChannel}.** Everything said there will be transcribed into this channel${
+              getTranscribeConfig(ctx.guild.id).translateToEnglish ? ' in English' : ''
+            }. \`${ctx.prefix}transcribe leave\` stops it.`,
+            allowedMentions: { parse: [] },
+          });
+        },
+      },
+      {
+        name: 'leave',
+        aliases: ['stop'],
+        description: 'Leave the voice channel and stop transcribing it.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [],
+        async run(ctx) {
+          if (!stopListening(ctx.guild.id)) {
+            await ctx.reply('🎙️ I am not in a voice channel here.');
+            return;
+          }
+          await ctx.reply('🎙️ Left the channel. Recording stopped.');
+        },
+      },
+      {
+        name: 'timestamps',
+        description: 'Prefix each live-voice line with the time it was said.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'state', type: 'boolean', required: true }],
+        async run(ctx, { state }) {
+          setTranscribeConfig(ctx.guild.id, { voiceTimestamps: state });
+          await ctx.reply(
+            state
+              ? '🎙️ Live transcript lines carry an `HH:MM` stamp (UTC).'
+              : '🎙️ Live transcript lines are just **name:** and the words.',
+          );
         },
       },
       {

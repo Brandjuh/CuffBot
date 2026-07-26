@@ -233,6 +233,36 @@ if (probe.error || probe.status !== 0) {
   }
 }
 
+// 8) Voice stack (S102). CuffBot ran on discord.js alone for 101 sessions;
+// live-voice transcription is the first thing that can be *installed wrong* on
+// the Pi rather than merely misconfigured, and a silent "cannot play audio as
+// no valid encryption package is installed" is the failure it produces.
+console.log('\nVoice stack (live transcription):');
+try {
+  const { generateDependencyReport } = await import('@discordjs/voice');
+  const report = generateDependencyReport();
+  const has = (line) => new RegExp(`^- ${line}`, 'm').test(report) && !new RegExp(`^- ${line}: not found`, 'm').test(report);
+  if (has('@discordjs/voice')) ok('@discordjs/voice is installed');
+  const encrypted =
+    /native crypto support for aes-256-gcm: yes/.test(report) ||
+    ['sodium-native', 'sodium', 'libsodium-wrappers', '@stablelib/xchacha20poly1305', '@noble/ciphers'].some(has);
+  if (encrypted) ok('an encryption backend is available (voice can connect)');
+  else {
+    bad(
+      'no encryption backend — `!transcribe join` will fail the moment it tries to connect',
+      'npm ci in the repo root; @noble/ciphers is a declared dependency and needs no compiler',
+    );
+  }
+  if (has('@snazzah/davey')) ok('@snazzah/davey is installed (prebuilt, no compiler needed)');
+  else info('@snazzah/davey missing — voice may still work, but DAVE-enabled channels will not');
+  info('Opus is never decoded: packets are muxed straight into Ogg (lib/ogg.js), so no opus binding is required');
+} catch (error) {
+  bad(
+    `@discordjs/voice could not be loaded: ${error?.message ?? error}`,
+    'npm ci in the repo root — the voice deps are in package.json as of S102',
+  );
+}
+
 console.log(failures === 0
   ? '\n🩺 All checks passed. If deploy-commands still fails, the bot is probably not a member of the precinct yet — use the invite URL it prints.'
   : `\n🩺 ${failures} problem(s) found — fix the arrows above, then re-run: npm run doctor`);

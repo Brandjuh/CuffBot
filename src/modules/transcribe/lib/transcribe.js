@@ -61,8 +61,14 @@ export const DEFAULT_TRANSCRIBE_CONFIG = {
   translateToEnglish: true,
   /** Skip anything longer than this. 0 = no limit. */
   maxDurationSecs: 600,
-  /** Per-guild daily ceiling on transcriptions, so a spammer cannot drain the free tier. */
+  /**
+   * Per-guild daily ceiling on transcriptions, so a spammer cannot drain the
+   * free tier. Live voice (S102) spends from the same budget — one turn in a
+   * voice channel costs exactly what one voice memo costs.
+   */
   dailyLimit: 100,
+  /** S102: prefix each live-voice line with an HH:MM (UTC) stamp. */
+  voiceTimestamps: true,
 };
 
 /**
