@@ -15,6 +15,8 @@ import { logger } from '../../../core/logger.js';
 import { encodeOggOpus } from '../lib/ogg.js';
 import {
   DEFAULT_VOICE_POLICY,
+  packetsToMs,
+  shouldSendBatch,
   createLineBuffer,
   formatLine,
   isOverCap,
@@ -64,6 +66,10 @@ export async function startListening(guild, voiceChannel, textChannel) {
     buffer: createLineBuffer(),
     timer: null,
     speakers: new Set(),
+    // S123: the batch flusher runs off the periodic tick, which only has the
+    // guild id — so the session carries the guild it belongs to.
+    guild,
+    pending: new Map(),
   };
   sessions.set(guild.id, session);
 
@@ -92,6 +98,10 @@ export async function startListening(guild, voiceChannel, textChannel) {
 }
 
 /** Leave the channel, flushing whatever is still buffered. */
+export async function drainBeforeLeaving(guildId) {
+  await flushStaleBatches(guildId, { all: true });
+}
+
 export function stopListening(guildId) {
   const session = sessions.get(guildId);
   if (!session) return false;
@@ -156,19 +166,47 @@ async function captureSpeaker(guild, userId) {
   await deliver(guild, userId, packets);
 }
 
-/** Turn one capture into a line in the log. */
-async function deliver(guild, userId, packets) {
+/**
+ * Turn captures into a line in the log, batching toward Groq's billing floor.
+ *
+ * S123: Groq charges a MINIMUM of 10 audio-seconds per request, so sending a
+ * 1.5-second "yeah" on its own costs the same as ten seconds of speech —
+ * throwing away most of the audio budget and giving Whisper less context than
+ * it needs. Turns from the same speaker are held until they total roughly the
+ * floor, or until `BATCH_MAX_WAIT_MS` so a lone remark is never stranded.
+ */
+async function deliver(guild, userId, packets, { force = false } = {}) {
   const session = sessions.get(guild.id);
   if (!session) return;
   const worth = isWorthTranscribing(packets);
   if (!worth.ok) return;
 
-  const result = await transcribeBuffer(guild.id, encodeOggOpus(packets), {
+  session.pending ??= new Map();
+  const held = session.pending.get(userId) ?? { packets: [], since: Date.now() };
+  held.packets.push(...packets);
+  session.pending.set(userId, held);
+
+  const heldMs = packetsToMs(held.packets.length);
+  const verdict = shouldSendBatch({ ms: heldMs, heldSinceMs: Date.now() - held.since });
+  if (!force && !verdict.send) return;
+
+  const batch = held.packets;
+  session.pending.delete(userId);
+
+  const result = await transcribeBuffer(guild.id, encodeOggOpus(batch), {
     filename: `voice-${userId}.ogg`,
     contentType: 'audio/ogg',
+    // The packet count IS the clock (every Opus frame is 20 ms), so the
+    // audio-second windows are charged exactly rather than estimated.
+    seconds: packetsToMs(batch.length) / 1000,
   });
   if (!result.ok) {
     if (result.reason === 'failed') logger.warn(`Transcribe: voice chunk failed — ${result.detail}`);
+    // A rate refusal is not a defect: Groq's own ceiling was reached. Say so
+    // once rather than dropping the turn in silence (skill 0.5.41).
+    else if (['rpm', 'rpd', 'audio-hour', 'audio-day'].includes(result.reason)) {
+      logger.warn(`Transcribe: Groq limit "${result.reason}" reached; skipping a turn.`);
+    }
     return;
   }
 
@@ -185,8 +223,30 @@ async function deliver(guild, userId, packets) {
 /** Post whatever is buffered, if it is time. */
 async function flush(guildId) {
   const session = sessions.get(guildId);
-  if (!session || !session.buffer.shouldFlush(Date.now())) return;
+  if (!session) return;
+  // S123: a batch is only re-evaluated when its speaker talks again, so in a
+  // quiet channel one remark would be held forever. The tick that posts lines
+  // also ages out held audio — the difference between "batching" and "losing
+  // the last thing anyone said".
+  await flushStaleBatches(guildId);
+  if (!session.buffer.shouldFlush(Date.now())) return;
   await flushNow(session);
+}
+
+/** Send any held audio whose wait has expired (and everything, on leave). */
+export async function flushStaleBatches(guildId, { all = false } = {}) {
+  const session = sessions.get(guildId);
+  if (!session?.pending) return;
+  const now = Date.now();
+  for (const [userId, held] of [...session.pending]) {
+    const verdict = shouldSendBatch({
+      ms: packetsToMs(held.packets.length),
+      heldSinceMs: now - held.since,
+    });
+    if (!all && !verdict.send) continue;
+    session.pending.delete(userId);
+    await deliver(session.guild, userId, held.packets, { force: true });
+  }
 }
 
 async function flushNow(session) {

@@ -4,7 +4,7 @@ import { ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { hasAudioKey } from '../lib/audio-provider.js';
 import { audioAttachmentsOf, formatDuration, refusalFor } from '../lib/transcribe.js';
 import { DEFAULT_VOICE_PAIRS, HOW_LABEL, autoJoinDiagnosis, describePairings } from '../lib/pairing.js';
-import { getBudget, getTranscribeConfig, setTranscribeConfig, transcribeMessage } from '../service.js';
+import { getBudget, getTranscribeConfig, rateUsage, setTranscribeConfig, transcribeMessage } from '../service.js';
 import { isListening, sessionFor, startListening, stopListening } from '../voice/session.js';
 
 /**
@@ -55,9 +55,21 @@ export default {
         // S121, owner: "ik zie dat de rate limit 100 is, is dat 100 minuten?
         // 100 seconden? 100 berichten?" — a bare number next to a slash is a
         // unit-less quantity, and the reset window was nowhere at all.
-        `**Today:** ${used} / ${config.dailyLimit > 0 ? `${config.dailyLimit} transcriptions` : '∞'}${
-          config.dailyLimit > 0 ? ' · resets at midnight UTC' : ''
-        }`,
+        // S123: the real ceilings are Groq's four windows, not a number we
+        // invented. The tightest one is what actually runs out.
+        (() => {
+          const u = rateUsage(ctx.guild.id);
+          const pct = Math.round(u.tightest * 100);
+          return (
+            `**Groq budget:** ${u.minute}/${u.limits.requestsPerMinute} this minute · ` +
+            `${u.day}/${u.limits.requestsPerDay} today · ` +
+            `${Math.round(u.audioHour / 60)}/${u.limits.audioSecondsPerHour / 60} audio-min this hour` +
+            `${pct >= 80 ? ` · ⚠️ ${pct}% of the tightest window used` : ''}`
+          );
+        })(),
+        config.dailyLimit > 0
+          ? `**Precinct cap:** ${used} / ${config.dailyLimit} transcriptions today (on top of Groq's)`
+          : null,
         `**Longest recording:** ${
           config.maxDurationSecs > 0 ? `${formatDuration(config.maxDurationSecs)} — longer ones are skipped` : 'no limit'
         }`,
@@ -79,18 +91,10 @@ export default {
         `**Skipping:** other bots ${config.ignoreBots === false ? '❌ (music IS transcribed)' : '✅ (music is ignored)'}${
           config.ignoredUserIds?.length ? ` · ${config.ignoredUserIds.map((id) => `<@${id}>`).join(', ')}` : ''
         }`,
-        `**Auto-join:** ${
-          config.autoJoin
-            ? `🟢 on — ${
-                config.voiceChannelIds.length === 0
-                  ? 'any voice channel'
-                  : config.voiceChannelIds.map((id) => `<#${id}>`).join(', ')
-              }`
-            : '🔴 off'
-        }`,
         '',
         `Reply to a recording and run \`${ctx.prefix}transcribe now\` to transcribe it on demand.`,
-      ];
+        // The precinct-cap line is null when no extra cap is set (S123).
+      ].filter(Boolean);
     },
     subcommands: [
       {

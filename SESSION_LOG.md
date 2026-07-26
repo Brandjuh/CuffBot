@@ -2272,3 +2272,29 @@ Tests **1095 → 1109**. Verified by rendering the real payload: 5 select option
 **Retrospective (skill 0.5.43 → no change):** no new rule. The session is 0.5.38 being *applied* rather than learned — panel first, and no button that does not work. Worth one note for the candidate pile: **an alias that makes two concepts the same command is a documentation lie the loader cannot catch**, because it is legal. The duplicate-alias guard checks names *within* a group; nothing checks whether an alias claims a name that means something else in the source. One instance is not a pattern.
 
 **Handoff:** 26.3b (narrated events with a bail check between each, the target picker, market/leaderboard as buttons). Also outstanding and confirmed by the owner: **all three transcribe limit changes** — match Groq's real limits (20 rpm / 2,000 rpd / 7,200 audio-seconds per hour / 28,800 per day, minimum 10 s billed per request), add a per-minute throttle, and batch short voice turns toward the 10-second minimum so the budget buys up to 6× more conversation.
+
+## Session 123 — 2026-07-26
+
+**Goal:** owner — *"Ik wil geen budgetten gaan gokken, wat zijn de officiele rate limits hiervan?"* — then, when given the three options: *"alle 3."*
+
+**He was right not to want a made-up number.** `dailyLimit: 100` came from S101 and corresponded to nothing Groq publishes. Looked up rather than recalled (`console.groq.com/docs` 403s through this container's proxy, so two independent searches were cross-checked): **20 requests/minute · 2,000/day · 7,200 audio-seconds/hour · 28,800/day · minimum 10 seconds billed per request.**
+
+**That last figure explains everything about why live voice was expensive.** A speaker turn is often 1–3 seconds and is charged as ten. All three changes fall out of it:
+
+1. **The limits are enforced as Groq states them** — four sliding windows in `lib/limits.js`, claim-before-send (S22), released when a request never goes out. Each refusal names *which* window it hit and when it frees, rather than a bare no (0.5.41).
+2. **A local per-minute throttle**, which simply did not exist. A busy channel used to send straight past 20/min, collect 429s and lose turns silently.
+3. **Turns are batched toward the 10-second floor.** Six 1.5-second turns cost 60 audio-seconds sent separately and 10 batched. A lone remark is never stranded — held audio ages out after 6 s on the same tick that posts lines, and everything held is flushed when the bot leaves. Without that, batching would have traded cost for *losing the last thing anyone said*.
+
+**A test caught my own arithmetic lying, which is the part worth remembering.** `batchingSaving` computed the unbatched cost as `turns × 10`, treating Groq's floor as a flat rate — but a 12-second turn is billed at 12, not 10. That silently overstated the saving for long turns, in the exact function whose job is to justify the change. The corrected version reports **factor 1** for three 12-second turns, and there is now a test named *"batching cannot make long turns cheaper — they were never wasteful"* asserting precisely that. A justification function that flatters the change it justifies is worse than no function.
+
+`dailyLimit` survives as an **optional** extra ceiling, default `0`.
+
+**Corrections (Step 2/6):** one found while rendering the status — **S118 added the auto-join diagnosis line but left the original in place**, so `!transcribe` printed **Auto-join twice**. Nothing tested the status as a whole, only its individual builders, which is exactly how a duplicate line survives. Caught by looking at the rendered output rather than the code.
+
+**Retrospective (skill 0.5.44, new rule):** **a function whose purpose is to justify a change must be tested against the case where the change is worthless.** `batchingSaving` was written to show batching pays off, and its first version did — including where it does not. The general shape: when code exists to quantify a benefit, the load-bearing test is the *no-benefit* case, because that is the one the author is not looking for. Sibling of 0.5.35 (a check that derives its expectation from the thing under test) — there the check was circular, here the check was only ever pointed at the flattering input.
+
+Also recorded, as a second instance rather than a new rule: **render the output, not the builders.** The duplicate auto-join line existed for five sessions because every test asserted a line-producing function in isolation and none asserted the finished status.
+
+Tests **1109 → 1124**.
+
+**Handoff:** M26.3b (narrated crime events with a bail check between each, the target picker, market/leaderboard as panel buttons), then M26.2b and M26.4. The Groq numbers are in `lib/limits.js` with a comment saying to change them only against the docs — they are free-tier figures and a paid plan has different ones.

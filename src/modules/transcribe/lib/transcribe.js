@@ -66,7 +66,11 @@ export const DEFAULT_TRANSCRIBE_CONFIG = {
    * free tier. Live voice (S102) spends from the same budget — one turn in a
    * voice channel costs exactly what one voice memo costs.
    */
-  dailyLimit: 100,
+  // S123: 0 = "only Groq's own limits apply". This used to be 100, invented in
+  // S101 when memos were the only spender; the real ceilings live in
+  // `lib/limits.js` and come from Groq's published free tier. Set a number
+  // here only to spend LESS than Groq allows.
+  dailyLimit: 0,
   /** S102: prefix each live-voice line with an HH:MM (UTC) stamp. */
   voiceTimestamps: true,
   /**

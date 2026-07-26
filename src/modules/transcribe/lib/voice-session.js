@@ -5,6 +5,19 @@
 // The impure half (joining, subscribing, streaming) lives in ../voice/.
 import { SAMPLES_PER_FRAME, SAMPLE_RATE, durationOf } from './ogg.js';
 
+// S123: batch short turns toward Groq's 10-second minimum billing.
+//
+// Groq charges a floor of 10 audio-seconds per request, so a 1.5-second "yeah"
+// costs exactly as much as ten seconds of speech. Sending every turn
+// separately therefore threw away up to 85% of the audio budget — and the
+// transcript was worse for it too, because Whisper has less context to work
+// with on a fragment.
+//
+// Turns from the SAME speaker are held until they total roughly the billing
+// floor, or until `batchMaxWaitMs` passes so a lone remark is never stranded.
+export const BATCH_TARGET_MS = 10_000; // Groq's minimum billed length
+export const BATCH_MAX_WAIT_MS = 6_000; // never hold a line longer than this
+
 export const DEFAULT_VOICE_POLICY = {
   /**
    * How long a speaker must stop talking before their turn is considered
@@ -161,4 +174,43 @@ export function createLineBuffer({ flushAfterMs = 5_000, softLimit = 1_500 } = {
       return out;
     },
   };
+}
+
+/**
+ * Should this speaker's held audio be sent now? (S123)
+ *
+ * @param {{ms: number, heldSinceMs: number}} pending
+ * @returns {{send: boolean, reason: 'enough'|'waited'|'hold'}}
+ */
+export function shouldSendBatch(pending, { targetMs = BATCH_TARGET_MS, maxWaitMs = BATCH_MAX_WAIT_MS } = {}) {
+  if (pending.ms >= targetMs) return { send: true, reason: 'enough' };
+  // A single remark in a quiet channel must not sit unsent forever waiting for
+  // a second one that is never coming.
+  if (pending.heldSinceMs >= maxWaitMs) return { send: true, reason: 'waited' };
+  return { send: false, reason: 'hold' };
+}
+
+/**
+ * How much of the audio budget batching actually saves, given a set of turn
+ * lengths. Exported because the arithmetic is the justification for the whole
+ * change and belongs somewhere a test can check it.
+ */
+export function batchingSaving(turnLengthsMs, { targetMs = BATCH_TARGET_MS, minBilledSeconds = 10 } = {}) {
+  // The floor is a MINIMUM, not a flat rate: a 12-second turn is billed at 12,
+  // not at 10. Treating every turn as costing exactly the floor understated
+  // long turns and made batching look like it saved on audio that was never
+  // wasteful in the first place.
+  const bill = (ms) => Math.max(minBilledSeconds, Math.ceil(ms / 1000));
+  const unbatched = turnLengthsMs.reduce((sum, ms) => sum + bill(ms), 0);
+  let batched = 0;
+  let pending = 0;
+  for (const ms of turnLengthsMs) {
+    pending += ms;
+    if (pending >= targetMs) {
+      batched += bill(pending);
+      pending = 0;
+    }
+  }
+  if (pending > 0) batched += bill(pending);
+  return { unbatched, batched, factor: batched === 0 ? 1 : unbatched / batched };
 }
