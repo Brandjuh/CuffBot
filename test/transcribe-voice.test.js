@@ -30,6 +30,7 @@ import {
 } from '../src/modules/transcribe/lib/voice-session.js';
 import transcribeCommand from '../src/modules/transcribe/commands/transcribe.js';
 import {
+  DEFAULT_VOICE_PAIRS,
   humansIn,
   normalizeChannelName,
   pairTextChannel,
@@ -385,4 +386,66 @@ test('the autojoin knobs exist and are Manage Server', () => {
     assert.ok(sub, name);
     assert.equal(sub.permission, PermissionFlagsBits.ManageGuild, name);
   }
+});
+
+// ── S111: declared pairings ──────────────────────────────────────────────────
+
+test('the owner’s committed pairings are STRINGS, not rounded numbers', () => {
+  // An unquoted 18-digit snowflake is a JavaScript number, and Number cannot
+  // hold it: 411633952961593345 silently becomes 411633952961593340. The map
+  // then never matches a real channel and the bug is invisible in source.
+  // These are the ids the owner typed, written out again on purpose — reading
+  // them back off the object is exactly what would hide the rounding.
+  const OWNER_PAIRS = [
+    ['411633952961593345', '411634025426321438'],
+    ['436248103310327808', '436248239855894538'],
+    ['442066086159187978', '442059736263688213'],
+    ['411634241965916191', '411634286655963146'],
+  ];
+  assert.equal(Object.keys(DEFAULT_VOICE_PAIRS).length, OWNER_PAIRS.length);
+  for (const [voice, text] of OWNER_PAIRS) {
+    assert.equal(DEFAULT_VOICE_PAIRS[voice], text, `${voice} → ${text}`);
+  }
+  // Every key must survive a round trip through Number without changing, or
+  // it was written unquoted somewhere.
+  for (const key of Object.keys(DEFAULT_VOICE_PAIRS)) {
+    assert.equal(String(BigInt(key)), key, `${key} is an exact snowflake`);
+    assert.match(key, /^\d{17,20}$/);
+  }
+});
+
+test('a declared pairing beats even a perfect name match', () => {
+  // The owner said which room goes with which. A name match is an inference;
+  // a declared pairing is a fact, and an inference must never beat a fact.
+  const texts = [tc('t-declared', 'nothing-alike'), tc('t-namematch', 'squad-room')];
+  const pairs = { v1: 't-declared' };
+  assert.deepEqual(pairTextChannel(vc('v1', 'Squad Room'), texts, pairs), {
+    id: 't-declared',
+    how: 'declared',
+  });
+  // Without the declaration the name match wins, as before.
+  assert.deepEqual(pairTextChannel(vc('v1', 'Squad Room'), texts, {}), {
+    id: 't-namematch',
+    how: 'exact',
+  });
+});
+
+test('a stale declared pairing falls through instead of posting into a void', () => {
+  // The channel was deleted. Sending the transcript to an id that no longer
+  // exists would silently lose it; the matcher is the better answer.
+  const texts = [tc('t-namematch', 'squad-room')];
+  const pairs = { v1: 't-deleted' };
+  assert.deepEqual(pairTextChannel(vc('v1', 'Squad Room'), texts, pairs), {
+    id: 't-namematch',
+    how: 'exact',
+  });
+  // And with nothing to fall back on, still nothing — never the dead id.
+  assert.equal(pairTextChannel(vc('v1', 'Unmatched'), texts, pairs), null);
+});
+
+test('a guild’s own pairings override the committed defaults', () => {
+  const [ownerVoice] = Object.keys(DEFAULT_VOICE_PAIRS);
+  const texts = [tc('t-override', 'somewhere-else'), tc(DEFAULT_VOICE_PAIRS[ownerVoice], 'the-default')];
+  const merged = { ...DEFAULT_VOICE_PAIRS, [ownerVoice]: 't-override' };
+  assert.equal(pairTextChannel(vc(ownerVoice, 'x'), texts, merged).id, 't-override');
 });

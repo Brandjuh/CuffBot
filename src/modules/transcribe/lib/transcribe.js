@@ -80,6 +80,12 @@ export const DEFAULT_TRANSCRIBE_CONFIG = {
   voiceChannelIds: [],
   /** How many humans must be in the channel before the bot bothers. */
   autoJoinMinimum: 1,
+  /**
+   * Explicit voice → text pairings, `{ voiceChannelId: textChannelId }`.
+   * Merged OVER `DEFAULT_VOICE_PAIRS` (the owner's own, committed in
+   * `lib/pairing.js`), so a guild can correct a default without editing code.
+   */
+  voicePairs: {},
 };
 
 /**

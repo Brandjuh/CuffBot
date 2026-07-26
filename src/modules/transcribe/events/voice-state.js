@@ -10,7 +10,7 @@
 import { ChannelType, Events, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { hasAudioKey } from '../lib/audio-provider.js';
-import { humansIn, pairTextChannel, shouldAutoJoin, shouldAutoLeave } from '../lib/pairing.js';
+import { DEFAULT_VOICE_PAIRS, humansIn, pairTextChannel, shouldAutoJoin, shouldAutoLeave } from '../lib/pairing.js';
 import { getTranscribeConfig } from '../service.js';
 import { isListening, sessionFor, startListening, stopListening } from '../voice/session.js';
 
@@ -23,13 +23,17 @@ import { isListening, sessionFor, startListening, stopListening } from '../voice
  * construction, and it is never a guess. Posting into a wrongly-guessed
  * channel would put a private conversation somewhere it does not belong.
  */
-export function transcriptChannelFor(guild, voiceChannel) {
+export function transcriptChannelFor(guild, voiceChannel, config = {}) {
   const texts = [...guild.channels.cache.values()].filter(
     (c) => c?.type === ChannelType.GuildText && c.id !== voiceChannel.id,
   );
+  // A guild's own pairings sit on top of the owner's committed ones, so an
+  // admin can correct a default without touching code (S35: sparse config).
+  const pairs = { ...DEFAULT_VOICE_PAIRS, ...(config.voicePairs ?? {}) };
   const paired = pairTextChannel(
     { id: voiceChannel.id, name: voiceChannel.name, parentId: voiceChannel.parentId },
     texts.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId })),
+    pairs,
   );
   if (paired) {
     const channel = guild.channels.cache.get(paired.id);
@@ -81,7 +85,7 @@ async function handleJoin(guild, oldState, newState) {
   // the channel doing nothing. Stay out.
   if (!hasAudioKey(process.env)) return;
 
-  const target = transcriptChannelFor(guild, channel);
+  const target = transcriptChannelFor(guild, channel, config);
   if (!target) {
     logger.warn(`Transcribe: no text channel found for voice channel ${channel.name}`);
     return;
@@ -100,7 +104,7 @@ async function handleJoin(guild, oldState, newState) {
         `${config.translateToEnglish ? ' in English' : ''}.\n` +
         `\`!transcribe leave\` stops it now · \`!transcribe autojoin false\` stops it for good.` +
         (target.how === 'built-in'
-          ? '\n*(No text channel matches that name, so this is the voice channel’s own chat.)*'
+          ? '\n*(No text channel is paired with that voice channel, so this is its own chat.)*'
           : ''),
       allowedMentions: { parse: [] },
     })
