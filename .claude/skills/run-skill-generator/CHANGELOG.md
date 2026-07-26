@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.38 — 2026-07-26 (Session 115)
+
+- `references/architecture.md` (Module pattern, extending 0.5.32): layer-slicing a staged port has a **second and larger** cost than the mechanical one already recorded. When the source is panel-driven, an intermediate command surface built as scaffolding **becomes the product** — it is genuinely usable, so every later slice adds features to it, and the panel is never dropped so much as never scheduled. **When a staged port's source is panel-driven, the panel belongs in the first slice a player can touch.**
+- Evidence: S115's audit (M26.1) of all 13 games. Nine match their source's interaction model; the two that do not are exactly the two largest ports — heist (4 sessions, 8 source panels, we built 1) and city (4 sessions, 48 source UI refs, we built 0) — and both were sliced *engine → storage → commands → extras*. The owner found city by playing it: *"dat werkt met panelen niet enkel met commands."* City's `CrimeAttemptView` has a `Bail Out!` button live during an attempt, so what went missing was gameplay, not decoration. 0.5.32 already warned against layer slicing, but its stated reason was that the loader needs an `index.js` — a reason that does not predict this failure at all.
+
 ## 0.5.37 — 2026-07-26 (Session 113)
 
 - `SKILL.md` Step 6 (Record): **an owner-action item must be written as a check, not an instruction.** Name the command whose output settles it, and run that command before ever repeating the item.
