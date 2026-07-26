@@ -2426,3 +2426,49 @@ Tests **1171 → 1243**. **M26.2 is complete**, and with it everything in M26 ex
 Tests **1243 → 1277**.
 
 **Handoff:** **M26.4b** — `HeistConfigView` and `ItemPriceConfigView` (both admin, both modal-driven in the source: select a heist type, select a parameter, type a value) plus `EventView`. `!heist admin show/set/reset/price/event` already does all of it in text, so 26.4b is presentation only and the service needs nothing new. After that **M26 is finished** and M24.3 (mafia anomalies/achievements) is the only thing left, still gated on an owner decision.
+
+---
+
+## Session 127 — 2026-07-27
+
+**Goal:** owner, fifth report of the same failure — *"There IS a newer version (16 commit(s) ahead) but the updater never ran… **los dit nu voor eens en altijd op**. Als ik handmatig !update uitvoer wil ik dat hij update, als ik !update status doe wil ik een status… automatisch elke 15 minuten… plaats deze in 412334189879230474."*
+
+**The wording of his error message was the diagnosis.** *"the updater never ran — the update service or its sudo rights are probably missing"* is the **pre-S120** text. S120 replaced it with one that asks systemd instead of asserting. So the Pi was running code from before the session that fixed the updater — **it could not fetch its own fix.**
+
+That is not a bug, it is a **deadlock**, and it is why four repairs (S7, S76, S78, S120) each held for a while and then came back. Every one of them fixed a symptom inside a design whose failure modes were all "a thing that must exist is missing":
+
+| Removed this session | Why it was a liability |
+|---|---|
+| `sudo systemctl start cuffbot-update.service` | sudo matches the whole command line; one flag refused every call for 113 sessions, invisibly |
+| `cuffbot-update.service` | Could be missing; the bot could only guess whether it ran |
+| `cuffbot-update.timer` | The unattended path was invisible to the code reporting on it |
+| `/etc/sudoers.d/cuffbot` | One more file that had to exist and match exactly |
+| `setup-pi.sh` as the arming step | A Pi that skipped it never updated, silently |
+
+**The new design has none of those parts.** The bot runs `scripts/update.sh` as an ordinary child process with `CUFFBOT_NO_RESTART=1`, awaits it, and — if the tests went green — **exits**. systemd's `Restart=always` brings it back on the new code. No sudo anywhere in the path. The 15-minute check is a `setInterval` in the bot's own process, so the bot can see, report on and fix its own updates.
+
+The script gained one machine-readable line, `CUFFBOT_RESULT=<verdict> <from> <to>`, printed on **every** exit path. The bot classifies the run instead of parsing prose — parsing prose is how "the updater never ran" got asserted from nothing but an unchanged HEAD.
+
+⚠️ **The single precondition, and it is checked rather than assumed.** Exiting is only safe when systemd will restart us. `restartPolicy()` asks `systemctl show cuffbot -p Restart`; `restartPlan()` returns `exit` **only** for `always`, `sudo` for anything else systemd reports, and `manual` when there is no systemd. Exiting under `Restart=on-failure` would leave the bot down until somebody noticed — strictly worse than not updating — so that is the one thing verified, not inferred. `!update status` and `npm run doctor` both report which route is live.
+
+**The commands are now the spec, literally:** `!update` installs (the bare form never prints a paragraph instead of updating), `!update status` reports and changes nothing, `!update auto <true|false>` toggles the check, default on. Announcements into `412334189879230474` already worked (S117) and still fire at boot — the only moment that survives the exit.
+
+### What went wrong, and what it taught
+
+**A timer I wrote was `unref`'d out of habit, and the test caught it.** Every other timer in the repo is unref'd because they are pollers that must not hold the process open. This one is the *watchdog* on a hung update — unref'd, it can only fire if something else keeps the loop alive, so the failure it exists to break could outlast it. It is cleared on settle, so it never needed unref-ing at all. **The habit was copied without re-deriving whether the reason applied.**
+
+**Five mutations, all caught:** exit whenever systemd answers at all (the fatal one), a missing result line read as success, `tests-failed` marked as a change (would restart into a red build), a failed fetch rendered as "up to date" (the exact five-session lie), and the first result line winning over the last.
+
+**A guard against the class of message that caused this:** a test sweeps every `!update status` branch and asserts none of them contains "never ran" or "probably missing" — the phrasings that asserted a cause nobody had checked.
+
+### Definition of Done — core
+
+- [x] Layout per architecture.md; `node --check` clean; `bash -n` clean on both scripts
+- [x] Pure logic tested: `test/updater.test.js` (25), five mutations verified
+- [x] Manual `docs/modules/core.md` rewritten: why the old design failed, the new one, the precondition, four new troubleshooting rows, the changelog entry
+- [x] Listed in `docs/README.md` (unchanged)
+- [x] `STATE.md` + `SESSION_LOG.md` reflect reality
+
+Tests **1277 → 1303**.
+
+**Handoff:** ⚠️ **The Pi needs ONE command to escape the deadlock** — `cd ~/CuffBot && git pull && bash scripts/setup-pi.sh`. It cannot fetch this fix by itself, for the reason at the top of this entry. After that it maintains itself and this item closes permanently. Then: **M26.4b** (heist's `HeistConfigView`, `ItemPriceConfigView`, `EventView` — all admin, presentation only), after which M26 is finished. M24.3 remains gated on an owner decision, and `!minigames betvsbot` is the lever if the donut supply starts climbing.

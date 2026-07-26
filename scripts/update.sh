@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
-# CuffBot self-update — called by cuffbot-update.timer (as root) or manually.
+# CuffBot self-update — run BY THE BOT ITSELF (S127), or by hand on the Pi.
 #
 #   update.sh [run-as-user] [repo-dir]
+#
+# S127: pass CUFFBOT_NO_RESTART=1 and the script does everything EXCEPT the
+# restart. That is how the bot uses it: the bot awaits this script, and then
+# exits itself so systemd (`Restart=always`) brings it back on the new code.
+# No sudo anywhere in that path — which is the point, because every failure of
+# this chain from S7 to S126 was a sudo or systemd-unit problem.
+#
+# The last line is machine-readable so the bot can classify the run without
+# parsing prose:
+#   CUFFBOT_RESULT=<up-to-date|updated|fetch-failed|merge-failed|install-failed|tests-failed> <from> <to>
 #
 # Fetches the tracked branch; when new commits exist it fast-forwards,
 # installs dependencies, and runs the test suite. Only a green suite gets
@@ -15,6 +25,13 @@ LOG_TAG="cuffbot-update"
 
 say() { echo "$LOG_TAG: $*"; }
 
+# The one line the bot reads. Always the LAST thing printed, on every path —
+# a script that can exit without saying what happened is a script the caller
+# has to guess about, and guessing is what produced "the updater never ran".
+FROM=""
+TO=""
+result() { echo "CUFFBOT_RESULT=$1 ${FROM:-unknown} ${TO:-unknown}"; }
+
 # When the timer runs this as root, repo git/npm work happens as the owning
 # user (root-owned files in the checkout would break later manual pulls).
 run() {
@@ -25,23 +42,35 @@ run() {
   fi
 }
 
-cd "$REPO_DIR" || { say "repo dir $REPO_DIR missing"; exit 1; }
+cd "$REPO_DIR" || { say "repo dir $REPO_DIR missing"; result fetch-failed; exit 1; }
 
-BRANCH="$(run git rev-parse --abbrev-ref HEAD)" || exit 1
-run git fetch --quiet origin "$BRANCH" || { say "fetch failed (network? credentials?)"; exit 1; }
+BRANCH="$(run git rev-parse --abbrev-ref HEAD)" || { result fetch-failed; exit 1; }
+FROM="$(run git rev-parse --short HEAD)"
+if ! run git fetch --quiet origin "$BRANCH"; then
+  say "fetch failed (network? credentials?)"
+  result fetch-failed
+  exit 1
+fi
 
 LOCAL="$(run git rev-parse HEAD)"
 REMOTE="$(run git rev-parse "origin/$BRANCH")"
+TO="$(run git rev-parse --short "origin/$BRANCH")"
 if [ "$LOCAL" = "$REMOTE" ]; then
-  exit 0 # nothing new — stay silent for the journal's sake
+  result up-to-date
+  exit 0 # nothing new — stay quiet for the journal's sake
 fi
 
 say "updating $LOCAL -> $REMOTE"
-run git merge --ff-only --quiet "origin/$BRANCH" || { say "fast-forward failed — local edits in the checkout?"; exit 1; }
+if ! run git merge --ff-only --quiet "origin/$BRANCH"; then
+  say "fast-forward failed — local edits in the checkout?"
+  result merge-failed
+  exit 1
+fi
 
 if ! run npm install --no-fund --no-audit --loglevel=error; then
   say "npm install failed — rolling back to $LOCAL"
   run git reset --hard --quiet "$LOCAL"
+  result install-failed
   exit 1
 fi
 
@@ -67,6 +96,7 @@ if ! run npm test >"$TEST_LOG" 2>&1; then
   rm -f "$TEST_LOG"
   run git reset --hard --quiet "$LOCAL"
   run npm install --no-fund --no-audit --loglevel=error
+  result tests-failed
   exit 1
 fi
 rm -f "$TEST_LOG"
@@ -84,6 +114,14 @@ if [ $? -ne 0 ]; then
   say "fix and re-run manually: node src/deploy-commands.js   (diagnose with: npm run doctor)"
 else
   say "commands re-registered"
+fi
+
+# S127: the bot sets this and restarts ITSELF by exiting, so the section below
+# — the only part that ever needed sudo — is skipped entirely on that path.
+if [ "${CUFFBOT_NO_RESTART:-}" = "1" ]; then
+  say "updated to $REMOTE (restart left to the caller)"
+  result updated
+  exit 0
 fi
 
 if command -v systemctl >/dev/null 2>&1; then
@@ -104,3 +142,4 @@ if command -v systemctl >/dev/null 2>&1; then
 fi
 
 say "updated to $REMOTE"
+result updated

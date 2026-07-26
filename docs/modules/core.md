@@ -3,7 +3,7 @@
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
 **Status:** stable
-**Last updated:** Session 96 · 2026-07-25
+**Last updated:** Session 127 · 2026-07-26
 
 ## Purpose
 
@@ -68,7 +68,9 @@ export default {
 |---|---|---|---|---|
 | `!radiocheck` | Confirms the bot is on the air and reports round-trip latency | none | Everyone | `!radiocheck` |
 | `!help` | Shows every command the viewer can use, grouped by category | none | Everyone | `!help` |
-| `!update` | Updates the bot from GitHub with live status in Discord; restarts only when the tests pass | none | Administrators / guild owner | `!update` |
+| `!update` | **Installs** the newest version: fetch → test → restart. Bare form updates | none | Administrators / guild owner | `!update` |
+| `!update status` | Are we up to date or behind? Reports only, changes nothing | none | Everyone | `!update status` |
+| `!update auto` | Turn the 15-minute automatic check on or off | `<true\|false>` | Manage Server | `!update auto false` |
 | `!restart` | Restarts the bot to reload `.env`/configuration, reports back when on duty | none | Administrators / guild owner | `!restart` |
 | `!maintenance` | Maintenance mode: only the **bot owner** can run commands; everyone else gets an English notice (S74/S75) | `on` / `off` / `message <text…>` / `nomessage` | **Bot owner only** (admin-visible) | `!maintenance on` |
 
@@ -87,15 +89,40 @@ export default {
 - **Categorized & viewer-filtered (S43):** commands are grouped by PURPOSE — 🛡️ Moderation, 🎮 Games & Economy, 🎉 Fun, 📈 Ranks & XP, 🎂 Community, 📻 Info, ⚙️ Setup & Admin — not by module, one clear line per command. The menu only lists what the viewer can actually use: commands declaring permissions the member lacks are hidden, as are the runtime-gated admin commands (`!update`, `!restart`, whose gate lives inside `run()`). **The filter also decides which BUTTONS you are offered**, so the menu never advertises a category you would find empty. The category map lives in `core/help.js` (`COMMAND_CATEGORIES`); a loader-walking test fails the build when a new command is left uncategorized.
 - **Anyone may press (S98).** A help message is public, and the roster is per-viewer, so the pump distinguishes two cases: the person who asked gets the message **updated in place** (it is their menu), and anyone else gets **their own filtered view, privately**, with buttons keyed to them so they can keep browsing. Editing the shared message for a stranger would rewrite what the asker is reading; showing them the asker's roster would leak which commands that member can use. A component interaction can still be ephemeral — only `!command` replies lost that (S54/S68) — so the private answer is genuinely private.
 
-### /update
+### `!update` — the self-updater (rebuilt in S127)
 
-- **Options:** none. **Who:** Administrators or the guild owner only (checked at runtime, not just by the command's default visibility).
-- **What happens:** triggers the same test-gated self-updater the timer uses (`scripts/update.sh`: fetch → tests must pass → deploy-commands → restart), so a manual update is exactly as safe as an automatic one — a red suite rolls back and the running bot is untouched. Prefers the `cuffbot-update` systemd unit (runs outside the bot's own lifecycle); falls back to a detached script run.
-- **Live status in Discord (S25):** the reply updates as the update progresses — `✅ Already up to date` when nothing is new; `🔄 New version fetched (old → new), tests running…` when something arrived; `🚨 FAILED its tests and was rolled back` when the gate refused it. When the update succeeds, the restart kills the bot mid-command — the order is remembered in the store, and right after boot the bot posts **"✅ Update complete: `old` → `new` — back on duty"** in the channel where `/update` was typed, pinging the admin who ordered it (core's `update-report` boot event; stale orders >30 min are dropped silently).
-- **Reliability:** wants the systemd update unit + the scoped sudoers drop-in that `setup-pi.sh` step 8 installs. Without them it still attempts a detached run. One update order at a time — a second `/update` while one runs is refused.
+> **This chain was fixed four times and broke four times.** S7, S76, S78 and S120 each repaired a symptom; the owner's fifth report was *"los dit nu voor eens en altijd op"*. The cause was never a bug — it was the architecture, and S127 removed it.
 
-### /restart
+**What was wrong with the old design**
 
+| Old part | Why it kept failing |
+|---|---|
+| `sudo systemctl start cuffbot-update.service` | sudo matches the **entire** command line, so one flag mismatch silently refused every call — for 113 sessions (S120 found it) |
+| A separate `cuffbot-update.service` | Could be missing, and the bot could only guess whether it had run |
+| A systemd **timer** | The unattended path was invisible to the half of the code that reported on it |
+| `bash setup-pi.sh` to arm any of it | A Pi that skipped that step never updated, and nothing said so |
+| — | **And the fix for a broken updater always shipped in commits the broken updater could not fetch.** That is a deadlock, not a bug: the Pi sat 16 commits behind printing a diagnosis written *before* the session that improved it |
+
+**What it is now: the bot updates itself, and nothing else is involved.**
+
+1. Every 15 minutes (in this process — `events/auto-update.js`, not a timer) the bot runs `scripts/update.sh` as an ordinary child process with `CUFFBOT_NO_RESTART=1`.
+2. The script fetches, fast-forwards, installs, and **runs the whole test suite**. A red suite rolls back and the running bot is untouched — that gate is unchanged and is what makes unattended updates safe.
+3. The script prints one machine-readable line — `CUFFBOT_RESULT=<up-to-date|updated|fetch-failed|merge-failed|install-failed|tests-failed> <from> <to>` — so the bot classifies the run instead of parsing prose.
+4. On `updated`, the bot **exits cleanly** and systemd's `Restart=always` brings it back on the new code.
+
+**No sudo. No second unit. No timer. Nothing that can be missing.**
+
+> **The one precondition, and it is checked rather than assumed.** Exiting is only safe when systemd will restart us. `restartPolicy()` asks `systemctl show cuffbot -p Restart`; `restartPlan()` returns `exit` **only** for `always`, `sudo` for anything else systemd reports, and `manual` when there is no systemd at all. Exiting under `Restart=on-failure` would leave the bot down until somebody noticed — strictly worse than not updating. `!update status` and `npm run doctor` both report which route is live.
+
+**The commands**
+
+- **`!update`** installs. That is the owner's spec (*"als ik handmatig !update uitvoer wil ik dat hij update"*) — the bare form never prints a paragraph about systemd instead of updating. Live status while it runs, and after the restart the bot reports back in the channel you typed it in (`update-report` boot event; orders older than 30 minutes are dropped).
+- **`!update status`** reports and changes nothing: branch, local and remote commit, how far behind, whether the fetch worked, whether automatic checks are on, when the last one ran, and which restart route is live. **A failed fetch is never rendered as "up to date"** — that specific lie is what hid the broken updater for five sessions.
+- **`!update auto <true|false>`** (Manage Server) turns the 15-minute check off. It defaults **on**.
+
+**Unattended updates announce themselves** in `412334189879230474`, at boot, via `events/update-announce.js` — the moment the news is actually true, since every update ends in a restart. Posting from the loop instead would be lost by the exit.
+
+### `!restart`
 - **Permission:** administrators / guild owner (runtime-checked, like `/update`).
 - **What happens (S28):** for when the owner edits `.env` (API keys, overrides) — the process must restart to re-read it. Replies "Restarting to reload the configuration", stores the order, then runs `sudo -n systemctl restart cuffbot` (the exact command the sudoers drop-in allows). After boot, the `update-report` event posts **"🔄 Restart complete — configuration reloaded, back on duty"** in the same channel, pinging the requester.
 - **Fallback without sudoers:** the process exits with a failure code — the unit runs `Restart=on-failure` with `RestartSec=5`, so systemd revives it within seconds either way.
@@ -157,7 +184,10 @@ Boot fails fast with a named-variable error message when required settings are m
 | `src/modules/core/index.js` | Manifest |
 | `src/modules/core/commands/radio-check.js` | `/radio-check` command |
 | `src/modules/core/commands/help.js` | `/help` — generated command roster |
-| `src/modules/core/commands/update.js` | `/update` — manual self-update (admin-only) |
+| `src/modules/core/commands/update.js` | The `!update` group: `now` (installs), `status`, `auto` |
+| `src/modules/core/updater.js` | The mechanism: run the script, read its verdict, decide the restart route |
+| `src/modules/core/update-store.js` | Is the automatic check on, and what did the last one do |
+| `src/modules/core/events/auto-update.js` | The in-process 15-minute check |
 | `src/modules/core/events/on-duty.js` | Ready log + offline-invite sweep |
 | `src/modules/core/events/guild-lockdown.js` | Live jurisdiction enforcement |
 | `src/core/prefix/{parse,router}.js` | Text (`!command`) line splitting, MessageCreate router |
@@ -194,7 +224,10 @@ Boot fails fast with a named-variable error message when required settings are m
 | "The application did not respond" | Bot process not running (registration ≠ being online) | `npm start` and watch for the on-duty log line |
 | Login fails with `TokenInvalid` / registration says Unauthorized | Wrong or rotated token, or token belongs to a different application than `CLIENT_ID` | `npm run doctor` — it checks the token against Discord and names the exact mismatch |
 | `!commands` do nothing (but `/commands` work) | Message Content intent not enabled | Developer Portal → Bot → Privileged Gateway Intents → Message Content Intent → ON, then restart. The startup log warns when this is the cause. |
-| `/update` replies but nothing happens | Update unit/sudoers not installed, or already up to date | Re-run `setup-pi.sh` step 8; check `journalctl -u cuffbot-update`. "Up to date" is a no-op by design. |
+| `!update` says it installed but nothing changed | `Restart=` is not `always`, so the bot could not reload itself | `!update status` says which route is live. Fix: `bash scripts/setup-pi.sh`. The code IS on disk — it loads on the next restart. |
+| `!update status` says it cannot reach GitHub | The stored git credentials expired (private repo) | On the Pi: `cd ~/CuffBot && git fetch origin`. If it prompts for a password, `bash scripts/setup-pi.sh` re-stores them. |
+| The bot is many commits behind and never catches up | The Pi is on pre-S127 code, whose updater is the broken one | One-off unstick: `cd ~/CuffBot && git pull && bash scripts/setup-pi.sh`. After that it maintains itself. |
+| Automatic updates stopped | Someone ran `!update auto false` | `!update status` shows it; `!update auto true` turns it back on. |
 | **`!commands` don't work, slash commands do** | Message Content intent disabled in the portal — the bot cannot READ message text, so `!help` is invisible to it | `/radio-check` shows it (❌ Text commands OFF), `npm run doctor` verifies the portal flag. Fix: Developer Portal → your app → Bot → Privileged Gateway Intents → **Message Content Intent** ON → Save → `sudo systemctl restart cuffbot` |
 | Bot leaves a server immediately | That server is not the home precinct — working as designed | Change `config.json → homeGuildId` only if the precinct itself moves |
 
@@ -202,6 +235,7 @@ Boot fails fast with a named-variable error message when required settings are m
 
 | Session | Change |
 |---|---|
+| S127 | **The update chain rebuilt so it cannot break the same way again.** The bot now runs `scripts/update.sh` itself and **exits**; systemd's `Restart=always` reloads it. Gone: the `sudo systemctl start` call, `cuffbot-update.service`, `cuffbot-update.timer` and `/etc/sudoers.d/cuffbot` — every one of them a thing that could be missing, and between them the cause of S7, S76, S78 and S120. `setup-pi.sh` now **deletes** the old units rather than installing them. `!update` installs (owner's spec), `!update status` reports without changing anything, `!update auto` toggles the 15-minute in-process check (default on). The script gained a machine-readable `CUFFBOT_RESULT=` line so the bot classifies runs instead of guessing, and `restartPlan()` refuses to exit under any policy but `Restart=always` — exiting when systemd would not restart us is the one way this design could take the bot down, so it is the one thing that is checked rather than assumed. The doctor now checks `Restart=` and warns about a leftover timer. |
 | S120 | **Two update-chain bugs.** (1) `!update`'s preferred path passed `systemctl start --no-block …` while the sudoers rule setup-pi.sh writes permits `systemctl start …` — sudo matches the *whole* command line, so the rule never matched and `sudo -n` refused **every time since S7**. The fallback hid it: updates still happened, always down the slower route. `--no-block` is gone and the rule now accepts both forms. Because a blocking `systemctl start` on a `Type=oneshot` unit only returns when the update *finishes*, the fallback now fires solely on a **fast** non-zero exit (sudo refusing), never on a late one (the update's own failure) — otherwise a rolled-back update would be re-run in full. (2) The three-minute poll limit was sized when the suite was ~350 tests with no dependencies; it is 1,087 plus an `npm install` now, so a healthy update on a Pi timed out and was announced as *"the updater never ran"* — a cause the code had never checked. Raised to 12 minutes, and the message now **asks systemd** (`LoadState`/`ActiveState`/`Result`) and reports only what it finds: still running, not installed, last run failed, or simply not fired yet. |
 | S117 | **Usage lines spell out closed sets.** `argToken` renders a spec's `choices` (`<voice|files>`) and booleans (`<true|false>`) instead of just the arg name — owner: *"er staat `<kind>` en `<state>` maar nergens staat uitgelegd welke er zijn"*. The only way to learn a legal value used to be guessing wrong and reading the error. Applies to every group and flat command at once. |
 | S117 | **Unattended updates announce themselves** in `412334189879230474` (owner request). `!update` was already reported back to whoever typed it; the 15-minute timer had nobody waiting, so its updates landed in silence. The bot posts at boot — the moment the news is true, since every update ends in a restart — rather than the shell script doing it, which would need the bot token. A human-ordered update is not announced twice, a plain restart says nothing, and the very first boot records the version silently because a fresh install is indistinguishable from an update. |

@@ -129,7 +129,11 @@ Type=simple
 User=$USER
 WorkingDirectory=$INSTALL_DIR
 ExecStart=$(command -v node) src/index.js
-Restart=on-failure
+# S127: MUST be `always`, not `on-failure`. The bot updates itself by exiting
+# cleanly and letting systemd bring it back on the new code — that is what
+# removed sudo from the update path entirely. Under `on-failure` a clean exit
+# would leave the bot DOWN, so `!update status` checks this value and says so.
+Restart=always
 RestartSec=5
 
 [Install]
@@ -145,66 +149,41 @@ UNIT
   esac
 fi
 
-say "Step 8/8 — self-update (checks GitHub every 15 minutes, restarts only when tests pass)…"
-if ! command -v systemctl >/dev/null 2>&1; then
-  say "No systemd — update manually by re-running this script."
-else
-  read -rp "Enable automatic self-update? [Y/n] " auto_answer
-  case "$auto_answer" in
-    [Nn]*) say "Skipped. Update manually with: bash $INSTALL_DIR/scripts/update.sh" ;;
-    *)
-      # Unattended fetches need stored credentials for the private repo. The
-      # helper stores them (plain text, chmod 600) on the next authenticated
-      # fetch — do one now so the timer never faces a password prompt.
-      git config credential.helper store
-      say "Doing one authenticated fetch so git can store your credentials…"
-      git fetch origin >/dev/null || fail "fetch failed — auto-update needs working credentials"
-      chmod +x "$INSTALL_DIR/scripts/update.sh"
-      sudo tee /etc/systemd/system/cuffbot-update.service >/dev/null <<UNIT
-[Unit]
-Description=CuffBot self-update (git pull, test-gated restart)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/bin/bash $INSTALL_DIR/scripts/update.sh $USER $INSTALL_DIR
-UNIT
-      sudo tee /etc/systemd/system/cuffbot-update.timer >/dev/null <<UNIT
-[Unit]
-Description=Run CuffBot self-update every 15 minutes
-
-[Timer]
-OnBootSec=2min
-OnUnitActiveSec=15min
-RandomizedDelaySec=1min
-
-[Install]
-WantedBy=timers.target
-UNIT
-      sudo systemctl daemon-reload
-      sudo systemctl enable --now cuffbot-update.timer >/dev/null
-
-      # Passwordless sudo for exactly the two systemctl calls the updater and
-      # the in-Discord /update command need — so a restart never hangs on a
-      # password prompt. Scoped to these commands only; nothing else.
-      SUDOERS=/etc/sudoers.d/cuffbot
-      sudo tee "$SUDOERS" >/dev/null <<SUDO
-$USER ALL=(root) NOPASSWD: /bin/systemctl restart cuffbot, /bin/systemctl start cuffbot-update.service, /bin/systemctl start --no-block cuffbot-update.service, /usr/bin/systemctl restart cuffbot, /usr/bin/systemctl start cuffbot-update.service, /usr/bin/systemctl start --no-block cuffbot-update.service
-SUDO
-      sudo chmod 440 "$SUDOERS"
-      if sudo visudo -cf "$SUDOERS" >/dev/null 2>&1; then
-        say "Self-update armed (+ scoped sudoers for restarts). History: journalctl -u cuffbot-update"
-      else
-        sudo rm -f "$SUDOERS"
-        say "Self-update armed. (sudoers validation failed — /update may prompt for a password.)"
-      fi
-      ;;
-  esac
+say "Step 8/8 — self-update…"
+# S127: the bot now checks GitHub every 15 minutes IN ITS OWN PROCESS and
+# restarts itself by exiting (see src/modules/core/updater.js). There is no
+# update timer, no update service and no sudoers rule any more — those were
+# the parts that broke in S7, S76, S78 and S120, every time invisibly.
+#
+# This step therefore REMOVES the old machinery rather than installing it. Two
+# updaters racing each other is worse than one, and a leftover timer would keep
+# running the pre-S127 restart path.
+if command -v systemctl >/dev/null 2>&1; then
+  for unit in cuffbot-update.timer cuffbot-update.service; do
+    if systemctl list-unit-files "$unit" >/dev/null 2>&1 && [ -f "/etc/systemd/system/$unit" ]; then
+      sudo systemctl disable --now "$unit" >/dev/null 2>&1 || true
+      sudo rm -f "/etc/systemd/system/$unit"
+      say "Removed the old $unit — the bot updates itself now."
+    fi
+  done
+  if [ -f /etc/sudoers.d/cuffbot ]; then
+    sudo rm -f /etc/sudoers.d/cuffbot
+    say "Removed /etc/sudoers.d/cuffbot — the update path no longer uses sudo."
+  fi
+  sudo systemctl daemon-reload
 fi
 
-echo
-say "Almost there — enable the Message Content intent for \"!\" text commands:"
-echo "  Developer Portal → your app → Bot → Privileged Gateway Intents → Message Content Intent → ON."
-echo "  Without it, slash commands still work; !commands and patrol do not."
-say "Setup complete. Try /radio-check (or !radio-check) and /help in the precinct. 📻"
+# Unattended fetches of a private repo need stored credentials. The helper
+# writes them (plain text, chmod 600) on the next authenticated fetch — do one
+# now so the 15-minute check never faces a password prompt. This is the ONE
+# remaining thing that can stop automatic updates, which is why `!update
+# status` reports it by name.
+git config credential.helper store
+say "Doing one authenticated fetch so git can store your credentials…"
+if git fetch origin >/dev/null 2>&1; then
+  say "Fetch OK — automatic updates can reach GitHub."
+else
+  say "WARNING: fetch failed. Automatic updates will not work until 'git fetch origin' succeeds here."
+fi
+chmod +x "$INSTALL_DIR/scripts/update.sh"
+say "Self-update: the bot checks every 15 minutes by itself. Status in Discord: !update status"

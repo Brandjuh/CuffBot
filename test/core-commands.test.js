@@ -46,9 +46,21 @@ function opsCtx({ admin = false, owner = false, guildId = '111222333444555666' }
 // self-updater or restart against this repo, which must never happen in tests.
 
 test('update refuses a non-admin, non-owner (no updater spawned)', async () => {
+  // S127 made `update` a group (`!update` installs, `!update status` reports),
+  // so the gate now lives on the `now` subcommand.
   const { ctx, replies } = opsCtx();
-  await update.command.run(ctx, {});
+  const now = update.group.subcommands.find((sub) => sub.name === 'now');
+  await now.run(ctx, {});
   assert.match(replies[0].content, /Only administrators/);
+});
+
+test('bare !update INSTALLS rather than reporting — the owner\u2019s spec', () => {
+  // "Als ik handmatig !update uitvoer wil ik dat hij update, als ik !update
+  // status doe wil ik een status." A fallback pointing anywhere else would
+  // make the bare form print a paragraph instead of updating.
+  assert.equal(update.group.invokeWithoutSubcommand, true);
+  assert.equal(update.group.fallback, 'now');
+  assert.ok(update.group.subcommands.some((sub) => sub.name === 'status'));
 });
 
 test('restart refuses non-admins without writing a marker (S28)', async () => {
