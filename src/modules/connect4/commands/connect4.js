@@ -3,6 +3,7 @@
 // the 7×6 duel, `!connect4 stats` shows the precinct scoreboard.
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { renderBoard } from '../lib/board.js';
+import { DIFFICULTIES, DEFAULT_DIFFICULTY, depthFor } from '../lib/ai.js';
 import {
   CHALLENGE_TIMEOUT_MS,
   MOVE_TIMEOUT_MS,
@@ -11,7 +12,9 @@ import {
   endGame,
   getGame,
   getStats,
+  isSolo,
   recordResult,
+  startGame,
   topPlayers,
 } from '../service.js';
 
@@ -21,12 +24,16 @@ export const pieceFor = (player) => (player === 1 ? '🔴' : '🔵');
 
 const nameOf = (game, player) => `<@${player === 1 ? game.challengerId : game.opponentId}>`;
 
+/** A solo game says so on the board, so a spectator knows what they are seeing. */
+const titleFor = (game) =>
+  isSolo(game) ? '🔴 Connect 4 — you vs CuffBot' : '🔴 Connect 4 — duel in progress';
+
 /** The live board embed + the 7 column buttons and the forfeit flag. */
 export function boardPayload(game, { finished = null } = {}) {
   const statusLine = finished ?? `On the move: ${pieceFor(game.turn)} ${nameOf(game, game.turn)}`;
   const embed = new EmbedBuilder()
     .setColor(RED)
-    .setTitle(`🔴 Connect 4 — duel in progress`)
+    .setTitle(titleFor(game))
     .setDescription(
       [
         `${pieceFor(1)} ${nameOf(game, 1)} vs ${pieceFor(2)} ${nameOf(game, 2)}`,
@@ -99,6 +106,10 @@ export default {
         description: 'Challenge a member to a duel.',
         args: [{ name: 'opponent', type: 'user', required: true }],
         async run(ctx, { opponent }) {
+          if (opponent.id === ctx.client?.user?.id) {
+            await ctx.reply(`🔴 Want to play me? \`${ctx.prefix}connect4 solo\` — I take all comers.`);
+            return;
+          }
           if (opponent.bot) {
             await ctx.reply('🚫 K9 units don’t play board games. Challenge a human officer.');
             return;
@@ -148,6 +159,37 @@ export default {
               })
               .catch(() => {});
           });
+        },
+      },
+      {
+        // S100 (M23, owner request): play the bot. No accept step — the bot
+        // is always ready — so the game starts `playing` straight away.
+        name: 'solo',
+        aliases: ['bot', 'ai'],
+        description: 'Duel CuffBot instead of a member.',
+        args: [
+          { name: 'difficulty', type: 'string', choices: Object.keys(DIFFICULTIES) }, // default: normal
+        ],
+        async run(ctx, { difficulty = DEFAULT_DIFFICULTY }) {
+          const result = createChallenge(ctx.channel.id, ctx.guild.id, ctx.user.id, ctx.client.user.id, {
+            botDepth: depthFor(difficulty),
+          });
+          if (result.error === 'busy') {
+            await ctx.reply('🚫 There’s already a game (or open challenge) in this channel — one duel at a time.');
+            return;
+          }
+          const game = startGame(result.game);
+          const message = await ctx.reply({
+            ...boardPayload(game),
+            content: `🔴 <@${ctx.user.id}> vs CuffBot — **${difficulty}**. You are ${pieceFor(1)} and you move first.`,
+            allowedMentions: { parse: [] },
+          });
+          if (!message) {
+            endGame(ctx.channel.id);
+            return;
+          }
+          game.message = message;
+          armMoveTimer(game);
         },
       },
       {

@@ -1706,3 +1706,26 @@ Skill 0.4.1 → **0.4.2**: discord-reference gains the reactions-need-partials f
 **Retrospective (skill 0.5.27 → 0.5.28):** no new rule earned. The two patterns this session leaned on — injectable timers so a timing feature is testable without waiting, and pure `lib/` logic with an injected `now` — are already in `architecture.md` from S73/S79/S81, and they carried the whole build without modification. That is the outcome a reference is supposed to have, so the honest retrospective is that it worked; recorded as a confirmation on the existing rule rather than inventing a new one to have something to write. (SKILL.md says finding nothing is suspicious — here it is, with the reason.)
 
 **Handoff:** M23 (Connect4 solo mode) is next; ROADMAP has its acceptance criteria and the note that only the opponent is missing. Then M21 (speech-to-text), which still must not start without an owner decision on dependencies.
+
+## Session 100 — 2026-07-26
+
+**Goal:** M23 — Connect4 solo mode. Owner request: *"voeg een solo mode toe waarbij je tegen de bot speelt"*. Chained straight on from S99.
+
+**Done:**
+- **`!connect4 solo [easy|normal|hard]`** starts a game against CuffBot. There is no accept step — the opponent is already here — so the game starts `playing` immediately and the human moves first. `!connect4 @CuffBot` redirects to it rather than refusing, because challenging the bot by mention is the obvious thing to try.
+- **The opponent is `lib/ai.js`: pure, no discord.js, no timing.** Negamax with alpha-beta over 4-cell windows, centre-out move ordering (the middle column sits in the most winning lines, so it is both the better move and the better first guess for pruning), and a win found sooner scoring higher than the same win later so the bot finishes instead of shuffling.
+- **The tactical layer is stated separately from the search on purpose.** Take the win; else block the loss; else search. Depth ≥ 2 would find both anyway — writing them out is what makes **`easy` (depth 1) correct about them too**, and it makes both properties testable in isolation rather than inferred from a search result. Three difficulties = three depths (1 / 4 / 6); the board is tiny, so even `hard` is instant on a Pi and the suite asserts that as a ceiling, not a benchmark.
+- **`playBotTurn(game, { chooser })` returns the same `{ code }` shape as `dropMove`**, so the button pump treats a bot move and a human move identically. That let win/tie collapse into one shared `finish(outcome, player)` — the winner may now be the bot, and two near-identical branches that differ only in who is named is exactly the shape that rots.
+- Tests **837 → 855** (18 in `test/connect4-ai.test.js`), every one a fixed position: the primitives, then the two properties that must hold at **every** difficulty (always takes a win, always blocks a loss), winning-beats-blocking, never plays a full column, never mutates the caller's board, and the service seam (solo is marked as one, the bot refuses to move out of turn or in a two-human duel, a full board ends as a tie rather than a crash).
+- Manual, ROADMAP and STATE updated. M23 ticked — **M21 is now the only open roadmap item.**
+
+**Corrections (Step 2/6):** none in state — S99's claims matched reality. Three corrections were to my own **test fixtures**, and all three are the same mistake:
+1. The "diagonal win-in-one" board was an *already-completed* diagonal, not a threat.
+2. Rebuilding it produced a position with **two** winning columns, so the hand-written expected column was arbitrary. The test now calls `winningColumns(board, disc)` and asserts membership.
+3. The tie board's single gap sat at the **bottom** of a column — a position Connect 4 cannot reach, since pieces fall — and `legalMoves` correctly reported that column as full. Moved the gap to the top and verified the board programmatically before trusting it.
+
+Each red test told a confident story about a bug in `chooseMove`; all three times the implementation was right and the fixture was wrong. Also `fakeCtx` in `test/connect4.test.js` had no `client`, which the new bot-self check needed.
+
+**Retrospective (skill 0.5.28 → 0.5.29):** the rule earned is **hand-written state fixtures are guesses until the code confirms them**. It generalises past games: any test that pins behavior against a *constructed* state (a board, a queue, a stored config) can pin an unreachable state or an answer that is merely *an* answer. The two fixes are cheap and now written into `architecture.md`'s verification habits — compute the expected answer from the code under test, and build the fixture the way the system builds state. The tell to watch for is a red test whose story is "the implementation is broken": check the fixture with a throwaway one-liner first.
+
+**Handoff:** **M21 (speech-to-text) is the only item left, and it is blocked on the owner.** It is the first feature CuffBot cannot build zero-dependency: live voice receive needs `@discordjs/voice` plus an opus decoder, and transcription needs either a local Whisper-class model (heavy for a Pi) or a cloud API (a key and a bill). Voice *memos* — transcribing attached audio files — need no voice gateway at all and could ship alone. The next session should put those options to the owner with their costs, not start code.
