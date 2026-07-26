@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 130 · 2026-07-27
+**Last updated:** Session 131 · 2026-07-27
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,11 +16,12 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1327/1327 pass as of S130 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | 37 names: `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'minigames', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
+| Tests green | `npm test` | 1333/1333 pass as of S131 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).length))"` | `37` — a number, not a list. The **names** are checked by `test/docs-consistency.test.js` against `docs/modules/`, so there is nothing here to copy or to rot. |
 
-⚠️ **Both rows above were wrong until S124** — they claimed `1095/1095 as of S120` and still listed `connect4`, a module **S116 deleted** when `minigames` replaced it. A verification block that has drifted verifies nothing: it either fails for the wrong reason or, worse, is skipped because "it always looks a bit off". **Update these two rows in the same commit as any change to the test count or the module list.**
-| Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, city, connect4, core, detective, dispatch, economy, enforcement, goals, guessthecandy, hammertime, hangman, heist, hunting, killcounter, leveling, logbook, mafia, memorial, memory, patrol, public-affairs, records, rollout, rules, russianroulette, selfroles, splitorsteal, starboard, transcribe, trivia, welcome, wordle, youtube |
+⚠️ **Hand-copied lists in this block have rotted three times** — S124 found `1095/1095 as of S120` and a `connect4` that S116 had deleted; S131 found the manuals row *still* naming `connect4` and missing `minigames`, seven sessions after the module was replaced. The lists are gone rather than corrected a fourth time: `test/docs-consistency.test.js` now checks modules ↔ manuals ↔ index against the loader, so `npm test` is the verification and this table only has to say what number to expect.
+
+| Manuals current | `ls docs/modules/ | wc -l` | `37` — one per module. Any mismatch fails `npm test` (`docs-consistency`), naming the module or the orphan. |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
 | Scripts sane | `bash -n scripts/setup-pi.sh scripts/update.sh` | No output |
