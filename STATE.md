@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 127 · 2026-07-26
+**Last updated:** Session 128 · 2026-07-27
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1303/1303 pass as of S127 |
+| Tests green | `npm test` | 1310/1310 pass as of S128 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | 37 names: `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'minigames', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 
 ⚠️ **Both rows above were wrong until S124** — they claimed `1095/1095 as of S120` and still listed `connect4`, a module **S116 deleted** when `minigames` replaced it. A verification block that has drifted verifies nothing: it either fails for the wrong reason or, worse, is skipped because "it always looks a bit off". **Update these two rows in the same commit as any change to the test count or the module list.**
@@ -448,6 +448,24 @@ Owner, fifth report: *"There IS a newer version (16 commit(s) ahead) but the upd
 **Commands are now the owner's spec exactly:** `!update` **installs**, `!update status` **reports only**, `!update auto <true|false>` toggles the 15-minute check (default **on**). Announcements into `412334189879230474` already worked (S117) and still fire at boot — the only moment that survives the exit.
 
 ⚠️ **OWNER ACTION, once:** `cd ~/CuffBot && git pull && bash scripts/setup-pi.sh`. The Pi cannot fetch this fix by itself for the reason above. `setup-pi.sh` sets `Restart=always`, deletes the old timer/service/sudoers, and re-stores the git credentials.
+
+## S128 — the S127 install printed four errors, and nothing was checking bash
+
+The owner ran `setup-pi.sh` and got:
+
+```
+scripts/setup-pi.sh: line 121: always: command not found
+scripts/setup-pi.sh: line 121: on-failure: command not found
+scripts/setup-pi.sh: line 121: !update: command not found
+```
+
+**My bug, shipped in S127.** The comments explaining the new `Restart=always` were written with markdown backticks and placed **inside the unit-file heredoc**. That heredoc is deliberately *unquoted* — it has to expand `$USER` and `$(command -v node)` — so bash treated every backticked word as a command substitution and ran it.
+
+**Nothing actually broke:** the substitutions produced empty strings, the unit was written correctly, `Restart=always` landed, and the service came up `active (running)`. But a fix for a four-times-broken subsystem should not print four errors while installing.
+
+**The real gap was that no test looked at the shell scripts at all** — the two files carrying the entire deployment, unchecked while 1,303 tests covered the JavaScript. `test/shell-scripts.test.js` now guards: both scripts parse, **no unquoted heredoc contains a backtick**, `Restart=always` is present and `on-failure` is not, `setup-pi.sh` removes the pre-S127 units rather than installing them, `update.sh` emits a result on every exit path, and the `CUFFBOT_NO_RESTART` guard sits *before* the sudo block it exists to skip.
+
+⚠️ **One of those seven guards was itself vacuous** and the mutation run caught it: it searched for the bare string `CUFFBOT_NO_RESTART`, which also appears in the file's header comment, so it measured the comment's position rather than the guard's and passed against a build with the guard moved after the sudo block. **Fourth time in five sessions** that a new guard passed against the mutation it existed to catch.
 
 ## Environment facts (S61)
 

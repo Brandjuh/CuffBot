@@ -2472,3 +2472,33 @@ The script gained one machine-readable line, `CUFFBOT_RESULT=<verdict> <from> <t
 Tests **1277 → 1303**.
 
 **Handoff:** ⚠️ **The Pi needs ONE command to escape the deadlock** — `cd ~/CuffBot && git pull && bash scripts/setup-pi.sh`. It cannot fetch this fix by itself, for the reason at the top of this entry. After that it maintains itself and this item closes permanently. Then: **M26.4b** (heist's `HeistConfigView`, `ItemPriceConfigView`, `EventView` — all admin, presentation only), after which M26 is finished. M24.3 remains gated on an owner decision, and `!minigames betvsbot` is the lever if the donut supply starts climbing.
+
+---
+
+## Session 128 — 2026-07-27
+
+**Goal:** the owner ran `bash scripts/setup-pi.sh` from S127's handoff and it printed four errors.
+
+```
+scripts/setup-pi.sh: line 121: always: command not found
+scripts/setup-pi.sh: line 121: on-failure: command not found
+scripts/setup-pi.sh: line 121: !update: command not found
+```
+
+**My bug, shipped in S127.** The comments explaining the new `Restart=always` were written with markdown backticks and placed **inside the unit-file heredoc** — which is deliberately *unquoted*, because it must expand `$USER` and `$(command -v node)`. Bash therefore treated each backticked word as a command substitution and ran it.
+
+**Nothing actually broke.** The substitutions produced empty strings, the unit was written correctly, `Restart=always` landed, the removals all ran, the fetch succeeded and the service came up `active (running)`. The owner's install is fine. But a fix for a four-times-broken subsystem should not print four errors while installing itself, and the reason it could is worse than the bug.
+
+**Nothing was testing the shell scripts.** After 128 sessions, `scripts/setup-pi.sh` and `scripts/update.sh` — the two files that decide whether anything reaches the Pi at all — had **no test of any kind**, next to 1,303 covering the JavaScript. That is the finding; the backticks are just what made it visible.
+
+`test/shell-scripts.test.js` now guards seven things: both scripts parse (`bash -n`); **no unquoted heredoc contains a backtick**; the heredoc parser actually finds the unit (so the guard cannot silently check an empty list); `Restart=always` present and `on-failure` absent; `setup-pi.sh` removes the pre-S127 units instead of installing them; `update.sh` emits a result on every exit path; and the `CUFFBOT_NO_RESTART` early return sits **before** the sudo block it exists to skip.
+
+⚠️ **One of those seven was itself vacuous, and the mutation run caught it.** It located the early return by searching for the string `CUFFBOT_NO_RESTART` — which also appears in the file's header comment — so it measured the *comment's* position and passed against a build with the guard moved to the end of the file. Fixed by anchoring to the `if` syntax rather than to a token that also occurs in prose.
+
+**That is the fourth new guard in five sessions to pass against the mutation it existed to catch** (0.5.44 the flattering input, 0.5.45 the too-uniform fixture, 0.5.47 the convenient page, now the word-in-a-comment). In all four the mutation run was the *only* reason it was found. Recorded as 0.5.49, with the mutation habit reinforced rather than merely restated.
+
+Four mutations run this session; all four caught after the fix.
+
+Tests **1303 → 1310**.
+
+**Handoff:** the Pi is on S127 code and healthy — ask the owner to confirm `!update status` shows *"Up to date"* and *"Restart route: clean exit → systemd restarts me. No sudo involved. ✅"*, which is the end-to-end proof the rebuild works. Then **M26.4b** (heist's `HeistConfigView`, `ItemPriceConfigView`, `EventView` — all admin, presentation only), after which M26 is finished.
