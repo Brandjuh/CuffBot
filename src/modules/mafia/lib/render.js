@@ -3,7 +3,7 @@
 // command file so the wording is testable without a gateway — the same split
 // that made the help menu (S98) and the goal tracker (S103) checkable.
 import { PHASES, alivePlayers, playerOf } from './game.js';
-import { ROLES } from './roles.js';
+import { DEFAULT_MODE, MODES, ROLES, modeOf } from './roles.js';
 import { humanizeMs } from './config.js';
 
 const NIGHT_COLOR = 0x2c3e8f;
@@ -128,7 +128,10 @@ export function judgementEmbed(game, { remainingMs, nameOf = mention }) {
 /** The reveal. Everyone is named, alive or not — that is the payoff. */
 export function endEmbed(game, { nameOf = mention } = {}) {
   const fate = (p) =>
-    p.alive ? 'survived' : p.diedTo === 'lynch' ? 'voted out' : 'killed at night';
+    p.alive ? 'survived' : p.diedTo === 'lynch' ? 'voted out' : p.diedTo === 'guilt' ? 'could not live with it' : 'killed at night';
+  // A neutral's win does not end the game and does not belong to a side, so it
+  // is announced separately or it would simply be invisible.
+  const personal = game.players.filter((p) => p.wonAs);
   return {
     color: OVER_COLOR,
     title: game.winner === 'mafia' ? '🔫 The Boss wins' : '👮 The precinct wins',
@@ -137,6 +140,14 @@ export function endEmbed(game, { nameOf = mention } = {}) {
         ? 'The mafia can no longer be out-voted. This precinct belongs to somebody else now.'
         : 'Every crook is off the street. The paperwork will take weeks.',
     fields: [
+      ...(personal.length
+        ? [{
+            name: '🎭 Won on their own terms',
+            value: personal
+              .map((p) => `${ROLES[p.roleId]?.emoji ?? '❔'} ${nameOf(p.id)} — **${ROLES[p.roleId]?.name ?? p.wonAs}**`)
+              .join('\n'),
+          }]
+        : []),
       {
         name: 'Everyone’s cards',
         value: game.players
@@ -150,17 +161,43 @@ export function endEmbed(game, { nameOf = mention } = {}) {
   };
 }
 
-/** The role reference card, shown by `!mafia roles`. */
-export function rolesEmbed() {
+const SIDE_LABEL = { mafia: 'Mafia', villagers: 'Precinct', neutral: 'Neutral' };
+
+/**
+ * The role reference for one mode (S108). Listing all 13 cards under Classic
+ * would advertise nine that Classic never deals, so the card is per-mode —
+ * and a Jester is included wherever an Executioner can be, because that is
+ * how you reach one.
+ */
+export function rolesEmbed(modeId = DEFAULT_MODE) {
+  const mode = modeOf(modeId) ?? MODES[DEFAULT_MODE];
+  const ids = rolesUsedBy(mode);
   return {
     color: LOBBY_COLOR,
-    title: '🕵️ Mafia — the Classic cards',
-    description: 'Five players or more. Exactly one of you is the Boss.',
-    fields: Object.values(ROLES).map((role) => ({
-      name: `${role.emoji} ${role.name} — ${role.side === 'mafia' ? 'Mafia' : 'Precinct'}`,
-      value: `${role.description}\n**At night:** ${role.ability}`,
-    })),
+    title: `${mode.emoji} Mafia — the ${mode.name} cards`,
+    description: `${mode.description}\nFive players or more. Exactly one of you gives the orders.`,
+    fields: ids.map((id) => {
+      const role = ROLES[id];
+      return {
+        name: `${role.emoji} ${role.name} — ${SIDE_LABEL[role.side]}`,
+        value: `${role.description}\n**At night:** ${role.ability}`,
+      };
+    }),
   };
+}
+
+/** Every card a mode can put on the table, deduped, in a stable order. */
+export function rolesUsedBy(mode) {
+  const ids = new Set(['villager']);
+  for (const band of mode.bands) {
+    for (const id of band.must ?? []) ids.add(id);
+    for (const id of band.may ?? []) ids.add(id);
+    for (const choice of band.choices ?? []) for (const id of choice.from) ids.add(id);
+  }
+  // An Executioner who fails becomes a Jester, so the Jester belongs on any
+  // card that can deal one.
+  if (ids.has('executioner')) ids.add('jester');
+  return Object.keys(ROLES).filter((id) => ids.has(id));
 }
 
 /** What the buttons should be, given the phase. The pump renders them. */
@@ -186,6 +223,19 @@ export function componentsFor(game) {
   }
 }
 
+/** What each night action asks, in the card's own voice. */
+const PROMPTS = {
+  kill: 'Who dies tonight?',
+  protect: 'Who do you cover?',
+  investigate: 'Who do you look into?',
+  shoot: 'Who do you shoot? **If they are innocent, you go too.**',
+  frame: 'Who do you frame? Tonight they read as mafia.',
+  follow: 'Who do you follow? You will see who they visited.',
+  compare: 'Pick the **first** of two people to compare.',
+  block: 'Whose night do you ruin?',
+  reveal: 'Reveal yourself as the Commissioner? Your vote will count twice, and everyone will know.',
+};
+
 /** The private line an actor sees when they press **Act**. */
 export function actionPromptFor(game, actorId) {
   const player = playerOf(game, actorId);
@@ -193,22 +243,38 @@ export function actionPromptFor(game, actorId) {
   if (!player.alive) return { ok: false, text: 'The dead do not act. Enjoy the view.' };
   const role = ROLES[player.roleId];
   if (!role?.night) {
-    return { ok: false, text: `You are **${role?.emoji ?? ''} ${role?.name ?? 'an Officer'}**. You sleep tonight.` };
+    const extra =
+      player.roleId === 'executioner'
+        ? ` Your mark is <@${player.targetId}> — talk, do not act.`
+        : player.roleId === 'jester'
+          ? ' Get yourself voted out. That is the whole job.'
+          : '';
+    return {
+      ok: false,
+      text: `You are **${role?.emoji ?? ''} ${role?.name ?? 'an Officer'}**. You sleep tonight.${extra}`,
+    };
   }
-  if (game.actions[actorId] !== undefined) {
-    return { ok: false, text: 'You have already acted tonight.' };
+  if (player.roleId === 'mayor' && player.revealed) {
+    return { ok: false, text: 'You have already revealed. The precinct knows exactly who you are.' };
   }
-  const verb = { kill: 'Who dies tonight?', protect: 'Who do you cover?', investigate: 'Who do you look into?' };
-  return { ok: true, text: `**${role.emoji} ${role.name}** — ${verb[role.night]}`, role };
+  if (game.actions[actorId] !== undefined) return { ok: false, text: 'You have already acted tonight.' };
+  return { ok: true, text: `**${role.emoji} ${role.name}** — ${PROMPTS[role.night]}`, role };
 }
 
-/** Who an actor may legally choose, given their role's rules. */
-export function targetsFor(game, actorId) {
+/**
+ * Who an actor may legally choose. Mirrors `submitNightAction`'s rules exactly
+ * — offering a choice the engine will refuse is a worse bug than offering none.
+ *
+ * @param {string[]} [already] ids already chosen this prompt (the Private Eye's
+ *   first pick, so the second picker cannot repeat it)
+ */
+export function targetsFor(game, actorId, already = []) {
   const player = playerOf(game, actorId);
   const role = ROLES[player?.roleId];
-  if (!role?.night) return [];
+  if (!role?.night || role.night === 'reveal') return [];
   return alivePlayers(game)
-    .filter((p) => !(role.night === 'kill' && p.id === actorId))
+    .filter((p) => !(['kill', 'shoot'].includes(role.night) && p.id === actorId))
     .filter((p) => !(role.night === 'protect' && player.lastProtected === p.id))
+    .filter((p) => !already.includes(p.id))
     .map((p) => p.id);
 }
