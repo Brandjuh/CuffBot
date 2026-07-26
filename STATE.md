@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 114 · 2026-07-26
+**Last updated:** Session 115 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -233,6 +233,23 @@ Four places used `#`, which is **Discord's H1** — the largest text it renders 
 They now go through one `headline()` helper in `economy/lib/bank.js` that renders `### ` (H3) — still a headline, still scannable on its own line, roughly the weight of a bold line rather than four times it. **One helper rather than four literals**, so the size is a single decision that cannot drift apart again.
 
 **The taste decision is enforced, not documented.** `test/embed-style.test.js` scans every file under `src/` and fails on any H1 or H2 in user-facing text, naming the file and line. A future session writing an embed has no way to know H1 was rejected unless something says so out loud — and this is exactly the kind of rule that quietly comes back. `-# ` (subtext) is explicitly allowed.
+
+## S115 — how each game is actually played, ours vs. its source (M26.1)
+
+Owner: *"City crime: Dit is niet hoe het spel werkt in de link die ik je stuurde, dat werkt met panelen niet enkel met commands. Controleer alle spellen en hoe ze werken."*
+
+Full audit in **`docs/porting/S115-game-interaction-audit.md`**. Method: count each source cog's `discord.ui` references against our module's component files — crude, but objective, and decisive at the extremes.
+
+**Nine of thirteen games match their source's interaction model.** Two diverged, and they are the two **largest** ports:
+
+- **`city` — source 48 UI refs, ours 0.** The reported case, and the only game module with neither a component nor an event file. The source's `crime/views.py` is 2,000+ lines. The part that matters most is **`CrimeAttemptView`, which has a `Bail Out!` button live *during* an attempt** — a decision the player makes mid-crime. That is missing *gameplay*, not missing decoration. **The engine is fine**: S89–S92's tables, resolver, streaks, jail suite, scenarios, market and boards were machine-diffed against the source. M26.3 is a presentation rebuild, not a re-port.
+- **`heist` — source 31, ours 1.** Eight panels in the source; we built the crew lobby and turned the other seven into commands. Not reported, less severe, same mistake. M26.4.
+
+**`hangman` and `hunting` are faithful with zero components on both sides** — their sources are message-driven too, so command-only is correct rather than a gap.
+
+**S68 did not cause this, and the real pattern is more useful.** Text-only never meant component-free; trivia, connect4, the patrol wizard and the help panel all use buttons today. Both divergences are in ports sliced *engine → storage → commands → extras*: the command surface was built in slice B as scaffolding to reach the engine, and by slice D it **was** the product, because every later slice added features to the commands that already existed. The panel was never dropped — it was never scheduled. **Slicing rule recorded: when a staged port's source is panel-driven, the panel belongs in the first slice a player can touch.**
+
+⚠️ **Two owner decisions block nothing but change what M26.2 means** — whether the S100 negamax solo AI survives the Connect4 replacement (the `minigames` cog ships a weaker heuristic bot of its own), and whether **Tic-Tac-Toe** comes along (it is in the cog he pointed at, so the plain reading is yes). Recorded rather than guessed.
 
 ## Environment facts (S61)
 

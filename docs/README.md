@@ -49,6 +49,15 @@ One manual per bot module, all following the same template (`.claude/skills/run-
 | [`operations/raspberry-pi.md`](operations/raspberry-pi.md) | Install, run, self-update, the Message Content intent, day-to-day commands |
 | [`operations/backup-and-recovery.md`](operations/backup-and-recovery.md) | Backing up `data/`, restoring, token rotation, moving to a new Pi |
 
+## Porting references
+
+Written when a game was ported from an existing Red cog, and kept because the session workspace that held the source is ephemeral.
+
+| Document | Covers |
+|---|---|
+| [`porting/S65-cog-surveys.md`](porting/S65-cog-surveys.md) | The 14-cog intake survey (S65): game flow, commands, config defaults and exact mechanics per source cog |
+| [`porting/S115-game-interaction-audit.md`](porting/S115-game-interaction-audit.md) | How each game is *played*, ours vs. its source (S115/M26.1) — which ports kept the source's panels and which rebuilt it as commands |
+
 ## Reading order for newcomers
 
 1. Root [`README.md`](../README.md) — what CuffBot is and how to run it.
