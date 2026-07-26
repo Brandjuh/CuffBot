@@ -6,7 +6,7 @@
 // Slice B resolves a finished job LAZILY: the next heist command you run
 // settles it and shows the result (the cog's own fallback path). Slice C adds
 // the timer that announces it unprompted.
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { HEISTS, ITEMS, MATERIAL_ITEMS, RECIPES, fmt } from '../lib/tables.js';
 import { MAX_LEVEL, XP_TABLE, levelSuccessBonus, xpBar, xpProgress } from '../lib/leveling.js';
 import {
@@ -56,6 +56,7 @@ import {
   startHeist,
   unequipSlot,
 } from '../service.js';
+import { craftPayload, equipPayload, jobPayload, shopPayload } from '../panel-runtime.js';
 
 const CRIME = 0x8b1a1a;
 const TEAL = 0x11806a;
@@ -318,6 +319,16 @@ export default {
         },
       },
       {
+        name: 'panel',
+        aliases: ['board', 'open'],
+        description: 'Open the job board — pick a job from the menu instead of typing its name.',
+        args: [],
+        async run(ctx) {
+          await settleFirst(ctx);
+          await ctx.reply(jobPayload(ctx.guild.id, ctx.user.id));
+        },
+      },
+      {
         name: 'jobs',
         aliases: ['list', 'cooldowns'],
         description: 'Every job: payout, odds and whether it is off cooldown.',
@@ -349,6 +360,19 @@ export default {
       {
         name: 'shop',
         description: 'Gear for sale: shields absorb losses, tools boost one specific job.',
+        args: [],
+        async run(ctx) {
+          // S126: the shop IS a panel now — a paged shelf with a buy select,
+          // the way the source has it. `!heist buy <item> [amount]` still
+          // works for anyone who prefers to type, and is the only way to buy
+          // more than one at a time.
+          await ctx.reply(await shopPayload(ctx.guild.id, ctx.user.id));
+        },
+      },
+      {
+        name: 'catalogue',
+        aliases: ['prices'],
+        description: 'The shop as a plain list, if you would rather read than click.',
         args: [],
         async run(ctx) {
           const shields = shopItems().filter((item) => item.type === 'shield');
@@ -401,10 +425,18 @@ export default {
       },
       {
         name: 'equip',
-        description: 'Equip a shield or a tool you own.',
-        args: [{ name: 'item', type: 'string', required: true }],
+        aliases: ['gear', 'loadout'],
+        description: 'Open the equipment rack, or name an item to equip it directly.',
+        args: [{ name: 'item', type: 'string', required: false }],
         async run(ctx, { item }) {
           if (await blocked(ctx)) return;
+          if (!item) {
+            // S126: the rack is a panel — one select per slot showing only
+            // what you actually own, and an Unequip button per slot that is
+            // dead when the slot is empty.
+            await ctx.reply(equipPayload(ctx.guild.id, ctx.user.id));
+            return;
+          }
           const id = normalizeId(item);
           const result = equipItem(ctx.guild.id, ctx.user.id, id);
           if (result.error === 'unknown-item') {
@@ -513,26 +545,11 @@ export default {
         async run(ctx, { recipe }) {
           await settleFirst(ctx);
           if (await blocked(ctx)) return;
-          const player = getPlayer(ctx.guild.id, ctx.user.id);
           if (!recipe) {
-            const lines = Object.entries(RECIPES).map(([name, entry]) => {
-              const needs = Object.entries(entry.materials)
-                .map(([material, qty]) => `${qty}× ${fmt(material)}${(player.inventory[material] ?? 0) >= qty ? '' : ` (have ${player.inventory[material] ?? 0})`}`)
-                .join(', ');
-              return `${craftPlan(player.inventory, name).ok ? '✅' : '▫️'} **${fmt(name)}** — ${needs}`;
-            });
-            const held = MATERIAL_ITEMS.filter((id) => (player.inventory[id] ?? 0) > 0)
-              .map((id) => `${itemLabel(id)} ×${player.inventory[id]}`)
-              .join(' · ');
-            await ctx.reply({
-              embeds: [
-                new EmbedBuilder()
-                  .setColor(TEAL)
-                  .setTitle('🔨 Workbench')
-                  .setDescription(lines.join('\n'))
-                  .setFooter({ text: held ? `You hold: ${held}` : 'You hold no materials yet — jobs drop them.' }),
-              ],
-            });
+            // S126: the bare form is the bench panel — pick a recipe, see
+            // exactly what you are short of, press Craft. Naming a recipe
+            // still crafts it directly.
+            await ctx.reply(craftPayload(ctx.guild.id, ctx.user.id));
             return;
           }
           const result = craftItem(ctx.guild.id, ctx.user.id, normalizeId(recipe));
@@ -798,3 +815,72 @@ export default {
     ],
   },
 };
+
+// ── starting a job from the panel (S126 = M26.4a) ────────────────────────────
+
+/**
+ * The job board's select, resolved.
+ *
+ * Deliberately NOT a copy of `play`'s body: it re-uses the same gates through
+ * the service, and answers the one case a panel cannot express — the cog's
+ * debt consent, which `play` asks for with a literal `confirm` token. A button
+ * cannot carry that token, so the panel refuses the job and names the command
+ * that accepts the risk, rather than quietly signing the player up for debt.
+ */
+export async function startHeistFromPanel(interaction, jobType) {
+  const guildId = interaction.guild.id;
+  const userId = interaction.user.id;
+  const heist = jobType ? getHeistSettings(guildId, jobType) : null;
+  const say = (content) => interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
+
+  if (!heist) {
+    await say('🚫 That job is no longer on the board.');
+    return;
+  }
+  if (heist.crewSize) {
+    await say('🚫 Crew robbery needs a four-officer lobby — `!heist crew` opens one.');
+    return;
+  }
+
+  const player = getPlayer(guildId, userId);
+  const jail = jailStatus(player);
+  if (jail.jailed) {
+    await say(`🚨 You are in a cell until ${relative(jail.endsAt)}.`);
+    return;
+  }
+  if (player.activeHeist) {
+    await say(`🎭 You are already running ${fmt(player.activeHeist.type)} — it lands ${relative(player.activeHeist.endsAt)}.`);
+    return;
+  }
+  const left = cooldownLeft(player, jobType, Date.now(), heist.cooldownMs);
+  if (left > 0) {
+    await say(`⏱️ ${fmt(jobType)} is still cooling down — ready ${relative(Date.now() + left)}.`);
+    return;
+  }
+
+  const balance = await heistBalance(guildId, userId);
+  if (balance < heist.maxLoss) {
+    await say(
+      `⚠️ ${fmt(jobType)} can cost up to **${money(heist.maxLoss)} 🍩** and you hold **${money(balance)}**. ` +
+        `Going in anyway means the shortfall becomes **debt +20% tax** — run \`!heist play ${jobType} confirm\` to accept that.`,
+    );
+    return;
+  }
+
+  const { endsAt } = startHeist(guildId, userId, jobType, interaction.channelId, { taxAgreed: false });
+  armHeistTimer(interaction.client, guildId, userId, endsAt);
+  await interaction
+    .update({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(CRIME)
+          .setTitle(`${heist.emoji} ${fmt(jobType)} — in progress`)
+          .setDescription(
+            `You slip away into the night. The job lands ${relative(endsAt)}.` +
+              `\n\n-# Success ${heist.minSuccess}–${heist.maxSuccess}% · police ${Math.round(heist.policeChance * 100)}% · run any \`!heist\` command afterwards to see how it went.`,
+          ),
+      ],
+      components: [],
+    })
+    .catch(() => {});
+}
