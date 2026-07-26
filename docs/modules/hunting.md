@@ -80,7 +80,6 @@ src/modules/hunting/
   service.js          scheduler, active hunts, resolution, scores
   lib/hunt.js         pure rules (board, fumble, delays, outcomes)
   commands/hunting.js !hunting (admin group)
-  commands/hunt-stats.js · commands/hunt-board.js
   events/watch.js     shouts + scheduler
   events/reactions.js reaction-mode catches
 ```

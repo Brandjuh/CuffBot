@@ -1858,3 +1858,29 @@ Both answers are written into `ROADMAP.md` and `STATE.md`, not just into this lo
 **Retrospective (skill 0.5.32 → 0.5.33):** the rule is about **mechanical refactors**: a script that rewrites code must be verified field-by-field against the original, not spot-checked. A regex that fails to match usually produces *silence* — an empty `args: []` looks exactly like a command that legitimately takes none — so the failure mode is invisible in review and invisible in the diff. The cheap defence is a completeness audit that reads the pre-change source back out of git and compares every extracted field. It cost one command and caught eight.
 
 **Handoff:** the audit the owner asked for is next (S107) — a full sweep of the repo for anything strange, reported to them. Everything else outstanding is owner-side.
+
+## Session 107 — 2026-07-26
+
+**Goal:** the audit the owner asked for — *"ga je alles nakijken op vreemde dingen, dit laat je aan het eind aan mij weten."*
+
+**The headline finding is a negative one, and it is the valuable one:** a **real clone + `npm ci` + `npm test` is 962/962 in 2 seconds with no compiler**. S102 added the first dependencies the project has ever had beyond discord.js, and the Pi's test-gated self-update was the biggest open risk in the repo. It is now measured instead of assumed.
+
+Getting there took two attempts, which is itself worth recording. My first simulation copied the tree into a scratch directory and ran `git init` — and three tests failed. All three were **artefacts of the simulation**: `packaging.test.js` asserts every data file is git-tracked, and in a repo with no commits nothing is. A fresh `git clone --local` reproduced the Pi's actual situation and came back green. A simulation that does not reproduce the thing you are testing produces confident nonsense.
+
+**Twenty-four checks, clean:** no module without a manual and none the other way; no orphaned command or event files; no duplicate subcommand names and no alias colliding with another command; no TODO/FIXME anywhere; no hardcoded secrets; `.env` untracked and `data/` ignored; lockfile in sync; **every path named in every manual exists**; the boot guard fails fast without credentials; both shell scripts parse; `Math.random` appears in `lib/` only as an injectable default; no `console.log` outside the logger; the only `process.exit` in module code is `!restart`.
+
+**Five real things fixed:**
+1. `CUFFBOT_DATA_DIR` and `LOG_LEVEL` were read by the code and documented nowhere.
+2. **`!birthday` and `!claims` still described themselves as "(admin)"** after S106 opened them to members. That string is what `!help` prints, so the bot was telling members not to try commands they are meant to use — the worst of the five, because it is invisible to anyone testing as an admin.
+3. Two manuals still listed command files S106 deleted.
+4. Four manuals gained a line explaining their folded family, so `!trivia play` and `!ranks list` are discoverable even though nobody types them.
+
+**Verified by driving the real router, not by reading a diff:** 37 invocations — new names, all 19 retired aliases, and the bare forms — dispatch cleanly; seven behaviour checks confirm bare `!ranks` still lists the ladder, bare `!donuts`/`!claims`/`!patrol` still do their old job, `!ranks help` reaches the menu, a member can run `!xp ladder` inside the admin group, and a member's `!birthday` card shows only `set`/`remove`.
+
+One of those behaviour checks reported a false failure because my assertion truncated the output to 160 characters before matching. The code was right; the check was wrong. Same class of mistake as the S100 fixtures and the S106 regex, and the third instance in eight sessions.
+
+**Not defects, but the owner should know:** 163 `.catch(() => …)` swallows in `src/` — the deliberate "degrade, never block" convention (S8), each on a cosmetic or auxiliary path; and `wordle/data/dictionary-en.txt` is 2 MB, the largest committed file, the cog's verbatim word list.
+
+**Retrospective (skill 0.5.33 → 0.5.34):** the rule is that **a check must be verified before its result is believed** — and it now has three instances behind it rather than a hunch. S100's fixtures asserted the wrong board, S106's regex extracted nothing and looked like a legitimate empty value, and S107 produced both a false red (a simulation that did not reproduce the real environment) and a false green-turned-red (a truncating assertion). The pattern across all three: **when a check disagrees with the code, suspect the check first if the code has independent evidence behind it** — and when a check *passes*, make sure it could have failed.
+
+**Handoff:** everything the owner asked for in this run is delivered — M24.1 (Classic mafia), the hyphen-free command surface, and this audit. The roadmap has nothing unchecked except M24.2/M24.3, which are unscheduled by design and need the owner's call on whether the precinct will play a 5-player game. Everything else outstanding is owner-side: the `GROQ_API_KEY` on the Pi, `!ranks setup` once, and watching the first update that installs dependencies.

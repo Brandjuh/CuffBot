@@ -11,6 +11,8 @@ Dispatch runs the precinct's radio and its paper trail. The **evidence locker** 
 
 ## Commands
 
+> **`!dispatch` is a group** (S106, was `!evidence-locker`). Bare `!dispatch <message>` still announces — that is the `send` subcommand — and the log channel is now `!dispatch locker`. `!evidence-locker` still works as an alias.
+
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
 | `!dispatch locker` | Set (to the current channel), show, or clear the log channel | `action` (set / status / clear) | Manage Server | `!dispatch locker action:set` |

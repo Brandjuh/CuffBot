@@ -53,7 +53,7 @@ export default {
     name: 'claims',
     aliases: ['claims-config'],
     description:
-      'Your claim timers (hourly/daily/weekly/…) and pot attempt — plus the admin amounts.',
+      'Your claim timers (hourly/daily/weekly/…) and pot attempt; admins set the amounts.',
     emoji: '🍩',
     fallback: 'collect',
     invokeWithoutSubcommand: true,

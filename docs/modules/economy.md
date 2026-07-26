@@ -46,6 +46,8 @@ The hunt lives in its own module since S66 (M16.1): see **[hunting](hunting.md)*
 
 ## Commands
 
+> **`!donuts`, `!pot` and `!claims` are groups** (S106, absorbing `!donut-board`, `!crack-pot` and `!claims-config`). Bare `!donuts` / `!pot` / `!claims` do exactly what they always did — those are the `balance`, `show` and `collect` subcommands — and the folded commands are now `!donuts board`, `!pot crack` and `!claims <interval>`. Every old name still works as an alias.
+
 - **!daily** — the ration above.
 - **!donuts `[member]`** — a wallet check (anyone's; bots run on electricity).
 - **!donuts board `[top]`** — richest officers, top 1–25 (default 10).

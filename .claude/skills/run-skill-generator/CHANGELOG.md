@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.34 — 2026-07-26 (Session 107)
+
+- `references/architecture.md` (Verification habits): **verify the check before believing its result** — and when a check passes, make sure it *could* have failed.
+- Evidence: three instances in eight sessions, which is what promotes it from a hunch to a rule. S100: fixtures that asserted the wrong answer, so a red test told a confident story about a bug that did not exist. S106: a regex that extracted nothing, and "nothing" was indistinguishable from a legitimate empty value — a false green. S107: a clean-checkout simulation that ran `git init` instead of `git clone`, so `packaging.test.js` failed for a reason that could not happen on the Pi (a false red), and a behaviour assertion that truncated its input to 160 characters before matching (a false red on correct code). The operative half of the rule: **when a check disagrees with code that has independent evidence behind it, suspect the check first.**
+
 ## 0.5.33 — 2026-07-26 (Session 106)
 
 - `references/architecture.md` (Verification habits): **a mechanical refactor must be audited field-by-field against the pre-change source, not spot-checked.** A regex that fails to match produces *silence*, and silence is invisible in a diff.
