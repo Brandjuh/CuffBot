@@ -128,6 +128,12 @@ export default {
           : []),
       ];
     },
+    // S117: the source cog is a PLAIN command — `[p]memory` starts a game.
+    // Ours was a group from birth (S72–S83), so the S106 sweep that added
+    // `invokeWithoutSubcommand` never looked at it and bare `!memory` answered
+    // with a menu instead of playing. `!memory help` still lists the family.
+    invokeWithoutSubcommand: true,
+    fallback: 'play',
     subcommands: [
       {
         name: 'play',

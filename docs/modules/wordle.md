@@ -92,4 +92,5 @@ test/wordle.test.js      colors, fold, grid, lists, machine, loss fix, stats, gr
 
 | Session | Change |
 |---|---|
+| S117 | **`!wordle` alone now starts a game** (owner: *"hangman werkt niet zoals het hoort"*). The source cog is a plain command, so the bare word plays; ours was a group from birth and answered with a menu. `!wordle help` still lists the family. |
 | S83 | Created (M16.10, AAA3A port): typed-guess Wordle with the cog's EN lists verbatim (lengths 4–11, attempts 5–10), the NAIVE coloring rule copied exactly, invalid words free (❌ + self-deleting notice), cancel word/button, 5-min guess timeout, per-member concurrency 1, stats with guess distribution. **The cog's hardcoded-6 loss check fixed to respect max attempts** (recorded deviation); emoji grid replaces Pillow; board edits in place instead of delete+repost; lists diacritic-folded at load; bot-owner backdoor dropped. |

@@ -6,12 +6,13 @@ import maintenance from './commands/maintenance.js';
 import onDuty from './events/on-duty.js';
 import guildLockdown from './events/guild-lockdown.js';
 import updateReport from './events/update-report.js';
+import updateAnnounce from './events/update-announce.js';
 import helpButtons from './events/help-buttons.js';
 
 export default {
   name: 'core',
   description:
-    'Core precinct utilities: the on-air check (!radiocheck), the button-driven command roster (!help), self-update (!update with in-Discord status), config reload (!restart), maintenance mode with a matching bot status, and single-guild jurisdiction enforcement.',
+    'Core precinct utilities: the on-air check (!radiocheck), the button-driven command roster (!help), self-update (!update with in-Discord status), config reload (!restart), an announcement in the update channel whenever the bot updates itself unattended, maintenance mode with a matching bot status, and single-guild jurisdiction enforcement.',
   commands: [radioCheck, help, update, restart, maintenance],
-  events: [onDuty, guildLockdown, updateReport, helpButtons],
+  events: [onDuty, guildLockdown, updateReport, updateAnnounce, helpButtons],
 };

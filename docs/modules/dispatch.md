@@ -84,5 +84,6 @@ Per-guild, stored via `src/core/store.js` under `evidenceLockerChannelId`. No en
 
 | Session | Change |
 |---|---|
+| S117 | **Bare `!dispatch` shows the overview again** instead of a usage error. S106 set both `fallback` and `invokeWithoutSubcommand`; the first catches an unmatched first token and hands the sub every token (that is what makes `!dispatch Rally at 20:00` announce), the second runs the fallback with *zero* tokens — and `send` requires a message. Found by a new repo-wide guard, not by a user. |
 | S11 | Created: evidence locker (`!dispatch locker`), `!dispatch`, pure embed formatting, `logEnforcement` seam wired into all four enforcement actions, 14 new tests. |
 | S95 | Both converted to the flat `{ command }` shape (M17.3 slice C). `!dispatch locker action:set` — the form this manual, the public-affairs manual and `!911`'s own reply all advertise — works for the first time since S68 (S94 added keyword args). `!dispatch` dropped its redundant "📣 Dispatched." acknowledgement. |

@@ -106,6 +106,12 @@ export default {
           : '**This channel:** free.',
       ];
     },
+    // S117: the source cog is a PLAIN command — `[p]splitorsteal` starts a game.
+    // Ours was a group from birth (S72–S83), so the S106 sweep that added
+    // `invokeWithoutSubcommand` never looked at it and bare `!splitorsteal` answered
+    // with a menu instead of playing. `!splitorsteal help` still lists the family.
+    invokeWithoutSubcommand: true,
+    fallback: 'play',
     subcommands: [
       {
         name: 'play',

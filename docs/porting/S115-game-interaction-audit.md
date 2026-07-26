@@ -12,6 +12,8 @@ He is right, and the question this audit answers is **how far the problem spread
 
 For each game, count the source cog's Discord-UI references (`discord.ui.View` / `Button` / `Select` / `Modal` and the `@discord.ui.button` decorator) and compare against how many of our module's files build components. Crude, but it is an *objective* signal that does not depend on my reading of either codebase, and it is decisive at the extremes — 48 versus 0 is not a judgement call.
 
+> **Correction (S117).** This method measures **how a game is driven**, not **whether it works**. The table below originally called hangman *faithful*; the evidence only supported *same interaction model*. The owner then found that `!hangman` answered with a menu where FlameCogs' plain `[p]hangman` starts a game — true of six other ports as well, and invisible to a component count because none of them involve components. A verdict that claims more than the measurement closes a question that is still open.
+
 Where the counts are close on both sides, the port kept the interaction model and only the details need checking. Where the source is high and ours is zero, the game was rebuilt as something else.
 
 ## The table
@@ -29,7 +31,7 @@ Where the counts are close on both sides, the port kept the interaction model an
 | wordle | 6 | 1 | ✅ Interaction model kept |
 | guessthecandy | 4 | 1 | ✅ Interaction model kept |
 | hammertime | 1 | 1 | ✅ Interaction model kept |
-| **hangman** | **0** | **0** | ✅ **Faithful** — the source is message-driven too |
+| **hangman** | **0** | **0** | ⚠️ **Same interaction model** — but S117 found `!hangman` answered with a menu where the source's plain command starts a game. See the correction below. |
 | **hunting** | **0** | **0** | ✅ **Faithful** — the source is a type-the-word chat game |
 
 ## The two real findings

@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 116 · 2026-07-26
+**Last updated:** Session 117 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1049/1049 pass as of S116 |
+| Tests green | `npm test` | 1067/1067 pass as of S117 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'connect4', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, city, connect4, core, detective, dispatch, economy, enforcement, goals, guessthecandy, hammertime, hangman, heist, hunting, killcounter, leveling, logbook, mafia, memorial, memory, patrol, public-affairs, records, rollout, rules, russianroulette, selfroles, splitorsteal, starboard, transcribe, trivia, welcome, wordle, youtube |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
@@ -83,7 +83,7 @@
 - **Enforcement (M2, S7; animated S10):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`. **S10:** `/cite` emits an animated GIF (prints out of a slot) via a zero-dependency GIF89a encoder (`lib/gif.js`); added the public for-fun `/fine` (no perms, no records).
 - **Deployment/ops (M8 slices):** `scripts/setup-pi.sh` (8 steps incl. invite gate and self-update arming), `scripts/update.sh` (fetch → ff → npm install → **test gate** → deploy-commands → restart; rollback on red — proven in a clone-pair simulation incl. failure path and exit codes), runbook `docs/operations/raspberry-pi.md`.
 - **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated; **CuffBot's XP replaces the old leveler bot** and **existing members' XP is seeded from their current rank role** (S16); **XP curve is deliberately hard (S45 owner decision): voice 1 XP/min, baseXp 1000, exponent 1.8 — tunable live via /xp-config base-xp/exponent.** AI (M9) uses a free-tier provider with a GLOBAL rate limit — 1 msg / 7 s AND max 62 msgs / hour, shared across all users (S16); **Gemini model = gemini-2.5-flash-lite with a 20/day bot-side cap** (owner decision S27: RPM 10 / TPM 250K / RPD 20); **Groq llama-3.1-8b-instant limits enforced too (S33: RPM 30 / RPD 14.4K / TPM 6K / TPD 500K)** — request AND estimated-token windows live in the shared limiter, history is token-trimmed, chat-starter AI draws from the same budget.
-- **Tests:** 1049 via `node:test` (was recorded as 358 until S93 caught the drift) — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges incl. token windows, prompt limits, both providers via fake fetch, pipeline branches, mention gates, desk-pile queue — **no network, ambient AI keys deleted at suite start**), birthdays, trivia, memorial RSS, starboard, chat-starter, logbook (models, gate matrix, event fakes), welcome, packaging (module data files git-tracked), and command smokes. **Command smokes are moving off fake interactions onto the real dispatch path** (`dispatchCommand`/`dispatchGroup` + `test/fixtures/fake-message.js`) as M17.3 converts each module — **every module is converted (S96) — there is no other kind of command test left.**
+- **Tests:** 1067 via `node:test` (was recorded as 358 until S93 caught the drift) — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges incl. token windows, prompt limits, both providers via fake fetch, pipeline branches, mention gates, desk-pile queue — **no network, ambient AI keys deleted at suite start**), birthdays, trivia, memorial RSS, starboard, chat-starter, logbook (models, gate matrix, event fakes), welcome, packaging (module data files git-tracked), and command smokes. **Command smokes are moving off fake interactions onto the real dispatch path** (`dispatchCommand`/`dispatchGroup` + `test/fixtures/fake-message.js`) as M17.3 converts each module — **every module is converted (S96) — there is no other kind of command test left.**
 
 ## Resume point
 
@@ -270,6 +270,32 @@ The first fix from the S115 audit, and the first module built under the rule tha
 Tests **1033 → 1049**: +46 for the new module, −30 with the old one. A test count that goes *down* on a replacement is the evidence the old thing is really gone (S96's precedent).
 
 **Still open in M26:** 26.2b (Tic-Tac-Toe, donut staking, `!gameleaderboard` sorting, admin config), 26.3 (city → panels — the one the owner reported, with real gameplay missing), 26.4 (heist's seven remaining panels).
+
+## S117 — seven games did not start; unattended updates said nothing
+
+**Owner: *"Controleer hangman die werkt niet zoals het hoort."* He was right, and it was never only hangman.**
+
+FlameCogs' cog is a **plain `[p]hangman` command that starts a game**. Ours was a group, so `!hangman` printed an overview and you had to know to type `!hangman play`. Checking the other sources found the same thing **seven times**: `russianroulette`, `splitorsteal`, `guessthecandy`, `rollout`, `memory` and `wordle` are all `@commands.hybrid_command` upstream — the bare word plays — and all seven of ours answered with a menu.
+
+**Root cause, and it is the same shape as S115's.** S106 introduced `invokeWithoutSubcommand` while *folding* flat commands into groups, so it only examined commands it was changing. These modules were groups from birth (S72–S83), so the sweep never looked at them and nobody ever compared their bare form to the source. The panel finding was "never dropped, never scheduled"; this is "never converted, never checked".
+
+**⚠️ My S115 audit called hangman "faithful" and that overstated what I had checked** — it counted `discord.ui` references, which measures the *interaction model*, not whether the game works. A 0/0 verdict meant "neither side uses components", not "this port is correct".
+
+**A second bug fell out of the guard, not out of a report:** bare `!dispatch` answered with a **usage error**. S106 set both `fallback` and `invokeWithoutSubcommand`, which do different jobs — `fallback` catches an unmatched first token and hands the sub every token (that is what makes `!dispatch Rally at 20:00` announce), while `invokeWithoutSubcommand` runs the fallback with **zero** tokens, and `send` requires a message. Dropping the second restores the overview and leaves announcing untouched.
+
+Two repo-wide guards now hold the line: every game whose source is a plain command must declare the fallback, and **no bare-playable group's fallback may have a required argument**.
+
+## S117 — the bot says when it has updated itself (owner request)
+
+Owner: *"Zodra er automatisch een update is geïnstalleerd laat dat weten in 412334189879230474."*
+
+`!update` already reported back to whoever typed it. The **15-minute timer had nobody waiting on it**, so its updates landed in silence and the precinct found out by noticing new behaviour.
+
+**The bot announces this itself at boot, not `scripts/update.sh`.** The script would need the bot token and a hand-rolled REST call, and the token has no business in a shell script. Boot is also exactly when the news is true — every update ends with a restart — and it covers a manual `git pull` that the script would never see.
+
+Three silences are deliberate: a **human-ordered** update is not announced twice (`update-report.js` records the version when it answers the requester); a plain **restart** says nothing; and the **first boot ever** records the version quietly, because a fresh install is indistinguishable from an update and "CuffBot updated itself" would be a lie the first time anyone saw it.
+
+Channel `412334189879230474` is a committed code default (S35), as a **quoted string** (S111).
 
 ## Environment facts (S61)
 

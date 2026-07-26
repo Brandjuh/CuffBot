@@ -86,4 +86,5 @@ test/splitorsteal.test.js     matrix, draw, state machine, whole scripted matche
 
 | Session | Change |
 |---|---|
+| S117 | **`!splitorsteal` alone now starts a game** (owner: *"hangman werkt niet zoals het hoort"*). The source cog is a plain command, so the bare word plays; ours was a group from birth and answered with a menu. `!splitorsteal help` still lists the family. |
 | S79 | Created (M16.6, AAA3A port): fixed 60 s lobby (never early), random two-contestant draw (choice-remove-choice exact), secret Split/Steal with quiet confirmations, the classic matrix, 60 s choice timeout. Event-driven choice bridge replaces the cog's 1 s polling. Deviations: "loose" typo corrected; pings limited to the contestant announcement. |

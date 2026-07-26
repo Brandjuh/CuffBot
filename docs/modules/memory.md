@@ -90,4 +90,5 @@ test/memory.test.js     layouts, formula pins, state machine, loss fix, payout, 
 
 | Session | Change |
 |---|---|
+| S117 | **`!memory` alone now starts a game** (owner: *"hangman werkt niet zoals het hoort"*). The source cog is a plain command, so the bare word plays; ours was a group from birth and answered with a menu. `!memory help` still lists the family. |
 | S82 | Created (M16.9, AAA3A port): 3x3/4x4/5x5 boards (cog-exact layouts + 12-emoji pool), 1 s mismatch flash, same-tile-twice quirk kept, decayed prize formula bit-for-bit (Python int() order), optional wrong-match limit, score/wins/games leaderboard + admin knobs (maxwrong/maxprize/decay/economy/reset), economy payout via the adjustBalance seam. **The cog's games double-count on a loss was NOT ported** (count once); bot-owner press backdoor dropped; flash-lock replaces the cog's press queue (all recorded deviations). |

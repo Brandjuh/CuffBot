@@ -95,3 +95,81 @@ test('every event has a name and an execute function', async () => {
     }
   }
 });
+
+/**
+ * S117 — every game whose SOURCE cog is a plain command must play on the bare
+ * word, not answer with a menu.
+ *
+ * The owner reported it as *"hangman werkt niet zoals het hoort"*: FlameCogs'
+ * `[p]hangman` starts a game, and `!hangman` printed an overview instead. It
+ * was not one module's slip — all seven of these are `@commands.hybrid_command`
+ * upstream, and all seven had the same defect, because the S106 sweep that
+ * introduced `invokeWithoutSubcommand` only examined the flat commands it was
+ * FOLDING into groups. These were groups from birth (S72–S83), so nothing ever
+ * compared their bare form against the source.
+ *
+ * Listed explicitly rather than derived: the correct answer comes from reading
+ * each source cog, so a rule computed from our own code could not disagree
+ * with us (S111 / skill 0.5.35). `mafia`, `hunting` and `heist` are absent on
+ * purpose — their sources are groups or hubs, so a menu IS right for them.
+ */
+const PLAYS_ON_THE_BARE_WORD = [
+  'hangman',
+  'russianroulette',
+  'splitorsteal',
+  'guessthecandy',
+  'rollout',
+  'memory',
+  'wordle',
+  'trivia',
+  'connect4',
+];
+
+test('a game whose source is a plain command starts on the bare word', async () => {
+  const modules = await discoverModules();
+  const groups = new Map();
+  for (const mod of modules) {
+    for (const cmd of mod.commands ?? []) {
+      if (cmd.group) groups.set(cmd.group.name, cmd.group);
+    }
+  }
+
+  const broken = [];
+  for (const name of PLAYS_ON_THE_BARE_WORD) {
+    const group = groups.get(name);
+    if (!group) {
+      broken.push(`${name}: no such group`);
+      continue;
+    }
+    if (!group.invokeWithoutSubcommand) {
+      broken.push(`!${name} answers with a menu; its source cog starts a game`);
+      continue;
+    }
+    if (!group.fallback) {
+      broken.push(`!${name} sets invokeWithoutSubcommand without a fallback`);
+      continue;
+    }
+    if (!group.subcommands.some((s) => s.name === group.fallback)) {
+      broken.push(`!${name} falls back to "${group.fallback}", which is not one of its subcommands`);
+    }
+  }
+  assert.deepEqual(broken, [], broken.join('\n'));
+});
+
+test('a bare-playable group never needs arguments to start', async () => {
+  // `invokeWithoutSubcommand` invokes the fallback with ZERO tokens, so a
+  // required arg would turn every bare invocation into a usage error — a
+  // worse failure than the menu it replaced.
+  const modules = await discoverModules();
+  const offenders = [];
+  for (const mod of modules) {
+    for (const cmd of mod.commands ?? []) {
+      const group = cmd.group;
+      if (!group?.invokeWithoutSubcommand) continue;
+      const sub = group.subcommands.find((s) => s.name === group.fallback);
+      const required = (sub?.args ?? []).filter((a) => a.required).map((a) => a.name);
+      if (required.length) offenders.push(`!${group.name} → ${sub.name} requires ${required.join(', ')}`);
+    }
+  }
+  assert.deepEqual(offenders, [], offenders.join('\n'));
+});

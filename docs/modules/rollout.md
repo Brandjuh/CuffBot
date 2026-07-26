@@ -89,4 +89,5 @@ test/rollout.test.js    pure rules, lobby, config/stats, four whole games, group
 
 | Session | Change |
 |---|---|
+| S117 | **`!rollout` alone now starts a game** (owner: *"hangman werkt niet zoals het hoort"*). The source cog is a plain command, so the bare word plays; ours was a group from birth and answered with a menu. `!rollout help` still lists the family. |
 | S81 | Created (M16.8, AAA3A port): 50-player lobby, 25-number rounds (30 s, early end when all picked, live board feedback), cog-exact eliminations + edge cases (round restart with the number kept enabled; all-timeout abort; **the 24-disabled tie the cog crashed on — fixed**), prize 2500 (code default; help-text lie documented), economy payout via the adjustBalance seam, score/wins/games leaderboard + admin reset. Pings limited to round-open + winner (deviation). |

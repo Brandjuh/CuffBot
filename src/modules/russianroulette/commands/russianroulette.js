@@ -125,6 +125,12 @@ export default {
           : '**This channel:** free.',
       ];
     },
+    // S117: the source cog is a PLAIN command — `[p]russianroulette` starts a game.
+    // Ours was a group from birth (S72–S83), so the S106 sweep that added
+    // `invokeWithoutSubcommand` never looked at it and bare `!russianroulette` answered
+    // with a menu instead of playing. `!russianroulette help` still lists the family.
+    invokeWithoutSubcommand: true,
+    fallback: 'play',
     subcommands: [
       {
         name: 'play',
