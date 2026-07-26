@@ -10,13 +10,17 @@
 //   - Anyone else gets their OWN filtered view, privately. Editing the shared
 //     message would rewrite what the asker is reading, and showing a stranger
 //     the asker's roster would leak which commands that member can use.
+//   - S109: a PANEL has no asker — it belongs to the channel and is meant to
+//     be pressed by everyone forever — so every press takes the private path.
+//     That is the same rule, not a fourth case: the panel simply never has an
+//     originator to update.
 //
 // A component interaction can still be ephemeral — only `!command` replies
 // lost that (S54/S68) — so the private answer is genuinely private.
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { helpCategory, helpOverview } from '../../../core/help.js';
-import { buildViewerHelp, helpPayload, parseHelpButtonId } from '../lib/help-menu.js';
+import { PANEL_OWNER, buildViewerHelp, helpPayload, parseHelpButtonId } from '../lib/help-menu.js';
 
 export default {
   name: Events.InteractionCreate,
@@ -44,7 +48,7 @@ export default {
       const active = parsed.key === 'overview' ? null : parsed.key;
       const payload = helpPayload(view, parsed.ownerId, { active });
 
-      if (interaction.user.id === parsed.ownerId) {
+      if (parsed.ownerId !== PANEL_OWNER && interaction.user.id === parsed.ownerId) {
         await interaction.update(payload);
       } else {
         // Their own menu, privately — with buttons keyed to THEM, so pressing

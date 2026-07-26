@@ -5,7 +5,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PermissionFlagsBits } from 'discord.js';
 import update from '../src/modules/core/commands/update.js';
-import help from '../src/modules/core/commands/help.js';
+import helpGroup from '../src/modules/core/commands/help.js';
+
+// S109: `!help` is a group (panel / unpanel); `me` is what bare `!help` runs.
+const help = { command: helpGroup.group.subcommands.find((x) => x.name === 'me') };
 import radioCheck from '../src/modules/core/commands/radio-check.js';
 import restart from '../src/modules/core/commands/restart.js';
 import { getGuildData } from '../src/core/store.js';

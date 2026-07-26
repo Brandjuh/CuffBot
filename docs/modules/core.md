@@ -57,6 +57,13 @@ export default {
 
 ## Commands
 
+> **`!help` is a group** (S109). Bare `!help` still opens your own category menu, unchanged. `!help panel [#channel]` posts a **permanent panel** anyone can press — the menu without typing anything — and `!help unpanel` takes it down. Both are Manage Server.
+>
+> **A panel lists every category and answers every press privately.** It has no single viewer, so filtering it would hide categories from the whole precinct forever; instead each press replies with *that* member's own filtered roster. The panel advertises categories, the private reply advertises commands — nothing leaks either way. This is the S98 non-originator rule with the originator removed: with nobody to update in place, the private path is the only correct one, and editing a pinned panel would rewrite it for everybody.
+>
+> The panel is a **published post** (selfroles S59/S64, rules S97): tracked message id, edited in place on a refresh, re-posted if somebody deletes it, and the old copy removed when it moves channel.
+
+
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
 | `!radiocheck` | Confirms the bot is on the air and reports round-trip latency | none | Everyone | `!radiocheck` |

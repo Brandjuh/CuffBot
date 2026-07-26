@@ -1908,3 +1908,23 @@ Tests **962 → 985**.
 **Retrospective (skill 0.5.34 → no change):** no new rule. The lesson this session would have taught — write the tests that make two features touch, not just the ones that check each alone — is the S93 conversion rule and the S100 fixture rule already doing their job from a different angle, and the succession bug was caught by exactly the kind of property test `architecture.md` already asks for. Recorded here rather than inventing an entry.
 
 **Handoff:** M24.3 (anomalies, achievements) is the only mafia work left and stays unscheduled. The owner also reported missing a category help panel — `!help` has had category buttons since S98 and demonstrably still renders seven of them, so that is almost certainly a Pi that has not updated; a **persistent posted panel** is the other reading of "paneel" and is the next thing to build.
+
+## Session 109 — 2026-07-26
+
+**Goal:** the owner reported *"Ik mis nog steeds een help waarbij ik een paneel heb met categorieen."*
+
+**First I checked whether it was broken, and it is not.** Driving the real `!help` through the dispatcher posts one embed and **seven category buttons in two rows** — S98's feature, working. So the likeliest explanation for "nog steeds" is a Pi that had not picked up S98 yet. Saying that and stopping would have been defensible but unhelpful: *"paneel"* also reads as a **permanent posted thing** rather than a command you type, and that genuinely did not exist. Built it.
+
+**Done:** `!help panel [#channel]` posts a permanent category panel; `!help unpanel` takes it down; both Manage Server. `!help` itself is untouched — the group uses S106's `invokeWithoutSubcommand`, so bare `!help` still opens your own menu exactly as before. That flag was written two sessions ago for a different reason and paid for itself here without modification.
+
+**The design question was the same one S98 answered, with the originator removed.** A panel has no asker. So there is nobody whose message may be updated in place, and the private path becomes the *only* correct one — editing a pinned panel would rewrite it for the whole precinct at once. The pump gets a `PANEL_OWNER` sentinel rather than a fourth branch, which keeps S98's three-way decision intact.
+
+**And a panel cannot be permission-filtered**, because it has no single viewer: filtering it to whoever ran the command would hide categories from everyone else forever. So it lists **every** category and each press answers with *that* member's own filtered roster. The panel advertises categories; the private reply advertises commands. Nothing leaks in either direction, and there is a test asserting the panel is never narrower than a member's own menu while a member's menu still hides admin.
+
+Implemented as a published post (selfroles S59/S64, rules S97) scoped to one message: tracked id, edited in place on refresh, re-posted when somebody deletes it, old copy removed on a channel move. Tests **985 → 988**.
+
+**Corrections (Step 2/6):** none in state. One of my own: the first version of the panel tests called `.buttons` on the *model* returned by `buildViewerHelp`, when buttons only exist on the *view* `helpOverview` builds from it.
+
+**Retrospective (skill 0.5.34 → no change):** no new rule, and the reason is worth one line. This session is three existing rules composing without friction — the published-post pattern (0.5.26), the non-originator decision (0.5.27), and S106's `invokeWithoutSubcommand` — plus the habit of checking whether the reported thing is actually broken before building anything, which 0.5.34 already covers from the other direction. Nothing needed sharpening.
+
+**Handoff:** M24.3 (mafia anomalies and achievements) is the only unscheduled item left. Everything else is owner-side, and the top of that list is still the first Pi update that installs dependencies.

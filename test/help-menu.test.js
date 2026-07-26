@@ -14,8 +14,7 @@ import {
   helpButtonId,
   helpPayload,
   helpRows,
-  parseHelpButtonId,
-} from '../src/modules/core/lib/help-menu.js';
+  parseHelpButtonId, PANEL_OWNER } from '../src/modules/core/lib/help-menu.js';
 import helpButtons from '../src/modules/core/events/help-buttons.js';
 import { presenceFor, presenceLabel } from '../src/modules/core/lib/presence.js';
 import { syncPresence } from '../src/modules/core/service-presence.js';
@@ -258,4 +257,49 @@ test('a presence failure never takes down the caller — it is cosmetic', () => 
   assert.doesNotThrow(() => syncPresence(client));
   // And a client with no user yet (pre-ready) is simply a no-op.
   assert.doesNotThrow(() => syncPresence({ config: { homeGuildId: 'g' } }));
+});
+
+// ── S109: the permanent panel ────────────────────────────────────────────────
+
+test('a panel lists EVERY category, because it has no single viewer', () => {
+  // `!help` filters to one member. A panel is read by the whole precinct, so
+  // filtering it to whoever ran the command would hide categories from
+  // everyone else forever.
+  const commands = MODULES.flatMap((m) => m.commands);
+  const forMember = helpOverview(
+    buildViewerHelp({ channel: { permissionsFor: () => ({ has: () => false }) }, member: {} }, '!', MODULES),
+  );
+  const forPanel = helpOverview(buildViewerHelp({}, '!', MODULES, { unfiltered: true }));
+  assert.ok(forPanel.buttons.length >= forMember.buttons.length, 'the panel is never narrower');
+  assert.ok(forPanel.buttons.some((b) => b.key === 'admin'), 'including admin');
+  assert.equal(forMember.buttons.some((b) => b.key === 'admin'), false, 'which a member does not see');
+  assert.ok(commands.length > 0);
+});
+
+test('a panel’s buttons belong to the channel, not to a person', () => {
+  const view = helpOverview(buildViewerHelp({}, '!', MODULES, { unfiltered: true }));
+  const ids = helpRows(view, PANEL_OWNER)
+    .flatMap((r) => r.toJSON().components)
+    .map((b) => b.custom_id);
+  assert.ok(ids.length > 0);
+  for (const id of ids) assert.equal(parseHelpButtonId(id).ownerId, PANEL_OWNER, id);
+});
+
+test('EVERY press on a panel answers privately — a panel has no originator', async () => {
+  // The S98 rule unchanged: with no asker there is nobody whose message may be
+  // edited, so the private path is the only correct one. Editing a pinned
+  // panel would rewrite it for the whole precinct.
+  for (const presser of [ASKER, STRANGER]) {
+    const press = fakePress(presser, PANEL_OWNER, 'moderation');
+    // eslint-disable-next-line no-await-in-loop -- two cases, ordered for clarity
+    await helpButtons.execute(press.interaction);
+    assert.equal(press.state.updates.length, 0, `${presser}: the panel is never rewritten`);
+    assert.equal(press.state.replies.length, 1, `${presser}: they get their own view`);
+    assert.equal(press.state.replies[0].flags, 64);
+    const ids = press.state.replies[0].components
+      .flatMap((r) => r.toJSON().components)
+      .map((b) => b.custom_id);
+    // Their private copy is keyed to THEM, so browsing on keeps working.
+    assert.ok(ids.every((id) => id.includes(presser)), `${presser}: keyed to them`);
+  }
 });
