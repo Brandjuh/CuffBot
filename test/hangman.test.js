@@ -28,6 +28,7 @@ import {
 } from '../src/modules/hangman/service.js';
 import hangmanCommand from '../src/modules/hangman/commands/hangman.js';
 import watch from '../src/modules/hangman/events/watch.js';
+import { dispatchGroup } from '../src/core/prefix/group.js';
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-hangman-'));
 process.env.CUFFBOT_DATA_DIR = DATA_DIR;
@@ -252,4 +253,90 @@ test('the edit sub flips the per-guild board style', async () => {
   assert.equal(getHangmanConfig(guildId).doEdit, false);
   await sub('edit').run(ctx, { state: true });
   assert.equal(getHangmanConfig(guildId).doEdit, true);
+});
+
+// ── the bare command (S117, owner: "hangman werkt niet zoals het hoort") ─────
+//
+// FlameCogs' cog is a PLAIN `[p]hangman` command that starts a game. Ours was
+// a group from birth (S72), so the S106 sweep that introduced
+// `invokeWithoutSubcommand` never looked at it — it only examined the flat
+// commands it was folding — and bare `!hangman` answered with a menu.
+//
+// These drive the real dispatcher, because the defect was entirely in how the
+// framework routes a bare group: every unit test of the game logic passed
+// throughout.
+
+/** Whatever the payload was — string, {content}, or embeds — as searchable text. */
+const asText = (payload) => (typeof payload === 'string' ? payload : JSON.stringify(payload));
+
+function fakeCommandMessage(guildId, channelId, userId = 'player-1') {
+  const sends = [];
+  const channel = {
+    id: channelId,
+    send: async (p) => {
+      // The WHOLE payload is captured, not just `.content` — the group
+      // overview is embed-only, so a content-only fake reports it as empty
+      // and a passing assertion would mean nothing.
+      sends.push(p);
+      return { id: `m${sends.length}`, content: typeof p === 'string' ? p : p.content, edit: async () => {} };
+    },
+  };
+  return {
+    sends,
+    channelId,
+    guildId,
+    channel,
+    client: { messageContentAvailable: true, user: { id: 'bot' } },
+    guild: { id: guildId, members: { me: {} } },
+    author: { id: userId, bot: false, username: 'Rook' },
+    member: { displayName: 'Rook', permissions: { has: () => true } },
+    reply: async (p) => channel.send(p),
+  };
+}
+
+test('bare !hangman STARTS a game, the way the source cog does', async () => {
+  const guildId = freshGuildId();
+  const channelId = freshChannelId();
+  const message = fakeCommandMessage(guildId, channelId);
+
+  await dispatchGroup(hangmanCommand.group, message, [], '!');
+
+  const game = getHangmanGame(channelId);
+  assert.ok(game, 'a bare invocation must start a game, not print a menu');
+  assert.equal(game.playerId, 'player-1');
+  assert.match(asText(message.sends[0]), /Guess:/, 'the board is posted, not the overview');
+  assert.doesNotMatch(asText(message.sends[0]), /Board style/, 'that is the status embed, not a board');
+  endHangman(channelId);
+});
+
+test('!hangman help still lists the family — the reserved escape hatch', async () => {
+  const guildId = freshGuildId();
+  const channelId = freshChannelId();
+  const message = fakeCommandMessage(guildId, channelId);
+
+  await dispatchGroup(hangmanCommand.group, message, ['help'], '!');
+
+  assert.equal(getHangmanGame(channelId), null, '`help` must never start a game');
+  assert.match(asText(message.sends[0]), /play/, 'the overview lists the subcommands');
+});
+
+test('!hangman play still works — the explicit form is not broken by the fallback', async () => {
+  const guildId = freshGuildId();
+  const channelId = freshChannelId();
+  const message = fakeCommandMessage(guildId, channelId);
+  await dispatchGroup(hangmanCommand.group, message, ['play'], '!');
+  assert.ok(getHangmanGame(channelId));
+  endHangman(channelId);
+});
+
+test('the group declares the fallback the framework needs', () => {
+  // A fallback without `invokeWithoutSubcommand` is inert, and
+  // `invokeWithoutSubcommand` without a fallback fails loader validation —
+  // so both are asserted rather than assuming one implies the other.
+  assert.equal(hangmanCommand.group.invokeWithoutSubcommand, true);
+  assert.equal(hangmanCommand.group.fallback, 'play');
+  assert.ok(
+    hangmanCommand.group.subcommands.some((s) => s.name === 'play'),
+    'the fallback must name a subcommand that exists',
+  );
 });

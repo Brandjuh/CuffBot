@@ -2086,3 +2086,37 @@ Tests **1033 → 1049**: +46 for the new module, −30 with the old one. A count
 **Retrospective (skill 0.5.39, new rule):** twice now I have planned a slice the loader forbids — S105 (a `lib/`-only module) and today (two modules owning one command name). 0.5.32 records the first as a fact about `index.js`; the general shape is bigger than that one file. **The loader's invariants are part of the slicing constraint, so check them when you plan the slices, not when you run the tests.** Concretely: every module directory needs `index.js`, and command names and aliases are unique **across all modules** — so "build the replacement alongside the original" is not a slice that exists in this codebase, and any plan containing it is wrong before it is written. Added to architecture.md next to 0.5.32.
 
 **Handoff:** M26.2b (Tic-Tac-Toe, donut staking, sortable leaderboard, admin config), then **M26.3 — city → panels**, which is the one the owner actually reported and the one with genuinely missing gameplay (`CrimeAttemptView`'s live `Bail Out!` button). M26.4 is heist's seven remaining panels.
+
+## Session 117 — 2026-07-26
+
+**Goal:** owner — *"Controleer hangman die werkt niet zoals het hoort"* — plus, arriving mid-session, *"Zodra er automatisch een update is geïnstalleerd laat dat weten in 412334189879230474."*
+
+### Hangman, and six others
+
+**He was right, and it was never only hangman.** FlameCogs' cog is a plain `[p]hangman` command that **starts a game**. Ours was a group, so `!hangman` printed an overview and you had to know to type `!hangman play`. Checking each source found the same defect **seven times** — `russianroulette`, `splitorsteal`, `guessthecandy`, `rollout`, `memory` and `wordle` are all `@commands.hybrid_command` upstream, and all seven of ours answered with a menu.
+
+**Root cause, and it is S115's shape again.** S106 introduced `invokeWithoutSubcommand` while *folding* flat commands into groups — so it only examined the commands it was changing. These modules were groups from birth (S72–S83), so the sweep never looked at them, and nobody ever compared their bare form against the source. S115's finding was *"the panel was never dropped, it was never scheduled"*; this one is *"the flag was never removed, it was never added"*. A sweep that fixes a class of defect only inspects the things it is touching, and whatever already looked like the target shape is invisible to it.
+
+**What I got wrong in S115.** That audit called hangman *faithful*. It counted `discord.ui` references, which measures the **interaction model** — 0/0 means "neither side uses components", not "this port is correct". I labelled the result "faithful" when the evidence only supported "same interaction model". The owner found the gap between those two claims in one sitting.
+
+**Ruled out first, so the fix was not a guess:** the gallows frames, the mask format and the 4,554-word list are all byte-identical to the source (including its junk entries `n`, `cd`, `ry`, `tv`); the win, loss, repeat and timeout paths were driven end-to-end through the real event handler; and `messageContentAvailable` is genuinely set at boot. The logic was fine. The routing was not.
+
+**A second bug fell out of the guard rather than a report.** Bare `!dispatch` answered with a **usage error**. S106 set both `fallback` and `invokeWithoutSubcommand`, and they do different jobs: `fallback` catches an unmatched first token and hands the sub *every* token — that is what makes `!dispatch Rally at 20:00` announce — while `invokeWithoutSubcommand` runs the fallback with **zero** tokens, and `send` requires a message. Dropping the second restores the overview and leaves the announce path untouched.
+
+Two repo-wide guards now hold both lines: every game whose source is a plain command must declare the fallback (listed explicitly, from reading each cog, so it cannot be derived from our own code and agree with itself), and **no bare-playable group's fallback may take a required argument** — that second one is what caught dispatch.
+
+### Unattended updates announce themselves
+
+`!update` already reported back to whoever typed it. The **15-minute timer had nobody waiting on it**, so its updates landed in silence and the precinct learned about them by noticing the bot behaving differently.
+
+**The bot announces at boot; `scripts/update.sh` does not.** The script would need the bot token and a hand-rolled REST call, and the token has no business in a shell script. Boot is also the moment the news is true — every update ends with a restart — and it covers a manual `git pull`, which the script never would.
+
+Three silences are deliberate and each has a reason: a **human-ordered** update is not announced twice (`update-report.js` records the version when it answers the requester); a plain **restart** says nothing; and the **first boot ever** records the version quietly, because a fresh install is indistinguishable from an update and *"CuffBot updated itself"* would be a lie the first time anyone saw the feature.
+
+Tests **1049 → 1067**. Mutation-checked: reverting the hangman flag fails the bare-command test on exactly the reported symptom, announcing on first boot fails two, and unquoting the channel snowflake fails its own test (S111's trap, now guarded by habit).
+
+**Corrections (Step 2/6):** one, and it is mine — the S115 audit's "faithful" verdict for hangman claimed more than the method supported. Recorded in that document as well as here.
+
+**Retrospective (skill 0.5.40, new rule):** **a sweep only inspects what it is changing, so the things that already look like the target shape are invisible to it.** Twice now: S106's `invokeWithoutSubcommand` sweep skipped the modules that were already groups (this session), and S115 found the panel-driven ports skipped for the same reason. The general fix is cheap and belongs with the sweep, not with the reviewer — **after a sweep, enumerate every member of the target category and check it, not just the ones the sweep edited.** The second half is what made this session's fix durable rather than a patch: the enumeration became a test, so the category is checked forever instead of once.
+
+**Handoff:** M26.2b (Tic-Tac-Toe, staking, sortable leaderboard, admin config), **M26.3 city → panels** (the owner's report, real gameplay missing), M26.4 heist's seven panels. Worth noting for M26.3/M26.4: this session's guard only covers *bare-command* fidelity — nothing yet checks that a game's rules match its source, and that is the dimension the owner keeps finding things in.

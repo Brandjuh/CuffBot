@@ -135,3 +135,4 @@ test('logEnforcement is a graceful no-op when no locker is configured', async ()
   });
   assert.deepEqual(result, { delivered: false, reason: 'not-configured' });
 });
+

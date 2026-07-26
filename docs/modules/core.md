@@ -202,6 +202,7 @@ Boot fails fast with a named-variable error message when required settings are m
 
 | Session | Change |
 |---|---|
+| S117 | **Unattended updates announce themselves** in `412334189879230474` (owner request). `!update` was already reported back to whoever typed it; the 15-minute timer had nobody waiting, so its updates landed in silence. The bot posts at boot — the moment the news is true, since every update ends in a restart — rather than the shell script doing it, which would need the bot token. A human-ordered update is not announced twice, a plain restart says nothing, and the very first boot records the version silently because a fresh install is indistinguishable from an update. |
 | S1 | Created: `/radio-check`, on-duty sweep, guild lockdown, core plumbing (config/logger/loader), tests. |
 | S9 | Added dual invocation (`/x` + `!x`) via `src/core/prefix/`, `/help` (generated roster), `/update` (manual self-update), Message Content intent with graceful slash-only fallback. |
 | S25 | `/update` got a feedback loop: live status edits (up-to-date / fetched+testing / rolled-back) and a post-restart "back on duty" report in the invoking channel via the `update-report` boot event + a store marker. |

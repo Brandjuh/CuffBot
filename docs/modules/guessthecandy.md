@@ -82,4 +82,5 @@ test/guessthecandy.test.js      pool, draws, scramble, state machine, group
 
 | Session | Change |
 |---|---|
+| S117 | **`!guessthecandy` alone now starts a game** (owner: *"hangman werkt niet zoals het hoort"*). The source cog is a plain command, so the bare word plays; ours was a group from birth and answered with a menu. `!guessthecandy help` still lists the family. |
 | S80 | Created (M16.7, AAA3A port): 5–23 name buttons (answer always on the board), first correct press wins with two-decimal timing, free retries, 180 s rounds, parallel rounds per message, winner pinged. Recorded deviation: the 46 branded shadow/candy PNGs are not bundled (license risk flagged in S65) — the prompt is a per-word name scramble instead; the 23-name pool ports verbatim. |

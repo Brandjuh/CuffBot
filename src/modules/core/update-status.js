@@ -82,3 +82,61 @@ export async function behindOrigin(runner = null) {
     return { behind: null };
   }
 }
+
+// ── announcing UNATTENDED updates (S117, owner: "Zodra er automatisch een
+// update is geïnstalleerd laat dat weten in 412334189879230474") ─────────────
+//
+// `update-report.js` finishes the conversation when a HUMAN typed `!update`.
+// The timer-driven path has nobody waiting on it, so nothing was ever said —
+// the precinct would find out the bot had changed by noticing new behaviour.
+//
+// The bot announces this itself at boot rather than the shell script doing it.
+// `scripts/update.sh` would need the bot token and a hand-rolled REST call to
+// post anything, and the token has no business being in a shell script. The
+// bot already restarts as the last step of every update, so boot is exactly
+// the moment the news is true — and it covers a manual `git pull` too, which
+// the script never would.
+
+export const VERSION_MARKER_KEY = 'lastSeenVersion';
+
+/** The owner's update-notice channel (S117, given as an id — S35: code default). */
+export const DEFAULT_UPDATE_CHANNEL_ID = '412334189879230474';
+
+/**
+ * Decide what to say about the version this boot is running.
+ *
+ * @param {{head: string|null, subject: string|null}} current
+ * @param {{head?: string}|null} stored   what the last boot recorded
+ * @param {boolean} alreadyReported       true when a human `!update` already
+ *                                        answered for this exact commit
+ * @returns {{announce: boolean, reason: string, from: string|null, to: string|null}}
+ */
+export function versionChange(current, stored, alreadyReported = false) {
+  const to = current?.head ?? null;
+  const from = stored?.head ?? null;
+  if (!to) return { announce: false, reason: 'no-git', from, to };
+  // First boot ever: record and stay quiet. We cannot tell a fresh install
+  // from an update, and announcing "updated!" on a brand-new checkout would
+  // be a lie the very first time anyone sees this feature.
+  if (!from) return { announce: false, reason: 'first-boot', from, to };
+  if (from === to) return { announce: false, reason: 'unchanged', from, to };
+  // A human typed `!update` and update-report.js has already told them, in
+  // the channel they typed it in. Saying it again elsewhere is noise.
+  if (alreadyReported) return { announce: false, reason: 'already-reported', from, to };
+  return { announce: true, reason: 'updated', from, to };
+}
+
+export const getSeenVersion = (guildId) => getGuildData(guildId, VERSION_MARKER_KEY, null);
+
+export const rememberVersion = (guildId, head) => setGuildData(guildId, VERSION_MARKER_KEY, { head });
+
+/** The announcement text for an unattended update. */
+export function updateAnnouncement({ from, to, subject }) {
+  return [
+    `🚔 **CuffBot updated itself** — \`${from}\` → \`${to}\``,
+    subject ? `*${subject}*` : null,
+    '-# Installed automatically. The test suite had to pass before this went live.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}

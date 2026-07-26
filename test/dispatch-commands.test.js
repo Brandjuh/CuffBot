@@ -109,3 +109,25 @@ test('dispatch without a message is a usage error, not an empty announcement', a
   assert.match(sent[0].content, /missing `message`/);
   assert.equal(channelSends.length, 0);
 });
+
+// S117: found by the repo-wide guard in loader.test.js, not by the owner.
+//
+// S106 set BOTH `fallback` and `invokeWithoutSubcommand` on this group, and
+// they do different jobs: `fallback` catches an unmatched first token and
+// hands the sub every token (that is what makes `!dispatch Rally at 20:00`
+// announce), while `invokeWithoutSubcommand` runs the fallback with ZERO
+// tokens. `send` requires a message, so the bare form answered with a usage
+// error — strictly worse than the overview it replaced.
+test('bare !dispatch shows the overview, not a usage error', async () => {
+  const message = fakeMessage({ guildId: '900000000000000101' });
+  await dispatchGroup(dispatchGroupCmd.group, message, [], '!');
+  const answer = JSON.stringify(message.sent[0] ?? {});
+  assert.doesNotMatch(answer, /is required/i, 'a bare group must never answer with a usage error');
+  assert.match(answer, /locker/i, 'it lists the family instead');
+});
+
+test('!dispatch <message> still announces — the fallback path is untouched', async () => {
+  const message = fakeMessage({ guildId: '900000000000000102' });
+  await dispatchGroup(dispatchGroupCmd.group, message, ['Rally', 'at', '20:00'], '!');
+  assert.match(JSON.stringify(message.sent), /Rally at 20:00/);
+});

@@ -13,15 +13,16 @@ Solo interrogation practice: hangman against the bot, ported from FlameCogs/hang
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| `!hangman` | Group: start/stop a game, board style; bare = how-to + channel state | subs below | Everyone (`edit` is admin) | `!hangman play` |
+| `!hangman` | **Starts a game** — the bare word plays, exactly like the source cog | none | Everyone | `!hangman` |
+| `!hangman help` | List the family (the reserved overview) | none | Everyone | `!hangman help` |
 
 ### !hangman (S69-style group; public)
 
-Bare `!hangman` = a short how-to, the board style, whether THIS channel has a running game, and the intent state. Subcommands:
+**Bare `!hangman` plays** (S117). The how-to, the board style, whether THIS channel has a running game and the intent state moved to `!hangman help`. Subcommands:
 
 | Subcommand | Does |
 |---|---|
-| `!hangman play` (alias `start`) | Start a game: the bot picks a word and posts the gallows board |
+| `!hangman play` (alias `start`) | The same thing, spelled out — `!hangman` on its own is the shorter form |
 | `!hangman stop` (alias `giveup`) | Give up your own running game — reveals the word (not in the cog; added because our engine is event-driven and a walked-away game would otherwise hold the channel for 60 s) |
 | `!hangman edit <on\|off>` | **Admin (Manage Server):** one edited board message + guess messages tidied away (`on`, default) vs a new message per guess (`off`) — the cog's `doEdit` |
 
@@ -68,7 +69,8 @@ test/hangman.test.js  frames, mask, guess matrix, wordlist, service, watcher e2e
 
 - `test/hangman.test.js` (12 tests): frame integrity (seven frames, exact joints/beam per frame), mask format (blanks/reveals/non-letters/wrong-list), the guess matrix (case-folding, free repeats, six-wrong loss, apostrophe words), the `isLetter` accept check, board end-state lines, the full 4,554-word list (+ pick bounds), one-game-per-channel + config default, watcher end-to-end (stranger/multi-letter ignored, reveal, repeat note, wrong-list, win, Game-Over at six), and the group (shape + admin gate on `edit`, play refusals incl. missing intent, starter-only stop).
 - **Manual (live server) checklist:**
-  1. `!hangman play` → the gallows board appears; type letters → the board updates in place and your guesses vanish.
+  1. **`!hangman` on its own** → the gallows board appears immediately (S117 — this used to print a menu). Type letters → the board updates in place and your guesses vanish.
+  2. `!hangman help` → the subcommand list, without starting anything.
   2. Guess a wrong letter six times → X-eyes frame + "Game Over" + the word.
   3. Win one → "You win!". Type a letter after the game → nothing happens.
   4. `!hangman edit off` → a fresh board message per guess, guesses stay visible.
@@ -79,7 +81,7 @@ test/hangman.test.js  frames, mask, guess matrix, wordlist, service, watcher e2e
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Letters do nothing | No game running, you're not the starter, or the Message Content intent is off | Bare `!hangman` shows all three |
+| Letters do nothing | No game running, you're not the starter, or the Message Content intent is off | `!hangman help` shows all three |
 | Guess messages stay visible in edit mode | Bot lacks Manage Messages in that channel | Grant it, or `!hangman edit off` |
 | "A game is already running" but nobody is playing | The starter walked away | It self-clears on the 60 s guess timeout; `!hangman stop` also works for the starter |
 | The board stopped updating | The board message was deleted mid-game in edit mode | The next guess posts a fresh board message |
@@ -88,4 +90,5 @@ test/hangman.test.js  frames, mask, guess matrix, wordlist, service, watcher e2e
 
 | Session | Change |
 |---|---|
+| S117 | **`!hangman` alone now starts a game** (owner: *"hangman werkt niet zoals het hoort"*). The source cog is a plain command, so the bare word plays; ours was a group from birth and answered with a menu. `!hangman help` still lists the family. |
 | S72 | Created (M16.4, FlameCogs port): byte-faithful gallows frames/mask/messages, bundled 4,554-word list, starter-only typed guesses, 60 s/guess, free repeats, auto-revealed non-letters, doEdit board style (`!hangman edit`). Deviations recorded: `stop` sub added; custom wordlists not ported; admin gate = Manage Server instead of guild-owner. |

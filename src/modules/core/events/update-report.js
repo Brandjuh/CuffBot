@@ -5,7 +5,7 @@
 // from a crash long ago) are cleared silently.
 import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
-import { getHead, takeFreshUpdateMarker } from '../update-status.js';
+import { getHead, rememberVersion, takeFreshUpdateMarker } from '../update-status.js';
 import { resolveSendableChannel } from '../../../core/channels.js';
 
 export default {
@@ -17,10 +17,14 @@ export default {
       if (!guild) return;
       const marker = takeFreshUpdateMarker(guild.id);
       if (!marker?.channelId) return;
+      // A human ordered this one and is about to be told. Record the version
+      // now so the unattended announcer (S117) does not repeat it elsewhere.
+      const seen = getHead();
+      if (seen.head) rememberVersion(guild.id, seen.head);
       const channel = await resolveSendableChannel(guild, marker.channelId);
       if (!channel) return;
 
-      const { head, subject } = getHead();
+      const { head, subject } = seen;
       const requester = marker.requesterId ? `<@${marker.requesterId}> ` : '';
       let content;
       if (marker.kind === 'restart') {

@@ -113,6 +113,12 @@ export default {
         intentLine,
       ];
     },
+    // S117: the source cog is a PLAIN command — `[p]wordle` starts a game.
+    // Ours was a group from birth (S72–S83), so the S106 sweep that added
+    // `invokeWithoutSubcommand` never looked at it and bare `!wordle` answered
+    // with a menu instead of playing. `!wordle help` still lists the family.
+    invokeWithoutSubcommand: true,
+    fallback: 'play',
     subcommands: [
       {
         name: 'play',

@@ -50,6 +50,12 @@ export default {
         `Start a round with \`${ctx.prefix}gtc\` (or \`${ctx.prefix}gtc 12\` for more buttons, ${MIN_DIFFICULTY}–${MAX_DIFFICULTY}). The scrambled candy name appears; the first officer to press the right name wins — the clock runs to two decimals. Wrong presses are free; rounds close after 3 minutes. Multiple rounds can run at once.`,
       ];
     },
+    // S117: the source cog is a PLAIN command — `[p]guessthecandy` starts a game.
+    // Ours was a group from birth (S72–S83), so the S106 sweep that added
+    // `invokeWithoutSubcommand` never looked at it and bare `!guessthecandy` answered
+    // with a menu instead of playing. `!guessthecandy help` still lists the family.
+    invokeWithoutSubcommand: true,
+    fallback: 'play',
     subcommands: [
       {
         name: 'play',

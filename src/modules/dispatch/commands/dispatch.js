@@ -12,8 +12,15 @@ export default {
     aliases: ['evidence-locker'],
     description: 'Announcements to the force, and the evidence-locker log channel.',
     emoji: '🗄️',
+    // `fallback` WITHOUT `invokeWithoutSubcommand` (S117 correction). The two
+    // do different jobs and S106 set both:
+    //   * `fallback` catches an unmatched FIRST TOKEN and hands the sub every
+    //     token — that is what makes `!dispatch Rally at 20:00` announce.
+    //   * `invokeWithoutSubcommand` runs the fallback with ZERO tokens on a
+    //     bare `!dispatch` — and `send` requires a message, so the bare form
+    //     answered with a usage error instead of the overview it used to show.
+    // Dropping the second keeps the announce path and restores the overview.
     fallback: 'send',
-    invokeWithoutSubcommand: true,
     subcommands: [
       {
         // S106: this is what bare `!dispatch <message>` runs.

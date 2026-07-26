@@ -83,4 +83,5 @@ test/russianroulette.test.js      draws, lobby, shot bridge, scripted whole game
 
 | Session | Change |
 |---|---|
+| S117 | **`!russianroulette` alone now starts a game** (owner: *"hangman werkt niet zoals het hoort"*). The source cog is a plain command, so the bare word plays; ours was a group from birth and answered with a menu. `!russianroulette help` still lists the family. |
 | S73 | Created (M16.5, AAA3A port): mod-opened button lobby (max 30), shuffled rounds with one chambered shot, 5 s Shoot turns (AFK = the bot shoots you), 90/10 misfire onto a random other player, last-standing winner. Upstream fixes: AFK no longer skips the next player (snapshot iteration); everyone-AFK no longer crashes (last survivor wins outright). Deviation: pings limited to turn prompts + winner. |

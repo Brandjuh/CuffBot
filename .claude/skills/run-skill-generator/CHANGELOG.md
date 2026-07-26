@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.40 — 2026-07-26 (Session 117)
+
+- `references/architecture.md` (Verification habits): **a sweep only inspects what it is changing — whatever already looks like the target shape is invisible to it.** After a sweep, enumerate every member of the target *category* and check it, not just the items the sweep edited. Turn that enumeration into a test so the category stays checked.
+- Evidence: two instances, both found by the owner playing the bot rather than by any review. S106 introduced `invokeWithoutSubcommand` while folding flat commands into groups; seven game modules were already groups (S72–S83), so the sweep never examined them and `!hangman`, `!wordle`, `!memory`, `!rollout`, `!russianroulette`, `!splitorsteal` and `!guessthecandy` all answered with a menu where their source cogs start a game (*"hangman werkt niet zoals het hoort"*). S115 found the same shape for panel-driven ports. The enumeration written this session immediately turned up an eighth defect nobody had reported — bare `!dispatch` answering with a usage error — which is the argument for writing it as a test rather than a one-off audit.
+- Also recorded, against 0.5.38: **S115's audit called hangman "faithful" on evidence that only supported "same interaction model."** Counting `discord.ui` references measures how a game is *driven*, not whether it *works*. State what the method actually checked.
+
 ## 0.5.39 — 2026-07-26 (Session 116)
 
 - `references/architecture.md` (Module pattern, next to 0.5.32): **the loader's invariants are part of the slicing constraint — check them while planning slices, not while running tests.** Every module directory needs an `index.js`, and command names *and aliases* are unique across all modules. So **"build the replacement alongside the original" is not a slice that exists in this codebase**, and neither is a `lib/`-only module.
