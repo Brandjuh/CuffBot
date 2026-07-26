@@ -142,7 +142,7 @@ if (branchRes.status !== 0) {
     else {
       bad(
         `checkout is ${behind} commit(s) BEHIND origin/${branch} — the self-updater has not applied them`,
-        "run: sudo systemctl start cuffbot-update.service && journalctl -u cuffbot-update -n 30 --no-pager (or bash scripts/update.sh); if the timer is missing below, re-run scripts/setup-pi.sh",
+        'run: bash scripts/update.sh (that IS the updater; the bot calls the same script). Watch it with: journalctl -u cuffbot -n 40 --no-pager',
       );
     }
   }
@@ -221,15 +221,29 @@ if (probe.error || probe.status !== 0) {
       'sudo systemctl restart cuffbot && journalctl -u cuffbot -n 30 --no-pager (the journal names the crash)',
     );
   }
-  const timerEnabled = sysctl('is-enabled', 'cuffbot-update.timer').stdout.trim();
-  const timerActive = sysctl('is-active', 'cuffbot-update.timer').stdout.trim();
-  if (timerEnabled === 'enabled' && timerActive === 'active') {
-    ok('cuffbot-update.timer is armed (self-update every ~15 min)');
+  // S127: the self-update timer is GONE — the bot checks every 15 minutes in
+  // its own process and restarts itself by exiting. That makes `Restart=` the
+  // single precondition of the whole chain, so it is what gets checked.
+  const restart = sysctl('show', 'cuffbot', '-p', 'Restart', '--value').stdout.trim();
+  if (restart === 'always') {
+    ok('cuffbot has Restart=always — the bot can install updates and reload itself, no sudo needed');
   } else {
     bad(
-      `cuffbot-update.timer is ${timerEnabled || 'absent'}/${timerActive || 'inactive'} — merges will NEVER reach this machine by themselves`,
-      'arm it: re-run bash scripts/setup-pi.sh (step 8 installs and enables the timer)',
+      `cuffbot has Restart=${restart || 'unknown'} — a self-update would exit cleanly and NOT come back, so the bot falls back to sudo (the path that broke in S7/S76/S78/S120)`,
+      'fix permanently: bash scripts/setup-pi.sh (it writes Restart=always)',
     );
+  }
+
+  // A leftover pre-S127 timer would keep running the old sudo restart path
+  // alongside the new one. Two updaters racing is worse than one.
+  const legacyTimer = sysctl('is-enabled', 'cuffbot-update.timer').stdout.trim();
+  if (legacyTimer === 'enabled' || legacyTimer === 'active') {
+    bad(
+      'the pre-S127 cuffbot-update.timer is still enabled — two updaters will race',
+      'remove it: bash scripts/setup-pi.sh (it now disables and deletes the old units)',
+    );
+  } else {
+    ok('no legacy update timer (the bot updates itself)');
   }
 }
 

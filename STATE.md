@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 126 · 2026-07-26
+**Last updated:** Session 127 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1277/1277 pass as of S126 |
+| Tests green | `npm test` | 1303/1303 pass as of S127 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | 37 names: `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'minigames', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 
 ⚠️ **Both rows above were wrong until S124** — they claimed `1095/1095 as of S120` and still listed `connect4`, a module **S116 deleted** when `minigames` replaced it. A verification block that has drifted verifies nothing: it either fails for the wrong reason or, worse, is skipped because "it always looks a bit off". **Update these two rows in the same commit as any change to the test count or the module list.**
@@ -101,7 +101,7 @@
 |---|---|---|
 | Is the rank ladder pinned? | `!xp` | **Ladder pinned:** starts with `yes`. Since S113 a `no` states which of four reasons it is — including a **stale pin** (the pinned role was deleted or re-created, so its id changed and the old pin silently stopped counting). Owner reports having run `!ranks setup` 4× as of 2026-07-26; if `!xp` says `yes`, this item is closed. |
 | Is an AI key configured? | `!transcribe` / `!ask` | **Service:** shows 🟢 Groq. **Owner confirmed the key is in place (2026-07-26)** — treat as done unless the bot itself says otherwise. |
-| Is the Pi's update chain healthy? | `cd ~/CuffBot && npm run doctor` | All ✅. Since S18 it covers stale checkout, dead service, unarmed timer, and since S102 the **Voice stack** — the one genuinely open item, because the next update is the first that installs npm dependencies. |
+| Is the Pi's update chain healthy? | `!update status` in Discord, or `npm run doctor` on the Pi | **S127 rebuilt this.** `!update status` names the branch, how far behind, whether the fetch works, and which restart route is live. ⚠️ **One-off unstick required:** the Pi is on pre-S127 code, whose updater is the broken one, so it cannot fetch its own fix. Owner runs ONCE: `cd ~/CuffBot && git pull && bash scripts/setup-pi.sh`. After that it maintains itself. |
 
 ✅ **RESOLVED (S78): the Pi's red update gate (de52cd0 → …) was S69's top-level `await import` in test/youtube.test.js** — on the Pi's older node:test, tests registered after a top-level await run interleaved/twice (`processPendingSubtests`), so two youtube-group tests saw their own later writes and failed ONLY there (newer Node is unaffected — the container never reproduced it). Fixed by importing statically; rule recorded in architecture.md (skill 0.5.18). The S76/S77 evidence plumbing (journal tail + readable user-owned log + doctor surfacing) is what made the Pi log readable and pinned the cause. The boot-smoke 30s→120s raise (S76) was precautionary hardening, not the cause. ✅ Pi confirmed green again by the owner during the S78 window ("updated to b32ac8d… service is active"). **M16 IS COMPLETE** — every game the owner asked for in S65 is built (M16.1–M16.13), including both LARGE staged ports (heist S85–S88, city S89–S92).
 
@@ -425,6 +425,30 @@ The last measured divergence from S115's audit: the source has **eight** panels 
 
 ⚠️ **A cap test was vacuous and mutation testing caught it.** "The bonus is capped at 100%" passed against a build with the cap removed — it read page 0 only, and the job that overflows (95 + 20 at level 120) is on a later page. It now sweeps every page and first asserts the overflow is real, so it cannot go vacuous again if the table changes. **Second time in three sessions** that a new guard passed against the mutation it existed to catch (S124's was a too-uniform rng).
 
+## S127 — the update chain rebuilt so it cannot break the same way again
+
+Owner, fifth report: *"There IS a newer version (16 commit(s) ahead) but the updater never ran… los dit nu voor eens en altijd op."*
+
+**The wording of that message proves the diagnosis.** "The updater never ran — the update service or its sudo rights are probably missing" is the **pre-S120** text; S120 replaced it with one that asks systemd instead of asserting. So the Pi was running code from before the session that fixed the updater — **it could not fetch its own fix.** That is a deadlock, and no amount of further repair inside the same design would have ended it.
+
+**What was removed, and why each was a liability:**
+
+| Removed | Failure mode |
+|---|---|
+| `sudo systemctl start cuffbot-update.service` | sudo matches the whole command line; one flag mismatch refused every call, invisibly, for 113 sessions (found in S120) |
+| `cuffbot-update.service` | Could be missing; the bot could only guess whether it had run |
+| `cuffbot-update.timer` | The unattended path was invisible to the code that reported on it |
+| `/etc/sudoers.d/cuffbot` | One more file that had to exist and match |
+| `bash setup-pi.sh` as the arming step | A Pi that skipped it never updated, and nothing said so |
+
+**The new design: the bot runs `scripts/update.sh` itself and then EXITS.** systemd's `Restart=always` brings it back on the new code. No sudo anywhere. The 15-minute check is a `setInterval` in the bot's own process (`events/auto-update.js`), so the bot can see, report on and fix its own updates.
+
+⚠️ **The one precondition, checked and never assumed:** exiting is only safe when systemd will restart us. `restartPlan()` returns `exit` **only** for `Restart=always`, `sudo` for anything else systemd reports, `manual` when systemd is absent. Exiting under `on-failure` would leave the bot down — the single way this design could fail, so it is the single thing that is verified. Five mutations were run against those guards; all five caught.
+
+**Commands are now the owner's spec exactly:** `!update` **installs**, `!update status` **reports only**, `!update auto <true|false>` toggles the 15-minute check (default **on**). Announcements into `412334189879230474` already worked (S117) and still fire at boot — the only moment that survives the exit.
+
+⚠️ **OWNER ACTION, once:** `cd ~/CuffBot && git pull && bash scripts/setup-pi.sh`. The Pi cannot fetch this fix by itself for the reason above. `setup-pi.sh` sets `Restart=always`, deletes the old timer/service/sudoers, and re-stores the git credentials.
+
 ## Environment facts (S61)
 
 - **Game-cog sources (S65):** the owner's 8 source repos are PUBLIC and clone fine through the git proxy (`git clone --depth 1 https://github.com/<owner>/<repo>`); add_repo refuses cross-owner attaches, so clone into the scratchpad instead. Repos: AAA3A-AAA3A/AAA3A-cogs (guessthecandygame, mafiagame, rolloutgame, russianroulettegame, splitorstealgame, wordlegame, memorygame), CalaMariGold/CalaMari-Cogs (city), phenom4n4n/phen-cogs (connect4), Chovin/Dumb-Cogs (hammertime), Flame442/FlameCogs (hangman), ltzmax/maxcogs (heist), vertyco/vrt-cogs (hunting), yamikaitou/YamiCogs (payday).
@@ -433,7 +457,7 @@ The last measured divergence from S115's audit: the source has **eight** panels 
 ## Open problems / blockers
 
 - **Owner live-verification pending:** M1 checklist (radio-check) and M2 checklist (enforcement manual → Testing) not yet confirmed on the live server. Bot needs *Moderate Members* + *Ban Members* granted and its role positioned above target roles.
-- Auto-update timer arming requires the owner to re-run `scripts/setup-pi.sh` once (it appeared in S7).
+- ⚠️ **S127: the Pi needs `cd ~/CuffBot && git pull && bash scripts/setup-pi.sh` ONCE** to escape the pre-S127 updater deadlock. After that the bot maintains itself and this item closes for good.
 
 ## Environment facts (verified Session 0–7 · 2026-07-23)
 

@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.48 — 2026-07-27 (Session 127)
+
+- `references/architecture.md` (Verification habits): **a self-repairing system must not need itself to be working in order to be repaired** — plus the design rule that follows: **count what must exist for a mechanism to work; that count is its failure rate.**
+- Evidence: the update chain was repaired in S7, S76, S78 and S120 and failed again every time. S127 diagnosed it from the owner's quoted error text, which was the **pre-S120 wording** — proving the Pi ran code from before the fix and therefore could not fetch it. A deadlock, not a bug. The old chain required four things to exist and match (a service, a timer, a sudoers line matching a command line *exactly*, and a setup step a human had to remember); every failure was one of them missing. The rebuild requires one (`Restart=always`) and **asks** whether it holds rather than assuming — because assuming is precisely how the four previous attempts failed. Also recorded, as a second instance of 0.5.34 rather than a new rule: a watchdog timer was `unref`'d out of habit copied from the repo's pollers, which would have let the hang it guards against outlive it; the test caught it, and the habit had been applied without re-deriving whether its reason applied.
+
 ## 0.5.47 — 2026-07-26 (Session 126)
 
 - `references/architecture.md` (Verification habits): **a bounds test must reach the bound, and prove it can.**
