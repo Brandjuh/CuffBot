@@ -189,6 +189,7 @@ function fakeCtx(guildId, channelId) {
     guild: { id: guildId },
     channel: { id: channelId },
     user: { id: 'challenger-1' },
+    client: { user: { id: 'cuffbot-self' } },
     reply: async (p) => {
       replies.push(typeof p === 'string' ? { content: p } : p);
       return { edit: async () => {} }; // the posted challenge message
@@ -201,7 +202,7 @@ test('!connect4 is a public group with play as the fallback sub', () => {
   assert.ok(group.aliases.includes('c4'));
   assert.equal(group.permission, undefined, 'games are for everyone');
   assert.equal(group.fallback, 'play', '`!connect4 @user` routes straight into the duel');
-  assert.deepEqual(group.subcommands.map((s) => s.name), ['play', 'stats']);
+  assert.deepEqual(group.subcommands.map((s) => s.name), ['play', 'solo', 'stats']);
 });
 
 test('play refuses bots, self, and a busy channel; posts a challenge otherwise', async () => {

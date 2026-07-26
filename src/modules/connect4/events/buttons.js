@@ -5,7 +5,16 @@
 // press — here it is a polite ephemeral refusal (recorded port fix).
 import { Events, MessageFlags } from 'discord.js';
 import { armMoveTimer, boardPayload, pieceFor } from '../commands/connect4.js';
-import { dropMove, endGame, getGame, playerNumber, recordResult, startGame } from '../service.js';
+import {
+  dropMove,
+  endGame,
+  getGame,
+  isSolo,
+  playBotTurn,
+  playerNumber,
+  recordResult,
+  startGame,
+} from '../service.js';
 
 const quiet = (interaction, content) =>
   interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
@@ -104,24 +113,52 @@ export default {
       return;
     }
 
-    if (result.code === 'win') {
-      const winnerId = interaction.user.id;
-      const loserId = winnerId === game.challengerId ? game.opponentId : game.challengerId;
-      const piece = pieceFor(playerNumber(game, winnerId));
+    // Finish the game for whichever player just landed the deciding piece —
+    // S100 made this shared, because in a solo game the winner may be the bot.
+    const finish = async (outcome, player) => {
+      const winnerId = player === 1 ? game.challengerId : game.opponentId;
+      const loserId = player === 1 ? game.opponentId : game.challengerId;
       endGame(game.channelId);
+      if (outcome === 'tie') {
+        recordResult(game.guildId, { tie: [game.challengerId, game.opponentId] });
+        await interaction
+          .update(boardPayload(game, { finished: '🤝 The board is full — it’s a tie.' }))
+          .catch(() => {});
+        return;
+      }
       recordResult(game.guildId, { winnerId, loserId });
+      const who = isSolo(game) && player === 2 ? '**CuffBot**' : `<@${winnerId}>`;
       await interaction
-        .update(boardPayload(game, { finished: `🏆 ${piece} <@${winnerId}> connects four — case closed!` }))
+        .update(
+          boardPayload(game, {
+            finished: `🏆 ${pieceFor(player)} ${who} connects four — case closed!`,
+          }),
+        )
         .catch(() => {});
+    };
+
+    if (result.code === 'win') {
+      await finish('win', playerNumber(game, interaction.user.id));
       return;
     }
     if (result.code === 'tie') {
-      endGame(game.channelId);
-      recordResult(game.guildId, { tie: [game.challengerId, game.opponentId] });
-      await interaction
-        .update(boardPayload(game, { finished: '🤝 The board is full — it’s a tie.' }))
-        .catch(() => {});
+      await finish('tie');
       return;
+    }
+
+    // The human's move stood. In a solo game the bot answers immediately —
+    // its search is milliseconds on this board, so there is nothing to await
+    // and no "thinking" state to render.
+    if (isSolo(game) && game.turn === 2) {
+      const reply = playBotTurn(game);
+      if (reply.code === 'win') {
+        await finish('win', 2);
+        return;
+      }
+      if (reply.code === 'tie') {
+        await finish('tie');
+        return;
+      }
     }
 
     // next move

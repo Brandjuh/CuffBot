@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.29 — 2026-07-26 (Session 100)
+
+- `references/architecture.md` (Verification habits): **hand-written state fixtures are guesses until the code confirms them** — a constructed state may be unreachable, and the answer you wrote down may not be the only correct one. Compute the expected answer from the code under test, build the fixture the way the system builds state, and check a suspect fixture with a throwaway one-liner before believing a red test.
+- Evidence: S100 built the Connect 4 solo opponent, whose whole suite is fixed positions. Three fixtures were wrong before any code was: a "diagonal threat" that was an already-completed win; a tie board whose single gap sat at the *bottom* of a column, a position the game cannot reach and which `legalMoves` rightly called full; and — once the diagonal was rebuilt — a position with **two** winning columns, making the hand-written single answer arbitrary. Each red test told a confident story about a bug in `chooseMove`; all three times the implementation was correct. The rewrite that fixed it is the rule: `winningColumns(board, disc)` computes the set and the test asserts membership, so the fixture can no longer lie about what it is.
+
 ## 0.5.28 — 2026-07-25 (Session 99)
 
 - No rule added. Recording the confirmation instead: S99 built the chat kill counter — a feature whose entire substance is a 30-second timing rule — and the existing guidance carried it unchanged. Pure logic in `lib/` with an injected `now`, plus injectable timers, meant all 27 tests run instantly rather than a suite that would take minutes and flake. Those rules came from S73/S79/S81 (the io-injected game engine) and needed no adjustment for a non-game feature, which is evidence they generalised correctly.
