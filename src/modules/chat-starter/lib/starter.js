@@ -4,7 +4,7 @@
 export const DEFAULT_STARTER_CONFIG = {
   // Owner decision 2026-07-24: the chat starter runs in this channel after
   // 12 hours of silence — committed as product defaults (like the memorial
-  // feeds) so it works out of the box; `!chat-starter` overrides win.
+  // feeds) so it works out of the box; `!chatstarter` overrides win.
   enabled: true,
   channelId: '411609312037961729',
   idleMinutes: 720, // 12 hours of silence before a starter

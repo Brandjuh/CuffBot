@@ -16,7 +16,7 @@ Leveling is CuffBot's own XP system, built to **replace the old leveler bot**: m
 | `!level` | XP card: rank, progress bar, next rank | `[target]` | Everyone | `!level @user` |
 | `!leaderboard` | Top officers by XP | `[size]` (1–25, default 10) | Everyone | `!leaderboard 15` |
 | `!xp` | XP settings group (S70; alias `!xp-config`) | subs: on/off, sync, message, voice, cooldown, announce, noannounce, base, exponent | Admins (Manage Server) | `!xp base 1500` |
-| `!xp-ladder` | The XP list: which XP total earns which rank (S42), with a "you are here" marker | none | Everyone | `!xp-ladder` |
+| `!xp ladder` | The XP list: which XP total earns which rank (S42), with a "you are here" marker | none | Everyone | `!xp ladder` |
 
 Everything is a text command: `!level @user`, `!leaderboard 15`, bare `!xp` for the settings view.
 
@@ -25,7 +25,7 @@ Everything is a text command: `!level @user`, `!leaderboard 15`, bare `!xp` for 
 - **Options:** `target` (user, optional, default: you) — whose card to show.
 - **What happens:** fetches the member, resolves the academy ladder, and **seeds their XP record if this is the first time the system sees them** (see How it works → Seeding). Computes progress toward the next rank.
 - **Reply:** public embed — XP total, current rank, next rank with the XP still needed, and a progress bar. A footer notes when the XP was seeded from an existing rank. When XP has earned a rank the member doesn't hold, the card explains why (ladder not pinned / sync off / pending or hierarchy-blocked). Role/user mentions are rendered but never ping (`allowedMentions: { parse: [] }`).
-- **Failure modes:** target is a bot → refused, no record is created ("K9 units are paid in treats"); target not in the guild → "not in the precinct"; no ladder configured → the card still shows XP and points at `!rank-setup`.
+- **Failure modes:** target is a bot → refused, no record is created ("K9 units are paid in treats"); target not in the guild → "not in the precinct"; no ladder configured → the card still shows XP and points at `!ranks setup`.
 
 ### !leaderboard
 
@@ -50,7 +50,7 @@ Bare `!xp` = the settings view: full config, whether the ladder is **pinned**, a
 | `!xp base <50–100000>` (alias `base-xp`) | XP the lowest rank costs |
 | `!xp exponent <1.0–3.0>` | Curve steepness (rank N costs base·N^exp) |
 
-- **Failure modes:** missing Manage Server → refusal; out-of-range values → refused with the valid range, nothing saved; no ladder → thresholds section says to run `!rank-setup`; unpinned ladder → a ⚠️ line explains auto-rank and seeding stay idle until `!rank-setup` is run.
+- **Failure modes:** missing Manage Server → refusal; out-of-range values → refused with the valid range, nothing saved; no ladder → thresholds section says to run `!ranks setup`; unpinned ladder → a ⚠️ line explains auto-rank and seeding stay idle until `!ranks setup` is run.
 
 ## Events
 
@@ -114,7 +114,7 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 | `src/modules/leveling/commands/level.js` | `!level` card |
 | `src/modules/leveling/commands/leaderboard.js` | `!leaderboard` |
 | `src/modules/leveling/commands/xp.js` | The `!xp` admin group |
-| `src/modules/leveling/commands/xp-ladder.js` | `!xp-ladder` — the XP-per-rank list |
+| `src/modules/leveling/commands/xp-ladder.js` | `!xp ladder` — the XP-per-rank list |
 | `src/modules/leveling/events/message-xp.js` | Message XP + promotion announce |
 | `src/modules/leveling/events/voice-sweep.js` | 60-second voice XP sweep |
 | `src/modules/leveling/events/ladder-watch.js` | Ladder-change detection (role events + boot) → quiet reconciliation |
@@ -123,7 +123,7 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 
 - **Automated:** `test/leveling-xp.test.js` (pure math: cooldown, thresholds, seeding floors, no-instant-promotion invariant, voice eligibility, promote-only sync), `test/leveling-service.test.js` (store: seed-once semantics, cooldown persistence, leaderboard, sync execution/blocked), `test/leveling-commands.test.js` (commands + both events end-to-end against fake guilds, incl. the seeding paths and anti-farm sweeps), `test/ladder-reconcile.test.js` (baseline seeding, rename = no-op, delete → quiet reassignment, reorder → XP heal without role writes, add → heal only, human-demotion survival, unpinned/disabled refusals, debounce burst → one sweep). Run with `npm test`.
 - **Manual (live server) checklist:**
-  0. **Pin the ladder first:** `!rank-setup header:@[LEVELER]` (and `!rank-exclude` the two non-rank roles). `!xp` must show **Ladder pinned: yes** — auto-rank and rank seeding stay idle until it does.
+  0. **Pin the ladder first:** `!ranks setup header:@[LEVELER]` (and `!ranks exclude` the two non-rank roles). `!xp` must show **Ladder pinned: yes** — auto-rank and rank seeding stay idle until it does.
   1. `!xp` → confirm the ladder thresholds match your `[LEVELER]` ranks, highest rank = highest XP.
   2. As a member who **already has a rank role**: `/level` → XP must equal that rank's threshold (footer says "seeded from existing rank"), not 0.
   3. As a member with **no rank**: `/level` → 0 XP.
@@ -141,7 +141,7 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 |---|---|---|
 | Ranked member shows 0 XP | First seen while the ladder was unpinned/broken | Self-heals: on their next message/voice minute/`/level` under a pinned ladder, XP rises to their rank's floor. Pin with `/rank-setup` if needed |
 | Member's XP is below their (hand-given) rank | Promoted by hand before S16's coupling, or healed record pending | Same self-heal as above — next activity raises XP to the rank floor |
-| No promotions happen | Ladder not **pinned** (`!xp` shows ⚠️), sync off, or CuffBot's role below the rank roles | Run `!rank-setup header:@<divider>`; `!xp` to check; move the CuffBot role above the rank roles |
+| No promotions happen | Ladder not **pinned** (`!xp` shows ⚠️), sync off, or CuffBot's role below the rank roles | Run `!ranks setup header:@<divider>`; `!xp` to check; move the CuffBot role above the rank roles |
 | Nobody earns voice XP | `GuildVoiceStates` intent missing (old process) or everyone is alone/deafened | Restart the bot (intent ships in the base set); check the anti-farm rules |
 | Promotions to wrong ranks | Ladder mis-detected | `/ranks` to inspect; fix with `/rank-setup` / `/rank-exclude` |
 | Message XP not flowing | XP disabled, or bot lacks the `GuildMessages` intent (old process) | `/xp-config enabled:True`; restart the bot |
@@ -156,4 +156,4 @@ XP records live under `xpUsers`: `{ [userId]: { xp, lastMessageAt, seededFromRan
 | S37 | Ladder-change reconciliation: rename/reorder/delete/add rank roles safely — snapshot-based detection (events + boot + config commands), quiet spaced role writes, XP heals, baseline seeding of all rank holders. |
 | S55 | `announce` channel picker accepts Announcement (news) channels too (was text-only — an unselectable type read as "the bot can't post despite full rights"); posting resolves the configured channel via the API on a cache miss (`core/channels.js`). |
 | S70 | `/xp-config` became the `!xp` group (M17.2; alias `!xp-config`): on/off, sync, message, voice, cooldown, announce, noannounce, base, exponent — with in-run range guards. |
-| S93 | `!level`, `!leaderboard` and `!xp-ladder` converted to the flat `{ command }` shape (M17.3 slice A). `size` bounds moved from the slash builder to the arg spec; `!leaderboard`'s footer no longer points at a `/level` that has not existed since S68. `!xp-ladder` got its first tests — the conversion is what revealed it had none. |
+| S93 | `!level`, `!leaderboard` and `!xp ladder` converted to the flat `{ command }` shape (M17.3 slice A). `size` bounds moved from the slash builder to the arg spec; `!leaderboard`'s footer no longer points at a `/level` that has not existed since S68. `!xp ladder` got its first tests — the conversion is what revealed it had none. |

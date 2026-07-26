@@ -18,7 +18,7 @@ export default {
         `**Activity pay:** ${config.earnPerMessage} 🍩 per message (max once per ${Math.round(config.earnCooldownMs / 1000)} s)`,
         `**Birthday gift:** ${BIRTHDAY_BONUS.toLocaleString('en-US')} 🍩 (announced with the birthday message)`,
         `**Heist (${ctx.prefix}steal):** ${(config.heistChance * 100).toFixed(0)}% for ${config.heistAmount} 🍩, cooldown ${Math.round(config.heistCooldownMs / 3_600_000)} h`,
-        `**Daily claim:** ${config.claimDay} 🍩 per 24 h (more intervals: \`${ctx.prefix}claims-config\`) · **Pot:** +${config.potDailyTopUp} 🍩/day, crack odds ${(config.potWinChance * 100).toFixed(1)}%`,
+        `**Daily claim:** ${config.claimDay} 🍩 per 24 h (more intervals: \`${ctx.prefix}claims\`) · **Pot:** +${config.potDailyTopUp} 🍩/day, crack odds ${(config.potWinChance * 100).toFixed(1)}%`,
         '',
         `_The crook hunt has its own precinct since S66: \`${ctx.prefix}hunting\` (channels, timing, rewards)._`,
       ];

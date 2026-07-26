@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Purpose** | Owner request (M11): a police trivia game with scoring, extensible question banks |
-| **Commands** | `!trivia [set]`, `!trivia-scores`, `!trivia-sets` — all also as `!command` |
+| **Commands** | `!trivia [set]`, `!trivia scores`, `!trivia sets` — all also as `!command` |
 | **Events** | `InteractionCreate` — handles the answer buttons (customId prefix `trivia:`) |
 | **Data** | `triviaScores` (points per user) in the guild store; **active rounds live in RAM** (a restart forfeits the open round, scores are safe) |
 | **Question sets** | `src/modules/trivia/data/*.json` — ships with `police-codes` and `world-police` (10 questions each) |
@@ -22,11 +22,11 @@
 - **Round resolution:** the question message is edited into a reveal — winner + correct answer + a "did you know" fact when the set provides one.
 - **Failure modes:** unknown set id → refused by the arg spec with the installed set ids listed inline (S95); round already running → a short refusal.
 
-### !trivia-scores
+### !trivia scores
 
 Public leaderboard (top 10, medals for the podium). Never pings.
 
-### !trivia-sets
+### !trivia sets
 
 Lists installed sets: title, id, question count.
 
@@ -41,7 +41,7 @@ Drop a JSON file in `src/modules/trivia/data/`:
 ```json
 {
   "set": "my-set-id",
-  "title": "Shown in !trivia-sets",
+  "title": "Shown in !trivia sets",
   "questions": [
     { "q": "Question text (markdown ok)?", "choices": ["A", "B", "C", "D"], "answer": 0, "fact": "optional reveal note" }
   ]
@@ -57,7 +57,7 @@ Rules (validated at load; invalid files are skipped with a journal warning, neve
   1. `!trivia` → question with 4 buttons appears.
   2. Answer wrong on an alt account → a private "one guess" (button presses can still be ephemeral); press again → "already used".
   3. Answer correctly → private confirmation, message edits into the reveal naming you.
-  4. `!trivia-scores` → you're on the board.
+  4. `!trivia scores` → you're on the board.
   5. Start a round, let 20 s pass → reveal shows "case gone cold" + the answer.
   6. `!trivia` twice in one channel → second is refused; in another channel it works.
   7. `!trivia` (text) → same flow.

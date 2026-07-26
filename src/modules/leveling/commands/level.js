@@ -50,7 +50,7 @@ export default {
       const lines = [`**XP:** ${xp.toLocaleString('en-US')}`];
       lines.push(`**Rank:** ${heldRank ? `<@&${heldRank.roleId}>` : '_none yet — keep patrolling_'}`);
       if (ladder.ranks.length === 0) {
-        lines.push('_No rank ladder configured — an admin can run `!rank-setup`._');
+        lines.push('_No rank ladder configured — an admin can run `!ranks setup`._');
       } else if (progress.nextThreshold === null) {
         lines.push('**Next:** top of the ladder — nowhere left to climb. 🫡');
       } else {
@@ -67,7 +67,7 @@ export default {
       // explainable, not mysterious.
       if (earnedRank && earnedRank.roleId !== heldRank?.roleId) {
         if (!isPinnedLadder(ctx.guild.id, ladder)) {
-          lines.push('_Auto-rank is idle: the ladder is not pinned. An admin can run `!rank-setup`._');
+          lines.push('_Auto-rank is idle: the ladder is not pinned. An admin can run `!ranks setup`._');
         } else if (config.syncRoles === false) {
           lines.push(`_XP has earned <@&${earnedRank.roleId}>, but automatic rank sync is off._`);
         } else {

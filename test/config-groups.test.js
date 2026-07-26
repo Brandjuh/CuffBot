@@ -42,28 +42,47 @@ const sub = (group, name) => group.subcommands.find((s) => s.name === name);
 // ── rosters: every converted group has the expected shape ────────────────────
 
 test('every S70 config group is ManageGuild-gated with its expected subs', async () => {
+  // S106 folded the hyphenated commands into these groups, so several now have
+  // extra aliases, extra (public) subs, and — where a member-facing command was
+  // folded in — no group-level gate at all. `gated` says which shape to expect.
   const expectations = [
     ['selfroles/commands/selfroles.js', 'selfroles', [], ['on', 'off', 'channel', 'post', 'info', 'emoji', 'clearinfo']],
     ['memorial/commands/memorial.js', 'memorial', ['memorial-config'], ['on', 'off', 'channel', 'officers-channel', 'firefighters-channel', 'officers-role', 'firefighters-role', 'preview', 'probe']],
-    ['hunting/commands/hunting.js', 'hunting', [], ['on', 'off', 'add', 'remove', 'mode', 'showtime', 'undercover', 'rewards', 'interval', 'timeout', 'spawn']],
+    ['hunting/commands/hunting.js', 'hunting', ['hunt-stats', 'hunt-board', 'hunt'], ['stats', 'board', 'on', 'off', 'add', 'remove', 'mode', 'showtime', 'undercover', 'rewards', 'interval', 'timeout', 'spawn']],
     ['logbook/commands/logbook.js', 'logbook', [], ['on', 'off', 'toggle', 'route', 'channel']],
-    ['economy/commands/claims-config.js', 'claims-config', [], ['hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'streak', 'streakmode']],
+    ['economy/commands/claims.js', 'claims', ['claims-config'], ['collect', 'hourly', 'daily', 'weekly', 'monthly', 'quarterly', 'yearly', 'streak', 'streakmode'], false],
     ['economy/commands/economy.js', 'economy', ['economy-config'], ['on', 'off', 'earn']],
-    ['leveling/commands/xp.js', 'xp', ['xp-config'], ['on', 'off', 'sync', 'message', 'voice', 'cooldown', 'announce', 'noannounce', 'base', 'exponent']],
+    ['leveling/commands/xp.js', 'xp', ['xp-config', 'xp-ladder'], ['ladder', 'on', 'off', 'sync', 'message', 'voice', 'cooldown', 'announce', 'noannounce', 'base', 'exponent']],
     ['detective/commands/ai.js', 'ai', ['ai-config'], ['on', 'off', 'channel', 'everywhere']],
-    ['birthdays/commands/birthday.js', 'birthday', ['birthday-config'], ['on', 'off', 'channel', 'role', 'norole']],
-    ['chat-starter/commands/chat-starter.js', 'chat-starter', ['chat-starter-config'], ['on', 'off', 'channel', 'idle', 'ai', 'preview', 'test']],
+    ['birthdays/commands/birthday.js', 'birthday', ['birthday-config', 'birthday-set', 'birthday-remove'], ['set', 'remove', 'on', 'off', 'channel', 'role', 'norole'], false],
+    ['chat-starter/commands/chat-starter.js', 'chatstarter', ['chat-starter', 'chat-starter-config', 'starter'], ['on', 'off', 'channel', 'idle', 'ai', 'preview', 'test']],
     ['starboard/commands/starboard.js', 'starboard', ['starboard-config'], ['on', 'off', 'channel', 'threshold', 'emoji']],
     ['welcome/commands/welcome.js', 'welcome', ['welcome-config'], ['on', 'off', 'channel', 'message', 'test']],
-    ['channellist/commands/channel-list.js', 'channel-list', ['channel-list-config'], ['post', 'update', 'remove', 'role', 'everyone', 'header', 'emoji', 'color', 'voice', 'autoupdate', 'ignore', 'unignore']],
+    ['channellist/commands/channel-list.js', 'channellist', ['channel-list', 'channel-list-config', 'channels'], ['post', 'update', 'remove', 'role', 'everyone', 'header', 'emoji', 'color', 'voice', 'autoupdate', 'ignore', 'unignore']],
   ];
-  for (const [file, name, aliases, subs] of expectations) {
+  for (const [file, name, aliases, subs, gated = true] of expectations) {
     const { default: cmd } = await import(`../src/modules/${file}`);
     assert.equal(cmd.group.name, name, `${file} group name`);
     assert.deepEqual(cmd.group.aliases ?? [], aliases, `${file} aliases`);
-    assert.equal(cmd.group.permission, PermissionFlagsBits.ManageGuild, `${file} permission`);
+    if (gated) {
+      assert.equal(cmd.group.permission, PermissionFlagsBits.ManageGuild, `${file} permission`);
+    } else {
+      // S106: a group that members use is open at the top; every admin
+      // subcommand carries the flag itself and the overview filters per viewer.
+      assert.equal(cmd.group.permission, undefined, `${file} is open at the top`);
+      const publicSubs = cmd.group.subcommands.filter((x) => x.permission === undefined);
+      assert.ok(publicSubs.length > 0, `${file} has at least one member sub`);
+      for (const x of cmd.group.subcommands.filter((y) => y.permission !== undefined)) {
+        assert.equal(x.permission, PermissionFlagsBits.ManageGuild, `${file} ${x.name} gate`);
+      }
+    }
     assert.deepEqual(cmd.group.subcommands.map((s) => s.name), subs, `${file} sub roster`);
-    assert.equal(typeof cmd.group.status, 'function', `${file} has status()`);
+    // A group whose bare invocation RUNS something (S106's
+    // `invokeWithoutSubcommand`) has no status card to show — the fallback
+    // subcommand is the card. Only menu-style groups need `status()`.
+    if (!cmd.group.invokeWithoutSubcommand) {
+      assert.equal(typeof cmd.group.status, 'function', `${file} has status()`);
+    }
   }
 });
 
@@ -122,7 +141,7 @@ test('logbook toggle/route hit the right per-category keys', async () => {
 });
 
 test('claims-config amount subs write the interval keys and refuse out-of-range', async () => {
-  const { default: claims } = await import('../src/modules/economy/commands/claims-config.js');
+  const { default: claims } = await import('../src/modules/economy/commands/claims.js');
   const { getEconomyConfig } = await import('../src/modules/economy/service.js');
   const guildId = freshGuildId();
   const ctx = ctxFor(guildId);

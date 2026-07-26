@@ -3,12 +3,12 @@
 // against fake messages, no gateway.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { PermissionFlagsBits } from 'discord.js';
 import {
   buildGroupOverview,
   dispatchGroup,
   resolveSubArgs,
-  subUsage,
-} from '../src/core/prefix/group.js';
+  subUsage, gateFor } from '../src/core/prefix/group.js';
 
 const PERM = 32n; // ManageGuild's flag value — the framework only ever calls perms.has(flag)
 
@@ -299,4 +299,108 @@ test('reply falls back to channel.send when message.reply fails (deleted invocat
   await dispatchGroup(makeGroup(), message, ['on'], '!');
   assert.equal(message.sent[0].via, 'send');
   assert.equal(message.sent[0].content, 'on!');
+});
+
+// ── S106: Red's invoke_without_command, and per-viewer group cards ───────────
+
+test('a group with invokeWithoutSubcommand RUNS its fallback when typed bare', async () => {
+  // Folding `!donut-board` into `!donuts` must not turn `!donuts` into a menu.
+  // This is the flag that keeps the parent command doing its job.
+  const ran = [];
+  const group = {
+    name: 'donuts',
+    description: 'balances',
+    fallback: 'balance',
+    invokeWithoutSubcommand: true,
+    status: () => ['never shown'],
+    subcommands: [
+      { name: 'balance', description: 'yours', args: [], run: async (ctx) => { ran.push('balance'); await ctx.reply('10 donuts'); } },
+      { name: 'board', description: 'rich list', args: [], run: async (ctx) => { ran.push('board'); await ctx.reply('the board'); } },
+    ],
+  };
+
+  const bare = fakeMessage();
+  assert.equal(await dispatchGroup(group, bare, [], '!'), 'ran');
+  assert.deepEqual(ran, ['balance']);
+  assert.equal(bare.sent[0].content, '10 donuts', 'not an overview');
+
+  // A named subcommand still wins over the fallback.
+  const named = fakeMessage();
+  await dispatchGroup(group, named, ['board'], '!');
+  assert.deepEqual(ran, ['balance', 'board']);
+
+  // And an unmatched token still routes into the fallback with ALL tokens (S71).
+  const withArg = fakeMessage();
+  await dispatchGroup(group, withArg, ['@someone'], '!');
+  assert.deepEqual(ran, ['balance', 'board', 'balance']);
+});
+
+test('`!group help` always shows the card, even when bare runs something', async () => {
+  // A family whose bare form runs a command has no other way to list itself,
+  // so `help` is reserved. Red reaches the same place via `[p]help <group>`.
+  const group = {
+    name: 'donuts',
+    description: 'balances',
+    fallback: 'balance',
+    invokeWithoutSubcommand: true,
+    subcommands: [
+      { name: 'balance', description: 'yours', args: [], run: async (ctx) => ctx.reply('10 donuts') },
+      { name: 'board', description: 'rich list', args: [], run: async () => {} },
+    ],
+  };
+  const message = fakeMessage();
+  assert.equal(await dispatchGroup(group, message, ['help'], '!'), 'overview');
+  const card = JSON.stringify(message.sent[0].embeds[0]);
+  assert.match(card, /donuts board/);
+  assert.match(card, /donuts balance/);
+});
+
+test('a group may name its own `help` sub, which then wins over the reserved one', async () => {
+  let ran = false;
+  const group = {
+    name: 'thing',
+    description: 'x',
+    subcommands: [{ name: 'help', description: 'custom', args: [], run: async () => { ran = true; } }],
+  };
+  assert.equal(await dispatchGroup(group, fakeMessage(), ['help'], '!'), 'ran');
+  assert.equal(ran, true);
+});
+
+test('the group card lists only what THIS member may run', async () => {
+  // S106: folding public commands into admin groups makes "open group, gated
+  // subs" the normal shape, and a card that advertises refusals is worse than
+  // a short one.
+  const group = {
+    name: 'xp',
+    description: 'xp system',
+    permission: PermissionFlagsBits.ManageGuild,
+    subcommands: [
+      { name: 'ladder', description: 'public list', permission: null, args: [], run: async () => {} },
+      { name: 'base', description: 'admin knob', args: [], run: async () => {} },
+    ],
+  };
+
+  const admin = fakeMessage({ perms: true });
+  await dispatchGroup(group, admin, [], '!');
+  const adminCard = JSON.stringify(admin.sent[0].embeds[0]);
+  assert.match(adminCard, /xp ladder/);
+  assert.match(adminCard, /xp base/);
+
+  // A member cannot even see the group's card — the group itself is gated…
+  const member = fakeMessage({ perms: false });
+  assert.equal(await dispatchGroup(group, member, [], '!'), 'refused');
+  // …but `permission: null` really does open the one public sub to them.
+  const reader = fakeMessage({ perms: false });
+  assert.equal(await dispatchGroup(group, reader, ['ladder'], '!'), 'ran');
+  assert.equal(await dispatchGroup(group, fakeMessage({ perms: false }), ['base'], '!'), 'refused');
+});
+
+test('an explicit `permission: null` on a sub beats the group gate; undefined inherits it', () => {
+  const group = { name: 'g', permission: PermissionFlagsBits.ManageGuild, subcommands: [] };
+  assert.equal(gateFor(group, { name: 'open', permission: null }), null, 'null means public');
+  assert.equal(gateFor(group, { name: 'inherit' }), PermissionFlagsBits.ManageGuild);
+  assert.equal(
+    gateFor(group, { name: 'raised', permission: PermissionFlagsBits.Administrator }),
+    PermissionFlagsBits.Administrator,
+  );
 });

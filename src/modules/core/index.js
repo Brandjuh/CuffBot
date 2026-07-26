@@ -11,7 +11,7 @@ import helpButtons from './events/help-buttons.js';
 export default {
   name: 'core',
   description:
-    'Core precinct utilities: the on-air check (!radio-check), the button-driven command roster (!help), self-update (!update with in-Discord status), config reload (!restart), maintenance mode with a matching bot status, and single-guild jurisdiction enforcement.',
+    'Core precinct utilities: the on-air check (!radiocheck), the button-driven command roster (!help), self-update (!update with in-Discord status), config reload (!restart), maintenance mode with a matching bot status, and single-guild jurisdiction enforcement.',
   commands: [radioCheck, help, update, restart, maintenance],
   events: [onDuty, guildLockdown, updateReport, helpButtons],
 };

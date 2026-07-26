@@ -8,7 +8,8 @@ import { setGuildData } from '../src/core/store.js';
 import { thresholdsFor } from '../src/modules/leveling/lib/xp.js';
 import { getUserXp, getXpConfig, setXpConfig } from '../src/modules/leveling/service.js';
 import level, { progressBar } from '../src/modules/leveling/commands/level.js';
-import xpLadderCmd from '../src/modules/leveling/commands/xp-ladder.js';
+// S106: `!xp-ladder` is `!xp ladder` now.
+const xpLadderCmd = { command: xpConfigCmd.group.subcommands.find((x) => x.name === 'ladder') };
 import leaderboardCmd from '../src/modules/leveling/commands/leaderboard.js';
 import xpConfigCmd from '../src/modules/leveling/commands/xp.js';
 import messageXpEvent from '../src/modules/leveling/events/message-xp.js';
@@ -205,7 +206,8 @@ test('!xp is a Manage-Server group with the settings roster (S70)', () => {
   assert.equal(xpGroup.permission, PermissionFlagsBits.ManageGuild);
   assert.deepEqual(
     xpGroup.subcommands.map((s) => s.name),
-    ['on', 'off', 'sync', 'message', 'voice', 'cooldown', 'announce', 'noannounce', 'base', 'exponent'],
+    ['ladder',
+    'on', 'off', 'sync', 'message', 'voice', 'cooldown', 'announce', 'noannounce', 'base', 'exponent'],
   );
 });
 

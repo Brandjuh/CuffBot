@@ -1,19 +1,22 @@
 // The crook-hunt admin group (S70 = M17.2): channels, timing, catch mode,
 // rewards, and the instant test spawn. Bare `!hunting` = the precinct status.
-import { PermissionFlagsBits } from 'discord.js';
+import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { CROOKS } from '../lib/hunt.js';
 import {
   getHuntingConfig,
+  getScores,
   huntingAvailable,
   nextSpawnInfo,
   setHuntingConfig,
   spawnCrook,
+  topHunters,
 } from '../service.js';
 import { formatWaitMs } from '../../economy/lib/bank.js';
 
 export default {
   group: {
     name: 'hunting',
+    aliases: ['hunt-stats', 'hunt-board', 'hunt'],
     description: 'The crook hunt: channels, timing, catch mode, rewards (admin).',
     emoji: '🦹',
     permission: PermissionFlagsBits.ManageGuild,
@@ -38,6 +41,61 @@ export default {
       ];
     },
     subcommands: [
+      {
+        // S106: was `!hunting stats`. Public inside an admin group — `permission:
+        // null` drops the group's gate, and the overview filters per viewer.
+        name: 'stats',
+        aliases: ['record', 'me'],
+        description: 'A hunter’s arrest record: catches per crook type.',
+        permission: null,
+        args: [{ name: 'member', type: 'user' }], // default: you
+        async run(ctx, { member }) {
+
+          const target = member ?? ctx.user;
+          const record = getScores(ctx.guild.id)[target.id];
+          if (!record?.total) {
+            await ctx.reply(
+              '🦹 Cuff a crook before you brag about it — shout **STOP POLICE** when one appears.',
+            );
+            return;
+          }
+          const lines = CROOKS.filter((c) => record.byCrook?.[c.id]).map(
+            (c) => `${c.emoji} ${c.id.replace(/-/g, ' ')} — **${record.byCrook[c.id]}**`,
+          );
+          const embed = new EmbedBuilder()
+            .setColor(0x1f8b4c)
+            .setTitle(`🚔 Arrest record — ${target.username}`)
+            .setDescription(
+              [`**${record.total}** crook${record.total === 1 ? '' : 's'} cuffed in total`, '', ...lines].join('\n'),
+            );
+          await ctx.reply({ embeds: [embed], allowedMentions: { parse: [] } });
+        },
+      },
+      {
+        // S106: was `!hunting board`.
+        name: 'board',
+        aliases: ['leaderboard', 'top'],
+        description: 'The precinct’s top crook hunters (top 25 by total catches).',
+        permission: null,
+        args: [],
+        async run(ctx) {
+
+          const top = topHunters(ctx.guild.id, 25);
+          if (top.length === 0) {
+            await ctx.reply('🦹 Nobody has cuffed a crook yet — the board is wide open.');
+            return;
+          }
+          const medals = ['🥇', '🥈', '🥉'];
+          const lines = top.map(
+            (r, i) => `${medals[i] ?? `**${i + 1}.**`} <@${r.userId}> — **${r.total.toLocaleString('en-US')}**`,
+          );
+          const embed = new EmbedBuilder()
+            .setColor(0x1f8b4c)
+            .setTitle('🏆 Hunting Leaderboard')
+            .setDescription(lines.join('\n'));
+          await ctx.reply({ embeds: [embed], allowedMentions: { parse: [] } });
+        },
+      },
       {
         name: 'on',
         description: 'Turn the crook hunt on.',

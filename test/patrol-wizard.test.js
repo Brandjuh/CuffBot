@@ -16,7 +16,10 @@ import {
   startWizardDraft,
 } from '../src/modules/patrol/service.js';
 import wizardPump from '../src/modules/patrol/events/wizard.js';
-import patrolWizard from '../src/modules/patrol/commands/patrol-wizard.js';
+import patrolGroup from '../src/modules/patrol/commands/patrol.js';
+
+// S106: `!patrol-wizard` is `!patrol wizard`.
+const patrolWizard = { command: patrolGroup.group.subcommands.find((s) => s.name === 'wizard') };
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'cuffbot-patrol-wizard-'));
 process.env.CUFFBOT_DATA_DIR = DATA_DIR;

@@ -16,18 +16,18 @@ Patrol is the precinct's automated beat cop (automod): it screens every message 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
 | `!patrol` | View patrol status, or switch it on/off | `action` (status/on/off) | Manage Server | `!patrol action:on` |
-| `!patrol-rule` | Switch a rule category on/off | `rule`, `state` | Manage Server | `!patrol-rule rule:invites state:off` |
-| `!patrol-term` | Add/remove a banned term | `action`, `term` | Manage Server | `!patrol-term action:add term:slur` |
+| `!patrol rule` | Switch a rule category on/off | `rule`, `state` | Manage Server | `!patrol rule rule:invites state:off` |
+| `!patrol term` | Add/remove a banned term | `action`, `term` | Manage Server | `!patrol term action:add term:slur` |
 
 ### !patrol
 
 Shows a status card (patrol on/off, each rule on/off, banned-term count) and, with `on`/`off` (or `action:on`), flips the whole patrol. Warns if the Message Content intent is unavailable.
 
-### !patrol-rule
+### !patrol rule
 
 Toggles one of `bannedTerms`, `invites`, `spam` independently.
 
-### !patrol-term
+### !patrol term
 
 Adds or removes a banned term — a multi-word phrase is fine, the whole rest of the line is the term (S95). It is stored lowercased and matched **evasion-aware** (see below). The reply deliberately does **not** echo the term back: since S54 it lands in the channel, so repeating it would post the very word being suppressed.
 
@@ -75,7 +75,7 @@ Banned-term matching is deliberately **aggressive** so it can't be dodged with s
 | `src/modules/patrol/commands/*.js` | patrol, patrol-rule, patrol-term |
 | `test/patrol-screen.test.js`, `test/patrol-event.test.js`, `test/patrol-commands.test.js` | Coverage |
 
-## The setup wizard — `!patrol-wizard` (S47, revived S95)
+## The setup wizard — `!patrol wizard` (S47, revived S95)
 
 A guided 3-step flow (admin, Manage Server) — the clear path to a working patrol without memorizing three commands:
 
@@ -94,17 +94,17 @@ A guided 3-step flow (admin, Manage Server) — the clear path to a working patr
 - **Automated:** `npm test` — normalization/evasion, each detector (banned via spacing+leet, invites across forms and spacing, spam floods/runs), `screenMessage` rule toggles, the event handler (removes + records on a hit; no-op for mods, disabled, missing intent, clean, bots), and command smokes through the real dispatch path (permission gate naming the right permission, on/off, choice validation, intent warning, rule toggle, multi-word term add/remove without echo, and the wizard opening a draft seeded from the live config). No token or network needed.
 - **Manual (live server) checklist:**
   1. Enable the Message Content intent in the portal; restart. `!patrol` should not show the intent warning.
-  2. `!patrol action:on`; `!patrol-term action:add term:<a test word>`.
+  2. `!patrol action:on`; `!patrol term action:add term:<a test word>`.
   3. As a **non-mod** account, post the test word → the message is removed, you get a DM, and it appears on `/rapsheet` and in the evidence locker.
   4. Post `discord.gg/whatever` as a non-mod → removed. Post it as a mod → not removed (exemption).
-  5. `!patrol-rule rule:invites state:off` → invite links are no longer removed.
+  5. `!patrol rule rule:invites state:off` → invite links are no longer removed.
 
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Patrol never acts | Intent off, patrol off, or user is a mod | `!patrol` (check status + intent warning); enable intent; test as a non-mod |
-| Legit messages removed | A banned term is too short/generic | `!patrol-term action:remove term:<it>`; use specific full terms |
+| Legit messages removed | A banned term is too short/generic | `!patrol term action:remove term:<it>`; use specific full terms |
 | Messages not deleted | Bot lacks Manage Messages in that channel | Grant the permission |
 | No record/locker entry for a removal | Records/locker unreachable (logged) | Check `journalctl -u cuffbot`; removal still happened |
 
@@ -112,6 +112,6 @@ A guided 3-step flow (admin, Manage Server) — the clear path to a working patr
 
 | Session | Change |
 |---|---|
-| S47 | `!patrol-wizard`: guided 3-step ephemeral setup (rule multi-select, banned-terms modal, review + enable/save), RAM draft with 10-min TTL. |
-| S13 | Created: pure screener (banned terms/invites/spam), MessageCreate handler (mod-exempt, cross-module routing), `!patrol`, `!patrol-rule`, `!patrol-term`; false-positive story documented. |
-| S95 | All four converted to the flat `{ command }` shape (M17.3 slice C) — and `!patrol-wizard` **works again**: it had been dead since S68, refusing to run as a text command while S68 made every invocation one. Its message is public now, so component presses re-check Manage Server. `!patrol-term` accepts a multi-word phrase. Unknown rule/action values are refused by the arg spec with the valid list. |
+| S47 | `!patrol wizard`: guided 3-step ephemeral setup (rule multi-select, banned-terms modal, review + enable/save), RAM draft with 10-min TTL. |
+| S13 | Created: pure screener (banned terms/invites/spam), MessageCreate handler (mod-exempt, cross-module routing), `!patrol`, `!patrol rule`, `!patrol term`; false-positive story documented. |
+| S95 | All four converted to the flat `{ command }` shape (M17.3 slice C) — and `!patrol wizard` **works again**: it had been dead since S68, refusing to run as a text command while S68 made every invocation one. Its message is public now, so component presses re-check Manage Server. `!patrol term` accepts a multi-word phrase. Unknown rule/action values are refused by the arg spec with the valid list. |

@@ -19,7 +19,7 @@ export default {
       const embed = new EmbedBuilder().setColor(0xdb6ea4).setTitle('🎂 Upcoming Birthdays');
       if (upcoming.length === 0) {
         embed.setDescription(
-          `No birthdays on file yet. Register yours with \`${ctx.prefix}birthday-set 1990/05/23\` — the precinct loves cake.`,
+          `No birthdays on file yet. Register yours with \`${ctx.prefix}birthday set 1990/05/23\` — the precinct loves cake.`,
         );
       } else {
         embed.setDescription(
@@ -32,7 +32,7 @@ export default {
             .join('\n'),
         );
         embed.setFooter({
-          text: `Days count in each member’s own timezone · ${ctx.prefix}birthday-set to join the list`,
+          text: `Days count in each member’s own timezone · ${ctx.prefix}birthday set to join the list`,
         });
       }
       await ctx.reply({ embeds: [embed], allowedMentions: { parse: [] } });

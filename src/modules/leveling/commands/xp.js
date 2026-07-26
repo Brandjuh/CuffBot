@@ -1,9 +1,9 @@
 // The XP-system admin group (S70 = M17.2, `!xp` — the old `!xp-config` name
 // stays as an alias). Bare `!xp` shows settings + the per-rank thresholds.
-import { PermissionFlagsBits } from 'discord.js';
+import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { isPinnedLadder, ladderForGuild } from '../../academy/service.js';
-import { thresholdsFor } from '../lib/xp.js';
-import { getXpConfig, setXpConfig } from '../service.js';
+import { ladderTable, thresholdsFor } from '../lib/xp.js';
+import { getUserXp, getXpConfig, setXpConfig } from '../service.js';
 
 const rangeGuard = async (ctx, value, min, max, label) => {
   if (value < min || value > max) {
@@ -16,7 +16,7 @@ const rangeGuard = async (ctx, value, min, max, label) => {
 export default {
   group: {
     name: 'xp',
-    aliases: ['xp-config'],
+    aliases: ['xp-config', 'xp-ladder'],
     description: 'The XP system: rates, curve, announcements (admin).',
     emoji: '📈',
     permission: PermissionFlagsBits.ManageGuild,
@@ -33,11 +33,11 @@ export default {
               return `<@&${r.roleId}> — ${t.toLocaleString('en-US')} XP`;
             })
             .join('\n')
-        : '_no ladder detected — run `!rank-setup`_';
+        : '_no ladder detected — run `!ranks setup`_';
       return [
         `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
         `**Auto rank sync:** ${config.syncRoles ? 'yes (promote-only)' : 'no'}`,
-        `**Ladder pinned:** ${pinned ? 'yes' : '⚠️ no — auto-rank and rank seeding stay idle until an admin runs `!rank-setup header:@<divider>`'}`,
+        `**Ladder pinned:** ${pinned ? 'yes' : '⚠️ no — auto-rank and rank seeding stay idle until an admin runs `!ranks setup header:@<divider>`'}`,
         `**Message XP:** ${config.messageXp} (cooldown ${Math.round(config.messageCooldownMs / 1000)}s)`,
         `**Voice XP:** ${config.voiceXpPerMin}/min (needs ≥2 humans, not self-deafened, not AFK channel)`,
         `**Curve:** rank N costs round(${config.baseXp.toLocaleString('en-US')} · N^${config.exponent}) — tune with \`${ctx.prefix}xp base\` / \`${ctx.prefix}xp exponent\``,
@@ -50,6 +50,56 @@ export default {
       ];
     },
     subcommands: [
+      {
+        // S106: was `!xp ladder`. Public inside an admin group — the explicit
+        // `permission: null` is what drops the group's Manage Server gate, and
+        // the overview filters per viewer so a member sees only this line.
+        name: 'ladder',
+        aliases: ['ranks', 'thresholds'],
+        description: 'The XP list: which XP total earns which rank.',
+        permission: null,
+        args: [],
+        async run(ctx) {
+
+          const ladder = ladderForGuild(ctx.guild);
+          if (ladder.ranks.length === 0) {
+            await ctx.reply(
+              '🚫 No rank ladder detected. An admin can point me at the header role with `!ranks setup header:@[LEVELER]`, then try again.',
+            );
+            return;
+          }
+
+          const config = getXpConfig(ctx.guild.id);
+          const rows = ladderTable(ladder, config);
+          const myXp = getUserXp(ctx.guild.id, ctx.user.id);
+          const fmt = (n) => n.toLocaleString('en-US');
+
+          // Mark the tier the invoker's XP has EARNED (which promote-only sync
+          // grants; a hand-given higher rank simply sits above this marker).
+          let myTier = -1;
+          rows.forEach((row, index) => {
+            if (myXp >= row.fromXp) myTier = index;
+          });
+          const marker = (tier) => (myTier === tier ? ` ⬅️ you (${fmt(myXp)} XP)` : '');
+
+          const lines = [
+            `**${'0'.padStart(1)} XP** — _no rank yet_${marker(-1)}`,
+            ...rows.map((row, index) => `**${fmt(row.fromXp)} XP** — <@&${row.roleId}>${marker(index)}`),
+          ];
+          const pinNote = isPinnedLadder(ctx.guild.id, ladder)
+            ? ''
+            : '\n\n⚠️ Ladder not pinned — auto-promotions stay idle until an admin runs `!ranks setup`.';
+
+          const embed = new EmbedBuilder()
+            .setColor(0xd4a24e)
+            .setTitle('📈 XP Ladder — what earns what')
+            .setDescription(`${lines.join('\n')}${pinNote}`.slice(0, 4_000))
+            .setFooter({
+              text: `XP: ${config.messageXp}/message (max 1 per ${Math.round(config.messageCooldownMs / 1000)} s) + ${config.voiceXpPerMin}/voice minute. Ranks are promote-only.`,
+            });
+          await ctx.reply({ embeds: [embed], allowedMentions: { parse: [] } });
+        },
+      },
       {
         name: 'on',
         description: 'Turn the XP system on.',

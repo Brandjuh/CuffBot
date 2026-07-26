@@ -24,7 +24,7 @@ export const CHANNELLIST_CONFIG_KEY = 'channellistConfig';
 
 // No default list channel: the owner has not named one (unlike the log
 // channels), so the list stays unposted until an admin runs
-// `!channel-list post #…`.
+// `!channellist post #…`.
 export const DEFAULT_CHANNELLIST_CONFIG = {
   channelId: null,
   messageIds: [],

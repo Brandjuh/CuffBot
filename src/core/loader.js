@@ -29,6 +29,11 @@ export function validateGroup(mod, group) {
   if (group.fallback && !group.subcommands.some((s) => s?.name === group.fallback)) {
     throw new Error(`Group "${group.name}" names fallback "${group.fallback}" but has no such subcommand.`);
   }
+  // S106: `invokeWithoutSubcommand` is meaningless without something to invoke.
+  // Failing the boot beats a group that silently answers with a menu.
+  if (group.invokeWithoutSubcommand && !group.fallback) {
+    throw new Error(`Group "${group.name}" sets invokeWithoutSubcommand but names no fallback.`);
+  }
   const seen = new Set();
   for (const sub of group.subcommands) {
     if (!sub?.name || !sub.description || typeof sub.run !== 'function') {

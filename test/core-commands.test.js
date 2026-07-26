@@ -75,7 +75,7 @@ const HELP_MODULES = [
     name: 'core',
     description: 'core',
     commands: [
-      { command: { name: 'radio-check', description: 'ping', args: [] } },
+      { command: { name: 'radiocheck', description: 'ping', args: [] } },
       { command: { name: 'update', description: 'self-update', args: [] } },
     ],
   },
@@ -150,7 +150,7 @@ test('a category view lists that category’s commands, filtered per viewer', as
   assert.equal(await view(false, 'moderation'), null, 'a member has no moderation view at all');
 
   const memberInfo = await view(false, 'info');
-  assert.match(JSON.stringify(memberInfo.fields), /!radio-check/);
+  assert.match(JSON.stringify(memberInfo.fields), /!radiocheck/);
   assert.doesNotMatch(JSON.stringify(memberInfo.fields), /!update/, 'runtime-gated stays hidden');
 });
 

@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 37 modules, 76 commands. **CuffBot is text-only (S68): every command is a `!command`**, and **every** command is either a Red-style group (`!group sub <args>`) or a flat `!command` — the legacy path is gone as of S96 (M17 complete). Type `!help` for the full roster. Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 37 modules, 60 commands. **CuffBot is text-only (S68): every command is a `!command`**, and since S106 there are **no hyphenated command names** — a family is one command with subcommands (`!birthday set`, `!trivia scores`, `!patrol rule`), the way Red-DiscordBot does it. Every retired spelling still works as an alias, and **every** command is either a Red-style group (`!group sub <args>`) or a flat `!command` — the legacy path is gone as of S96 (M17 complete). Type `!help` for the full roster. Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 
@@ -10,24 +10,24 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 
 | Area | Commands | Manual |
 |---|---|---|
-| **Core** 📻 | `!radio-check`, `!help`, `!update`, `!restart` | [core](docs/modules/core.md) |
+| **Core** 📻 | `!radiocheck`, `!help`, `!update`, `!restart` | [core](docs/modules/core.md) |
 | **Rules** 📜 | `!rules` group — write the precinct's rules; the bot keeps one tidy post current by editing it in place | [rules](docs/modules/rules.md) |
 | **Mafia** 🕵️ | `!mafia start` — Classic mafia for 5+: one Boss, one medic, one detective, and a lot of arguing | [mafia](docs/modules/mafia.md) |
 | **Goals** 🎯 | `!goal` group — precinct targets with progress bars and milestone announcements, plus personal goals and a board | [goals](docs/modules/goals.md) |
 | **Transcribe** 🎙️ | `!transcribe` group — voice memos and live voice chat written down, in English | [transcribe](docs/modules/transcribe.md) |
 | **Kill Counter** 💀 | `!killcounter` group — go quiet after someone speaks and the last word scores; leaderboard included | [killcounter](docs/modules/killcounter.md) |
 | **Selfroles** 🎭 | `!selfroles` group (button list: press to get a role, press again to remove) | [selfroles](docs/modules/selfroles.md) |
-| **Hunting** 🦹 | `!hunting` group, `!hunt-stats`, `!hunt-board` — STOP POLICE crook hunt with the undercover officer | [hunting](docs/modules/hunting.md) |
+| **Hunting** 🦹 | `!hunting` group, `!hunting stats`, `!hunting board` — STOP POLICE crook hunt with the undercover officer | [hunting](docs/modules/hunting.md) |
 | **Enforcement** 🚨 | `!cite` (animated ticket), `!fine` (fun), `!detain`, `!release`, `!arrest` | [enforcement](docs/modules/enforcement.md) |
 | **Records** 📋 | `!rapsheet`, `!expunge` | [records](docs/modules/records.md) |
-| **Dispatch** 🗄️ | `!evidence-locker`, `!dispatch` | [dispatch](docs/modules/dispatch.md) |
-| **Academy** 🎖️ | `!promote`, `!demote`, `!ranks`, `!rank-setup`, `!rank-exclude` | [academy](docs/modules/academy.md) |
-| **Patrol** 👮 | `!patrol-wizard` (guided setup), `!patrol`, `!patrol-rule`, `!patrol-term` (automod) | [patrol](docs/modules/patrol.md) |
+| **Dispatch** 🗄️ | `!dispatch locker`, `!dispatch` | [dispatch](docs/modules/dispatch.md) |
+| **Academy** 🎖️ | `!promote`, `!demote`, `!ranks` (+ `setup`, `exclude`) | [academy](docs/modules/academy.md) |
+| **Patrol** 👮 | `!patrol` (+ `rule`, `term`, `wizard`) — automod | [patrol](docs/modules/patrol.md) |
 | **Public Affairs** 🍩 | `!badge`, `!wanted`, `!donut`, `!911` | [public-affairs](docs/modules/public-affairs.md) |
 | **Leveling** 🎖️ | `!level`, `!leaderboard`, `!xp` group — message + voice XP, auto-rank | [leveling](docs/modules/leveling.md) |
 | **Detective** 🕵️ | `!ask`, `!ai` group — talk to the bot (AI, or just @mention it) | [detective](docs/modules/detective.md) |
-| **Birthdays** 🎂 | `!birthday-set`, `!birthday-remove`, `!birthdays`, `!birthday` group | [birthdays](docs/modules/birthdays.md) |
-| **Trivia** ❓ | `!trivia`, `!trivia-scores`, `!trivia-sets` — buttoned quiz rounds | [trivia](docs/modules/trivia.md) |
+| **Birthdays** 🎂 | `!birthdays`, and the `!birthday` group (`set`, `remove`, + admin) | [birthdays](docs/modules/birthdays.md) |
+| **Trivia** ❓ | `!trivia` (+ `scores`, `sets`) — buttoned quiz rounds | [trivia](docs/modules/trivia.md) |
 | **Connect 4** 🔴 | `!connect4 @officer` or `!connect4 solo` — 7×6 button duels, against a member or the bot | [connect4](docs/modules/connect4.md) |
 | **Hangman** 🪢 | `!hangman play` — solo word-guessing against the gallows | [hangman](docs/modules/hangman.md) |
 | **Russian roulette** 🔫 | `!rr play` — last-officer-standing party game (mod opens the lobby) | [russianroulette](docs/modules/russianroulette.md) |
@@ -41,9 +41,9 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **City** 🌃 | `!crime bank` — pickpockets, muggings, 46 one-off jobs, bail, jailbreaks, a black market | [city](docs/modules/city.md) |
 | **Memorial** 🕯️ | `!memorial` group — fallen firefighters/officers tracker (RSS, role tags) | [memorial](docs/modules/memorial.md) |
 | **Starboard** ⭐ | `!starboard` group — ⭐-reactions repost highlights to the board | [starboard](docs/modules/starboard.md) |
-| **Chat starter** 💬 | `!chat-starter` group — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |
-| **Channel list** 🗂️ | `!channel-list` group — self-updating directory of all categories & channels | [channellist](docs/modules/channellist.md) |
-| **Economy** 💰 | `!donuts`, `!daily`, `!claims`, `!steal`, `!pot`, `!crack-pot` + the `!economy`/`!claims-config` groups — donut balances, rations, heists | [economy](docs/modules/economy.md) |
+| **Chat starter** 💬 | `!chatstarter` group — revive quiet channels with open questions | [chat-starter](docs/modules/chat-starter.md) |
+| **Channel list** 🗂️ | `!channellist` group — self-updating directory of all categories & channels | [channellist](docs/modules/channellist.md) |
+| **Economy** 💰 | `!donuts`, `!daily`, `!claims`, `!steal`, `!pot`, `!pot crack` + the `!economy`/`!claims` groups — donut balances, rations, heists | [economy](docs/modules/economy.md) |
 | **Logbook** 📔 | `!logbook` group — log everything: messages, members, moderation, voice, server, invites | [logbook](docs/modules/logbook.md) |
 | **Welcome** 👋 | `!welcome` group — greet every newcomer in the lobby | [welcome](docs/modules/welcome.md) |
 | **YouTube** 📺 | `!youtube` group — announce creators' new uploads in a channel | [youtube](docs/modules/youtube.md) |

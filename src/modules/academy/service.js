@@ -42,7 +42,7 @@ export function resolveLadder(source) {
 }
 
 /**
- * True when this ladder came from the admin-pinned header role (`!rank-setup`),
+ * True when this ladder came from the admin-pinned header role (`!ranks setup`),
  * not the name heuristic. Human-driven commands (/promote, /ranks) may work
  * from a heuristic ladder — a human sees what they are doing — but AUTOMATED
  * actors (leveling's rank sync and XP seeding) must require the pin: a decoy
@@ -86,7 +86,7 @@ export async function applyRankChange(member, plan, actorName) {
 export function planErrorMessage(plan, target) {
   switch (plan.code) {
     case 'ladder-unconfigured':
-      return '🚫 No rank ladder detected. An admin can point me at the header role with `!rank-setup header:@[LEVELER]`, then `!ranks` to verify.';
+      return '🚫 No rank ladder detected. An admin can point me at the header role with `!ranks setup header:@[LEVELER]`, then `!ranks` to verify.';
     case 'already-top':
       return `🚫 ${target} is already **${plan.current}** — the top of the ladder.`;
     case 'already-bottom':
