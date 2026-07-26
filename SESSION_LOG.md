@@ -1972,3 +1972,25 @@ Tests **999 → 1003** (4 in `test/transcribe-voice.test.js`).
 **Retrospective (skill 0.5.35, new rule 0.5.35):** the false green is a fresh instance of 0.5.34 (*verify the verification*), but the general shape is new enough to record on its own: **a check that derives its expected value from the thing under test cannot fail.** Reading keys back off the object, re-deriving an expectation from the same function, round-tripping a value through its own serializer — all of these look like verification and are tautologies. The fix is always the same: **restate the truth independently**, from the owner's message, from a fixture, from a literal typed out a second time. Recorded in `LEARNINGS.md` and promoted straight into `references/architecture.md` § Verification habits, beside 0.5.34 — the previous three instances were all *wrong* checks, and a *circular* one is different enough to name. The Discord-specific corollary rides along: a snowflake is a string, always.
 
 **Handoff:** M24.3 (mafia anomalies/achievements) remains the only unscheduled item. The pairings cannot be proven from this environment — `docs/modules/transcribe.md` § Testing step 8 tells the owner exactly what to look at, and names the tell: a `<#id>` mention that renders as a raw number instead of a channel name is the rounding bug come back.
+
+## Session 112 — 2026-07-26
+
+**Goal:** with the owner's queue empty, Step 3 says take the first unchecked item in `ROADMAP.md`. Reading it for that purpose is what exposed the problem: **the roadmap was six sessions out of date, and stale in the direction that causes rework.**
+
+**Done:** reconciled `ROADMAP.md` against reality. No code changed.
+
+**Four milestones were unchecked while their own sub-slices were all ticked:** **M16.14** (mafia in the games section — superseded by M24 after the S104 survey, and built there), **M17.3** (done in S96; its own acceptance line already read *"✅ Done in S96"* directly under an empty box), **M24.1** (S105) and **M24.2** (S108). The M24 heading still said *"not yet scheduled"* four sessions after the owner scheduled it in his own words.
+
+**That is the roadmap's failure mode pointed the wrong way.** The skill instructs a session with no resume point to take the first unchecked item — so the next session would have read *"M24.1 — Classic, 5+ players, ≈2 sessions"*, found it unchecked, and started rebuilding a module that has been sitting in `src/modules/mafia/` since S105. A roadmap that under-reports progress does not merely look untidy; it actively schedules duplicate work.
+
+**Five sessions of owner-requested work had no roadmap entry at all** — S106 (de-hyphenation), S107 (the full-repo audit), S109 (the help panel), S110 (auto-join), S111 (the pairings). Building them straight from chat was right; leaving them out of the roadmap was not. `SESSION_LOG.md` is 2,000 lines of append-only history that nobody reads end to end, so work recorded only there is invisible to whoever is planning. They are now **§ M25**, all five ticked, each with the owner's own words.
+
+**The file now has exactly one unchecked box.** M24.3 (mafia anomalies/achievements) — and its entry now says outright that the gate is an owner decision about whether the precinct plays mafia enough to want a long tail, not a session nobody got to. An unchecked box that means *"waiting on the owner"* must say so in the box, or the next session reads it as a queue and starts building.
+
+Separately verified that `README.md`'s "37 modules, 60 commands" still matches what the loader actually produces (37 / 60) — that one was accurate.
+
+**Corrections (Step 2/6):** the whole session is one. Claimed: four milestones outstanding. True: all four built, across S96–S108.
+
+**Retrospective (skill 0.5.36, new rule):** the iron rule *"`STATE.md` and `SESSION_LOG.md` are claims, not truth"* named two files and quietly excluded the third. `ROADMAP.md` is written by the same sessions, under the same conditions, and drifts the same way — but nothing told anyone to verify it, so nobody did, for six sessions. Two shapes of drift are worth naming because they fail differently: **an unchecked box that is actually done schedules duplicate work**, and **a checked box that is not done hides a gap**. The first is what happened here, and it is the more expensive one, because the session that acts on it does not discover the mistake until it has already started building. Added the specific habit that would have caught it in seconds: **when a parent box is unchecked and every child is ticked, the parent is stale** — a milestone cannot be incomplete when all of its slices are complete. Recorded in `LEARNINGS.md` and in `SKILL.md` Step 2, since it is a gap in the verification step itself.
+
+**Handoff:** the queue is genuinely empty. Every owner request through 2026-07-26 is built, documented and merged; the only open roadmap item is M24.3 and it is waiting on the owner, not on a session. What is outstanding is all owner-side and listed in STATE under *Owner actions pending* — the big one being the first Pi update that installs dependencies (`npm run doctor` → **Voice stack**).

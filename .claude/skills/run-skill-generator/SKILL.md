@@ -41,6 +41,7 @@ Run the **Verification block** at the top of `STATE.md` — it lists exact comma
 - `git log --oneline -5` and `git status` — does history match what `SESSION_LOG.md` claims?
 - Spot-check that files `STATE.md` says exist actually exist and contain what it claims.
 - If tests exist, run them (`npm test`) before writing new code.
+- **`ROADMAP.md` is a claim too** — it is written by the same sessions and drifts the same way, but Step 3 reads it as a work queue, so its errors cost a whole session. An **unchecked box that is actually done schedules duplicate work**; a checked box that is not done hides a gap. Fastest tell: **a parent box unchecked while all its children are ticked is stale** — a milestone cannot be incomplete when every slice of it is complete. And when a box is unchecked because it is *waiting on the owner*, the box must say so, or the next session reads it as available work.
 
 When reality and state disagree, **reality wins**: correct `STATE.md`, record the correction in your session log entry (what was claimed vs. what was true), and only then continue. This is not overhead — it is the mechanism that keeps the relay trustworthy.
 
