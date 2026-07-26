@@ -28,7 +28,7 @@ CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in 
 | **Detective** 🕵️ | `!ask`, `!ai` group — talk to the bot (AI, or just @mention it) | [detective](docs/modules/detective.md) |
 | **Birthdays** 🎂 | `!birthdays`, and the `!birthday` group (`set`, `remove`, + admin) | [birthdays](docs/modules/birthdays.md) |
 | **Trivia** ❓ | `!trivia` (+ `scores`, `sets`) — buttoned quiz rounds | [trivia](docs/modules/trivia.md) |
-| **Connect 4** 🔴 | `!connect4 @officer` or `!connect4 solo` — 7×6 button duels, against a member or the bot | [connect4](docs/modules/connect4.md) |
+| **Minigames** 🔴 | `!connect4` — Connect 4 on a panel, against an officer or the bot; one message the bot edits as you play | [minigames](docs/modules/minigames.md) |
 | **Hangman** 🪢 | `!hangman play` — solo word-guessing against the gallows | [hangman](docs/modules/hangman.md) |
 | **Russian roulette** 🔫 | `!rr play` — last-officer-standing party game (mod opens the lobby) | [russianroulette](docs/modules/russianroulette.md) |
 | **Split or Steal** 🤝 | `!sos play` — two random contestants, one secret trust dilemma | [splitorsteal](docs/modules/splitorsteal.md) |
