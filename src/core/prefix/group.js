@@ -18,6 +18,7 @@
 //
 // ctx = { message, client, guild, channel, member, user, prefix,
 //         reply(payload) }  — reply() is the S54 no-ping in-channel reply.
+import { argToken } from './parse.js';
 import { EmbedBuilder } from 'discord.js';
 import { logger } from '../logger.js';
 import { buildCtx } from './context.js';
@@ -36,10 +37,9 @@ export const gateFor = (group, sub) =>
 
 /** `!group sub <a> [b…]` usage string for one subcommand. */
 export function subUsage(prefix, groupName, sub) {
-  const parts = (sub.args ?? []).map((a) => {
-    const label = a.greedy ? `${a.name}…` : a.name;
-    return a.required ? `<${label}>` : `[${label}]`;
-  });
+  // S117: `argToken` spells out choices and booleans, so a usage line reads
+  // `!transcribe auto <voice|files> <true|false>` instead of `<kind> <state>`.
+  const parts = (sub.args ?? []).map(argToken);
   return `${prefix}${groupName} ${sub.name}${parts.length ? ` ${parts.join(' ')}` : ''}`;
 }
 

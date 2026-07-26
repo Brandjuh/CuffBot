@@ -10,6 +10,7 @@ import {
   getVoiceConnection,
   joinVoiceChannel,
 } from '@discordjs/voice';
+import { speakerEligibility } from '../lib/transcribe.js';
 import { logger } from '../../../core/logger.js';
 import { encodeOggOpus } from '../lib/ogg.js';
 import {
@@ -119,6 +120,14 @@ export function resetVoiceSessions() {
 async function captureSpeaker(guild, userId) {
   const session = sessions.get(guild.id);
   if (!session) return;
+
+  // S117: a music bot is a perfectly ordinary speaker to the receiver, so its
+  // stream used to be captured, uploaded to Whisper and written into the
+  // channel as garbled lyrics — on the precinct's daily budget. Skipped before
+  // a subscription exists, so it costs nothing at all.
+  const member = guild.members.cache.get(userId);
+  const verdict = speakerEligibility({ id: userId, bot: member?.user?.bot ?? false }, getTranscribeConfig(guild.id));
+  if (!verdict.listen) return;
   // One subscription per speaker at a time; `speaking.start` fires again for
   // every burst, and a second stream would duplicate every word.
   if (session.speakers.has(userId)) return;

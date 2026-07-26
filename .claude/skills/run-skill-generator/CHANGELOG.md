@@ -2,6 +2,12 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.41 — 2026-07-26 (Session 118)
+
+- `references/architecture.md` (Verification habits): **a silent refusal path needs a way to ask it why.** Staying quiet in the channel is usually right for a background feature; being unable to say afterwards which branch fired is not. Expose the decision — and the fix for it — in the module's bare status line.
+- Evidence: the owner reported *"de bot joint niet automatisch de VC"*. Driving the real handler showed every condition passing, so the code could not be blamed and could not be cleared either: auto-join has six silent `return`s (off, disabled, out of scope, no key, no Connect, no Send Messages) and nothing distinguished "not deployed" from "no permission" from "no key" — for the owner or for me. The fix was a status line, not a code change. Same shape as 0.5.37 (*owner-action items are checks, not instructions*) pointed at code instead of docs: both concern state that only exists outside the repo, and both are answered by making the bot report it.
+- Also recorded: **"cannot reproduce" is a finding, not a dead end.** The pull is to change something so the session has a fix to show; the useful output was making the absence of evidence impossible next time.
+
 ## 0.5.40 — 2026-07-26 (Session 117)
 
 - `references/architecture.md` (Verification habits): **a sweep only inspects what it is changing — whatever already looks like the target shape is invisible to it.** After a sweep, enumerate every member of the target *category* and check it, not just the items the sweep edited. Turn that enumeration into a test so the category stays checked.

@@ -28,6 +28,8 @@ Transcribing a memo on request is public; every knob, and everything to do with 
 | `!transcribe leave` | Leave the voice channel and stop | none | Manage Server | `!transcribe leave` |
 | `!transcribe pair` | Say which text channel goes with a voice channel — omit the text channel to unpair | `<voice> [text]` | Manage Server | `!transcribe pair 🔊General #general` |
 | `!transcribe pairs` | List every pairing in force | none | Everyone | `!transcribe pairs` |
+| `!transcribe ignore` | Never transcribe this member (toggle) | `<member>` | Manage Server | `!transcribe ignore @Soundboard` |
+| `!transcribe bots` | Transcribe other bots too — **off by default, which is what ignores music** | `<true\|false>` | Manage Server | `!transcribe bots false` |
 | `!transcribe timestamps` | Stamp each live line with `HH:MM` | `<true\|false>` | Manage Server | `!transcribe timestamps false` |
 | `!transcribe on` / `off` | Start / stop transcribing memos automatically | none | Manage Server | `!transcribe off` |
 | `!transcribe auto` | Which attachments are transcribed uninvited | `<voice\|files> <true\|false>` | Manage Server | `!transcribe auto files true` |
@@ -54,6 +56,16 @@ An ambiguous near-miss (two candidates, neither exact) is **refused**, not guess
 **It announces itself, every time.** The bot let itself in, so the "🔴 Recording" line matters more here than for a manual `!transcribe join`, and it names both switches that stop it.
 
 It stays out entirely when: auto-join is off, the desk is off, the channel is outside `voiceChannelIds`, there is no `GROQ_API_KEY`, or it lacks **Connect** on the voice channel or **Send Messages** in the text one. All of that is checked *before* joining, so it never appears in a channel it cannot actually work in.
+
+### Ignoring music (S117)
+
+Owner: *"Is er ook een manier om muziek te negeren?"* Yes — and until S117 the case that matters was broken.
+
+**A music bot is an ordinary speaker to the voice receiver.** Discord hands the bot one audio stream per speaking user id, and nothing distinguished a person from a jukebox: the music was captured, muxed to Ogg, uploaded to Whisper and written into the channel as garbled lyrics — spending the daily budget on it.
+
+`ignoreBots` is now **on by default**, and the check happens *before* a subscription exists, so a skipped speaker costs nothing at all. `!transcribe bots true` turns it off if you ever want the opposite. `!transcribe ignore @member` does the same for one person (a soundboard account, or somebody who asked not to be recorded).
+
+**What this does not cover:** music playing through a *human's* microphone. That is indistinguishable from speech at the stream level. Whisper's silence-hallucination filter catches some of it; the rest would need audio analysis the bot deliberately does not do.
 
 ### Declared pairings (S111)
 
@@ -127,6 +139,8 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 | `autoJoin` | `true` | Join a voice channel unprompted. **On by default** — the owner asked for exactly this. |
 | `voiceChannelIds` | `[]` | **Empty = every voice channel.** A non-empty list restricts auto-join. |
 | `autoJoinMinimum` | `1` | How many humans must be in the channel first. |
+| `ignoreBots` | `true` | Skip other bots entirely. **This is the music switch** — a music bot is an ordinary speaker to the voice receiver. |
+| `ignoredUserIds` | `[]` | Members never transcribed. Ids as **strings**. |
 | `voicePairs` | `{}` | This server's own voice → text pairings, laid over the four committed defaults. Keys and values are channel ids **as strings**. |
 | `dailyLimit` | `100` | Transcriptions per UTC day, per guild. `0` = uncapped. **Live voice spends from the same budget** — one turn in a voice channel costs what one memo costs. |
 | `voiceTimestamps` | `true` | Prefix each live line with `HH:MM` (UTC). |
@@ -217,6 +231,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 
 | Session | Change |
 |---|---|
+| S117 | **Music is ignored**, **auto-join says why it is not firing**, and usage lines spell out their options. A music bot was being transcribed because the receiver saw it as an ordinary speaker (`ignoreBots`, on by default, checked before subscribing). The bare `!transcribe` status gained an **Auto-join** line naming which of five conditions is blocking it and the fix for each — every refusal in the handler is a silent `return`, which is right for a background feature and useless for diagnosing one. `!transcribe auto` now reads `<voice|files> <true|false>` instead of `<kind> <state>`, framework-wide. |
 | S111 | **Declared pairings** (owner gave four VC → text channel ids): a stated pairing beats the name matcher, because a fact must not lose to an inference. The four ship as code defaults (S35) so they work the moment the Pi updates; `!transcribe pair` overrides one per guild, `!transcribe pairs` lists what is in force, and a stale id falls through to the matcher instead of posting into a void. |
 | S110 | **Auto-join** (owner request): the bot follows anyone into a voice channel and transcribes into the text channel with the matching name, then leaves when the room empties. Name matching is pure and normalised (emoji, dividers, accents, Discord's own hyphenation), exact beats near, near only inside the same category, ambiguity is refused, and an unmatched channel falls back to the voice channel's own built-in chat. On by default with `!transcribe autojoin false` to stop it and `!transcribe voicechannel` to narrow it. |
 | S102 | Live voice chat (M21.2): `!transcribe join`/`leave` — the bot sits in a voice channel and writes the conversation into a text channel, per speaker, announcing the recording unprompted. **No audio decoder**: Opus packets are muxed straight into Ogg by a hand-written pure muxer, cross-checked against `mutagen`. First dependencies beyond discord.js (`@discordjs/voice`, `@noble/ciphers`), both compiler-free on a Pi; `npm run doctor` gained a Voice stack section. 16 more tests, still none touching a gateway. |
