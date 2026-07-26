@@ -103,3 +103,28 @@ Cloned fresh for this audit (all public, all clone through the git proxy):
 `Brandjuh/FireAndRescueAcademyCogs` · `CalaMariGold/CalaMari-Cogs` · `ltzmax/maxcogs` · `AAA3A-AAA3A/AAA3A-cogs` · `phenom4n4n/phen-cogs` · `Flame442/FlameCogs` · `Chovin/Dumb-Cogs` · `vertyco/vrt-cogs`
 
 Session workspaces are ephemeral — re-clone rather than expecting these to persist.
+
+---
+
+## Closed — Session 132
+
+The S117 correction above said this audit's method *"measures how a game is driven, not whether it works"*, and that a verdict claiming more than the measurement **closes a question that is still open**. The question is now closed, on evidence rather than on the component count.
+
+**What M26 fixed** (the two the count did identify, plus one the owner reported): city → S122/S124, heist → S126/S130, connect4 → replaced by `minigames` in S116/S125. The seventh defect S117 found — a bare `!game` printing a menu where the source's plain command starts a game — was fixed across **seven** modules and is now held by a loader test (`PLAYS_ON_THE_BARE_WORD`).
+
+**What S132 checked on the remaining ten**, each an objectively verifiable class rather than a reading:
+
+| Class checked | Method | Result |
+|---|---|---|
+| Numeric parameters | Every timeout, window, difficulty, attempt count and prize range diffed against the Python | **All match.** wordle 5/6 and 300 s, guessthecandy 5 and 180 s, russianroulette 5 s, rollout 30 s, splitorsteal 60 s, memory 5×5 |
+| Stats persistence | Which sources declare `register_guild(wins=, games=)`, and whether ours persist the same | **All match.** rollout, wordle and memory keep stats; russianroulette, splitorsteal and guessthecandy have none upstream and none here |
+| Leaderboards | Which sources expose one | **All match** — present exactly where upstream has one |
+| Bare-word invocation | The S117 class | Fixed in seven modules, **guarded by a test** |
+| Test coverage | Every loaded module referenced by at least one test file | **37/37** |
+
+**No divergence found.** Two things are worth saying about that rather than leaving it implied:
+
+1. **The ports were done carefully.** Several carry recorded deviations that only a real diff would produce — rollout's comment that *the cog's help text says 5000 while its code says 2500*, memory's note that the source's `lose()` increments `games` a second time when it was already counted at start, city's *"the cog's comment says 45%, its value says 40% — the value wins"*. Those are the fingerprints of someone having actually read the source, and they are why this sweep found nothing.
+2. **A clean sweep is a finding, not a non-event.** It is what lets the next session stop re-opening *"controleer alle spellen"* and spend the time on something the owner has actually asked for.
+
+**What is deliberately still open:** `mafia` remains ⚠️ *proportional* — 13 of 57 roles. That is scope, not divergence, and its gate is M24.3's owner decision, not a session.

@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.52 — 2026-07-27 (Session 132)
+
+- `references/self-improvement.md` + `references/architecture.md`: **a clean sweep is a finding — record it, or it gets re-run** — and its harder half, **do not ship a guard you do not trust just to have a commit.**
+- Evidence: S115 audited the games with a component count; S117's correction said that method measures *how a game is driven, not whether it works*, leaving the correctness question open for ten modules across seventeen sessions. S132 closed it on five objectively checkable classes (numeric parameters, stats persistence, leaderboard parity, bare-word invocation, per-module test coverage) and found **no divergence** — which is only useful because it is now written down where the next session will look. Two restraints are the substance: a first attempt at a leaderboard↔stats guard misread `MEMORY_STATS_KEY` (the regex took the first `_KEY` export, a config key), and a brittle static test built on that would have produced false failures and been deleted — **a fragile test is worse than none, and shipping one to have something to commit is scaffolding-as-product in test form.** And M24.3 was left alone: *"go autonomously"* is a mandate to stop asking permission, not to invent content whose own gate is a question about the server that cannot be observed from the container. **When the honest deliverable is "I checked, nothing is wrong, here is the evidence", that is the deliverable.**
+
 ## 0.5.51 — 2026-07-27 (Session 131)
 
 - `references/architecture.md` (Verification habits): extends 0.5.46 with its sharpest case — **when a hand-copied list rots for the third time, delete the copy instead of correcting it.**

@@ -2592,3 +2592,35 @@ That is the same move three earlier sessions arrived at from different direction
 Tests **1327 → 1333**.
 
 **Handoff:** the roadmap is empty except **M24.3**, which needs the owner to say whether the precinct plays mafia enough to want a long tail — **ask, do not invent**. Standing items unchanged: `!minigames betvsbot` is the lever if donuts inflate, and the updater is self-maintaining and verified (S129).
+
+---
+
+## Session 132 — 2026-07-27
+
+**Goal:** owner said *"ga autonoom verder"* a second time, after I had flagged that M24.3 needs his input. So: find work that is real rather than invented.
+
+**What I did:** closed the oldest genuinely open question in the repo. S115 audited the games with a component count; **S117's own correction said that method "measures how a game is driven, not whether it works"** and that a verdict claiming more *"closes a question that is still open"*. M26 fixed the three the count identified. The correctness question stayed open for the other ten for seventeen sessions.
+
+Five objectively checkable classes, chosen because each is verifiable rather than a matter of my reading:
+
+| Class | Method | Result |
+|---|---|---|
+| Numeric parameters | Every timeout/window/difficulty/attempt/prize diffed against the Python | all match |
+| Stats persistence | Which sources declare `register_guild(wins=, games=)` vs which of ours persist | all match |
+| Leaderboards | Present exactly where upstream has one | all match |
+| Bare-word invocation | The S117 class | fixed in 7 modules, held by a loader test |
+| Test coverage | Every loaded module referenced by ≥1 test | 37/37 |
+
+**No divergence found.** The reason is visible in the code: the ports carry deviations only a real diff produces — rollout's *"the cog's help text says 5000 while its code says 2500"*, memory's *"the source's `lose()` increments `games` a second time when it was already counted at start"*, city's *"the comment says 45%, the value says 40% — the value wins"*.
+
+**Two things I deliberately did not do**, and they are the substance of this entry:
+
+**I did not build a guard for the sake of committing one.** My first probe cross-checked every leaderboard against a persisted stats key and reported `memoryConfig` where the module plainly exports `MEMORY_STATS_KEY = 'memoryStats'` — my regex grabbed the first `_KEY` export, not the stats one. A static test built on that would have been brittle, produced false failures, and been deleted by a later session. **A fragile test is worse than no test**, and shipping one to have a commit is the scaffolding-as-product mistake in test form.
+
+**I did not start M24.3.** Its gate is *"is the precinct playing mafia often enough to want a long tail"* — a question about the server, which I cannot observe from here, and whose answer decides whether the work is worth anything at all. "Go autonomously" is a mandate to stop asking permission, not a mandate to invent content the owner never specified.
+
+**A clean sweep is a finding, not a non-event**, and recording it is the whole value: `docs/porting/S115-game-interaction-audit.md` now has a *Closed — Session 132* section with the evidence, and `STATE.md` says not to re-open *"check all the games"* without new evidence — an owner report of specific misbehaviour counts, a general worry does not.
+
+Tests **1333/1333**, unchanged: nothing in this session changed behaviour, which is exactly what it set out to establish.
+
+**Handoff:** the roadmap holds one item, **M24.3**, and it needs the owner to say whether mafia is played enough to warrant a long tail. There is no other scheduled work and no defect under evidence. A session arriving here with no new owner input should say so rather than manufacture a milestone — the honest report is the deliverable.
