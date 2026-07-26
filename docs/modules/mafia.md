@@ -2,14 +2,22 @@
 
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
-**Status:** stable (Classic mode)
-**Last updated:** Session 105 · 2026-07-26
+**Status:** stable (Classic · Crazy · Chaos)
+**Last updated:** Session 108 · 2026-07-26
 
 ## Purpose
 
 Classic mafia (M24.1), ported from AAA3A's `mafiagame` (MIT). Five or more officers sit down; exactly one of them is the Boss. The Boss picks someone off each night, the precinct argues each day and votes someone out, and it ends when one side can no longer lose.
 
-**This is Classic mode only.** The source cog has **57 roles**; this ships the four that Classic uses — verified in the cog's own `modes.py`, where Classic is literally `[GodFather, Detective, Doctor]` plus Villagers. The other 53 are M24.2+ and are deliberately absent: each interacts with every other, so adding them is a design problem rather than a copy-paste one.
+**Three modes, thirteen cards.** The source cog has **57 roles**; this ships the thirteen its Classic, Crazy and Chaos modes actually deal, with the per-player-count tables transcribed from the cog's own `modes.py`. The remaining 44 are a deliberate stopping point: each interacts with every other, so adding them is a design problem rather than a copy-paste one.
+
+| Mode | What is on the table |
+|---|---|
+| 🏛️ **Classic** | The Boss, the Medic, the Detective, and Officers. One mafia at any size. |
+| 🤪 **Crazy** | Classic plus the Vigilante, the Commissioner and the Executioner. |
+| 🌀 **Chaos** | Everything: the Tail, the Private Eye, the Distraction, and at 8+ an Enforcer or a Framer. |
+
+`!mafia start chaos` picks one; `!mafia modes` lists them; `!mafia roles chaos` prints only the cards that mode can deal.
 
 ## Commands
 
@@ -18,9 +26,10 @@ Playing is open to everyone; the timings and the stats wipe are **Manage Server*
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
 | `!mafia` | Status: whether a table is running here, and the phase lengths | none | Everyone | `!mafia` |
-| `!mafia start` | Open a table in this channel | none | Everyone | `!mafia start` |
+| `!mafia start` | Open a table in this channel | `[classic\|crazy\|chaos]` (default classic) | Everyone | `!mafia start chaos` |
 | `!mafia end` | Close the table (host or Manage Server) | none | Host / Manage Server | `!mafia end` |
-| `!mafia roles` | What each card does | none | Everyone | `!mafia roles` |
+| `!mafia roles` | What each card does, for one mode | `[classic\|crazy\|chaos]` | Everyone | `!mafia roles chaos` |
+| `!mafia modes` | The three tables you can sit at | none | Everyone | `!mafia modes` |
 | `!mafia stats` | Your record, broken down by role | `[member]` | Everyone | `!mafia stats @friend` |
 | `!mafia board` | The precinct's best liars | `[size]` (1–25) | Everyone | `!mafia board 5` |
 | `!mafia timings` | How long a phase lasts | `<phase> <seconds>` (15–1800) | Manage Server | `!mafia timings night 90` |
@@ -33,17 +42,39 @@ Aliases: the group answers to `!mafiagame`; `start` takes `play`/`new`, `end` ta
 | Card | Side | At night |
 |---|---|---|
 | 🔫 **The Boss** | Mafia | Pick someone to take out |
+| 🔪 **The Enforcer** | Mafia | Carries out the order — and **becomes the Boss** if the Boss dies |
+| 🖊️ **The Framer** | Mafia | Marks someone; tonight every investigation reads them as mafia |
 | 🩺 **The Medic** | Precinct | Protect someone — **never the same person two nights running** |
 | 🕵️ **The Detective** | Precinct | Investigate someone; learn whether they are mafia, nothing more |
+| 🔦 **The Vigilante** | Precinct | Shoot someone. **If they were innocent, you do not survive the guilt** |
+| 🎖️ **The Commissioner** | Precinct | Reveal yourself; from then on **your vote counts twice** |
+| 👁️ **The Tail** | Precinct | Follow someone; learn **who they visited**, never what they did |
+| 🔍 **The Private Eye** | Precinct | Pick **two** people; learn whether they are on the same side |
+| 💃 **The Distraction** | Precinct | Pick someone; **their night action does not happen** |
 | 👮 **Officer** | Precinct | Sleeps. Votes by day like everyone else |
+| ⚖️ **The Executioner** | Neutral | Marked one villager at the deal. **Wins when the town votes them out** |
+| 🃏 **The Jester** | Neutral | **Wins by being voted out.** Never dealt — only reached |
 
-Classic is a **one-mafia game at every table size**, 5 to 20. That is what makes it work at five players.
+**Neutrals win on their own terms and do not end the game.** A Jester who is lynched has won; the precinct and the mafia carry on without them. That is the cog's model, and it is why a game can have two winners.
+
+**The Executioner's mark is always a villager, never themselves** — marking a crook would make the card a second detective. If the mark dies any way other than a lynch, the Executioner has failed and **becomes a Jester**; their win changed shape rather than vanishing.
+
+Classic is a **one-mafia game at every table size**, 5 to 20; Chaos adds a second crook from 8 players. No mode ever deals a hand where the mafia already outnumbers the precinct — there is a test over every mode at every size asserting it.
 
 ## How a game runs
 
 1. `!mafia start` posts the lobby. **Join** / **Leave** / **Start** — only the host starts, and only at 5+.
 2. Everyone is DM'd their card. **The game opens on night 1**, not a day: a first day with zero information is a coin flip nobody enjoys.
-3. **Night.** Press **Act** and you get a *private* target picker. The shared card only ever says how many people are still to act. When everyone has acted the night ends immediately — a table never waits on a clock the room has already beaten.
+3. **Night.** Press **Act** and you get a *private* target picker. The shared card only ever says how many people are still to act. When everyone has acted the night ends immediately — a table never waits on a clock the room has already beaten. The Private Eye gets a second picker after their first choice; the Commissioner gets no picker at all, because the press itself is the answer.
+
+   **The order of a night is the whole feature, and it is the cog's:**
+   1. **Blocks** — the Distraction goes first, or nothing she stops happens.
+   2. **Frames** — the Framer marks before anyone reads anyone.
+   3. **Protection** — the medic covers before the shots land.
+   4. **Kills** — mafia first, then the Vigilante (who pays for an innocent, but not for a shot the medic blocked — that one never landed).
+   5. **Information** — detective, Private Eye and Tail read the state those four steps produced.
+
+   A blocked visitor never went anywhere, so the Tail sees an empty night for them.
 4. **Morning.** The victim is named **and their card is revealed**. If the medic guessed right the town is told *somebody* survived an attack, but never who — the medic's whole value is that the Boss cannot tell where the cover went.
 5. **The vote.** Press **Vote**, pick privately; the **tally is public**, because that pressure is what the day phase runs on. A **tie puts nobody on trial**.
 6. **The trial.** Guilty / Innocent. The accused does not vote, and **a tie acquits**.
@@ -62,7 +93,7 @@ The cog states objectives per role ("kill all villagers") rather than writing th
 
 **This is the S98 non-originator rule at its sharpest.** A mafia table is a public message whose every meaningful interaction is per-viewer and secret. So: the shared card is edited only to show **public** state (who joined, the tally, how many still owe an action), and everything a single player chooses is answered **privately** with `flags: 64`. Editing the shared card on a private press would leak the game outright.
 
-The two things that go by **DM** are the role reveal and the detective's result. The S54 no-DM rule is about `!command` *replies*; a game secret is not a command reply, and shouting it in the channel would end the game. If a DM fails, the channel gets a *pointer* — never the content.
+The things that go by **DM** are the role reveal, the detective's result, the Private Eye's comparison, the Tail's movement report, a "you were blocked" note, and an Executioner learning they are now a Jester. The S54 no-DM rule is about `!command` *replies*; a game secret is not a command reply, and shouting it in the channel would end the game. If a DM fails, the channel gets a *pointer* — never the content.
 
 ## Configuration
 
@@ -138,4 +169,5 @@ Stats live under `mafiaStats`: games, wins, and a per-role breakdown.
 
 | Session | Change |
 |---|---|
+| S108 | The second tier (M24.2): nine more cards — Enforcer, Framer, Vigilante, Commissioner, Tail, Private Eye, Distraction, Executioner and Jester — plus the **Crazy** and **Chaos** modes with the cog's per-player-count tables. Ordered night resolution (block → frame → protect → kill → read) with a visit log the Tail reads. Neutrals win personally without ending the game. **Bug found by the new suite: succession only ran at night, so a lynched Boss left an Enforcer who could never shoot** — it now follows any death. 58 tests. |
 | S105 | Created (M24.1, ported from AAA3A `mafiagame`, MIT). Classic mode only: the Boss, the Medic, the Detective and Officers, 5–20 players. Full night/day/vote/trial state machine, pure with injected `random` and `now`. Private per-player pickers via ephemeral components (S98), role reveal and investigation results by DM. Parity win rule stated explicitly. 35 tests, none waiting on a timer. |

@@ -1884,3 +1884,27 @@ One of those behaviour checks reported a false failure because my assertion trun
 **Retrospective (skill 0.5.33 → 0.5.34):** the rule is that **a check must be verified before its result is believed** — and it now has three instances behind it rather than a hunch. S100's fixtures asserted the wrong board, S106's regex extracted nothing and looked like a legitimate empty value, and S107 produced both a false red (a simulation that did not reproduce the real environment) and a false green-turned-red (a truncating assertion). The pattern across all three: **when a check disagrees with the code, suspect the check first if the code has independent evidence behind it** — and when a check *passes*, make sure it could have failed.
 
 **Handoff:** everything the owner asked for in this run is delivered — M24.1 (Classic mafia), the hyphen-free command surface, and this audit. The roadmap has nothing unchecked except M24.2/M24.3, which are unscheduled by design and need the owner's call on whether the precinct will play a 5-player game. Everything else outstanding is owner-side: the `GROQ_API_KEY` on the Pi, `!ranks setup` once, and watching the first update that installs dependencies.
+
+## Session 108 — 2026-07-26
+
+**Goal:** M24.2 — the second mafia role tier. The owner overruled the "is this worth building" question directly: *"voer het uit, ik vroeg er specifiek om, server heeft genoeg mensen."*
+
+**Done: 4 cards became 13, and one mode became three.**
+- **Mafia side:** the **Enforcer** (carries out the order, and **becomes the Boss** if the Boss dies) and the **Framer** (marks someone so every investigation reads them as mafia tonight).
+- **Precinct:** the **Vigilante** (shoots — and **dies of guilt for an innocent**), the **Commissioner** (reveals, then votes twice), the **Tail** (sees *who* their target visited, never what they did), the **Private Eye** (compares two people's sides) and the **Distraction** (cancels a night action outright).
+- **Neutral:** the **Executioner** (marked one villager at the deal, wins when the town votes them out) and the **Jester** (wins by being lynched). **Neither ends the game** — a Jester who is lynched has won and the precinct carries on without them. That is the cog's model and the reason `wonAs` lives alongside `winner` instead of being folded into it.
+- **Crazy** and **Chaos**, with the cog's per-player-count tables transcribed rather than invented — including its `may` coin flip, its `choices` picks and its five Chaos bands.
+
+**The night order is the whole feature**, and it is the cog's: blocks → frames → protection → kills → information. Each step exists because the one after it reads what it produced. Two consequences worth stating: a Vigilante whose shot the medic blocked feels **no guilt**, because the shot never landed; and a blocked visitor **never went anywhere**, so the Tail sees an empty night for them.
+
+**Corrections (Step 2/6): the new suite found a real bug in S105's code.** Succession lived inside `resolveNight`, so it only ran at night — **a lynched Boss left an Enforcer who could never shoot**. It is now `afterDeaths()`, called from both the night and the verdict, and `closeJudgement` returns the consequences so the channel can announce them. That is exactly the kind of gap that only appears once a second role interacts with the first, and it is the argument for writing the interaction tests rather than the unit tests.
+
+Two of my own slips, both mine and not the code's: I asserted parity on a seven-player board after killing four (which leaves three, not two), and my first `rolesEmbed` fix left it listing all thirteen cards under Classic, advertising nine that Classic never deals.
+
+**Two properties I added because a role table is easy to get subtly wrong:** over **every mode at every table size from 5 to 20**, the deal contains exactly one of each Classic core card and never a dealt Jester; and the mafia is **never at or above parity at the deal** — a hand that starts decided is not a game. Both loop the whole space rather than spot-checking, which is what caught the Chaos bands over-filling at the bottom of their range.
+
+Tests **962 → 985**.
+
+**Retrospective (skill 0.5.34 → no change):** no new rule. The lesson this session would have taught — write the tests that make two features touch, not just the ones that check each alone — is the S93 conversion rule and the S100 fixture rule already doing their job from a different angle, and the succession bug was caught by exactly the kind of property test `architecture.md` already asks for. Recorded here rather than inventing an entry.
+
+**Handoff:** M24.3 (anomalies, achievements) is the only mafia work left and stays unscheduled. The owner also reported missing a category help panel — `!help` has had category buttons since S98 and demonstrably still renders seven of them, so that is almost certainly a Pi that has not updated; a **persistent posted panel** is the other reading of "paneel" and is the next thing to build.

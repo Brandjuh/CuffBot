@@ -185,14 +185,22 @@ export async function advance(channel, { reason = 'complete', io = {} } = {}) {
       const verdict = closeJudgement(game);
       const nameOf = namerFor(channel.guild);
       const role = ROLES[game.players.find((p) => p.id === game.accusedId)?.roleId];
-      await channel
-        .send({
-          content: verdict.guilty
-            ? `⚖️ Guilty. ${nameOf(game.accusedId)} is taken away — they were **${role?.emoji ?? ''} ${role?.name ?? 'unknown'}**.`
-            : `⚖️ Not guilty. ${nameOf(game.accusedId)} walks free.`,
-          allowedMentions: { parse: [] },
-        })
-        .catch(() => null);
+      const lines = [
+        verdict.guilty
+          ? `⚖️ Guilty. ${nameOf(game.accusedId)} is taken away — they were **${role?.emoji ?? ''} ${role?.name ?? 'unknown'}**.`
+          : `⚖️ Not guilty. ${nameOf(game.accusedId)} walks free.`,
+      ];
+      // A neutral's win is public the moment it lands — a Jester nobody
+      // noticed winning is a joke with no punchline.
+      for (const win of verdict.personalWins ?? []) {
+        lines.push(
+          win.as === 'jester'
+            ? `🃏 ${nameOf(win.playerId)} was the **Jester**. That was the plan all along.`
+            : `⚖️ ${nameOf(win.playerId)} was the **Executioner**, and that was their mark. They have what they came for.`,
+        );
+      }
+      await channel.send({ content: lines.join('\n'), allowedMentions: { parse: [] } }).catch(() => null);
+      await deliverPrivate(channel, verdict.events ?? []);
       await enterPhase(channel, verdict.game, { io });
       return;
     }
@@ -209,16 +217,13 @@ export async function advance(channel, { reason = 'complete', io = {} } = {}) {
 async function deliverPrivate(channel, events) {
   const nameOf = namerFor(channel.guild);
   for (const event of events) {
-    if (event.type !== 'investigation') continue;
+    const text = privateTextFor(event, nameOf);
+    if (!text) continue;
     const member = await channel.guild.members.fetch(event.to).catch(() => null);
     if (!member) continue;
-    // eslint-disable-next-line no-await-in-loop -- at most one per night
+    // eslint-disable-next-line no-await-in-loop -- a handful per night at most
     await member
-      .send(
-        event.mafia
-          ? `🕵️ Your investigation: **${nameOf(event.targetId)} is with the mafia.**`
-          : `🕵️ Your investigation: **${nameOf(event.targetId)} is clean.**`,
-      )
+      .send(text)
       .catch(() =>
         channel
           .send({
@@ -227,6 +232,33 @@ async function deliverPrivate(channel, events) {
           })
           .catch(() => null),
       );
+  }
+}
+
+/**
+ * The line one player gets in DM, or null if the event is not theirs. Every
+ * one of these would end the game if it were said in the channel.
+ */
+function privateTextFor(event, nameOf) {
+  switch (event.type) {
+    case 'investigation':
+      return event.mafia
+        ? `🕵️ Your investigation: **${nameOf(event.targetId)} is with the mafia.**`
+        : `🕵️ Your investigation: **${nameOf(event.targetId)} is clean.**`;
+    case 'comparison':
+      return event.same
+        ? `🔍 **${nameOf(event.targetIds[0])}** and **${nameOf(event.targetIds[1])}** are on the **same side**.`
+        : `🔍 **${nameOf(event.targetIds[0])}** and **${nameOf(event.targetIds[1])}** are on **different sides**.`;
+    case 'tail':
+      return event.visited.length === 0
+        ? `👁️ **${nameOf(event.targetId)}** did not leave the house last night.`
+        : `👁️ **${nameOf(event.targetId)}** visited ${event.visited.map((id) => `**${nameOf(id)}**`).join(' and ')}.`;
+    case 'was-blocked':
+      return '💃 Someone kept you talking all night. Whatever you meant to do, you did not do it.';
+    case 'executioner-failed':
+      return `🃏 Your mark, **${nameOf(event.targetId)}**, died without a trial. You have failed — you are the **Jester** now. Get yourself voted out.`;
+    default:
+      return null;
   }
 }
 

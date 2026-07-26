@@ -2,7 +2,7 @@
 // timings and the stats wipe are Manage Server.
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { createGame } from '../lib/game.js';
-import { MIN_PLAYERS, ROLES } from '../lib/roles.js';
+import { DEFAULT_MODE, MIN_PLAYERS, MODES, ROLES } from '../lib/roles.js';
 import { rolesEmbed } from '../lib/render.js';
 import { DEFAULT_MAFIA_CONFIG, humanizeMs } from '../lib/config.js';
 import { clearTable, gameIn, getMafiaConfig, getStats, resetStats, setMafiaConfig, setTable } from '../service.js';
@@ -23,8 +23,9 @@ export default {
       const game = gameIn(ctx.channel.id);
       const config = getMafiaConfig(ctx.guild.id);
       return [
-        `**Table here:** ${game ? `🔴 in progress — ${game.phase}` : 'none'}`,
+        `**Table here:** ${game ? `🔴 in progress — ${game.phase} (${MODES[game.mode]?.name ?? game.mode})` : 'none'}`,
         `**Players needed:** ${MIN_PLAYERS}`,
+        `**Modes:** ${Object.values(MODES).map((m) => `${m.emoji} ${m.name}`).join(' · ')}`,
         `**Phases:** night ${humanizeMs(config.nightMs)} · day ${humanizeMs(config.dayMs)} · vote ${humanizeMs(config.votingMs)} · trial ${humanizeMs(config.judgementMs)}`,
         '',
         `\`${ctx.prefix}mafia start\` opens a table · \`${ctx.prefix}mafia roles\` explains the cards.`,
@@ -35,13 +36,13 @@ export default {
         name: 'start',
         aliases: ['play', 'new'],
         description: 'Open a table in this channel.',
-        args: [],
-        async run(ctx) {
+        args: [{ name: 'mode', type: 'string', choices: Object.keys(MODES) }], // default: classic
+        async run(ctx, { mode = DEFAULT_MODE }) {
           if (gameIn(ctx.channel.id)) {
             await ctx.reply(`🕵️ There is already a table here. \`${ctx.prefix}mafia end\` closes it.`);
             return;
           }
-          const game = { ...createGame(ctx.user.id), id: nextGameId() };
+          const game = { ...createGame(ctx.user.id, { mode }), id: nextGameId() };
           setTable(ctx.channel.id, { game, messageId: null, timer: null });
           await enterPhase(ctx.channel, game);
         },
@@ -72,10 +73,10 @@ export default {
       {
         name: 'roles',
         aliases: ['cards'],
-        description: 'What each card does.',
-        args: [],
-        async run(ctx) {
-          await ctx.reply({ embeds: [new EmbedBuilder(rolesEmbed())] });
+        description: 'What each card does, for one mode.',
+        args: [{ name: 'mode', type: 'string', choices: Object.keys(MODES) }], // default: classic
+        async run(ctx, { mode = DEFAULT_MODE }) {
+          await ctx.reply({ embeds: [new EmbedBuilder(rolesEmbed(mode))] });
         },
       },
       {
@@ -129,6 +130,25 @@ export default {
                   .join('\n'),
           );
           await ctx.reply({ embeds: [embed], allowedMentions: { parse: [] } });
+        },
+      },
+      {
+        name: 'modes',
+        description: 'The three tables you can sit at.',
+        args: [],
+        async run(ctx) {
+          await ctx.reply({
+            embeds: [
+              new EmbedBuilder()
+                .setColor(0x2f6f9f)
+                .setTitle('🕵️ Mafia — modes')
+                .setDescription(
+                  Object.values(MODES)
+                    .map((m) => `${m.emoji} **${m.name}** — ${m.description}`)
+                    .join('\n\n') + `\n\n\`${ctx.prefix}mafia start chaos\` picks one · \`${ctx.prefix}mafia roles chaos\` lists its cards.`,
+                ),
+            ],
+          });
         },
       },
       {

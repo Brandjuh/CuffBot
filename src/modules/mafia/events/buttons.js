@@ -17,6 +17,7 @@ import {
   playerOf,
   startGame,
   submitNightAction,
+  targetCountFor,
 } from '../lib/game.js';
 import { MIN_PLAYERS } from '../lib/roles.js';
 import { ROLES } from '../lib/roles.js';
@@ -37,11 +38,11 @@ const quiet = (interaction, content) =>
   interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
 
 /** A private target picker, keyed to the presser so nobody else can use it. */
-function pickerFor(interaction, game, kind, ids, guild) {
+function pickerFor(interaction, game, kind, ids, guild, carry) {
   const nameOf = namerFor(guild);
   return new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(buttonId(kind, game.id, interaction.user.id))
+      .setCustomId(buttonId(kind, game.id, carry ? `${interaction.user.id}|${carry}` : interaction.user.id))
       .setPlaceholder('Choose someone…')
       .addOptions(
         ids.slice(0, 25).map((id) => ({ label: nameOf(id).slice(0, 100), value: id })),
@@ -129,6 +130,20 @@ export default {
             await quiet(interaction, prompt.text);
             return;
           }
+          // The Commissioner's reveal has no target — it is a yes, so the
+          // press itself IS the answer.
+          if (prompt.role.night === 'reveal') {
+            const revealed = submitNightAction(game, interaction.user.id, null);
+            if (!revealed.ok) {
+              await quiet(interaction, refusalFor(revealed.reason));
+              return;
+            }
+            setTable(channel.id, { game: revealed.game });
+            await quiet(interaction, '🎖️ You will reveal at dawn. Your vote counts twice from then on.');
+            await render(channel, revealed.game, { remainingMs });
+            if (nightComplete(revealed.game)) await advance(channel);
+            return;
+          }
           const targets = targetsFor(game, interaction.user.id);
           if (targets.length === 0) {
             await quiet(interaction, 'There is nobody you can choose tonight.');
@@ -148,6 +163,25 @@ export default {
             await quiet(interaction, 'That prompt is not yours.');
             return;
           }
+          const actor = playerOf(game, interaction.user.id);
+          // The Private Eye compares TWO people, so the first pick opens a
+          // second picker rather than submitting.
+          if (targetCountFor(actor?.roleId) === 2) {
+            const first = interaction.values[0];
+            const rest = targetsFor(game, interaction.user.id, [first]);
+            if (rest.length === 0) {
+              await interaction.update({ content: 'There is nobody left to compare them with.', components: [] }).catch(() => {});
+              return;
+            }
+            const nameOfFirst = namerFor(channel.guild)(first);
+            await interaction
+              .update({
+                content: `🔍 First: **${nameOfFirst}**. Now pick who to compare them with.`,
+                components: [pickerFor(interaction, game, 'second', rest, channel.guild, first)],
+              })
+              .catch(() => {});
+            return;
+          }
           const submitted = submitNightAction(game, interaction.user.id, interaction.values[0]);
           if (!submitted.ok) {
             await quiet(interaction, refusalFor(submitted.reason));
@@ -159,6 +193,33 @@ export default {
             .update({ content: `✅ Noted: **${nameOf(interaction.values[0])}**.`, components: [] })
             .catch(() => {});
           // The shared card only ever learns HOW MANY are still to act.
+          await render(channel, submitted.game, { remainingMs });
+          if (nightComplete(submitted.game)) await advance(channel);
+          return;
+        }
+
+        case 'second': {
+          // `extra` is `<presserId>|<firstPick>` — keyed to them AND carrying
+          // the first choice, so nothing about a half-made decision is stored
+          // on the shared table.
+          const [ownerId, first] = String(parsed.extra ?? '').split('|');
+          if (ownerId !== interaction.user.id) {
+            await quiet(interaction, 'That prompt is not yours.');
+            return;
+          }
+          const submitted = submitNightAction(game, interaction.user.id, [first, interaction.values[0]]);
+          if (!submitted.ok) {
+            await quiet(interaction, refusalFor(submitted.reason));
+            return;
+          }
+          setTable(channel.id, { game: submitted.game });
+          const nameOf = namerFor(channel.guild);
+          await interaction
+            .update({
+              content: `✅ Comparing **${nameOf(first)}** and **${nameOf(interaction.values[0])}**.`,
+              components: [],
+            })
+            .catch(() => {});
           await render(channel, submitted.game, { remainingMs });
           if (nightComplete(submitted.game)) await advance(channel);
           return;
@@ -253,6 +314,9 @@ async function tellRoles(channel, game) {
 }
 
 const REFUSALS = {
+  'already-revealed': 'You have already revealed yourself.',
+  'wrong-target-count': 'That is not the right number of people.',
+  'same-target-twice': 'Pick two different people.',
   'not-night': 'The night is over.',
   'not-voting': 'Voting is not open.',
   'not-judgement': 'There is no trial right now.',

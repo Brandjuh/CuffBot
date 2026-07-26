@@ -8,12 +8,14 @@ import {
   CLASSIC_CORE,
   MAX_PLAYERS,
   MIN_PLAYERS,
+  MODES,
   ROLES,
   SIDES,
   dealRoles,
   isMafia,
   roleOf,
   shuffle,
+  sideOf,
 } from '../src/modules/mafia/lib/roles.js';
 import { PermissionFlagsBits } from 'discord.js';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -22,6 +24,7 @@ import { tmpdir } from 'node:os';
 import {
   PHASES,
   aliveMafia,
+  aliveNeutrals,
   alivePlayers,
   aliveVillagers,
   castJudgement,
@@ -34,9 +37,12 @@ import {
   leaveGame,
   openVoting,
   pendingActors,
+  personalWinners,
   playerOf,
   resolveNight,
   spoiler,
+  targetCountFor,
+  voteWeightOf,
   startGame,
   submitNightAction,
   voteTally,
@@ -50,6 +56,7 @@ import {
   nightEmbed,
   parseButtonId,
   rolesEmbed,
+  rolesUsedBy,
   targetsFor,
 } from '../src/modules/mafia/lib/render.js';
 import { DEFAULT_MAFIA_CONFIG, humanizeMs, phaseLengthOf } from '../src/modules/mafia/lib/config.js';
@@ -92,12 +99,14 @@ const FIVE = { p1: 'godfather', p2: 'doctor', p3: 'detective', p4: 'villager', p
 
 // ── roles ────────────────────────────────────────────────────────────────────
 
-test('the four Classic roles are the cog’s, with the right sides', () => {
-  assert.deepEqual(Object.keys(ROLES), ['godfather', 'doctor', 'detective', 'villager']);
-  assert.equal(ROLES.godfather.side, SIDES.MAFIA);
-  for (const id of ['doctor', 'detective', 'villager']) {
+test('every role card declares a side, and the sides are the cog’s', () => {
+  // S108 took the roster from 4 to 13 (Classic + the Crazy/Chaos tier).
+  assert.equal(Object.keys(ROLES).length, 13);
+  for (const id of ['godfather', 'mafia', 'framer']) assert.equal(ROLES[id].side, SIDES.MAFIA, id);
+  for (const id of ['doctor', 'detective', 'villager', 'vigilante', 'mayor', 'spy', 'investigator', 'distractor']) {
     assert.equal(ROLES[id].side, SIDES.VILLAGERS, id);
   }
+  for (const id of ['executioner', 'jester']) assert.equal(ROLES[id].side, SIDES.NEUTRAL, id);
   assert.equal(ROLES.villager.night, null, 'an Officer sleeps');
   assert.deepEqual(
     ['godfather', 'doctor', 'detective'].map((id) => ROLES[id].night),
@@ -109,9 +118,9 @@ test('the four Classic roles are the cog’s, with the right sides', () => {
   assert.deepEqual(CLASSIC_CORE, ['godfather', 'detective', 'doctor']);
 });
 
-test('a deal is always the three core roles plus Officers, exactly one mafia', () => {
+test('a Classic deal is always the three core roles plus Officers, exactly one mafia', () => {
   for (let n = MIN_PLAYERS; n <= MAX_PLAYERS; n += 1) {
-    const roles = dealRoles(n, seeded([0.1, 0.9, 0.5, 0.3, 0.7]));
+    const roles = dealRoles(n, 'classic', seeded([0.1, 0.9, 0.5, 0.3, 0.7]));
     assert.equal(roles.length, n, `${n} players`);
     for (const core of CLASSIC_CORE) {
       assert.equal(roles.filter((r) => r === core).length, 1, `${n}: one ${core}`);
@@ -123,6 +132,7 @@ test('a deal is always the three core roles plus Officers, exactly one mafia', (
 
 test('a deal is refused outside the table sizes it works at', () => {
   assert.throws(() => dealRoles(MIN_PLAYERS - 1), /at least 5/);
+  assert.throws(() => dealRoles(8, 'nonsense'), /Unknown mode/);
   assert.throws(() => dealRoles(MAX_PLAYERS + 1), /tops out at 20/);
   assert.throws(() => dealRoles(7.5), /at least 5/);
 });
@@ -228,7 +238,7 @@ test('a wrong guess does not save, and the death is recorded with its cause', ()
   assert.equal(dead.alive, false);
   assert.equal(dead.diedOn, 1);
   assert.equal(dead.diedTo, 'mafia');
-  assert.deepEqual(events.find((e) => e.type === 'killed'), { type: 'killed', targetId: 'p4', byId: 'p1' });
+  assert.deepEqual(events.find((e) => e.type === 'killed'), { type: 'killed', targetId: 'p4', cause: 'mafia' });
 });
 
 test('a night nobody acted on is quiet, not a crash', () => {
@@ -414,7 +424,7 @@ test('a full game plays end to end and reveals every role', () => {
   assert.equal(reveal.length, 5, 'everyone is named at the end, alive or not');
   assert.deepEqual(
     reveal.find((r) => r.id === 'p1'),
-    { id: 'p1', roleId: 'godfather', alive: false, diedTo: 'lynch' },
+    { id: 'p1', roleId: 'godfather', alive: false, diedTo: 'lynch', wonAs: null },
   );
   assert.equal(reveal.find((r) => r.id === 'p5').diedTo, 'mafia');
 });
@@ -529,11 +539,13 @@ test('the end card reveals every card and every fate', () => {
   assert.match(card, /survived/);
 });
 
-test('the roles card explains all four', () => {
-  const card = rolesEmbed();
-  assert.equal(card.fields.length, 4);
-  for (const role of Object.values(ROLES)) {
-    assert.ok(card.fields.some((f) => f.name.includes(role.name)), role.name);
+test('the roles card explains every card in the chosen mode', () => {
+  const classic = rolesEmbed('classic');
+  assert.equal(classic.fields.length, 4, 'Classic deals four cards');
+  const chaos = rolesEmbed('chaos');
+  assert.ok(chaos.fields.length > classic.fields.length, 'Chaos deals more');
+  for (const id of ['vigilante', 'mayor', 'executioner']) {
+    assert.ok(chaos.fields.some((f) => f.name.includes(ROLES[id].name)), id);
   }
 });
 
@@ -550,7 +562,7 @@ test('the group is shaped the way the loader and the roster expect', () => {
   const subs = mafiaCommand.group.subcommands;
   assert.deepEqual(
     subs.map((s) => s.name),
-    ['start', 'end', 'roles', 'stats', 'board', 'timings', 'reset'],
+    ['start', 'end', 'roles', 'stats', 'board', 'modes', 'timings', 'reset'],
   );
   assert.equal(mafiaCommand.group.fallback, 'start');
   assert.ok(subs.some((s) => s.name === mafiaCommand.group.fallback), 'the fallback exists');
@@ -575,4 +587,340 @@ test('stats count games, wins and the role you played them as', () => {
   assert.deepEqual(stats.p3, { games: 2, wins: 1, roles: { detective: { games: 2, wins: 1 } } });
   resetStats(guildId);
   assert.deepEqual(getStats(guildId), {});
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// S108 (M24.2): the second role tier, the modes, and ordered night resolution.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** A started game in `mode` whose roles are FORCED, so tests name people by card. */
+function table(assignment, { mode = 'chaos' } = {}) {
+  const n = Object.keys(assignment).length;
+  let game = createGame(HOST, { mode });
+  for (const id of ids(n).slice(1)) game = joinGame(game, id).game;
+  const begun = startGame(game, { random: () => 0 });
+  assert.equal(begun.ok, true);
+  return {
+    ...begun.game,
+    players: begun.game.players.map((p) => ({ ...p, roleId: assignment[p.id], targetId: null })),
+  };
+}
+
+/** Submit a whole night at once and resolve it. */
+function night(game, actions) {
+  let next = game;
+  for (const [actor, target] of Object.entries(actions)) {
+    const step = submitNightAction(next, actor, target);
+    assert.equal(step.ok, true, `${actor} → ${JSON.stringify(target)}: ${step.reason}`);
+    next = step.game;
+  }
+  return resolveNight(next);
+}
+
+// ── the modes ────────────────────────────────────────────────────────────────
+
+test('every mode deals a legal hand at every table size', () => {
+  for (const mode of Object.keys(MODES)) {
+    for (let n = MIN_PLAYERS; n <= MAX_PLAYERS; n += 1) {
+      const roles = dealRoles(n, mode, seeded([0.1, 0.9, 0.42, 0.7, 0.3, 0.55]));
+      assert.equal(roles.length, n, `${mode} @ ${n}`);
+      // The three Classic cards are in every band of every mode.
+      for (const core of CLASSIC_CORE) {
+        assert.equal(roles.filter((r) => r === core).length, 1, `${mode} @ ${n}: one ${core}`);
+      }
+      // A Jester is never DEALT — it is only ever arrived at (the cog's flag).
+      assert.equal(roles.includes('jester'), false, `${mode} @ ${n}: no dealt Jester`);
+      // And nobody is dealt a card that does not exist.
+      for (const r of roles) assert.ok(ROLES[r], `${mode} @ ${n}: unknown role ${r}`);
+    }
+  }
+});
+
+test('a mode only ever deals cards it advertises', () => {
+  for (const mode of Object.values(MODES)) {
+    const allowed = new Set(rolesUsedBy(mode));
+    for (let n = MIN_PLAYERS; n <= MAX_PLAYERS; n += 1) {
+      for (const seed of [() => 0, () => 0.99, seeded([0.2, 0.8, 0.5])]) {
+        for (const r of dealRoles(n, mode.id, seed)) {
+          assert.ok(allowed.has(r), `${mode.id} @ ${n} dealt ${r}, which its card does not list`);
+        }
+      }
+    }
+  }
+});
+
+test('the mafia never outnumbers the precinct at the deal', () => {
+  // A hand that starts at parity is a game that is already over.
+  for (const mode of Object.keys(MODES)) {
+    for (let n = MIN_PLAYERS; n <= MAX_PLAYERS; n += 1) {
+      for (const seed of [() => 0, () => 0.99, seeded([0.3, 0.7, 0.1])]) {
+        const roles = dealRoles(n, mode, seed);
+        const bad = roles.filter(isMafia).length;
+        assert.ok(bad < n - bad, `${mode} @ ${n}: ${bad} mafia vs ${n - bad} others`);
+      }
+    }
+  }
+});
+
+// ── the new cards ────────────────────────────────────────────────────────────
+
+test('the Enforcer becomes the Boss when the Boss dies', () => {
+  const game = table({ p1: 'godfather', p2: 'mafia', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' });
+  // The Vigilante is absent, so the Boss dies to a lynch instead.
+  let voting = openVoting(resolveNight(game).game).game;
+  for (const id of ['p2', 'p3', 'p4', 'p5', 'p6', 'p7']) voting = castVote(voting, id, 'p1').game;
+  let trial = closeVoting(voting).game;
+  for (const id of ['p2', 'p3', 'p4', 'p5', 'p6']) trial = castJudgement(trial, id, 'guilty').game;
+  const after = closeJudgement(trial).game;
+
+  // Without succession the mafia would still be alive but unable to shoot.
+  assert.equal(playerOf(after, 'p2').roleId, 'godfather', 'the Enforcer took over');
+  assert.equal(aliveMafia(after).length, 1);
+});
+
+test('the Vigilante dies of guilt for shooting an innocent, and does not for a crook', () => {
+  const cast = { p1: 'godfather', p2: 'vigilante', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' };
+
+  const wrong = night(table(cast), { p2: 'p5' });
+  assert.equal(playerOf(wrong.game, 'p5').alive, false, 'the innocent dies');
+  assert.equal(playerOf(wrong.game, 'p2').alive, false, 'and so does the Vigilante');
+  assert.equal(playerOf(wrong.game, 'p2').diedTo, 'guilt');
+  assert.ok(wrong.events.some((e) => e.type === 'vigilante-guilt'));
+
+  const right = night(table(cast), { p2: 'p1' });
+  assert.equal(playerOf(right.game, 'p1').alive, false, 'the Boss dies');
+  assert.equal(playerOf(right.game, 'p2').alive, true, 'shooting a crook costs nothing');
+});
+
+test('a Vigilante shot that the medic blocks costs no guilt either', () => {
+  // The shot never landed, so there is nothing to feel guilty about.
+  const { game } = night(
+    table({ p1: 'godfather', p2: 'vigilante', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' }),
+    { p2: 'p5', p3: 'p5' },
+  );
+  assert.equal(playerOf(game, 'p5').alive, true);
+  assert.equal(playerOf(game, 'p2').alive, true);
+});
+
+test('a revealed Commissioner votes twice, in the vote AND at the trial', () => {
+  const cast = { p1: 'godfather', p2: 'mayor', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const { game: day } = night(table(cast), { p2: null });
+  assert.equal(playerOf(day, 'p2').revealed, true);
+
+  let voting = openVoting(day).game;
+  voting = castVote(voting, 'p2', 'p1').game; // the Commissioner, worth 2
+  voting = castVote(voting, 'p5', 'p6').game; // one ordinary officer
+  assert.deepEqual(voteTally(voting), { p1: 2, p6: 1 });
+  const closed = closeVoting(voting);
+  assert.equal(closed.accusedId, 'p1', 'two beats one');
+
+  let trial = closed.game;
+  trial = castJudgement(trial, 'p2', 'guilty').game;
+  trial = castJudgement(trial, 'p5', 'innocent').game;
+  const verdict = closeJudgement(trial);
+  assert.deepEqual(verdict.counts, { guilty: 2, innocent: 1 });
+  assert.equal(verdict.guilty, true, 'the extra vote counts at the trial too');
+});
+
+test('an unrevealed Commissioner is still worth one, and reveals only once', () => {
+  const cast = { p1: 'godfather', p2: 'mayor', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const before = table(cast);
+  assert.equal(voteWeightOf(playerOf(before, 'p2')), 1);
+
+  const { game: day } = night(before, { p2: null });
+  const next = openVoting(day).game;
+  const night2 = closeVoting(next).game; // nobody voted → straight to night 2
+  assert.equal(night2.phase, PHASES.NIGHT);
+  // Nothing left to do, so the table must not wait for them.
+  assert.equal(pendingActors(night2).includes('p2'), false);
+  assert.equal(submitNightAction(night2, 'p2', null).reason, 'already-revealed');
+});
+
+test('the Framer makes an innocent read as mafia, for one night only', () => {
+  const cast = { p1: 'godfather', p2: 'framer', p3: 'detective', p4: 'doctor', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const framed = night(table(cast), { p2: 'p5', p3: 'p5' });
+  const read = framed.events.find((e) => e.type === 'investigation');
+  assert.equal(read.mafia, true, 'the detective is lied to');
+
+  // Next night, with nobody framing, the same read is honest again.
+  const clean = night(table(cast), { p3: 'p5' });
+  assert.equal(clean.events.find((e) => e.type === 'investigation').mafia, false);
+});
+
+test('the Tail sees WHO their target visited, never what they did', () => {
+  const cast = { p1: 'godfather', p2: 'spy', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const { events } = night(table(cast), { p1: 'p6', p2: 'p1', p3: 'p5' });
+  const tail = events.find((e) => e.type === 'tail');
+  assert.deepEqual(tail.visited, ['p6'], 'the Boss went to p6');
+  // The card is a movement log, not a confession: nothing says "kill".
+  assert.equal(JSON.stringify(tail).includes('kill'), false);
+});
+
+test('the Tail sees nothing when the target stayed in', () => {
+  const cast = { p1: 'godfather', p2: 'spy', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const { events } = night(table(cast), { p2: 'p5' }); // p5 is an Officer, who never goes out
+  assert.deepEqual(events.find((e) => e.type === 'tail').visited, []);
+});
+
+test('the Private Eye compares two people and needs two DIFFERENT ones', () => {
+  const cast = { p1: 'godfather', p2: 'investigator', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const game = table(cast);
+  assert.equal(submitNightAction(game, 'p2', 'p5').reason, 'wrong-target-count', 'one is not two');
+  assert.equal(submitNightAction(game, 'p2', ['p5', 'p5']).reason, 'same-target-twice');
+
+  const same = night(game, { p2: ['p5', 'p6'] });
+  assert.equal(same.events.find((e) => e.type === 'comparison').same, true, 'two officers match');
+  const differ = night(game, { p2: ['p1', 'p5'] });
+  assert.equal(differ.events.find((e) => e.type === 'comparison').same, false, 'the Boss does not');
+});
+
+test('a Framer fools the Private Eye too — the frame is read by everyone', () => {
+  const cast = { p1: 'godfather', p2: 'investigator', p3: 'framer', p4: 'doctor', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const { events } = night(table(cast), { p2: ['p1', 'p5'], p3: 'p5' });
+  assert.equal(events.find((e) => e.type === 'comparison').same, true, 'a framed officer matches the Boss');
+});
+
+test('the Distraction cancels the action she interrupts — including a kill', () => {
+  const cast = { p1: 'godfather', p2: 'distractor', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const blocked = night(table(cast), { p1: 'p5', p2: 'p1' });
+  assert.equal(playerOf(blocked.game, 'p5').alive, true, 'the Boss never got out the door');
+  assert.ok(blocked.events.some((e) => e.type === 'was-blocked' && e.to === 'p1'));
+
+  // She blocks information just as well as violence.
+  const quiet = night(table(cast), { p4: 'p1', p2: 'p4' });
+  assert.equal(quiet.events.some((e) => e.type === 'investigation'), false, 'the detective learned nothing');
+});
+
+test('a blocked visitor never went anywhere, so the Tail sees an empty night', () => {
+  const cast = { p1: 'godfather', p2: 'spy', p3: 'distractor', p4: 'doctor', p5: 'detective', p6: 'villager', p7: 'villager' };
+  // The Boss is blocked; the Tail is following the Boss.
+  const { events } = night(table(cast), { p1: 'p6', p2: 'p1', p3: 'p1' });
+  assert.deepEqual(events.find((e) => e.type === 'tail').visited, []);
+});
+
+// ── the neutrals ─────────────────────────────────────────────────────────────
+
+/** Drive a table to a lynch of `accused`. */
+function lynch(game, accused) {
+  let voting = openVoting(resolveNight(game).game).game;
+  for (const p of alivePlayers(voting).filter((x) => x.id !== accused)) {
+    voting = castVote(voting, p.id, accused).game;
+  }
+  const closed = closeVoting(voting);
+  assert.equal(closed.accusedId, accused);
+  let trial = closed.game;
+  for (const p of alivePlayers(trial).filter((x) => x.id !== accused)) {
+    trial = castJudgement(trial, p.id, 'guilty').game;
+  }
+  return closeJudgement(trial);
+}
+
+test('the Executioner is marked at the deal, always on a VILLAGER, never themselves', () => {
+  for (const seed of [() => 0, () => 0.4, () => 0.99, seeded([0.1, 0.6, 0.3])]) {
+    let game = createGame(HOST, { mode: 'crazy' });
+    for (const id of ids(8).slice(1)) game = joinGame(game, id).game;
+    const started = startGame(game, { random: seed }).game;
+    const exec = started.players.find((p) => p.roleId === 'executioner');
+    if (!exec) continue;
+    assert.ok(exec.targetId, 'a mark was assigned');
+    assert.notEqual(exec.targetId, exec.id, 'never themselves');
+    // Marking a crook would make the card a second detective.
+    assert.equal(sideOf(playerOf(started, exec.targetId).roleId), SIDES.VILLAGERS);
+  }
+});
+
+test('the Executioner wins when their mark is lynched, and the game keeps going', () => {
+  const game = {
+    ...table({ p1: 'godfather', p2: 'executioner', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' }),
+  };
+  const marked = { ...game, players: game.players.map((p) => (p.id === 'p2' ? { ...p, targetId: 'p5' } : p)) };
+  const end = lynch(marked, 'p5');
+
+  assert.deepEqual(end.personalWins, [{ playerId: 'p2', as: 'executioner' }]);
+  assert.equal(playerOf(end.game, 'p2').wonAs, 'executioner');
+  // A neutral win is personal — it does not end anything.
+  assert.notEqual(end.game.phase, PHASES.OVER);
+  assert.deepEqual(personalWinners(end.game), [{ playerId: 'p2', as: 'executioner' }]);
+});
+
+test('an Executioner whose mark dies at NIGHT becomes a Jester', () => {
+  const game = table({ p1: 'godfather', p2: 'executioner', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' });
+  const marked = { ...game, players: game.players.map((p) => (p.id === 'p2' ? { ...p, targetId: 'p5' } : p)) };
+  const { game: after, events } = night(marked, { p1: 'p5' });
+
+  assert.equal(playerOf(after, 'p2').roleId, 'jester', 'the card changed, the win did not vanish');
+  assert.ok(events.some((e) => e.type === 'executioner-failed' && e.to === 'p2'));
+});
+
+test('a Jester wins by being lynched — and nobody else notices', () => {
+  const game = table({ p1: 'godfather', p2: 'jester', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' });
+  const end = lynch(game, 'p2');
+  assert.deepEqual(end.personalWins, [{ playerId: 'p2', as: 'jester' }]);
+  assert.notEqual(end.game.phase, PHASES.OVER, 'the game carries on without them');
+});
+
+test('a Jester who dies at night wins nothing', () => {
+  const game = table({ p1: 'godfather', p2: 'jester', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' });
+  const { game: after } = night(game, { p1: 'p2' });
+  assert.equal(playerOf(after, 'p2').alive, false);
+  assert.deepEqual(personalWinners(after), [], 'only a lynch pays');
+});
+
+test('neutrals count against the mafia for parity but never win the game', () => {
+  const game = table({ p1: 'godfather', p2: 'jester', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' });
+  const kill = (state, ...who) => ({
+    ...state,
+    players: state.players.map((p) => (who.includes(p.id) ? { ...p, alive: false } : p)),
+  });
+  // p1 mafia · p2 jester · p3 doctor left = 1 v 2, not parity, because the
+  // Jester counts as "everyone else" even though it can never win the game.
+  assert.equal(checkWinner(kill(game, 'p4', 'p5', 'p6', 'p7')), null);
+  assert.equal(aliveNeutrals(kill(game, 'p4', 'p5', 'p6', 'p7')).length, 1);
+  // Take the Jester out and the same board IS parity — 1 v 1.
+  assert.equal(checkWinner(kill(game, 'p4', 'p5', 'p6', 'p7', 'p2')), 'mafia');
+  // And a board with no mafia is a precinct win even with a neutral standing.
+  assert.equal(checkWinner(kill(game, 'p1')), 'villagers');
+});
+
+// ── the prompts keep up with the cards ───────────────────────────────────────
+
+test('every acting card has a prompt, and every sleeping card says so', () => {
+  const cast = {
+    p1: 'godfather', p2: 'mafia', p3: 'framer', p4: 'doctor', p5: 'detective',
+    p6: 'vigilante', p7: 'mayor', p8: 'spy', p9: 'investigator', p10: 'distractor',
+    p11: 'villager', p12: 'executioner',
+  };
+  const game = { ...table(cast), players: Object.entries(cast).map(([id, roleId]) => ({
+    id, roleId, alive: true, diedOn: null, diedTo: null, lastProtected: null, revealed: false,
+    targetId: roleId === 'executioner' ? 'p11' : null, wonAs: null,
+  })) };
+
+  for (const [id, roleId] of Object.entries(cast)) {
+    const prompt = actionPromptFor(game, id);
+    if (ROLES[roleId].night) {
+      assert.equal(prompt.ok, true, `${roleId} should be prompted`);
+      assert.ok(prompt.text.length > 20, `${roleId} prompt is a sentence`);
+    } else {
+      assert.equal(prompt.ok, false, `${roleId} sleeps`);
+      assert.match(prompt.text, /sleep tonight/, roleId);
+    }
+  }
+  // The Executioner is told their mark when they press, since they have no
+  // other way to be reminded.
+  assert.match(actionPromptFor(game, 'p12').text, /Your mark is <@p11>/);
+});
+
+test('the offered targets never include one the engine would refuse', () => {
+  const cast = { p1: 'godfather', p2: 'vigilante', p3: 'doctor', p4: 'detective', p5: 'villager', p6: 'villager', p7: 'villager' };
+  const game = table(cast);
+  for (const [id, roleId] of Object.entries(cast)) {
+    for (const target of targetsFor(game, id)) {
+      const step = submitNightAction(game, id, targetCountFor(roleId) === 2 ? [target] : target);
+      assert.notEqual(step.reason, 'no-self-kill', `${roleId} was offered itself`);
+      assert.notEqual(step.reason, 'target-dead', `${roleId} was offered a corpse`);
+      assert.notEqual(step.reason, 'repeat-protect', `${roleId} was offered a repeat`);
+    }
+  }
+  assert.deepEqual(targetsFor(game, 'p7'), [], 'an Officer is offered nothing');
+  assert.deepEqual(targetsFor(game, 'p1').includes('p1'), false, 'the Boss is not on his own list');
 });
