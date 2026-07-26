@@ -18,8 +18,13 @@ import { hasPermission } from '../../../core/prefix/permissions.js';
  * `source` is anything carrying `channel`/`member` — a command ctx or a
  * component interaction both qualify.
  */
-export function buildViewerHelp(source, prefix, moduleList = []) {
+export function buildViewerHelp(source, prefix, moduleList = [], { unfiltered = false } = {}) {
   const commands = moduleList.flatMap((mod) => mod.commands.map(summarizeCommand));
+  // S109: a permanent PANEL has no single viewer to filter for, so it lists
+  // every category and lets each press answer privately with that presser's
+  // own filtered roster. Nothing leaks: the panel advertises categories, the
+  // private reply advertises commands.
+  if (unfiltered) return buildCategorizedHelp(commands, prefix);
   const isAdmin = hasPermission(source, PermissionFlagsBits.ManageGuild);
   const isVisible = (cmd) => {
     // The runtime-gated admin commands (!update, !restart) declare no
@@ -49,6 +54,14 @@ const MAX_ROWS = 5;
  * for why that distinction matters.
  */
 export const helpButtonId = (ownerId, key) => `${HELP_BUTTON_PREFIX}${ownerId}:${key}`;
+
+/**
+ * The owner id a PANEL's buttons carry (S109). A panel belongs to the channel,
+ * not to a person, so there is no asker whose message may be edited in place —
+ * every press gets a private view. Using a sentinel keeps the pump's three-way
+ * S98 decision intact instead of adding a fourth code path.
+ */
+export const PANEL_OWNER = 'panel';
 
 export function parseHelpButtonId(customId) {
   if (!customId?.startsWith(HELP_BUTTON_PREFIX)) return null;
