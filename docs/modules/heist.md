@@ -52,6 +52,31 @@ At 4,442 lines the cog was far too large for one session, so it landed in four: 
 
 Overrides are sparse: only what you set is stored, so improving a default later still reaches this precinct. Values are range-checked against the cog's `_PARAM_META` bounds.
 
+## The panels (M26.4a)
+
+S115's audit measured the source at **31** `discord.ui` references against our **1**: it has eight panels, and S88 built only the crew lobby. The other seven became subcommands — the same mistake M26.3 fixed for city, from the same cause (the command surface was scaffolding in slice B and had become the product by slice D).
+
+S126 ports the **four a player touches**. The two admin config panels and the event panel are 26.4b, because the panel-first rule (skill 0.5.38) puts the panel where a player reaches it first, and an admin typing `!heist admin` is not that player.
+
+| Panel | Opened by | What it does |
+|---|---|---|
+| **🎯 Job board** | `!heist panel` (`board`, `open`) | Every job, seven to a page, with reward, risk, cooldown and duration. Pick one from the select to start it. |
+| **🛒 Shop** | `!heist shop` | Shields and tools on their own pages, with a buy select. |
+| **⚙️ Equipment rack** | `!heist equip` | One select per slot showing only what you own, plus an Unequip button per slot. |
+| **🔨 Crafting bench** | `!heist craft` | Every recipe, ten to a page, with a detail block naming exactly how many of each material you are short. |
+
+**The board shows the odds that are actually yours.** `!heist jobs` printed the table's raw success band, so a level-40 player was reading numbers that were not theirs; the panel folds the level bonus in and says so (`Success shown includes +8% from level 40`), capped at 100%.
+
+A job on cooldown stays **visible but unselectable** with its remaining wait — the same rule the city picker follows, for the same reason: a list that changes shape between glances is unreadable.
+
+**Panel state rides in the custom id** (`hp:<action>:<view>:<page>:<selected>:<owner>`), not in memory, so a press still works after a restart. The owner in that id is what makes these personal boards: a stranger's press is answered privately with a pointer to `!heist` for their own.
+
+> **Starting a job from the board cannot accept debt.** `!heist play <job> confirm` exists because the cog asks for consent when the worst case exceeds your balance. A select carries no such token, so the panel **refuses** the job and names the command that accepts the risk, rather than quietly signing you up for debt plus 20% tax.
+
+> **Recorded divergence — two equipment slots, not three.** The source's rack has shield, tool *and* consumable. Our S85 table has no `consumable` type at all (its four are shield, tool, loot, material), so a third rack would be an empty select forever. A test asserts the type genuinely does not exist, so the slot gets added the moment that changes.
+
+> **Headings are bold, not `##`.** The source uses `##` throughout; copying it would have shipped exactly what the owner complained about (*"Sommige teksten zijn veelste groot"*), and S114's guard fails the build on H1/H2 in `src/`.
+
 ## Events
 
 - `ClientReady` (once) — the boot catch-up: every stored job that was still running is re-armed, and every one whose clock ran out while the bot was down settles immediately.
@@ -141,6 +166,7 @@ test/fixtures/heist-source-tables.json   the cog's tables, dumped from Python
 
 | Session | Change |
 |---|---|
+| S126 (M26.4a) | **Four panels the audit found missing.** The job board (`!heist panel`), the shop, the equipment rack and the crafting bench are now panels rather than printed lists — paged, with selects that act instead of telling you what to type. The board folds your **level bonus into the success band**, which the static `!heist jobs` never did. Panel state rides in the custom id, so a press survives a restart. `!heist shop`'s old plain list is still there as `!heist catalogue`; `!heist equip` and `!heist craft` open their panels when bare and still work when given an item or recipe. Starting a job from the board **refuses** rather than accepting debt, because a select cannot carry the `confirm` token the cog's consent needs. Two equipment slots, not the source's three — our table has no `consumable` type, and a test asserts that so the slot appears the moment it does. |
 | S88 | **Slice D — M16.12 complete**: crew robbery (level-20 organiser, 4-seat button lobby with a 3-minute clock, one shared success roll, haul split four ways, per-officer shields and police rolls, a single settlement driven by the leader's record) and the admin surface — `!heist admin show/set/reset/price/event` with the cog's range guards, sparse overrides layered over the ported defaults, item repricing, and payout events that finally make the resolver's `eventMultiplier` live. |
 | S87 | **Slice C**: the job scheduler — `armHeistTimer`/`fireHeist`/`cancelHeistTimer` plus a `ClientReady` boot catch-up that re-arms running jobs and settles the ones that finished while the bot was down. Results now announce themselves in the channel the job started from, pinging exactly the officer. A missing channel deliberately leaves the job unsettled so the lazy path can still report it; the lazy path cancels the armed timer so nothing reports twice. |
 | S86 | **Slice B**: storage (`heistPlayers`), the `!heist` group (play/jobs/shop/buy/equip/unequip/inventory/sell/craft/bail/paydebt/level — each of the cog's select views became a subcommand), the cog's gate order, the result card with its flavour lines, and the economy seam. A finished job settles lazily on the player's next command (the cog's own fallback). Deviations: a text `confirm` token replaces the debt-consent button; heat decays at read time instead of being rewritten on every read. |

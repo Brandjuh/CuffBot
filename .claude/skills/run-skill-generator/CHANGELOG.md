@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.47 — 2026-07-26 (Session 126)
+
+- `references/architecture.md` (Verification habits): **a bounds test must reach the bound, and prove it can.**
+- Evidence: S126 caps a displayed success band at 100% and tested it by sweeping the job panel's **first page** — where nothing overflows. It passed against a build with the cap deleted; the job that exceeds 100 at max level (maxSuccess 95, +20 points) is on a later page. Fixed to sweep every page **and** to assert up front that the overflow is reachable, so the guard fails loudly if a table change makes it vacuous instead of passing quietly forever. Third occurrence of one shape in three sessions — 0.5.44 (only the flattering input), 0.5.45 (a fixture too uniform to distinguish), and now a convenient sample of the input space. The common question, worth asking of every new guard: *what input would have to exist for this test to fail, and does it?* Also this session: S114's H1/H2 guard failed the build the moment the port copied the source's `##` headings — the second time in M26 that a rule written down from owner feedback caught a port re-importing the thing he objected to.
+
 ## 0.5.46 — 2026-07-26 (Session 125)
 
 - `references/architecture.md` (Verification habits): **a map keyed by something the loader knows should be checked against the loader.**

@@ -351,8 +351,12 @@ test('!heist group shape: public play, admin gated on Manage Server', () => {
     group.subcommands.map((s) => s.name),
     [
       'play',
+      // S126 (M26.4a): `panel` is the job board, and `catalogue` is the plain
+      // list `shop` used to print before it became a panel.
+      'panel',
       'jobs',
       'shop',
+      'catalogue',
       'buy',
       'equip',
       'unequip',
@@ -370,4 +374,6 @@ test('!heist group shape: public play, admin gated on Manage Server', () => {
   assert.deepEqual(gated, ['admin'], 'only the tuning surface is gated');
   assert.equal(group.subcommands.find((s) => s.name === 'admin').permission, PermissionFlagsBits.ManageGuild);
   assert.deepEqual(group.subcommands.find((s) => s.name === 'unequip').args[0].choices, ['shield', 'tool']);
+  // S126: `equip` opens the rack when bare, so its argument became optional.
+  assert.equal(group.subcommands.find((s) => s.name === 'equip').args[0].required, false);
 });

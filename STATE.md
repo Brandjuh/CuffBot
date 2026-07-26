@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 125 · 2026-07-26
+**Last updated:** Session 126 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1243/1243 pass as of S125 |
+| Tests green | `npm test` | 1277/1277 pass as of S126 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | 37 names: `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'minigames', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 
 ⚠️ **Both rows above were wrong until S124** — they claimed `1095/1095 as of S120` and still listed `connect4`, a module **S116 deleted** when `minigames` replaced it. A verification block that has drifted verifies nothing: it either fails for the wrong reason or, worse, is skipped because "it always looks a bit off". **Update these two rows in the same commit as any change to the test count or the module list.**
@@ -271,7 +271,7 @@ The first fix from the S115 audit, and the first module built under the rule tha
 
 Tests **1033 → 1049**: +46 for the new module, −30 with the old one. A test count that goes *down* on a replacement is the evidence the old thing is really gone (S96's precedent).
 
-**Still open in M26:** only **26.4** (heist's seven remaining panels). **26.2 is COMPLETE** — 26.2a in S116, 26.2b in S125. **26.3 is COMPLETE** — 26.3a in S122 (the panel + Bail Out), 26.3b in S124 (narrated events with a bail check between each, the mark picker, market/board as buttons).
+**Still open in M26:** only **26.4b** — heist's two admin config panels (`HeistConfigView`, `ItemPriceConfigView`) and `EventView`. **26.4a is COMPLETE** (S126: the four player-facing panels). **26.2 is COMPLETE** — 26.2a in S116, 26.2b in S125. **26.3 is COMPLETE** — 26.3a in S122 (the panel + Bail Out), 26.3b in S124 (narrated events with a bail check between each, the mark picker, market/board as buttons).
 
 ## S117 — seven games did not start; unattended updates said nothing
 
@@ -406,6 +406,24 @@ The last of the owner's M26.2 scope: *"Tic-Tac-Toe erbij, Inzetten met donuts, S
 **One board for both games.** `!connect4 stats`/`board` are **gone**, replaced by `!minigames stats` and `!gameleaderboard <wins|earnings|games|winrate>`. Both games always wrote to one set of counters, so a Connect-4-branded board showing Tic-Tac-Toe results would have been a lie — and the owner's `!city`/`!crime` complaint was exactly two names for one thing. **The storage key is still `connect4Stats`**: renaming it would be cosmetic and would cost the precinct its history.
 
 **Corrections found in Step 2:** `MODULE_BADGES` in `core/help.js` still named the **`connect4` module S116 deleted**, so the roster has shown a bullet instead of a badge for nine sessions. `COMMAND_CATEGORIES` has been guarded against the loader since S43 and caught the missing `!tictactoe` immediately; `MODULE_BADGES` had no such guard. It has one now.
+
+## S126 — heist gets the four panels a player touches (M26.4a)
+
+The last measured divergence from S115's audit: the source has **eight** panels and S88 built **one** (the crew lobby). The other seven became subcommands — the same mistake M26.3 fixed for city, from the same cause.
+
+**Ported this session, the four a PLAYER touches:** the job board (`!heist panel`), the shop, the equipment rack and the crafting bench. The two admin config panels and the event panel are **26.4b**, because the panel-first rule puts the panel where a player reaches it first, and an admin typing `!heist admin` is not that player.
+
+**The board shows the odds that are actually yours.** `!heist jobs` printed the table's raw success band, so a level-40 player was reading numbers that were not theirs. The panel folds the level bonus in, says so, and caps at 100%.
+
+**Panel state rides in the custom id** (`hp:<action>:<view>:<page>:<selected>:<owner>`), so a press survives a restart — the same reason the city panel puts its owner there.
+
+⚠️ **Starting a job from the board cannot accept debt.** `!heist play <job> confirm` exists because the cog asks for consent when the worst case exceeds your balance. A select carries no such token, so the panel refuses and names the command that accepts the risk, rather than quietly signing a player up for debt plus 20% tax.
+
+⚠️ **Recorded divergence: two equipment slots, not the source's three.** Our S85 table has no `consumable` type at all, so a third rack would be an empty select forever. A test asserts the type genuinely does not exist, so the slot gets added the moment that changes.
+
+⚠️ **S114's embed-style guard earned its place.** The source uses `##` headings throughout; copying them verbatim shipped exactly what the owner complained about (*"Sommige teksten zijn veelste groot"*) and the guard failed the build immediately. Bold instead.
+
+⚠️ **A cap test was vacuous and mutation testing caught it.** "The bonus is capped at 100%" passed against a build with the cap removed — it read page 0 only, and the job that overflows (95 + 20 at level 120) is on a later page. It now sweeps every page and first asserts the overflow is real, so it cannot go vacuous again if the table changes. **Second time in three sessions** that a new guard passed against the mutation it existed to catch (S124's was a too-uniform rng).
 
 ## Environment facts (S61)
 

@@ -2386,3 +2386,43 @@ Tests **1124 → 1171**. **M26.3 is complete.**
 Tests **1171 → 1243**. **M26.2 is complete**, and with it everything in M26 except 26.4.
 
 **Handoff:** **M26.4** — heist's seven remaining panels (`HeistSelectionView`, `ShopView`, `EquipView`, `CraftView`, `HeistConfigView`, `ItemPriceConfigView`, `EventView`; only the crew lobby exists). After that M26 is finished and M24.3 is the only thing left, still gated on an owner decision. **Tell the owner about `betvsbot`** — beating the bot pays a net +300–500 and the default follows the cog.
+
+---
+
+## Session 126 — 2026-07-26
+
+**Goal:** M26.4 — the last measured divergence from S115's audit. The heist source has **eight** panels; S88 built **one**, the crew lobby. The other seven became subcommands, which is the same mistake M26.3 fixed for city and from the same cause: the command surface was scaffolding in slice B and had become the product by slice D.
+
+**Sliced 26.4a / 26.4b by who touches it.** This session ports the **four a player touches** — the job board (`!heist panel`), the shop, the equipment rack and the crafting bench. The two admin config panels and the event panel are 26.4b. That split follows the panel-first rule (0.5.38) rather than working down the source's file order: the panel belongs where a player reaches it first, and an admin typing `!heist admin` is not that player.
+
+**The board shows the odds that are actually yours.** This is the substantive gain, not the decoration: `!heist jobs` printed the table's raw success band, so a level-40 player was reading numbers that were not theirs. The panel folds the level bonus in, prints *"Success shown includes +8% from level 40"*, and caps at 100%.
+
+**Panel state rides in the custom id** — `hp:<action>:<view>:<page>:<selected>:<owner>` — so a press survives a restart, the same reason the city panel puts its owner there. A test pins that the whole id fits Discord's 100 characters with the longest recipe name and an 18-digit snowflake in it.
+
+⚠️ **Starting a job from the board cannot accept debt.** `!heist play <job> confirm` exists because the cog asks for consent when the worst case exceeds your balance. A select carries no such token, so the panel **refuses** the job and names the command that accepts the risk. Quietly signing someone up for debt plus 20% tax because a button had nowhere to put the question would be the worst available answer.
+
+⚠️ **Two equipment slots, not the source's three.** The rack has shield, tool and *consumable* in the cog; our S85 table has no `consumable` type at all, so a third rack would be an empty select forever. A test asserts the type genuinely does not exist, so the slot appears the moment that changes.
+
+**Kept working, not replaced:** `!heist catalogue` is the plain shop list `!heist shop` used to print; `!heist equip <item>` and `!heist craft <recipe>` still act directly, and only their bare forms open panels.
+
+### What went wrong, and what it taught
+
+⚠️ **S114's embed-style guard earned its place on the first run.** I copied the source's `##` headings straight across — which is exactly what the owner complained about (*"Sommige teksten zijn veelste groot"*), and the guard failed the build immediately with all four line numbers. That is the second time this milestone that a rule written down from owner feedback caught the port re-importing the thing he objected to.
+
+⚠️ **A cap test was vacuous, and mutation testing caught it — again.** "The bonus is capped at 100%" **passed** against a build with the cap removed, because it read page 0 only and the job that overflows (maxSuccess 95, plus 20 points at level 120) is on a later page. Fixed to sweep every page, and to first assert that the overflow is real, so the guard cannot go vacuous again if the table changes.
+
+**That is the second time in three sessions** that a new guard passed against the mutation it existed to catch (S124's was a too-uniform rng). Both had the same root: the guard was pointed at a *convenient sample* rather than at the case it names. Recorded as skill 0.5.47 — a bounds test must reach the bound, and prove it can.
+
+**Also removed:** the dead `if (false)` branch I briefly left behind when the bare `craft` form became a panel, and the `player` binding it orphaned. Scaffolding left in place is how the last four sessions' worth of divergence started.
+
+### Definition of Done — heist
+
+- [x] Layout per architecture.md; `node --check` clean across `src` and `test`
+- [x] Pure logic tested: `heist-panels.test.js` (34), five mutations run and all five caught
+- [x] Manual `docs/modules/heist.md` updated: the panel table, the three recorded divergences, the file map, the testing note including the vacuous guard, and the changelog row
+- [x] Listed in `docs/README.md` (unchanged — already there)
+- [x] `STATE.md` + `SESSION_LOG.md` + `ROADMAP.md` reflect reality
+
+Tests **1243 → 1277**.
+
+**Handoff:** **M26.4b** — `HeistConfigView` and `ItemPriceConfigView` (both admin, both modal-driven in the source: select a heist type, select a parameter, type a value) plus `EventView`. `!heist admin show/set/reset/price/event` already does all of it in text, so 26.4b is presentation only and the service needs nothing new. After that **M26 is finished** and M24.3 (mafia anomalies/achievements) is the only thing left, still gated on an owner decision.
