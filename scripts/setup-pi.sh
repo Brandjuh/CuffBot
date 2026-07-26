@@ -129,10 +129,13 @@ Type=simple
 User=$USER
 WorkingDirectory=$INSTALL_DIR
 ExecStart=$(command -v node) src/index.js
-# S127: MUST be `always`, not `on-failure`. The bot updates itself by exiting
+# S127: MUST be always, not on-failure. The bot updates itself by exiting
 # cleanly and letting systemd bring it back on the new code — that is what
-# removed sudo from the update path entirely. Under `on-failure` a clean exit
-# would leave the bot DOWN, so `!update status` checks this value and says so.
+# removed sudo from the update path entirely. Under on-failure a clean exit
+# would leave the bot DOWN, so the update status command checks this value.
+# (No backticks in this heredoc: it is UNQUOTED so \$USER and \$(command -v
+#  node) expand, which means backticks would be run as commands. S127 shipped
+#  with them and bash printed 'always: command not found' four times.)
 Restart=always
 RestartSec=5
 

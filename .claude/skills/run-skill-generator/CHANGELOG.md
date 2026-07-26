@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.49 — 2026-07-27 (Session 128)
+
+- `references/architecture.md` (Verification habits): **the deployment scripts are code, and nothing was testing them** — plus **a test that locates code by searching for a word will find the word in a comment.**
+- Evidence: S127 rebuilt the update chain and shipped a bug into `setup-pi.sh` in the same session — markdown backticks inside an *unquoted* heredoc, so bash ran `always`, `on-failure` and `!update` as commands and the owner's install printed four errors. Nothing broke (the unit was still written correctly) but nothing caught it either: after 128 sessions the two files carrying the whole deployment had no test at all, beside 1,303 covering the JavaScript. `test/shell-scripts.test.js` now guards seven invariants. One of those seven was itself vacuous — it located the `CUFFBOT_NO_RESTART` early return by searching for the flag name, which also appears in the header comment, so it measured the comment and passed against a build with the guard moved after the sudo block; fixed by anchoring to the `if` syntax. That is the **fourth** new guard in five sessions to pass against the mutation it existed to catch (0.5.44, 0.5.45, 0.5.47, 0.5.49) — in every case the mutation run was the only reason it was found.
+
 ## 0.5.48 — 2026-07-27 (Session 127)
 
 - `references/architecture.md` (Verification habits): **a self-repairing system must not need itself to be working in order to be repaired** — plus the design rule that follows: **count what must exist for a mechanism to work; that count is its failure rate.**
