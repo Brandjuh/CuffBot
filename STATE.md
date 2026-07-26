@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 132 · 2026-07-27
+**Last updated:** Session 133 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1333/1333 pass as of S131 |
+| Tests green | `npm test` | 1353/1353 pass as of S133 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).length))"` | `37` — a number, not a list. The **names** are checked by `test/docs-consistency.test.js` against `docs/modules/`, so there is nothing here to copy or to rot. |
 
 ⚠️ **Hand-copied lists in this block have rotted three times** — S124 found `1095/1095 as of S120` and a `connect4` that S116 had deleted; S131 found the manuals row *still* naming `connect4` and missing `minigames`, seven sessions after the module was replaced. The lists are gone rather than corrected a fourth time: `test/docs-consistency.test.js` now checks modules ↔ manuals ↔ index against the loader, so `npm test` is the verification and this table only has to say what number to expect.
@@ -520,6 +520,22 @@ It is closed now, and the answer is **no divergence**. Five objectively checkabl
 
 **Still open by design:** `mafia` is ⚠️ *proportional* (13 of 57 roles). That is scope, gated on M24.3's owner decision, not divergence.
 
+## S133 — `!city` existed in the docs and nowhere else
+
+The owner, third report on this game: *"Crime, dat werkt met een panel en knoppen, dat heb je niet."*
+
+**`!crime` was fine.** Driven through the real dispatcher it returns a select menu of jobs plus three buttons, and it does so on the commit the Pi was running as well as on `main` — so this was not the S127 staleness story repeating. Verified before writing anything, because the first two reports in this thread were both right and assuming this one was wrong would have been the cheap move.
+
+**`!city` was the defect, and it failed in the quietest way available.** S122 removed `city` as an *alias* of `crime` — correctly; the owner had noticed the two were one command, and in the source they are two — and wrote that this "leaves `city` free for the hub when it exists". Nothing built the hub. **M26.3 was closed as COMPLETE two sessions later.** Because `router.js` drops an unknown command without a word (`if (!command) return`), `!city` did not fall back, hint, or log: it did nothing at all, for eleven sessions, to a command the owner had typed since S90.
+
+⚠️ **The milestone had a written inventory of the source's eight views, and `MainMenuView` was the one with no counterpart.** `CrimeListView`, `BailView`, `JailOptionsView`, `TargetSelectionView`, `BlackmarketView` and `CrimeAttemptView` were all built in S122/S124. Nobody diffed the list against the code before writing COMPLETE. **Closing a milestone against a list is worth nothing if nobody diffs the list.**
+
+**Shipped:** `!city` opens the hub — wallet, record, streak, cell — with 🌃 Jobs, 🕯️ Market, 🏆 Board, 📋 Record. Deliberately ≤6 lines (pinned): a menu is the one screen with nothing to say, and the owner has twice said these screens run too long. The crime panel gains 🌆 **Streets** on both views. **Back now returns where you came from** — the market's and board's Back was hard-coded to `cty:refresh`, so opening the market from the hub landed you on the jobs board; the origin rides in the custom id (`cty:market:hub:<owner>`), the same trick already used for the owner id. `!crime stats` and the Record button render one card from one builder.
+
+**Two defects in my own new code, both found by mutation testing rather than by reading it:** `lines.filter(Boolean)` stripped the `''` separator along with the nulls, so the hub's blank line never rendered; and four guards were vacuous — two origin tests read only the Back button (which the pump recomputes from the *incoming* id, so a select that drops the origin looks right for exactly one press), and the record-card comparison checked the description only, so a `.setFooter()` divergence survived. All 18 mutations are killed now.
+
+**The general guard (`test/docs-consistency.test.js`, +2):** **every command name a manual's command table documents must be registered by the loader.** 57 documented names, all resolving today. This is the fifth hand-maintained list in this repo caught rotting and the first whose rot the owner experienced as a *missing feature* — and the city manual's own table kept claiming `!city` for two sessions after S122 deleted it. Mutation-proven against S122's exact mistake: unregister `city` while the manual still documents it, and the build fails.
+
 ## Environment facts (S61)
 
 - **Game-cog sources (S65):** the owner's 8 source repos are PUBLIC and clone fine through the git proxy (`git clone --depth 1 https://github.com/<owner>/<repo>`); add_repo refuses cross-owner attaches, so clone into the scratchpad instead. Repos: AAA3A-AAA3A/AAA3A-cogs (guessthecandygame, mafiagame, rolloutgame, russianroulettegame, splitorstealgame, wordlegame, memorygame), CalaMariGold/CalaMari-Cogs (city), phenom4n4n/phen-cogs (connect4), Chovin/Dumb-Cogs (hammertime), Flame442/FlameCogs (hangman), ltzmax/maxcogs (heist), vertyco/vrt-cogs (hunting), yamikaitou/YamiCogs (payday).
@@ -536,7 +552,7 @@ It is closed now, and the answer is **no divergence**. Five objectively checkabl
 - Owner's deployment: Raspberry Pi, repo private (PAT for clones; stored credentials required by the self-update timer — setup step 8 arranges it).
 - Sessions run in an **ephemeral container** — push every session. No `gh` CLI; GitHub via MCP tools.
 - **Owner process mandate (S3): sessions merge their own PRs** and reset the branch onto main afterwards.
-- **Self-update chain (since S7):** merged PR → Pi timer picks it up within ~15 min → tests gate the restart. A broken merge cannot take the live bot down (rollback), but it silently stalls updates — check `journalctl -u cuffbot-update` when the owner reports staleness.
+- **Self-update chain (rebuilt S127; the S7 design is GONE):** merged PR → the bot's own 15-minute check → it runs `scripts/update.sh` with `CUFFBOT_NO_RESTART=1`, then **exits**, and systemd `Restart=always` brings it back. There is no timer unit, no second service and no sudoers file — S128's setup step 8 **deletes** them. ⚠️ Do not send the owner to `journalctl -u cuffbot-update`: that unit no longer exists. The live surface is `!update status` in Discord, and `journalctl -u cuffbot` for the service itself.
 - Live Discord testing impossible here (no token, and this container's egress proxy intercepts discord.com — S5). Owner checklists in the manuals are the live layer.
 - This container's outbound proxy returns 403 for discord.com API calls — never interpret that as a Discord-side verdict (S5).
 - **Owner's rank roles (S12):** the home guild already has leveler-bot ranks under a `[LEVELER]` header, high→low, EXCEPT roles `428378130705809408` and `667116908876660778` (non-ranks). Academy adopts them live; owner must run `/rank-setup header:@[LEVELER]` then `/rank-exclude` those two ids. Cannot be verified from here (no live guild). **Leveling (S16) builds on this same ladder** — rank thresholds and XP seeding both derive from it, so `/rank-setup` must be correct before the XP system promotes anyone.

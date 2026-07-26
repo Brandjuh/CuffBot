@@ -65,6 +65,59 @@ test('the index does not link a manual that is gone', () => {
   assert.deepEqual(dead, [], `docs/README.md links missing manuals: ${dead.join(', ')}`);
 });
 
+// ── documented commands must exist (S133) ───────────────────────────────────
+//
+// The fifth hand-maintained list to be caught rotting, and the first one whose
+// rot the owner hit as a *missing feature*. S122 removed `!city` as an alias of
+// `!crime` and reserved the name "for the hub when it exists"; nothing built
+// the hub, M26.3 was closed as COMPLETE, and `!city` answered with silence for
+// eleven sessions — the router drops an unknown command without a word, so
+// nothing failed and nothing logged. The city manual's own command table kept
+// claiming `!city` for two of those sessions.
+//
+// Every guard above checks a list of MODULES against the loader. A manual's
+// command table is a list of COMMANDS, and it is the list a player reads before
+// typing. Same rule (skill 0.5.46), one level down.
+
+/** `!name` from the first cell of a command-table row, per manual. */
+const documentedCommands = () => {
+  const found = new Map();
+  for (const file of readdirSync(MANUAL_DIR).filter((f) => f.endsWith('.md'))) {
+    const text = readFileSync(path.join(MANUAL_DIR, file), 'utf8');
+    for (const [, name] of text.matchAll(/^\|\s*`!([a-z0-9-]+)[^|]*\|/gm)) {
+      if (!found.has(name)) found.set(name, file);
+    }
+  }
+  return found;
+};
+
+const registeredCommands = async () => {
+  const { discoverModules } = await import('../src/core/loader.js');
+  const names = new Set();
+  for (const mod of await discoverModules())
+    for (const entry of mod.commands ?? []) {
+      const def = entry.group ?? entry.command;
+      for (const name of [def.name, ...(def.aliases ?? [])]) names.add(name);
+    }
+  return names;
+};
+
+test('the command fixture is real — this cannot be checking an empty list', () => {
+  const count = documentedCommands().size;
+  assert.ok(count > 40, `only ${count} documented commands parsed — did the table format change?`);
+});
+
+test('every command a manual documents is one the loader registers', async () => {
+  // The direction that rotted: a manual promising `!city` while the bot has no
+  // such command. A player types it and gets silence, which reads as the bot
+  // being broken rather than the docs being wrong.
+  const registered = await registeredCommands();
+  const phantom = [...documentedCommands()]
+    .filter(([name]) => !registered.has(name))
+    .map(([name, file]) => `!${name} (${file})`);
+  assert.deepEqual(phantom, [], `documented but not registered: ${phantom.join(', ')}`);
+});
+
 test('STATE.md quotes no module list that can go stale', () => {
   // S124 and S131 both had to hand-correct the verification block's copied
   // lists. The fix is not another correction — it is not keeping the copy.

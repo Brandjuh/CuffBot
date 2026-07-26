@@ -14,8 +14,10 @@ import {
   boardPayload,
   marketPayload,
   panelPayload,
+  recordPayload,
   targetCandidates,
 } from '../commands/crime.js';
+import { hubPayload } from '../commands/city.js';
 import { getAttempt } from '../attempts.js';
 import {
   attemptJailbreak,
@@ -45,12 +47,28 @@ export default {
       // keeping panel state in memory across a restart.
       const ownerId = rest.at(-1);
       if (interaction.user.id !== ownerId) {
-        await quiet(interaction, `🌃 That is <@${ownerId}>'s board. Run \`!crime\` for your own.`);
+        await quiet(interaction, `🌃 That is <@${ownerId}>'s board. Run \`!city\` for your own.`);
         return;
       }
 
-      if (action === 'refresh') {
+      // `refresh` is the jobs board redrawn in place; `crime` is the hub's
+      // button leading to it. Same screen, two names, because "Refresh" on the
+      // hub would be a lie about what the press does.
+      if (action === 'refresh' || action === 'crime') {
         await interaction.update(await panelPayload(interaction.guild, interaction.user)).catch(() => {});
+        return;
+      }
+
+      // ── the hub (S133) ─────────────────────────────────────────────────────
+      if (action === 'hub') {
+        await interaction.update(await hubPayload(interaction.guild, interaction.user)).catch(() => {});
+        return;
+      }
+
+      if (action === 'record') {
+        await interaction
+          .update(recordPayload(interaction.guild, interaction.user, { back: 'hub' }))
+          .catch(() => {});
         return;
       }
 
@@ -111,19 +129,30 @@ export default {
       }
 
       // ── the market and the board, in place (S124) ──────────────────────────
+      //
+      // S133: these four ids carry the screen they were opened from, so Back
+      // returns there instead of always dropping the player on the jobs board.
+      // `rest` is `[origin, ownerId]` for them and `[ownerId]` for everything
+      // else, which is why `ownerId` is read off the END above.
+      const origin = rest.length > 1 ? rest[0] : 'refresh';
+
       if (action === 'market') {
-        await interaction.update(await marketPayload(interaction.guild, interaction.user)).catch(() => {});
+        await interaction
+          .update(await marketPayload(interaction.guild, interaction.user, { back: origin }))
+          .catch(() => {});
         return;
       }
 
       if (action === 'board') {
-        await interaction.update(boardPayload(interaction.guild, interaction.user)).catch(() => {});
+        await interaction
+          .update(boardPayload(interaction.guild, interaction.user, 'earned', { back: origin }))
+          .catch(() => {});
         return;
       }
 
       if (action === 'board-cat') {
         await interaction
-          .update(boardPayload(interaction.guild, interaction.user, interaction.values?.[0]))
+          .update(boardPayload(interaction.guild, interaction.user, interaction.values?.[0], { back: origin }))
           .catch(() => {});
         return;
       }
@@ -143,7 +172,9 @@ export default {
         }
         // Update first so the catalogue reflects the purchase, then say what
         // happened — a receipt under a stale shelf reads like it failed.
-        await interaction.update(await marketPayload(interaction.guild, interaction.user)).catch(() => {});
+        await interaction
+          .update(await marketPayload(interaction.guild, interaction.user, { back: origin }))
+          .catch(() => {});
         await interaction
           .followUp({
             content: `✅ Bought ${result.item.emoji} **${result.item.name}** for **${result.item.cost} 🍩**.`,
