@@ -160,6 +160,9 @@ export const COMMAND_CATEGORIES = {
   'birthday-set': 'community',
   'birthday-remove': 'community',
   birthdays: 'community',
+  // Reading a voice memo back is a member-facing utility (its admin knobs sit
+  // behind Manage Server and the menu already filters those per viewer).
+  transcribe: 'community',
   911: 'community',
   'radio-check': 'info',
   help: 'info',

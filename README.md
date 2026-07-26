@@ -2,7 +2,7 @@
 
 A police-themed Discord bot for running your server like a well-loved precinct: moderation as *citations* and *arrests*, a *rap sheet* for infractions, *dispatch* announcements, an *evidence locker* log channel, rank ladders from Cadet to Chief, and a little community fun (`/wanted`, `/donut`).
 
-**Status:** all feature modules are live — 34 modules, 73 commands. **CuffBot is text-only (S68): every command is a `!command`**, and **every** command is either a Red-style group (`!group sub <args>`) or a flat `!command` — the legacy path is gone as of S96 (M17 complete). Type `!help` for the full roster. Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
+**Status:** all feature modules are live — 35 modules, 74 commands. **CuffBot is text-only (S68): every command is a `!command`**, and **every** command is either a Red-style group (`!group sub <args>`) or a flat `!command` — the legacy path is gone as of S96 (M17 complete). Type `!help` for the full roster. Current truth lives in [`STATE.md`](STATE.md), the plan in [`ROADMAP.md`](ROADMAP.md).
 
 CuffBot is a **one-precinct bot** by design: it serves exactly the guild set in [`config.json`](config.json) (`homeGuildId`) and automatically leaves any other server it is invited to.
 

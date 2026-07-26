@@ -50,6 +50,7 @@ When reality and state disagree, **reality wins**: correct `STATE.md`, record th
 - Otherwise take the next unchecked item in `ROADMAP.md`.
 - An explicit user request overrides both — but still record in the session log how it relates to the roadmap.
 - Scope the session to a chunk you can build, test, and document today. A half-finished feature with a precise resume point beats a "finished" one that was never run.
+- **A blocking owner decision is YOUR session's job to ask, not the next one's.** When an item is marked "needs the owner", put the options in front of them — with the real costs, not an open question — and keep building the unblocked work while the answer comes back. Forwarding the flag in your handoff is not handling it: M21 was deferred that way for four sessions, and when S101 finally asked, the answer arrived in one exchange and made half the feature trivial. Write the answer into the repo the moment it lands (Step 6).
 
 ### 4. Build
 

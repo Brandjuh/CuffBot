@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.30 — 2026-07-26 (Session 101)
+
+- `SKILL.md` (Step 3 Plan): **a blocking owner decision is the current session's job to ask, not the next session's.** Put the options in front of the owner with their real costs, then keep building the unblocked work while the answer comes back. Forwarding the flag is not handling it.
+- Evidence: M21 was marked "needs an owner decision before any code" in S97 and that flag was faithfully carried through S98, S99 and S100 — four sessions that each recorded the block in their handoff and each moved on. S101 asked, got an answer in one exchange, and the answer immediately dissolved half the problem: the owner's chosen backend was **already an env var the project expects**, which made the voice-memo half zero-dependency and shippable the same session. Four sessions of deferral kept nobody from learning that. The rule is deliberately paired with the existing "owner decisions become committed defaults" (S35) and "chat does not survive sessions" (S1–S3): ask, then write the answer into the repo.
+
 ## 0.5.29 — 2026-07-26 (Session 100)
 
 - `references/architecture.md` (Verification habits): **hand-written state fixtures are guesses until the code confirms them** — a constructed state may be unreachable, and the answer you wrote down may not be the only correct one. Compute the expected answer from the code under test, build the fixture the way the system builds state, and check a suspect fixture with a throwaway one-liner before believing a red test.
