@@ -126,6 +126,44 @@ export function roleChanged({ action, name, beforeName }) {
   ]);
 }
 
+/**
+ * A role's permissions changed (S113, owner request).
+ *
+ * Kept separate from `roleChanged` because a rename and a permission grant are
+ * not the same kind of event: one is cosmetic, the other is the whole security
+ * model of the server. Administrator is called out on its own line — it is the
+ * one permission that silently contains every other, so burying it in an
+ * alphabetical list would be the single most misleading thing this file
+ * could do.
+ */
+export function rolePermissionsChanged({ roleId, name, added = [], removed = [] }) {
+  const grantsAdmin = added.includes('Administrator');
+  return entry('server', grantsAdmin ? '🚨' : '🛡️', 'Role permissions changed', [
+    `<@&${roleId}> (**${name}**)`,
+    grantsAdmin ? '**🚨 This role now has Administrator — it can do everything.**' : null,
+    added.length ? `**Granted:** ${clamp(added.join(', '), 500)}` : null,
+    removed.length ? `**Revoked:** ${clamp(removed.join(', '), 500)}` : null,
+  ]);
+}
+
+/**
+ * A channel's permission overwrites changed (S113, owner request).
+ *
+ * `descriptions` are pre-rendered by `describeOverwrite`, one per affected
+ * target. A bulk edit can touch a dozen targets at once, so the list is capped
+ * and says how many it dropped — a silently truncated permission log reads as
+ * a complete one, which is worse than no log at all.
+ */
+export function channelPermissionsChanged({ channelId, name, descriptions = [] }) {
+  const shown = descriptions.slice(0, 8);
+  const hidden = descriptions.length - shown.length;
+  return entry('server', '🔐', 'Channel permissions changed', [
+    `<#${channelId}> (**#${name}**)`,
+    ...shown,
+    hidden > 0 ? `_…and ${hidden} more target${hidden === 1 ? '' : 's'} changed in the same edit._` : null,
+  ]);
+}
+
 export function emojiChanged({ action, name }) {
   return entry('server', '😀', action === 'create' ? 'Emoji added' : 'Emoji removed', [`\`:${name}:\``]);
 }

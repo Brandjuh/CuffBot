@@ -9,7 +9,7 @@
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { setGuildData } from '../../../core/store.js';
 import { scheduleLadderReconcile } from '../../leveling/service.js';
-import { ACADEMY_CONFIG_KEY, getAcademyConfig, replyEphemeral, resolveLadder } from '../service.js';
+import { ACADEMY_CONFIG_KEY, getAcademyConfig, pinDiagnosis, replyEphemeral, resolveLadder } from '../service.js';
 
 export default {
   group: {
@@ -75,7 +75,13 @@ export default {
           const config = getAcademyConfig(ctx.guild.id);
           const embed = new EmbedBuilder().setColor(0xd4a24e).setTitle('🎖️ Rank Ladder Setup');
 
-          const headerLine = config.headerRoleId ? `<@&${config.headerRoleId}>` : '_auto-detected by name_';
+          // S113: the stored id used to be printed verbatim, so a pin whose role
+          // had been deleted or re-created still read as configured while the
+          // ladder had silently fallen back to the name heuristic.
+          const diagnosis = pinDiagnosis(ctx.guild.id, ladder);
+          const headerLine = config.headerRoleId
+            ? `<@&${config.headerRoleId}>${diagnosis.reason === 'stale-pin' ? ' — ⚠️ **this role no longer exists**, so the pin counts for nothing' : ''}`
+            : '_auto-detected by name (not pinned — automated rank sync stays idle)_';
           const excludeLine = config.excludedRoleIds.length
             ? config.excludedRoleIds.map((id) => `<@&${id}>`).join(', ')
             : '_none_';

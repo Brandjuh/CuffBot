@@ -90,6 +90,7 @@ Per-guild, stored via `src/core/store.js` under `academyConfig` = `{ headerRoleI
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `!ranks` shows "No rank ladder detected" | Header not found | `!ranks setup header:@<divider>`; ensure the divider role exists above the rank roles |
+| You ran `!ranks setup` but automation still says the ladder is not pinned | Since S113 the reason is spelled out — run `!xp` and read the **Ladder pinned** line | Four different causes, four different fixes: never pinned → run setup; **stale pin** (the pinned role was deleted or re-created, so its id changed) → run setup again against the current role; no header found → check the divider role exists; header found but no ranks → check `!ranks exclude` has not excluded them all |
 | A non-rank role shows up as a rank | It sits under the header and isn't filtered | `!ranks exclude role:@<it>` |
 | "sits at or above my highest role" | CuffBot's role is too low | Server Settings → Roles → drag CuffBot above the rank roles |
 | Promotion skips a rank | That rank role is excluded, managed, or below a divider | `!ranks` to inspect; `!ranks exclude … action:remove` to re-include |
@@ -100,4 +101,5 @@ Per-guild, stored via `src/core/store.js` under `academyConfig` = `{ headerRoleI
 |---|---|
 | S12 | Created: server-role rank ladder (detected under a `[LEVELER]`-style header), `!promote`, `!demote`, `!ranks`, `!ranks setup`, `!ranks exclude`. Adopts the server's existing ranks rather than a fixed police ladder. |
 | S37 | Ladder edits are safe: rename free; reorder/delete/add reconcile quietly via leveling; `!ranks setup` and `!ranks exclude` schedule the sweep (config changes fire no role events). |
+| S113 | **`Ladder pinned: no` now says WHICH no** (owner: *"dat heb ik inmiddels 4x gedaan"*). `pinDiagnosis()` distinguishes never-pinned, no-header, header-without-ranks, and — the previously invisible one — a **stale pin** whose role was deleted or re-created: a new role id means the old pin silently stops counting while `!ranks setup` kept displaying it as configured. `!xp` and `!ranks setup` both surface the reason and the fix. |
 | S94 | All five converted to the flat `{ command }` shape (M17.3 slice B). **`!ranks setup header:@[LEVELER]` — the exact line this manual, STATE and the bot's own replies have told the owner to run since S12 — had never worked on the text path**: the legacy adapter was purely positional and answered "`header` should be a mention or id". The framework's `name:value` keyword args (S94) fix it; the bare `!ranks setup @[LEVELER]` form works too. `to:` and `action:` are keyword args for the same reason. |

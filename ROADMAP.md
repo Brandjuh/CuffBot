@@ -185,3 +185,19 @@ These arrived in chat during S105–S111 rather than as a batch, so they were bu
 - [x] **M25.5 — The four declared pairings** *(S111)* — the owner named four VC → text channel id pairs. Committed as code defaults (S35) and consulted ahead of the name matcher, because a stated fact must not lose to an inference. Per-guild `voicePairs` overrides via `!transcribe pair`.
 
 *Nothing in M25 is outstanding.* The only unchecked item in this file is **M24.3**, and its gate is an owner decision (see § M24).
+
+---
+
+## M26 — Games: match the sources (owner batch, 2026-07-26)
+
+Owner, after playing what S66–S92 shipped: *"Connect4: Vervang deze met https://github.com/Brandjuh/FireAndRescueAcademyCogs/tree/main/minigames — City crime: Dit is niet hoe het spel werkt in de link die ik je stuurde, dat werkt met panelen niet enkel met commands. Controleer alle spellen en hoe ze werken."*
+
+**The finding to test first: the divergence may be systematic.** S68 made CuffBot text-only, and every game ported after it was given a command surface. Where the source cog drove play through **panels** — a persistent message with buttons that is the game — a faithful port needed the components *and* a text entry point, not a command per action. City is the reported case; the audit decides how many others share it. Text-only (S68) never meant component-free: trivia, connect4, the patrol wizard and the help panel all use buttons already.
+
+- [ ] **M26.1 — Audit every game against its source** (1 session) — for each of the 14 game modules, re-read the source cog and record: how a player actually interacts (panel / buttons / commands / reactions), what our port does instead, and whether the difference is a deliberate recorded deviation or an unnoticed one. Deliverable is a table in `docs/porting/`, in the same spirit as the S65 survey — the survey is what makes the remaining sessions schedulable instead of open-ended.
+  *Accept when:* every game has a verdict (faithful / diverged-deliberately / diverged-by-accident) with the evidence beside it, and the diverged ones are sliced into sessions with estimates.
+- [ ] **M26.2 — Connect4 → the `minigames` cog** — the owner wants the current connect4 module **replaced** by `Brandjuh/FireAndRescueAcademyCogs/minigames`, not adjusted. Read the cog first: it may bundle several games, in which case the replacement is wider than one module. The S100 solo opponent is ours, not the cog's — decide explicitly whether it survives the swap and say so rather than dropping it silently.
+- [ ] **M26.3 — City crime → panel-driven** — rework the `city` surface so play happens in a panel the way the source does, keeping the S89–S92 engine (the crime tables, resolver, jail suite, scenarios, market and boards are all verified against the source and are not what is wrong).
+- [ ] **M26.4+ — whatever the audit turns up** — sliced once M26.1 has the evidence.
+
+*Standing constraint, unchanged:* pure rules in `lib/` with tests, components via the module-owned pump with the S98 non-originator rules, and a manual per module.

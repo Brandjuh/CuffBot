@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.37 — 2026-07-26 (Session 113)
+
+- `SKILL.md` Step 6 (Record): **an owner-action item must be written as a check, not an instruction.** Name the command whose output settles it, and run that command before ever repeating the item.
+- Evidence: STATE's *Owner actions pending* list was phrased as "do X" and could only be cleared by the owner volunteering that he had done it. The state that would clear it lives on a Discord server no session can see, so it never got cleared — and every session re-read the list and re-issued it verbatim. The owner was told four times to run `!ranks setup` (he had run it four times) and once to add an API key he had already added: *"Nog een keer de leveler? dat heb ik inmiddels 4x gedaan, die API key staat er ook al in."* This is the second time the shape has cost real irritation — S57 produced a "stop repeating this" mandate about intents, which patched that one instance rather than the pattern. A to-do list addressed to a human is a claim like any other, and it is the kind that decays silently.
+
 ## 0.5.36 — 2026-07-26 (Session 112)
 
 - `SKILL.md` Step 2 (Verify): **`ROADMAP.md` is a claim too.** Iron rule 2 named `STATE.md` and `SESSION_LOG.md` and quietly excluded the third state file — so nothing told anyone to verify the roadmap, and nobody did. Adds the two drift shapes (an unchecked-but-done box schedules duplicate work; a checked-but-undone box hides a gap), the fastest tell (**a parent box unchecked while every child is ticked is stale**), and the requirement that a box blocked on the owner says so inside the box.

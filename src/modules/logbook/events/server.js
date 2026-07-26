@@ -4,11 +4,14 @@ import { Events } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import {
   channelChanged,
+  channelPermissionsChanged,
   emojiChanged,
   inviteChanged,
   roleChanged,
+  rolePermissionsChanged,
   voiceChanged,
 } from '../lib/logformat.js';
+import { describeOverwrite, diffOverwrites, diffPermissions, overwriteSnapshot } from '../lib/permissions.js';
 import { postLog } from '../service.js';
 
 const isHome = (guild, client) => guild && guild.id === client.config.homeGuildId;
@@ -57,12 +60,34 @@ export const onChannelDelete = {
 
 export const onChannelUpdate = {
   name: Events.ChannelUpdate,
-  execute: guard('channel-rename', async (oldChannel, newChannel) => {
+  execute: guard('channel-update', async (oldChannel, newChannel) => {
     if (!isHome(newChannel.guild, newChannel.client)) return;
-    if (oldChannel.name === newChannel.name) return; // topic/permission edits are noise
+
+    if (oldChannel.name !== newChannel.name) {
+      await postLog(
+        newChannel.guild,
+        channelChanged({
+          action: 'rename',
+          channelId: newChannel.id,
+          name: newChannel.name,
+          beforeName: oldChannel.name,
+        }),
+      );
+    }
+
+    // S113. Until now this handler returned early on anything that was not a
+    // rename, with the comment "topic/permission edits are noise" — so every
+    // permission change on every channel went unlogged. A topic edit really is
+    // noise; who may read a channel is not.
+    const changes = diffOverwrites(overwriteSnapshot(oldChannel), overwriteSnapshot(newChannel));
+    if (changes.length === 0) return;
     await postLog(
       newChannel.guild,
-      channelChanged({ action: 'rename', channelId: newChannel.id, name: newChannel.name, beforeName: oldChannel.name }),
+      channelPermissionsChanged({
+        channelId: newChannel.id,
+        name: newChannel.name,
+        descriptions: changes.map(describeOverwrite),
+      }),
     );
   }),
 };
@@ -85,10 +110,26 @@ export const onRoleDelete = {
 
 export const onRoleUpdate = {
   name: Events.GuildRoleUpdate,
-  execute: guard('role-rename', async (oldRole, newRole) => {
+  execute: guard('role-update', async (oldRole, newRole) => {
     if (!isHome(newRole.guild, newRole.client)) return;
-    if (oldRole.name === newRole.name) return;
-    await postLog(newRole.guild, roleChanged({ action: 'rename', name: newRole.name, beforeName: oldRole.name }));
+
+    if (oldRole.name !== newRole.name) {
+      await postLog(newRole.guild, roleChanged({ action: 'rename', name: newRole.name, beforeName: oldRole.name }));
+    }
+
+    // S113: a rename used to be the only thing this handler reported, so
+    // granting a role Administrator produced no log line at all.
+    const diff = diffPermissions(oldRole.permissions?.bitfield, newRole.permissions?.bitfield);
+    if (!diff.changed) return;
+    await postLog(
+      newRole.guild,
+      rolePermissionsChanged({
+        roleId: newRole.id,
+        name: newRole.name,
+        added: diff.added,
+        removed: diff.removed,
+      }),
+    );
   }),
 };
 

@@ -1,7 +1,7 @@
 // The XP-system admin group (S70 = M17.2, `!xp` — the old `!xp-config` name
 // stays as an alias). Bare `!xp` shows settings + the per-rank thresholds.
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import { isPinnedLadder, ladderForGuild } from '../../academy/service.js';
+import { explainPin, isPinnedLadder, ladderForGuild, pinDiagnosis } from '../../academy/service.js';
 import { ladderTable, thresholdsFor } from '../lib/xp.js';
 import { getUserXp, getXpConfig, setXpConfig } from '../service.js';
 
@@ -23,7 +23,7 @@ export default {
     status(ctx) {
       const config = getXpConfig(ctx.guild.id);
       const ladder = ladderForGuild(ctx.guild);
-      const pinned = isPinnedLadder(ctx.guild.id, ladder);
+      const diagnosis = pinDiagnosis(ctx.guild.id, ladder);
       const thresholds = thresholdsFor(ladder.ranks.length, config);
       // Ladder is highest-first; thresholds are lowest-first — walk from the bottom.
       const ladderLines = ladder.ranks.length
@@ -37,7 +37,7 @@ export default {
       return [
         `**Enabled:** ${config.enabled ? 'yes' : 'no'}`,
         `**Auto rank sync:** ${config.syncRoles ? 'yes (promote-only)' : 'no'}`,
-        `**Ladder pinned:** ${pinned ? 'yes' : '⚠️ no — auto-rank and rank seeding stay idle until an admin runs `!ranks setup header:@<divider>`'}`,
+        `**Ladder pinned:** ${explainPin(diagnosis, ctx.prefix)}`,
         `**Message XP:** ${config.messageXp} (cooldown ${Math.round(config.messageCooldownMs / 1000)}s)`,
         `**Voice XP:** ${config.voiceXpPerMin}/min (needs ≥2 humans, not self-deafened, not AFK channel)`,
         `**Curve:** rank N costs round(${config.baseXp.toLocaleString('en-US')} · N^${config.exponent}) — tune with \`${ctx.prefix}xp base\` / \`${ctx.prefix}xp exponent\``,
