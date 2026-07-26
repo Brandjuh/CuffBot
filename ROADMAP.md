@@ -106,6 +106,39 @@ M16 (the games) resumes AFTER M17.1 so every new game lands in the final structu
 
 ---
 
+## M24 — Mafia (survey completed S104, not yet scheduled)
+
+The one cog from the S65 batch that was never surveyed. It has now been read, and the survey is the deliverable: **the size is the finding.**
+
+**What it is:** `AAA3A-cogs/mafiagame` — **11,927 lines of Python**, MIT licensed (same as every other AAA3A port). For scale, `city` and `heist` each took four sessions and are a fraction of this.
+
+| Part | Size | Note |
+|---|---|---|
+| `roles.py` | 5,439 lines, **57 roles** | The bulk. Each role has its own night action, win condition and interactions with the other 56 |
+| `views.py` | 2,035 lines | Buttons, selects and modals for lobby, night actions, voting, judgement |
+| `game.py` | 1,399 lines | The day/night loop, voting, judgement, wills, ghosts |
+| `mafiagame.py` | 802 lines | Command surface: `start`/`end`/`role(s)`/`mode(s)`/`anomaly`/`achievements`/`tempban`/`afkkill`/`poll` |
+| `modes.py` | 537 lines, 7 modes | Classic · Crazy · Chaos · Corona · Crimson · Random · Custom |
+| `anomalies.py` + `famine_apocalypses.py` | 582 lines, 10 anomalies | Round modifiers and an apocalypse system |
+| `utils.py`, `constants.py` | 1,085 lines | Includes hardcoded developer/helper/tester Discord ids and a DEVELOPER-gated `Developer` role — **all of that must be stripped**, not ported |
+
+**The finding that changes the plan:** **Classic mode needs only 5 players and only four roles** — `ALWAYS_MUST = [GodFather, Detective, Doctor]` plus Villagers. The other 53 roles, 6 modes, 10 anomalies and the apocalypse system are all *additive*. So this does not have to be an eight-session commitment to be playable.
+
+**Recommended slicing — stop after any slice and still have a working game:**
+
+- [ ] **M24.1 — Classic, 5+ players** (≈2 sessions) — pure `lib/`: role assignment, the day/night loop, night actions for GodFather/Detective/Doctor, voting, judgement, win conditions. Buttons for the lobby and the votes; night actions by DM. This is the version people actually play.
+- [ ] **M24.2 — The next tier of roles** (≈2 sessions) — Vigilante, Mayor, Executioner, Jester, Framer, Spy and the rest of the commonly-played set, plus the Crazy and Chaos modes that use them.
+- [ ] **M24.3 — Anomalies, achievements, the long tail** (open-ended) — only if the precinct is actually playing it.
+
+**Before scheduling, the owner should know:** this is a **live, multi-hour game needing 5+ people online at once**. Every other M16 game works with one player or two. That is the real question — not whether it can be built, but whether the precinct's headcount will use it. Nothing about M24.1 changes if the answer arrives later, so it is recorded here rather than started.
+
+**Porting notes for whoever takes M24.1:**
+- The cog is `hybrid_group` (slash + text). CuffBot is text-only (S68), so the command surface is a group and every interaction goes through a module-owned component pump with the S98 non-originator rules — a night-action prompt is per-viewer and must never be edited by a stranger's press.
+- 12 bundled images (day/night/judgement/defend + anomalies). MIT-licensed with the code, but check each file's provenance the way S80 did before committing any of them; emoji headers may be enough.
+- The engine is a long-running state machine with timers, so it wants the io-injected shape (S73/S79/S81): pure phase logic with an injected `now` and injectable timers, or the test suite will take as long as a real game.
+
+---
+
 ## M18+ — Owner batch request (2026-07-25, during S96)
 
 Four features, in the owner's own priority order (speech-to-text explicitly last).
