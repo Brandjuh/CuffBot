@@ -5,6 +5,7 @@
 // selectable" is assertable without a gateway.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
   ATTEMPT_WINDOW_MS,
   BAIL_OUT_COST,
@@ -13,6 +14,7 @@ import {
   crimeOptions,
   crimePanel,
   shortWait,
+  targetPanel,
 } from '../src/modules/city/lib/panel.js';
 import { CRIMES } from '../src/modules/city/lib/tables.js';
 
@@ -58,15 +60,43 @@ test('jail replaces the picker entirely rather than offering jobs you cannot do'
   assert.match(p.lines.join('\n'), /out in \*\*1h 30m\*\*/);
 });
 
-test('jail offers exactly the two choices that exist there', () => {
+test('jail leads with the two choices that only exist there', () => {
   const p = panel({ jail: { jailed: true, remainingMs: 60_000 } });
-  assert.deepEqual(p.buttons.map((b) => b.id), ['bail', 'jailbreak']);
+  assert.deepEqual(p.buttons.slice(0, 2).map((b) => b.id), ['bail', 'jailbreak']);
 });
 
-test('the street panel offers only buttons that actually work', () => {
-  // Market and leaderboard are still subcommands in this slice, so the panel
-  // does not pretend otherwise. A dead button is worse than a missing one.
-  assert.deepEqual(panel().buttons.map((b) => b.id), ['refresh']);
+test('the market is reachable from a cell — that is when you want the jail pass', () => {
+  const jailed = panel({ jail: { jailed: true, remainingMs: 60_000 } }).buttons.map((b) => b.id);
+  assert.ok(jailed.includes('market'), 'buying your way out is the point of the market');
+});
+
+// S122 asserted a hard-coded ['refresh'] to keep dead buttons off the panel.
+// S124 gave Market and Board somewhere to go, so the list changed — but the
+// GUARD is the part worth keeping, and a literal list cannot express it.
+// Assert the real rule instead: every button the panel offers is an action the
+// pump handles. That survives the next slice adding a button; the list did not.
+test('every panel button is an action the pump actually handles', async () => {
+  const source = await readFile(new URL('../src/modules/city/events/panel.js', import.meta.url), 'utf8');
+  const offered = new Set([
+    ...panel().buttons.map((b) => b.id),
+    ...panel({ jail: { jailed: true, remainingMs: 60_000 } }).buttons.map((b) => b.id),
+  ]);
+  for (const id of offered) {
+    assert.match(source, new RegExp(`action === '${id}'`), `nothing in the pump answers to '${id}'`);
+  }
+});
+
+test('the attempt button and the target buttons carry their argument in the id', () => {
+  // `bail-out:<crime>` and `roll:<crime>` are parsed positionally by the pump,
+  // so a bare id here would silently lose the crime.
+  assert.match(attemptPanel('bank_heist', '1').buttons[0].id, /^bail-out:bank_heist$/);
+  assert.match(targetPanel('pickpocket', '1', 100).buttons[0].id, /^roll:pickpocket$/);
+});
+
+test('the target panel names the minimum, because that is why picks get refused', () => {
+  const body = targetPanel('mugging', '77', 400).lines.join('\n');
+  assert.match(body, /400/);
+  assert.match(body, /Bots, cellmates and you are off the table/);
 });
 
 test('the panel says how many jobs are actually available', () => {

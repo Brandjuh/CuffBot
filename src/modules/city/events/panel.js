@@ -8,12 +8,21 @@
 import { Events, MessageFlags } from 'discord.js';
 import { logger } from '../../../core/logger.js';
 import { bailOutOutcome } from '../lib/panel.js';
-import { attemptFromPanel, panelPayload } from '../commands/crime.js';
+import { TARGET_REFUSAL, pickRandomTarget, targetProblem } from '../lib/targets.js';
+import {
+  attemptFromPanel,
+  boardPayload,
+  marketPayload,
+  panelPayload,
+  targetCandidates,
+} from '../commands/crime.js';
 import { getAttempt } from '../attempts.js';
 import {
   attemptJailbreak,
+  buyMarketItem,
   cityAdjustBalance,
   cityBalance,
+  getCitySettings,
   getCriminal,
   jailState,
   payCityBail,
@@ -52,6 +61,95 @@ export default {
           return;
         }
         await attemptFromPanel(interaction, crimeType);
+        return;
+      }
+
+      // ── picking a mark (S124) ──────────────────────────────────────────────
+      if (action === 'mark' || action === 'roll') {
+        const crimeType = rest[0];
+        if (!CRIMES[crimeType]?.requiresTarget) {
+          await quiet(interaction, '🌃 That job does not need a mark.');
+          return;
+        }
+        const settings = getCitySettings(interaction.guild.id);
+        const minBalance = Math.max(settings.minStealBalance, CRIMES[crimeType].minReward);
+        const self = getCriminal(interaction.guild.id, interaction.user.id);
+        const opts = { selfId: interaction.user.id, minBalance, lastTargetId: self.lastTargetId ?? null };
+
+        if (action === 'roll') {
+          const rolled = pickRandomTarget(await targetCandidates(interaction.guild, interaction.user.id), opts);
+          if (!rolled.ok) {
+            await quiet(interaction, TARGET_REFUSAL.nobody);
+            return;
+          }
+          await attemptFromPanel(interaction, crimeType, { targetId: rolled.target.id });
+          return;
+        }
+
+        const chosen = interaction.users?.first?.() ?? null;
+        if (!chosen) {
+          await quiet(interaction, '🌃 Nobody picked.');
+          return;
+        }
+        const problem = targetProblem(
+          {
+            id: chosen.id,
+            bot: chosen.bot,
+            jailed: jailState(getCriminal(interaction.guild.id, chosen.id)).jailed,
+            balance: await cityBalance(interaction.guild.id, chosen.id),
+          },
+          // A name the player typed themselves is not the roller, so the
+          // repeat rule does not apply (see targets.js).
+          { ...opts, lastTargetId: null },
+        );
+        if (problem) {
+          await quiet(interaction, TARGET_REFUSAL[problem]);
+          return;
+        }
+        await attemptFromPanel(interaction, crimeType, { targetId: chosen.id });
+        return;
+      }
+
+      // ── the market and the board, in place (S124) ──────────────────────────
+      if (action === 'market') {
+        await interaction.update(await marketPayload(interaction.guild, interaction.user)).catch(() => {});
+        return;
+      }
+
+      if (action === 'board') {
+        await interaction.update(boardPayload(interaction.guild, interaction.user)).catch(() => {});
+        return;
+      }
+
+      if (action === 'board-cat') {
+        await interaction
+          .update(boardPayload(interaction.guild, interaction.user, interaction.values?.[0]))
+          .catch(() => {});
+        return;
+      }
+
+      if (action === 'buy') {
+        const result = await buyMarketItem(interaction.guild.id, interaction.user.id, interaction.values?.[0]);
+        if (result.error) {
+          await quiet(
+            interaction,
+            result.error === 'too-poor'
+              ? `🚫 That costs **${result.cost} 🍩** and you have **${result.balance}**.`
+              : result.error === 'already-owned'
+                ? '🚫 You already have that perk — it is permanent.'
+                : '🚫 Nothing by that name.',
+          );
+          return;
+        }
+        // Update first so the catalogue reflects the purchase, then say what
+        // happened — a receipt under a stale shelf reads like it failed.
+        await interaction.update(await marketPayload(interaction.guild, interaction.user)).catch(() => {});
+        await interaction
+          .followUp({
+            content: `✅ Bought ${result.item.emoji} **${result.item.name}** for **${result.item.cost} 🍩**.`,
+            flags: MessageFlags.Ephemeral,
+          })
+          .catch(() => {});
         return;
       }
 

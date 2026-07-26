@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.45 — 2026-07-26 (Session 124)
+
+- `references/architecture.md` (Verification habits): **a test that two things share a source needs a source that can tell them apart** — plus **a guard written as a literal list stops guarding the moment the list is right to change.**
+- Evidence: S124 narrates a crime's events and then resolves it from the same drawn list; drawing twice would divorce the story from the outcome. The test asserting they match **passed against code deliberately mutated to draw twice**, because the fixture rng always picked index 0 — both draws returned identical events, so identical output proved nothing. Third sibling of 0.5.35 (circular check) and 0.5.44 (only the flattering input): here the fixture was too *uniform* to expose the defect. Fixed with a walking rng and re-verified against the same mutation. Separately, S122's `assert.deepEqual(buttons, ['refresh'])` failed when S124 legitimately added two working buttons; editing the literal would have removed the guard while leaving its shape. Replaced with the rule it stood in for — every offered button must have a handler in the pump — verified by adding a dead button and watching it fail. Both were found because **every new guard is mutated before it is trusted**, which this session applied seven times and which caught one vacuous test and two real defects.
+
 ## 0.5.44 — 2026-07-26 (Session 123)
 
 - `references/architecture.md` (Verification habits): **a function whose purpose is to justify a change must be tested against the case where the change is worthless.** Plus, as a second instance: **render the output, not the builders.**

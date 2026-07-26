@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 123 · 2026-07-26
+**Last updated:** Session 124 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,8 +16,10 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1095/1095 pass as of S120 |
-| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'connect4', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
+| Tests green | `npm test` | 1171/1171 pass as of S124 |
+| Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | 37 names: `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'minigames', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
+
+⚠️ **Both rows above were wrong until S124** — they claimed `1095/1095 as of S120` and still listed `connect4`, a module **S116 deleted** when `minigames` replaced it. A verification block that has drifted verifies nothing: it either fails for the wrong reason or, worse, is skipped because "it always looks a bit off". **Update these two rows in the same commit as any change to the test count or the module list.**
 | Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, city, connect4, core, detective, dispatch, economy, enforcement, goals, guessthecandy, hammertime, hangman, heist, hunting, killcounter, leveling, logbook, mafia, memorial, memory, patrol, public-affairs, records, rollout, rules, russianroulette, selfroles, splitorsteal, starboard, transcribe, trivia, welcome, wordle, youtube |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
 | Boot guard | `node src/index.js` (without `.env`) | Fails fast naming the missing env vars |
@@ -269,7 +271,7 @@ The first fix from the S115 audit, and the first module built under the rule tha
 
 Tests **1033 → 1049**: +46 for the new module, −30 with the old one. A test count that goes *down* on a replacement is the evidence the old thing is really gone (S96's precedent).
 
-**Still open in M26:** 26.2b (Tic-Tac-Toe, donut staking, `!gameleaderboard` sorting, admin config), 26.3 (city → panels — the one the owner reported, with real gameplay missing), 26.4 (heist's seven remaining panels).
+**Still open in M26:** 26.2b (Tic-Tac-Toe, donut staking, `!gameleaderboard` sorting, admin config) and 26.4 (heist's seven remaining panels). **26.3 is COMPLETE** — 26.3a in S122 (the panel + Bail Out), 26.3b in S124 (narrated events with a bail check between each, the mark picker, market/board as buttons).
 
 ## S117 — seven games did not start; unattended updates said nothing
 
@@ -368,6 +370,26 @@ Owner: *"Ik wil geen budgetten gaan gokken, wat zijn de officiele rate limits hi
 ⚠️ **A test caught my own arithmetic lying.** `batchingSaving` first computed the unbatched cost as `turns × 10`, treating the floor as a flat rate — but a 12-second turn is billed at 12, not 10. That overstated the saving for long turns. The corrected function reports **factor 1** for three 12-second turns, and the test asserts exactly that: batching must not claim a saving where none exists.
 
 `dailyLimit` survives as an **optional** extra ceiling, default `0` (off). Also fixed: S118 added an Auto-join diagnosis line but left the old one, so the status printed **Auto-join twice**.
+
+## S124 — the crime plays out, and the panel stops pointing at commands (M26.3b)
+
+S122 gave City a panel and the Bail Out button. It was still only **one** decision point: the resolver drew its events and settled in the same call, so the button lived for two seconds and the events only ever appeared in the result card — after they could no longer matter.
+
+**Now the crime is narrated.** 2 s opening, 4 s per drawn event, 4–6 s of suspense by risk, and **the bail flag checked before every beat**. A four-event bank job offers six chances to walk away, each one arriving *after* you learned something ("a guard walks past, −15%"). That is what makes 100 🍩 a decision rather than a coin flip on a timer. The whole crime lives on one edited message, so the button is always under the latest line.
+
+⚠️ **Tested invariant:** the slowest possible crime is **24 s**, inside the button's own **30 s** window. `worstCaseDurationMs()` derives that from `EVENT_CHANCES`, not a hard-coded `4`, so a fifth draw step breaks the test rather than the game.
+
+**The narrator draws the events and hands the same list to the resolver** (`resolveCrime` and `commitCrime` gained an `events` option). Drawing twice would mean the story you watched and the outcome you got came from different crimes.
+
+**The mark picker exists.** A targeted crime from the panel used to answer *"run `!crime pickpocket @member`"* — throwing the player out of the panel the panel exists to replace. It now offers a user select, 🎯 Random Target (skips bots, you, cellmates, the too-poor, and **your last victim** — a new `lastTargetId` on the record), and Cancel.
+
+**Market and Board are panel buttons** on both the street and jail views (a jailed player is exactly who wants the jail pass), each with Back. Buying is one press instead of `!crime buy <item>`.
+
+⚠️ **A test I wrote was vacuous and mutation testing caught it.** "The narrated events are the events the outcome used" passed against code that deliberately drew twice — because my rng always picked index 0, so both draws returned the same events. **A test for "these two things came from one source" needs a source that can tell them apart.** Fixed with a walking rng, then re-verified against the same mutation.
+
+**Two real defects found by the new tests:** `boardPayload` crashed on an unknown category (`cityLeaderboard` returns `null`; only the label fell back, the raw key went through), and the S122 button test was a hard-coded `['refresh']` that could only ever be "fixed" by editing the literal. It now asserts the real rule — **every button the panel offers is an action the pump handles** — verified by adding a dead button and watching it fail.
+
+**Corrections to this file, found in Step 2:** the Verification block claimed `1095/1095 as of S120` and still listed `connect4`, which **S116 deleted**. Both fixed above. `docs/modules/city.md` claimed `!crime` had an `!city` alias (removed in S122) and that the module had no event listeners (false since S122's pump).
 
 ## Environment facts (S61)
 

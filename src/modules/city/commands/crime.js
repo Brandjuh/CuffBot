@@ -9,11 +9,14 @@ import {
   EmbedBuilder,
   MessageFlags,
   StringSelectMenuBuilder,
+  UserSelectMenuBuilder,
 } from 'discord.js';
-import { attemptPanel, crimePanel, shortWait } from '../lib/panel.js';
+import { BAIL_OUT_COST, attemptPanel, crimePanel, shortWait, targetPanel } from '../lib/panel.js';
+import { OPENING_BEAT_MS, crimeScript, formatEventText, storyLines } from '../lib/narrate.js';
+import { TARGET_REFUSAL } from '../lib/targets.js';
 import { forgetAttempt, trackAttempt } from '../attempts.js';
 import { CRIMES } from '../lib/tables.js';
-import { streakBonus } from '../lib/resolve.js';
+import { defaultRng, drawEvents, streakBonus } from '../lib/resolve.js';
 import {
   LEADERBOARD_CATEGORIES,
   attemptJailbreak,
@@ -29,6 +32,7 @@ import {
   jailState,
   marketCatalogue,
   payCityBail,
+  rememberTarget,
   setCitySettings,
   useJailPass,
 } from '../service.js';
@@ -47,12 +51,7 @@ const normalizeItemId = (raw) => String(raw).toLowerCase().trim().replaceAll(' '
 const TEAL_ADMIN = 0x11806a;
 
 /** Turn a raw event's display text into something readable in Discord. */
-function eventLine(event) {
-  return `• ${event.text
-    .replaceAll('{credits_bonus}', String(event.credits_bonus ?? 0))
-    .replaceAll('{credits_penalty}', String(event.credits_penalty ?? 0))
-    .replaceAll('{currency}', '🍩')}`;
-}
+const eventLine = (event) => `• ${formatEventText(event)}`;
 
 /** The result card: what happened, what the events did, and the maths. */
 export function crimeEmbed(outcome, displayName, { targetName = null } = {}) {
@@ -587,29 +586,202 @@ const PANEL_STYLES = {
   primary: ButtonStyle.Primary,
 };
 
+/** The Back button that returns any sub-view to the panel proper. */
+const backRow = (userId) =>
+  new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`cty:refresh:${userId}`)
+      .setLabel('Back')
+      .setEmoji('◀️')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
 /**
- * Run a crime picked from the panel, with the source's Bail Out window.
+ * The black market, rendered into the panel with a buy menu (S124).
  *
- * The cog posts the attempt, sleeps 2 s, then checks whether the player bailed
- * before resolving — so the button is a live decision, not decoration. That
- * sleep is the mechanic and is reproduced; `wait` is injectable so a test does
- * not spend two real seconds per case.
- *
- * ⚠️ **Recorded deviation:** the cog re-checks `bailed` between each narrated
- * event, giving a longer window. Our resolver settles a crime in one call, so
- * the window is the 2 s beat. Same decision, same price, fewer chances to take
- * it — splitting the resolver is 26.3b.
+ * `!crime market` prints a catalogue and tells you to type `!crime buy <item>`.
+ * On the panel that second step is a select, so buying is one press.
  */
-export async function attemptFromPanel(interaction, crimeType, { wait = defaultWait } = {}) {
+export async function marketPayload(guild, user) {
+  const criminal = getCriminal(guild.id, user.id);
+  const balance = await cityBalance(guild.id, user.id);
+  const catalogue = marketCatalogue();
+
+  const owned = (item) =>
+    item.type === 'perk'
+      ? criminal.perks.includes(item.id)
+      : false; // consumables stack, so holding one never blocks the next
+
+  const rows = [
+    new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(`cty:buy:${user.id}`)
+        .setPlaceholder('Buy something…')
+        .addOptions(
+          catalogue.map((item) => ({
+            label: item.name,
+            value: item.id,
+            emoji: item.emoji,
+            description: owned(item)
+              ? 'owned — permanent'
+              : `${money(item.cost)} 🍩${item.cost > balance ? ' · you cannot afford this' : ''}`,
+          })),
+        )
+        // Everything owned or unaffordable means nothing to press; say so with
+        // a dead menu rather than a refusal after the fact (the picker's rule).
+        .setDisabled(catalogue.every((item) => owned(item) || item.cost > balance)),
+    ),
+    backRow(user.id),
+  ];
+
+  return {
+    embeds: [
+      new EmbedBuilder()
+        .setColor(CRIME_COLOUR)
+        .setTitle('🕯️ The black market')
+        .setDescription(
+          catalogue
+            .map((item) => {
+              const held =
+                item.type === 'perk'
+                  ? criminal.perks.includes(item.id)
+                    ? ' · **owned**'
+                    : ''
+                  : (criminal.items[item.id] ?? 0) > 0
+                    ? ` · **you hold ${criminal.items[item.id]}**`
+                    : '';
+              return `${item.emoji} **${item.name}** — ${money(item.cost)} 🍩${held}\n-# ${item.description}`;
+            })
+            .join('\n\n'),
+        )
+        .setFooter({ text: `You hold ${money(balance)} 🍩` }),
+    ],
+    components: rows,
+    allowedMentions: { parse: [] },
+  };
+}
+
+/** The leaderboard, rendered into the panel with a category switcher (S124). */
+export function boardPayload(guild, user, requested = 'earned') {
+  // Normalise BEFORE the lookup: `cityLeaderboard` returns null for a category
+  // it does not know, and falling back on the spec alone while passing the raw
+  // key through would render `null.map(...)`.
+  const key = LEADERBOARD_CATEGORIES[requested] ? requested : 'earned';
+  const spec = LEADERBOARD_CATEGORIES[key];
+  const rows = cityLeaderboard(guild.id, key) ?? [];
+  const medals = ['🥇', '🥈', '🥉'];
+
+  return {
+    embeds: [
+      new EmbedBuilder()
+        .setColor(CRIME_COLOUR)
+        .setTitle(`🏆 Most wanted — ${spec.label}`)
+        .setDescription(
+          rows.length === 0
+            ? 'Nobody has a record worth showing yet.'
+            : rows
+                .map((row, i) => `${medals[i] ?? `**${i + 1}.**`} <@${row.id}> — **${money(row.value)}**${spec.suffix}`)
+                .join('\n'),
+        ),
+    ],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`cty:board-cat:${user.id}`)
+          .setPlaceholder('Another category…')
+          .addOptions(
+            Object.entries(LEADERBOARD_CATEGORIES).map(([id, cat]) => ({
+              label: cat.label,
+              value: id,
+              default: id === key,
+            })),
+          ),
+      ),
+      backRow(user.id),
+    ],
+    allowedMentions: { parse: [] },
+  };
+}
+
+/**
+ * Ask who the mark is (S124). Targeted crimes used to bounce the player back
+ * to the text command; now the panel asks.
+ */
+export async function askForTarget(interaction, crimeType) {
+  const settings = getCitySettings(interaction.guild.id);
+  const minimum = Math.max(settings.minStealBalance, CRIMES[crimeType].minReward);
+  const view = targetPanel(crimeType, interaction.user.id, minimum);
+  const payload = {
+    embeds: [new EmbedBuilder().setTitle(view.title).setDescription(view.lines.join('\n')).setColor(0xe67e22)],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new UserSelectMenuBuilder()
+          .setCustomId(`cty:mark:${crimeType}:${interaction.user.id}`)
+          .setPlaceholder('Pick a mark…')
+          .setMaxValues(1),
+      ),
+      new ActionRowBuilder().addComponents(
+        view.buttons.map((b) =>
+          new ButtonBuilder()
+            .setCustomId(`cty:${b.id}:${interaction.user.id}`)
+            .setLabel(b.label)
+            .setEmoji(b.emoji)
+            .setStyle(PANEL_STYLES[b.style]),
+        ),
+      ),
+    ],
+    allowedMentions: { parse: [] },
+  };
+  await (interaction.update ? interaction.update(payload) : interaction.reply(payload)).catch(() => {});
+}
+
+/**
+ * Everyone the roller could land on, with the facts `targetProblem` needs.
+ *
+ * Balances are read for the whole shortlist, so the list is capped: a guild of
+ * a few thousand would otherwise mean a few thousand store reads for one
+ * button press. Shuffling before the cap keeps the roll fair across the whole
+ * guild rather than always drawing from the same alphabetical prefix.
+ */
+export async function targetCandidates(guild, selfId, { limit = 60, rng = defaultRng } = {}) {
+  const members = [...(guild.members?.cache?.values?.() ?? [])].filter((m) => !m.user?.bot && m.id !== selfId);
+  for (let i = members.length - 1; i > 0; i -= 1) {
+    const j = rng.int(0, i);
+    [members[i], members[j]] = [members[j], members[i]];
+  }
+  const shortlist = members.slice(0, limit);
+  return Promise.all(
+    shortlist.map(async (member) => ({
+      id: member.id,
+      name: member.displayName ?? member.user?.username ?? member.id,
+      bot: Boolean(member.user?.bot),
+      jailed: jailState(getCriminal(guild.id, member.id)).jailed,
+      balance: await cityBalance(guild.id, member.id),
+    })),
+  );
+}
+
+/**
+ * Run a crime picked from the panel, narrated beat by beat.
+ *
+ * The source posts the attempt, then each drawn event, then a risk-scaled
+ * pause — **re-checking the bail flag before every one**. S122 could only
+ * offer the single 2-second beat because the resolver drew its events and
+ * settled in the same call; now the narrator draws first (`drawEvents`) and
+ * hands the same events to `commitCrime`, so the story the player watches and
+ * the outcome they get are one crime, not two.
+ *
+ * `wait` is injectable, so a test plays a full 24-second crime instantly.
+ */
+export async function attemptFromPanel(interaction, crimeType, { wait = defaultWait, targetId = null, rng = defaultRng } = {}) {
   const criminal = getCriminal(interaction.guild.id, interaction.user.id);
+  const targetBalance = targetId ? await cityBalance(interaction.guild.id, targetId) : 0;
   const gate = canAttempt(interaction.guild.id, criminal, crimeType, {
-    target: CRIMES[crimeType]?.requiresTarget ? null : undefined,
+    target: targetId ? { self: targetId === interaction.user.id, bot: false } : null,
+    targetBalance,
   });
   if (gate.reason === 'target-required') {
-    await interaction.reply({
-      content: `🌃 That one needs a mark — \`${'!'}crime ${crimeType} @member\` picks one.`,
-      flags: MessageFlags.Ephemeral,
-    });
+    await askForTarget(interaction, crimeType);
     return;
   }
   if (!gate.ok) {
@@ -619,48 +791,76 @@ export async function attemptFromPanel(interaction, crimeType, { wait = defaultW
           ? '🚨 You are behind bars.'
           : gate.reason === 'cooldown'
             ? `⏱️ Not yet — ${shortWait(gate.remainingMs)} to go.`
-            : '🚫 You cannot run that one right now.',
+            : gate.reason === 'target-too-poor'
+              ? `${TARGET_REFUSAL['too-poor']} (needs **${money(gate.minimum)} 🍩**)`
+              : (TARGET_REFUSAL[String(gate.reason).replace('target-', '')] ?? '🚫 You cannot run that one right now.'),
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
+  const events = drawEvents(crimeType, rng);
+  const script = crimeScript(events, CRIMES[crimeType].risk);
   const view = attemptPanel(crimeType, interaction.user.id);
-  const sent = await interaction
-    .reply({
-      embeds: [new EmbedBuilder().setTitle(view.title).setDescription(view.lines.join('\n')).setColor(0xe67e22)],
-      components: [
-        new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`cty:bail-out:${crimeType}:${interaction.user.id}`)
-            .setLabel(view.buttons[0].label)
-            .setEmoji(view.buttons[0].emoji)
-            .setStyle(ButtonStyle.Danger),
-        ),
-      ],
-      withResponse: true,
-      fetchReply: true,
-    })
-    .catch(() => null);
+  const bailRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`cty:bail-out:${crimeType}:${interaction.user.id}`)
+      .setLabel(view.buttons[0].label)
+      .setEmoji(view.buttons[0].emoji)
+      .setStyle(ButtonStyle.Danger),
+  );
+  const beatEmbed = (played) =>
+    new EmbedBuilder()
+      .setTitle(view.title)
+      .setDescription(
+        storyLines(script, played, {
+          userId: interaction.user.id,
+          crimeType,
+          bailCost: BAIL_OUT_COST,
+        }).join('\n'),
+      )
+      .setColor(0xe67e22);
 
-  const messageId = sent?.id ?? sent?.resource?.message?.id ?? null;
+  // A press arrives as a component interaction, which must be answered with
+  // `update` (editing the message the button is on) rather than `reply`; the
+  // panel becomes the attempt in place, so the whole crime happens on one
+  // message and the bail button is always under the latest beat.
+  const sent = await (interaction.update
+    ? interaction.update({ embeds: [beatEmbed(1)], components: [bailRow] }).then(() => interaction.fetchReply?.())
+    : interaction.reply({ embeds: [beatEmbed(1)], components: [bailRow], withResponse: true, fetchReply: true })
+  ).catch(() => null);
+
+  const messageId = sent?.id ?? sent?.resource?.message?.id ?? interaction.message?.id ?? null;
   const live = messageId ? trackAttempt(messageId) : { bailed: false, settled: false };
 
-  await wait(BEAT_MS);
-  if (live.bailed) return; // the button already replaced the message
+  // One beat per event, and the bail flag checked before each — the number of
+  // chances to walk away is the number of things that happen to you.
+  for (let played = 1; played <= script.length; played += 1) {
+    await wait(script[played - 1].delayMs);
+    if (live.bailed) return; // the button already replaced the message
+    if (played < script.length) {
+      await interaction.editReply({ embeds: [beatEmbed(played + 1)], components: [bailRow] }).catch(() => {});
+    }
+  }
 
   live.settled = true;
   if (messageId) forgetAttempt(messageId);
 
-  const outcome = await commitCrime(interaction.guild.id, interaction.user.id, crimeType);
+  const outcome = await commitCrime(interaction.guild.id, interaction.user.id, crimeType, { targetId, events, rng });
+  if (targetId) rememberTarget(interaction.guild.id, interaction.user.id, targetId);
   await interaction
     .editReply({
-      embeds: [crimeEmbed(outcome, interaction.member?.displayName ?? interaction.user.username, {})],
+      embeds: [
+        crimeEmbed(outcome, interaction.member?.displayName ?? interaction.user.username, {
+          targetName: targetId ? `<@${targetId}>` : null,
+        }),
+      ],
       components: [],
+      allowedMentions: { parse: [] },
     })
     .catch(() => {});
 }
 
 /** The cog's `asyncio.sleep(2)` after posting the attempt. */
-export const BEAT_MS = 2_000;
+export const BEAT_MS = OPENING_BEAT_MS;
 const defaultWait = (ms) => new Promise((resolve) => setTimeout(resolve, ms).unref?.());
