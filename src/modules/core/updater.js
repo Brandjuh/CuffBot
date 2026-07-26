@@ -239,7 +239,22 @@ export function describeState(state, { autoOn = true, lastRun = null, prefix = '
 
   lines.push('');
   lines.push(`**Automatic checks:** ${autoOn ? `on, every ${AUTO_CHECK_MS / 60_000} minutes` : 'off'}`);
-  if (lastRun) lines.push(`-# Last check: <t:${Math.floor(lastRun.at / 1000)}:R> — ${RESULTS[lastRun.result]?.text ?? lastRun.result}`);
+  if (lastRun) {
+    // ⚠️ S129: "Last check: 4 minutes ago — Already on the latest version"
+    // printed directly under "2 commits behind" reads as a contradiction, and
+    // the owner saw exactly that. Both facts were true — at different moments;
+    // the commits landed after the check ran. But a reader cannot see that,
+    // and "the checker is lying to me" is precisely the impression this whole
+    // rebuild exists to remove. So say which one is stale, and when the next
+    // one lands.
+    const superseded = state.behind > 0 && RESULTS[lastRun.result]?.changed === false && lastRun.result === 'up-to-date';
+    const verdict = RESULTS[lastRun.result]?.text ?? lastRun.result;
+    lines.push(
+      superseded
+        ? `-# Last check: <t:${Math.floor(lastRun.at / 1000)}:R> — it was up to date then; the commits above landed after it. Next check <t:${Math.floor((lastRun.at + AUTO_CHECK_MS) / 1000)}:R>.`
+        : `-# Last check: <t:${Math.floor(lastRun.at / 1000)}:R> — ${verdict}`,
+    );
+  }
 
   // The one precondition of the whole design, checked rather than assumed.
   if (state.plan.action === 'exit') {

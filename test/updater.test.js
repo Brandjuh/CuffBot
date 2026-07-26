@@ -259,6 +259,38 @@ test('status names the automatic interval the owner asked for', () => {
   assert.match(describeState(state(), { autoOn: false }).join('\n'), /Automatic checks:\*\* off/);
 });
 
+test('a stale "up to date" check is marked stale rather than contradicting the line above it', () => {
+  // The owner's real screenshot: "2 commits behind" with "Last check: 4
+  // minutes ago — Already on the latest version" directly under it. Both were
+  // true — at different moments — but a reader sees a checker calling itself
+  // a liar, which is the impression this whole rebuild exists to remove.
+  const at = 1_700_000_000_000;
+  const behind = describeState(state({ behind: 2 }), { lastRun: { at, result: 'up-to-date' } }).join('\n');
+  assert.doesNotMatch(behind, /Already on the latest version/, 'that sentence must not sit under "2 commits behind"');
+  assert.match(behind, /up to date then/);
+  assert.match(behind, /landed after it/);
+  assert.match(behind, /Next check/, 'and it says when the gap closes by itself');
+});
+
+test('the stale marker does NOT fire when the check is still accurate', () => {
+  // Otherwise the fix above would just be a different wrong sentence.
+  const at = 1_700_000_000_000;
+  const current = describeState(state({ behind: 0 }), { lastRun: { at, result: 'up-to-date' } }).join('\n');
+  assert.match(current, /Already on the latest version/);
+  assert.doesNotMatch(current, /landed after it/);
+});
+
+test('a FAILED last check is never softened into a staleness note', () => {
+  // Being behind because the tests went red is a different fact from being
+  // behind because the commits are new, and the red one must survive.
+  const at = 1_700_000_000_000;
+  for (const result of ['tests-failed', 'fetch-failed', 'install-failed', 'merge-failed']) {
+    const body = describeState(state({ behind: 2 }), { lastRun: { at, result } }).join('\n');
+    assert.doesNotMatch(body, /up to date then/, result);
+    assert.match(body, new RegExp(RESULTS[result].text.split('.')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), result);
+  }
+});
+
 test('a broken checkout is said plainly rather than guessed around', () => {
   const body = describeState(state({ head: null })).join('\n');
   assert.match(body, /Cannot read the checkout/);
