@@ -59,3 +59,13 @@ Your own unit tests share your own blind spots — they pass precisely because t
 ## Keeping the evals honest
 
 `evals/evals.json` holds prompts that test whether this skill actually helps (bootstrap work, and continuing from state that contains deliberate drift). After a significant skill change, or when the project enters a new kind of work (first stateful module, first deployment), add or update an eval prompt. When asked to evaluate the skill, run the prompts with and without the skill in separate worktrees/copies and compare against the assertions — never test in the real repo.
+
+## When a session finds nothing wrong
+
+Finding nothing is a legitimate outcome, and it has its own obligations.
+
+**Record the sweep, or it gets re-run.** S115's game audit stayed open for seventeen sessions because its verdict claimed more than its method measured; S132 closed it with five checkable classes and no divergence. That result is only worth the session if the *next* session can find it — so it goes in the audit document and in `STATE.md`, with a note about what would justify re-opening it (an owner report of specific misbehaviour is new evidence; a general worry is not).
+
+**Do not ship a guard you do not trust in order to have a commit.** S132's first attempt at a leaderboard↔stats check misread the module's exports and would have produced false failures until a later session deleted it. A fragile test is worse than no test: it costs every future session attention and teaches them to distrust the suite. This is scaffolding-as-product (0.5.38) in test form.
+
+**Do not promote an unscoped milestone to fill the gap.** "Continue autonomously" removes the need to ask permission; it does not authorise inventing a specification. If an item's gate is a fact about the live server that the container cannot observe, that gate is still shut — say so plainly and hand back the question.

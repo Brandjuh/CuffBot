@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 131 · 2026-07-27
+**Last updated:** Session 132 · 2026-07-27
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -499,6 +499,26 @@ scripts/setup-pi.sh: line 121: !update: command not found
 ⚠️ **The loader's duplicate-alias guard earned its keep a third time** (S116, S122, now): `prices` already belonged to S126's player-facing `catalogue`, so the admin editor took `pricing`. Caught at test time rather than at boot on the Pi.
 
 Five mutations, all caught — including a stale job id that would have let a field selection survive onto a job the admin never opened, and the admin gate removed from the pump.
+
+## S132 — the S115 audit is closed, on evidence
+
+The owner's S115 request was *"Controleer alle spellen en hoe ze werken."* S115 answered it with a component count, S117 corrected that method's claim (*it measures how a game is driven, not whether it works*), and M26 fixed the three the count did identify. **The correctness question stayed open for the other ten for seventeen sessions.**
+
+It is closed now, and the answer is **no divergence**. Five objectively checkable classes, all clean:
+
+| Class | Result |
+|---|---|
+| Numeric parameters (timeouts, windows, difficulties, prize ranges) diffed against the Python | all match |
+| Stats persistence vs which sources declare `register_guild(wins=, games=)` | all match |
+| Leaderboards present exactly where upstream has one | all match |
+| Bare-word invocation (the S117 class) | fixed in 7 modules, held by a loader test |
+| Every loaded module referenced by a test | 37/37 |
+
+**Why it came back clean:** the ports carry recorded deviations only a real diff produces — rollout's *"the cog's help text says 5000, its code says 2500"*, memory's *"the source's `lose()` increments `games` a second time"*, city's *"the comment says 45%, the value says 40% — the value wins"*. Those are fingerprints of the source having been read, not skimmed.
+
+⚠️ **A clean sweep is a finding, not a non-event.** Recorded in `docs/porting/S115-game-interaction-audit.md` under *Closed — Session 132* so no future session re-runs this work. **Do not re-open "check all the games" without new evidence** — an owner report of specific misbehaviour is new evidence; a general worry is not.
+
+**Still open by design:** `mafia` is ⚠️ *proportional* (13 of 57 roles). That is scope, gated on M24.3's owner decision, not divergence.
 
 ## Environment facts (S61)
 
