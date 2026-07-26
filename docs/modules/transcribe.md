@@ -27,7 +27,8 @@ Transcribing a memo on request is public; every knob, and everything to do with 
 | `!transcribe voicechannel` | Auto-join only these voice channels | `<channel>` | Manage Server | `!transcribe voicechannel 🔊General` |
 | `!transcribe leave` | Leave the voice channel and stop | none | Manage Server | `!transcribe leave` |
 | `!transcribe pair` | Say which text channel goes with a voice channel — omit the text channel to unpair | `<voice> [text]` | Manage Server | `!transcribe pair 🔊General #general` |
-| `!transcribe pairs` | List every pairing in force | none | Everyone | `!transcribe pairs` |
+| `!transcribe pairs` | **Where every voice channel writes**, and why | none | Everyone | `!transcribe pairs` |
+| `!transcribe unpair` | Remove a pairing — takes a deleted channel's raw id too | `<voice>` | Manage Server | `!transcribe unpair 411633952961593345` |
 | `!transcribe ignore` | Never transcribe this member (toggle) | `<member>` | Manage Server | `!transcribe ignore @Soundboard` |
 | `!transcribe bots` | Transcribe other bots too — **off by default, which is what ignores music** | `<true\|false>` | Manage Server | `!transcribe bots false` |
 | `!transcribe timestamps` | Stamp each live line with `HH:MM` | `<true\|false>` | Manage Server | `!transcribe timestamps false` |
@@ -80,7 +81,16 @@ Four pairings ship as **code defaults** (`DEFAULT_VOICE_PAIRS` in `lib/pairing.j
 | `442066086159187978` | `442059736263688213` |
 | `411634241965916191` | `411634286655963146` |
 
-A guild's own `voicePairs` sits **on top** of those, so `!transcribe pair` corrects a default without touching code. `!transcribe pairs` lists everything in force and marks the server's own overrides. `!transcribe pair <voice>` with no text channel removes the override and restores the default (or the name match, if there is no default).
+A guild's own `voicePairs` sits **on top** of those, so `!transcribe pair` corrects a default without touching code.
+
+**`!transcribe pairs` walks the voice channels, not the pairing table (S118).** It used to list only the four stored pairings — which answers *"what is configured"* rather than *"where does each channel write"*, so the majority of rooms, the ones matched by name, appeared nowhere. Now every voice channel gets a row saying where its transcript goes and **why**: paired, matched by name, matched by name in the same category, or its own built-in chat. Overrides this server made are marked as such.
+
+Two things the list calls out rather than hiding:
+
+- **A pairing whose text channel was deleted.** The matcher silently falls through to a name match, which is correct behaviour and unreadable unless the row says so — otherwise you see a working-looking pairing pointing at a channel that is gone.
+- **Pairings whose voice channel no longer exists.** They cause no harm, but they are exactly the rows worth cleaning up, so they are listed separately with the command to remove them.
+
+**`!transcribe unpair <voice>` takes a raw id on purpose.** A pairing whose voice channel has been deleted is the one you most want gone, and a channel argument cannot resolve a channel that no longer exists. The reply says what it falls back to — for the four committed pairings that is the built-in default, not "no pairing", and reporting it as removed without that would be wrong.
 
 A declared id that no longer resolves to a real text channel **falls through to the matcher** rather than sending the transcript into a void.
 
@@ -231,6 +241,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 
 | Session | Change |
 |---|---|
+| S118 | **`!transcribe pairs` answers the question it was asked** (owner: *"een optie dat ik kan zien welke VC kanalen aan welke kanalen zijn gekoppeld"*): it walks every voice channel instead of the pairing table, so rooms matched by name — most of them — are no longer invisible, and each row states its reason. Deleted targets and orphaned pairings are flagged rather than rendered as broken mentions. New **`!transcribe unpair`** takes a raw id so a deleted channel's pairing can still be cleaned up, and names the fallback rather than just saying "removed". |
 | S117 | **Music is ignored**, **auto-join says why it is not firing**, and usage lines spell out their options. A music bot was being transcribed because the receiver saw it as an ordinary speaker (`ignoreBots`, on by default, checked before subscribing). The bare `!transcribe` status gained an **Auto-join** line naming which of five conditions is blocking it and the fix for each — every refusal in the handler is a silent `return`, which is right for a background feature and useless for diagnosing one. `!transcribe auto` now reads `<voice|files> <true|false>` instead of `<kind> <state>`, framework-wide. |
 | S111 | **Declared pairings** (owner gave four VC → text channel ids): a stated pairing beats the name matcher, because a fact must not lose to an inference. The four ship as code defaults (S35) so they work the moment the Pi updates; `!transcribe pair` overrides one per guild, `!transcribe pairs` lists what is in force, and a stale id falls through to the matcher instead of posting into a void. |
 | S110 | **Auto-join** (owner request): the bot follows anyone into a voice channel and transcribes into the text channel with the matching name, then leaves when the room empties. Name matching is pure and normalised (emoji, dividers, accents, Discord's own hyphenation), exact beats near, near only inside the same category, ambiguity is refused, and an unmatched channel falls back to the voice channel's own built-in chat. On by default with `!transcribe autojoin false` to stop it and `!transcribe voicechannel` to narrow it. |

@@ -177,3 +177,62 @@ export function autoJoinDiagnosis(config, { hasKey, inVoice }) {
     detail: `armed — I follow the first ${minimum === 1 ? 'person' : `${minimum} people`} into any voice channel`,
   };
 }
+
+/**
+ * Where EVERY voice channel's transcript would go (S118, owner: *"voeg een
+ * optie toe dat ik kan zien welke VC kanalen aan welke kanalen zijn
+ * gekoppeld"*).
+ *
+ * `!transcribe pairs` used to list only the four stored pairings, which
+ * answers "what is configured" rather than the question actually asked. Most
+ * voice channels are matched by NAME and appeared nowhere, so the majority of
+ * the answer was missing — and a pairing whose channel had since been deleted
+ * rendered as a broken `<#id>` mention with no hint that it was stale.
+ *
+ * This walks the voice channels instead of the pairing table, so every room is
+ * accounted for and each row says WHY it resolves where it does.
+ *
+ * @param {Array<{id,name,parentId?}>} voiceChannels
+ * @param {Array<{id,name,parentId?}>} textChannels
+ * @param {Record<string,string>} pairs        declared pairs (defaults + guild)
+ * @param {Record<string,string>} guildPairs   this server's own overrides only
+ * @returns {{rows: Array<object>, orphans: Array<{voiceId,textId,fromDefault:boolean}>}}
+ */
+export function describePairings(voiceChannels, textChannels, pairs = {}, guildPairs = {}) {
+  const known = new Set(voiceChannels.map((c) => c.id));
+  const textById = new Map(textChannels.map((c) => [c.id, c]));
+
+  const rows = voiceChannels.map((voice) => {
+    const declared = pairs[voice.id];
+    const match = pairTextChannel(voice, textChannels, pairs);
+    return {
+      voiceId: voice.id,
+      voiceName: voice.name,
+      textId: match?.id ?? null,
+      how: match?.how ?? 'built-in',
+      overridden: Object.hasOwn(guildPairs, voice.id),
+      // A declared target that no longer exists: the matcher silently fell
+      // through to a name match, which is right behaviour and confusing to
+      // read unless the row says so.
+      staleTarget: Boolean(declared) && !textById.has(declared) ? declared : null,
+    };
+  });
+
+  // Pairings pointing at a voice channel that is gone. They do no harm, but
+  // they are the rows an admin would want to clean up — and `unpair` cannot
+  // take a channel argument for a channel that no longer resolves, which is
+  // why it accepts a raw id.
+  const orphans = Object.entries(pairs)
+    .filter(([voiceId]) => !known.has(voiceId))
+    .map(([voiceId, textId]) => ({ voiceId, textId, fromDefault: DEFAULT_VOICE_PAIRS[voiceId] === textId }));
+
+  return { rows, orphans };
+}
+
+/** How a resolved pairing reads in the list. */
+export const HOW_LABEL = {
+  declared: "paired",
+  exact: "matched by name",
+  category: "matched by name (same category)",
+  "built-in": "its own built-in chat",
+};

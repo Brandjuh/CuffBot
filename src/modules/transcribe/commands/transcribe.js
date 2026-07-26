@@ -1,9 +1,9 @@
 // The !transcribe group (S101 = M21.1, owner request). Reading a transcript is
 // public; every knob is Manage Server.
-import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+import { ChannelType, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { hasAudioKey } from '../lib/audio-provider.js';
 import { audioAttachmentsOf, refusalFor } from '../lib/transcribe.js';
-import { DEFAULT_VOICE_PAIRS, autoJoinDiagnosis } from '../lib/pairing.js';
+import { DEFAULT_VOICE_PAIRS, HOW_LABEL, autoJoinDiagnosis, describePairings } from '../lib/pairing.js';
 import { getBudget, getTranscribeConfig, setTranscribeConfig, transcribeMessage } from '../service.js';
 import { isListening, sessionFor, startListening, stopListening } from '../voice/session.js';
 
@@ -243,19 +243,84 @@ export default {
       },
       {
         name: 'pairs',
-        description: 'Every voice → text pairing in force.',
+        aliases: ['list', 'where'],
+        description: 'Where every voice channel’s transcript goes, and why.',
         args: [],
         async run(ctx) {
-          const merged = { ...DEFAULT_VOICE_PAIRS, ...getTranscribeConfig(ctx.guild.id).voicePairs };
-          const rows = Object.entries(merged).map(
-            ([voice, text]) =>
-              `<#${voice}> → <#${text}>${DEFAULT_VOICE_PAIRS[voice] === text ? '' : ' *(this server)*'}`,
-          );
+          // S118: this used to list only the STORED pairings, which answers
+          // "what is configured" and not "where does each channel write".
+          // Most rooms are matched by name and appeared nowhere at all.
+          const guildPairs = getTranscribeConfig(ctx.guild.id).voicePairs ?? {};
+          const pairs = { ...DEFAULT_VOICE_PAIRS, ...guildPairs };
+          const all = [...ctx.guild.channels.cache.values()];
+          const voices = all
+            .filter((c) => c?.type === ChannelType.GuildVoice || c?.type === ChannelType.GuildStageVoice)
+            .map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }));
+          const texts = all
+            .filter((c) => c?.type === ChannelType.GuildText)
+            .map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }));
+
+          const { rows, orphans } = describePairings(voices, texts, pairs, guildPairs);
+
+          const lines = rows.map((r) => {
+            const target = r.textId ? `<#${r.textId}>` : `🔊 ${r.voiceName}'s own chat`;
+            const marks = [
+              HOW_LABEL[r.how],
+              r.overridden ? 'this server' : null,
+              r.staleTarget ? `⚠️ paired to \`${r.staleTarget}\`, which no longer exists` : null,
+            ].filter(Boolean);
+            return `<#${r.voiceId}> → ${target}\n-# ${marks.join(' · ')}`;
+          });
+
+          if (orphans.length) {
+            lines.push(
+              `\n⚠️ **Pairings for voice channels that no longer exist** — \`${ctx.prefix}transcribe unpair <id>\` clears one:`,
+              ...orphans.map((o) => `-# \`${o.voiceId}\` → <#${o.textId}>${o.fromDefault ? ' *(built-in default)*' : ''}`),
+            );
+          }
+
           await ctx.reply({
             content:
               rows.length === 0
-                ? '🎙️ No pairings — every voice channel is matched by name.'
-                : `🎙️ **Voice → text pairings**\n${rows.join('\n')}\n\nAnything not listed is matched by name.`,
+                ? '🎙️ This server has no voice channels.'
+                : `🎙️ **Where each voice channel writes**\n\n${lines.join('\n')}`,
+            allowedMentions: { parse: [] },
+          });
+        },
+      },
+      {
+        name: 'unpair',
+        description: 'Remove a voice → text pairing (accepts a deleted channel’s id too).',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'voice', type: 'string', required: true }],
+        async run(ctx, { voice }) {
+          // A STRING, not a channel: a pairing whose voice channel has been
+          // deleted is exactly the one you most want to remove, and a channel
+          // arg cannot resolve a channel that is gone.
+          const id = String(voice).match(/^<#(\d+)>$/)?.[1] ?? String(voice).match(/^(\d{15,21})$/)?.[1];
+          if (!id) {
+            await ctx.reply('🎙️ Give me a voice channel (#mention) or its raw id.');
+            return;
+          }
+
+          const stored = { ...getTranscribeConfig(ctx.guild.id).voicePairs };
+          const hadOverride = Object.hasOwn(stored, id);
+          delete stored[id];
+          setTranscribeConfig(ctx.guild.id, { voicePairs: stored });
+
+          // Removing a guild override falls back to the committed default, so
+          // saying "removed" without that caveat would be wrong for the four
+          // pairings the owner gave in S111.
+          const fallsBackTo = DEFAULT_VOICE_PAIRS[id];
+          const where = fallsBackTo
+            ? `back to its built-in pairing with <#${fallsBackTo}>`
+            : 'back to matching by name';
+          await ctx.reply({
+            content: hadOverride
+              ? `🎙️ Override removed — <#${id}> goes ${where}.`
+              : fallsBackTo
+                ? `🎙️ <#${id}> has no override to remove; it uses the built-in pairing with <#${fallsBackTo}>. Point it somewhere else with \`${ctx.prefix}transcribe pair\`.`
+                : `🎙️ Nothing stored for \`${id}\` — it was already matched by name.`,
             allowedMentions: { parse: [] },
           });
         },

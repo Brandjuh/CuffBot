@@ -43,6 +43,7 @@ import { autoJoinDiagnosis } from '../src/modules/transcribe/lib/pairing.js';
 import { argToken } from '../src/core/prefix/parse.js';
 import { subUsage } from '../src/core/prefix/group.js';
 import transcribeCommand from '../src/modules/transcribe/commands/transcribe.js';
+import { HOW_LABEL, describePairings } from '../src/modules/transcribe/lib/pairing.js';
 
 // ── an independent Ogg reader ────────────────────────────────────────────────
 
@@ -518,4 +519,75 @@ test('usage lines spell out a closed set instead of naming it', () => {
 test('the real !transcribe auto usage line now lists both sets', () => {
   const auto = transcribeCommand.group.subcommands.find((s) => s.name === 'auto');
   assert.equal(subUsage('!', 'transcribe', auto), '!transcribe auto <voice|files> <true|false>');
+});
+
+// ── S118: seeing and removing pairings ───────────────────────────────────────
+//
+// Owner: "voeg een optie toe dat ik kan zien welke VC kanalen aan welke
+// kanalen zijn gekoppeld en een optie om kanalen te verwijderen." `pairs`
+// existed since S111 but listed only the four STORED pairings — which answers
+// "what is configured", not "where does each channel write". Channels matched
+// by name, which is most of them, appeared nowhere.
+
+const room = (id, name, parentId = null) => ({ id, name, parentId });
+
+test('every voice channel is listed, not just the paired ones', () => {
+  const voices = [room('v1', 'General'), room('v2', 'Squad Room'), room('v3', 'Nowhere')];
+  const texts = [{ id: 't1', name: 'general', parentId: null }, { id: 't2', name: 'squad-room', parentId: null }];
+  const { rows } = describePairings(voices, texts, {});
+  assert.equal(rows.length, 3, 'a channel with no match still needs a row');
+  assert.deepEqual(rows.map((r) => r.voiceId), ['v1', 'v2', 'v3']);
+});
+
+test('each row says WHY it resolves where it does', () => {
+  const voices = [room('v1', 'General'), room('v2', 'Anything')];
+  const texts = [{ id: 't1', name: 'general', parentId: null }];
+  const { rows } = describePairings(voices, texts, { v2: 't1' });
+  assert.equal(rows.find((r) => r.voiceId === 'v1').how, 'exact');
+  assert.equal(rows.find((r) => r.voiceId === 'v2').how, 'declared');
+});
+
+test('an unmatched voice channel falls back to its own chat, and says so', () => {
+  const { rows } = describePairings([room('v9', 'Zzz')], [], {});
+  assert.equal(rows[0].textId, null);
+  assert.equal(rows[0].how, 'built-in');
+  assert.match(HOW_LABEL[rows[0].how], /own built-in chat/);
+});
+
+test('a server override is marked as one; a committed default is not', () => {
+  const voices = [room('v1', 'A'), room('v2', 'B')];
+  const texts = [{ id: 't1', name: 't1' }, { id: 't2', name: 't2' }];
+  const { rows } = describePairings(voices, texts, { v1: 't1', v2: 't2' }, { v2: 't2' });
+  assert.equal(rows.find((r) => r.voiceId === 'v1').overridden, false);
+  assert.equal(rows.find((r) => r.voiceId === 'v2').overridden, true);
+});
+
+test('a pairing whose TARGET was deleted is flagged, not rendered as a broken mention', () => {
+  // The matcher silently falls through to a name match, which is correct
+  // behaviour and unreadable unless the row explains it.
+  const voices = [room('v1', 'General')];
+  const texts = [{ id: 't1', name: 'general', parentId: null }];
+  const { rows } = describePairings(voices, texts, { v1: 'deleted-text' });
+  assert.equal(rows[0].staleTarget, 'deleted-text');
+  assert.equal(rows[0].textId, 't1', 'it still resolves — by name');
+  assert.equal(rows[0].how, 'exact');
+});
+
+test('a pairing whose VOICE channel is gone is reported separately as removable', () => {
+  const { rows, orphans } = describePairings([room('v1', 'A')], [{ id: 't1', name: 'a' }], {
+    v1: 't1',
+    'deleted-voice': 't1',
+  });
+  assert.equal(rows.length, 1, 'orphans are not rows — there is no channel to show');
+  assert.deepEqual(orphans, [{ voiceId: 'deleted-voice', textId: 't1', fromDefault: false }]);
+});
+
+test('an orphan that came from the committed defaults is marked as such', () => {
+  const [ownerVoice, ownerText] = ['411633952961593345', '411634025426321438'];
+  const { orphans } = describePairings([], [], { [ownerVoice]: ownerText });
+  assert.equal(orphans[0].fromDefault, true, 'so the reader knows it is not their doing');
+});
+
+test('no voice channels means no rows and no crash', () => {
+  assert.deepEqual(describePairings([], [], {}), { rows: [], orphans: [] });
 });

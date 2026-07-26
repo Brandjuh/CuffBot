@@ -2154,3 +2154,26 @@ Tests **1067 → 1075**. Mutation-checked: un-ignoring bots fails the music test
 **Retrospective (skill 0.5.41, new rule):** **a silent refusal path needs a way to ask it why.** Auto-join, the memo auto-path and every other "quietly do nothing" branch are correct to stay quiet in the channel — but a feature whose non-action cannot be interrogated is one nobody can support, including the session that wrote it. The cheap general fix is the one applied here: whatever the branch decided, expose it in the module's bare status line, with the fix beside the reason. This is the same shape as 0.5.37 (*an owner-action item must be a check, not an instruction*) pointed at code instead of documentation — both are about state that only exists outside the repo, and both are fixed by making the bot answer the question itself.
 
 **Handoff:** M26.2b, then **M26.3 city → panels** (still the biggest outstanding item, with real gameplay missing), M26.4 heist panels. For M26.3, note S117's guard covers *bare-command* fidelity only — nothing yet checks that a game's rules match its source.
+
+## Session 119 — 2026-07-26
+
+**Goal:** owner — *"Transcribe voeg een optie toe dat ik kan zien welke VC kanalen aan welke Kanalen zijn gekoppeld en een optie om kanalen te verwijderen."*
+
+**The first half already existed and was not good enough, which is the interesting part.** `!transcribe pairs` shipped in S111. It iterated the **pairing table**, so it listed the four stored pairings and stopped there — an answer to *"what is configured"* rather than *"where does each channel write"*. Every room matched by **name**, which is most of them, appeared nowhere. A command that answers half the question does not read as a command that exists, and the owner asked for it to be built.
+
+Rewritten to walk the **voice channels** instead. Every room gets a row: its destination and the reason (paired / matched by name / same-category name / its own built-in chat), with this server's overrides marked. Two states are called out rather than hidden:
+
+- **A pairing whose text channel was deleted.** The matcher falls through to a name match — correct behaviour, and completely unreadable unless the row says so, because otherwise you see a healthy-looking pairing aimed at a channel that no longer exists.
+- **Pairings whose voice channel is gone.** Harmless, but exactly the rows worth cleaning up, so they are listed separately with the command that removes them.
+
+**`unpair` takes a string, not a channel — deliberately.** A pairing whose voice channel has been deleted is the one you most want to remove, and a `channel` arg cannot resolve a channel that no longer exists; the one case the feature exists for would have been the one case it could not handle. It accepts `<#mention>` or a bare id and refuses anything else by name.
+
+**The reply names the fallback rather than saying "removed".** Removing a guild override on one of the four committed pairings returns it to the *built-in default*, not to nothing — a bare "removed" would be actively misleading there, so the three outcomes (override cleared → default, override cleared → name match, nothing stored) each say what is now true.
+
+Tests **1075 → 1087**. Mutation-checked: reverting to "list only the paired channels" fails three, and dropping the stale-target flag fails its own. Four dispatch-level `unpair` tests were moved from `transcribe-voice.test.js` to `transcribe.test.js` mid-session because the former is a pure-logic file with no store harness — the pure `describePairings` rules stayed where they belong.
+
+**Corrections (Step 2/6):** none. Worth recording that the request looked like "add a command that exists" and the real defect was that the existing one answered a different question than its name implied.
+
+**Retrospective (skill 0.5.41 → no change):** no new rule. This is 0.5.41 from last session (*a silent refusal path needs a way to ask it why*) in a second guise — the name matcher was not silent, it was simply never asked to show its work. The candidate worth watching, not yet a rule: **a listing command should enumerate the domain, not the configuration.** `pairs` listed config; the user's mental model is channels. Same shape as a permissions UI that lists overrides instead of resources. One instance is not a pattern; if it recurs it earns a rule.
+
+**Handoff (urgent, owner-reported mid-session):** **the Pi is 23 commits behind and the updater never ran** — CuffBot's own diagnosis says the update service or its sudo rights are missing. That makes every session since S110 undeployed, and it explains the auto-join report in S118: the feature is not on the Pi at all. Next session should treat the update chain as the priority; the pairs/unpair work here is invisible to the owner until it lands.
