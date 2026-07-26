@@ -69,6 +69,17 @@ export const DEFAULT_TRANSCRIBE_CONFIG = {
   dailyLimit: 100,
   /** S102: prefix each live-voice line with an HH:MM (UTC) stamp. */
   voiceTimestamps: true,
+  /**
+   * S110 (owner request): join a voice channel by itself the moment somebody
+   * is in it, and transcribe into the text channel with the matching name.
+   * ON by default because the owner asked for exactly that — `!transcribe
+   * autojoin false` is the off switch.
+   */
+  autoJoin: true,
+  /** **Empty = every voice channel.** A non-empty list restricts auto-join. */
+  voiceChannelIds: [],
+  /** How many humans must be in the channel before the bot bothers. */
+  autoJoinMinimum: 1,
 };
 
 /**

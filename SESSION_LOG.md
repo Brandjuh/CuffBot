@@ -1928,3 +1928,29 @@ Implemented as a published post (selfroles S59/S64, rules S97) scoped to one mes
 **Retrospective (skill 0.5.34 → no change):** no new rule, and the reason is worth one line. This session is three existing rules composing without friction — the published-post pattern (0.5.26), the non-originator decision (0.5.27), and S106's `invokeWithoutSubcommand` — plus the habit of checking whether the reported thing is actually broken before building anything, which 0.5.34 already covers from the other direction. Nothing needed sharpening.
 
 **Handoff:** M24.3 (mafia anomalies and achievements) is the only unscheduled item left. Everything else is owner-side, and the top of that list is still the first Pi update that installs dependencies.
+
+## Session 110 — 2026-07-26
+
+**Goal:** the owner's request — *"Zodra iemand een VC joined wil ik dat de bot automatisch erbij gaat zitten. De voice en text kanalen hebben dezelfde naam dus je kunt meteen een transcribe maken in het juiste tekst kanaal."*
+
+**Done:** somebody enters a voice channel, CuffBot follows and transcribes into the text channel with the matching name; the last person leaves and it leaves. **On by default**, because that is exactly what was asked for — `!transcribe autojoin false` stops it, `!transcribe voicechannel #x` narrows it to a list.
+
+**"The same name" is the whole problem, and it turned out to be the interesting part.** Discord lowercases text-channel names and hyphenates spaces, so a voice channel called `🎙️ Squad Room` is `squad-room` as a text one — the owner's convention is true in spirit and false as string equality. `lib/pairing.js` normalises both sides (emoji, the `・`/`|`/`—` dividers people decorate with, accents, and Discord's own hyphenation) and then runs three passes, most specific first:
+
+1. **Exact** on the normalised name; a duplicated name resolves to the one in the same category.
+2. **Containment, same category only.** `squad-room` may find `squad-room-chat`, but a `general` voice channel must never adopt `general-announcements` from the other side of the server.
+3. Nothing.
+
+**An ambiguous near-miss is refused rather than guessed** — two candidates and no exact match means no match. That is the sharpest rule in the file and the reason for the whole three-pass structure: a wrong pairing posts a private conversation into the wrong room, which is a much worse failure than posting nowhere.
+
+**And "nowhere" is not the fallback: the voice channel's own built-in text chat is.** Every Discord voice channel has had one since 2022; it is correct by construction, never a guess, and the bot says when it used it.
+
+**Everything is checked before joining** — auto-join on, desk on, channel in scope, key present, Connect on the voice channel, Send Messages in the text one — so the bot never materialises in a channel where it cannot actually do the job. And its own voice-state changes are ignored, or joining would re-trigger itself immediately.
+
+Tests **988 → 999** (11 in `test/transcribe-voice.test.js`), all pure: normalisation including accents and decoration, exact-beats-near, near-only-in-category, duplicate-name resolution, ambiguity refused, every `shouldAutoJoin` refusal named, and the bot never counting itself so an "empty" room really is empty.
+
+**Corrections (Step 2/6):** none. The `!transcribe` subcommand roster assertion needed the two new knobs, which is the test doing its job.
+
+**Retrospective (skill 0.5.34 → no change):** no new rule. This is the S99 knob principle (ship the reading that needs no setup, with a switch for the other) and the "pure lib, thin event handler" split doing their jobs. The one thing worth noticing is that the *feature* was five lines of plumbing and the *matching* was the work — which the existing "pure logic in `lib/`" rule already routes correctly, because it put the hard part somewhere testable without a guild.
+
+**Handoff:** M24.3 (mafia anomalies/achievements) remains the only unscheduled item. Auto-join is the second feature that cannot be proven from this environment; the manual's Testing step 7 says exactly what the owner should do to check it.

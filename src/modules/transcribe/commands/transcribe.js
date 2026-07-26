@@ -57,6 +57,15 @@ export default {
             ? `🔴 recording <#${sessionFor(ctx.guild.id).channelId}>`
             : `not in a voice channel — \`${ctx.prefix}transcribe join\``
         }`,
+        `**Auto-join:** ${
+          config.autoJoin
+            ? `🟢 on — ${
+                config.voiceChannelIds.length === 0
+                  ? 'any voice channel'
+                  : config.voiceChannelIds.map((id) => `<#${id}>`).join(', ')
+              }`
+            : '🔴 off'
+        }`,
         '',
         `Reply to a recording and run \`${ctx.prefix}transcribe now\` to transcribe it on demand.`,
       ];
@@ -153,6 +162,40 @@ export default {
             return;
           }
           await ctx.reply('🎙️ Left the channel. Recording stopped.');
+        },
+      },
+      {
+        name: 'autojoin',
+        aliases: ['follow'],
+        description: 'Join a voice channel by myself when somebody is in it.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'state', type: 'boolean', required: true }],
+        async run(ctx, { state }) {
+          setTranscribeConfig(ctx.guild.id, { autoJoin: state });
+          await ctx.reply(
+            state
+              ? '🎙️ I will join a voice channel on my own and write into the text channel with the same name.'
+              : `🎙️ I will stay out unless somebody runs \`${ctx.prefix}transcribe join\`.`,
+          );
+        },
+      },
+      {
+        name: 'voicechannel',
+        aliases: ['vc'],
+        description: 'Auto-join only these voice channels — run it per channel to add.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [{ name: 'channel', type: 'channel', required: true }],
+        async run(ctx, { channel }) {
+          const set = new Set(getTranscribeConfig(ctx.guild.id).voiceChannelIds);
+          const removed = set.delete(channel.id);
+          if (!removed) set.add(channel.id);
+          const next = setTranscribeConfig(ctx.guild.id, { voiceChannelIds: [...set] });
+          await ctx.reply({
+            content: removed
+              ? `🎙️ ${channel} dropped.${next.voiceChannelIds.length === 0 ? ' The list is empty, so I auto-join **every** voice channel again.' : ''}`
+              : `🎙️ ${channel} added — I now auto-join **only** ${next.voiceChannelIds.map((id) => `<#${id}>`).join(', ')}.`,
+            allowedMentions: { parse: [] },
+          });
         },
       },
       {

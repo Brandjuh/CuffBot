@@ -29,6 +29,14 @@ import {
   shouldFlush,
 } from '../src/modules/transcribe/lib/voice-session.js';
 import transcribeCommand from '../src/modules/transcribe/commands/transcribe.js';
+import {
+  humansIn,
+  normalizeChannelName,
+  pairTextChannel,
+  shouldAutoJoin,
+  shouldAutoLeave,
+} from '../src/modules/transcribe/lib/pairing.js';
+import { DEFAULT_TRANSCRIBE_CONFIG } from '../src/modules/transcribe/lib/transcribe.js';
 import { PermissionFlagsBits } from 'discord.js';
 
 // ── an independent Ogg reader ────────────────────────────────────────────────
@@ -273,4 +281,108 @@ test('join and leave exist, are gated, and stop is an alias of leave', () => {
   assert.deepEqual(join.aliases, ['listen']);
   assert.deepEqual(leave.aliases, ['stop']);
   assert.equal(subs.find((s) => s.name === 'timestamps').permission, PermissionFlagsBits.ManageGuild);
+});
+
+// ── S110: auto-join, and pairing a voice channel with its text channel ───────
+
+test('a channel name reduces to what it is actually called', () => {
+  // Discord lowercases text-channel names and hyphenates spaces, so the same
+  // room has two spellings before anyone decorates it.
+  assert.equal(normalizeChannelName('Squad Room'), 'squad-room');
+  assert.equal(normalizeChannelName('squad-room'), 'squad-room');
+  assert.equal(normalizeChannelName('🎙️ Squad Room'), 'squad-room');
+  assert.equal(normalizeChannelName('🎙️-squad-room'), 'squad-room');
+  assert.equal(normalizeChannelName('・Squad Room・'), 'squad-room');
+  assert.equal(normalizeChannelName('SQUAD   ROOM'), 'squad-room');
+  assert.equal(normalizeChannelName('Café'), 'cafe', 'accents fold');
+  assert.equal(normalizeChannelName('  '), '');
+  assert.equal(normalizeChannelName(null), '');
+});
+
+const vc = (id, name, parentId = 'cat-1') => ({ id, name, parentId });
+const tc = (id, name, parentId = 'cat-1') => ({ id, name, parentId });
+
+test('a voice channel finds the text channel with the same name', () => {
+  const texts = [tc('t1', 'general'), tc('t2', 'squad-room'), tc('t3', 'off-topic')];
+  assert.deepEqual(pairTextChannel(vc('v1', '🎙️ Squad Room'), texts), { id: 't2', how: 'exact' });
+  assert.deepEqual(pairTextChannel(vc('v1', 'General'), texts), { id: 't1', how: 'exact' });
+});
+
+test('a near-miss only counts inside the same category', () => {
+  // `general` voice must not adopt `general-announcements` from the other side
+  // of the server — a wrong pairing posts a private conversation in public.
+  const far = [tc('t1', 'squad-room-chat', 'cat-OTHER')];
+  assert.equal(pairTextChannel(vc('v1', 'Squad Room'), far), null);
+
+  const near = [tc('t1', 'squad-room-chat', 'cat-1')];
+  assert.deepEqual(pairTextChannel(vc('v1', 'Squad Room', 'cat-1'), near), { id: 't1', how: 'category' });
+});
+
+test('an exact match always beats a near one', () => {
+  const texts = [tc('t1', 'squad-room-chat'), tc('t2', 'squad-room')];
+  assert.deepEqual(pairTextChannel(vc('v1', 'Squad Room'), texts), { id: 't2', how: 'exact' });
+});
+
+test('two rooms with the same name: the one in this category wins', () => {
+  const texts = [tc('t1', 'general', 'cat-OTHER'), tc('t2', 'general', 'cat-1')];
+  assert.equal(pairTextChannel(vc('v1', 'General', 'cat-1'), texts).id, 't2');
+});
+
+test('an ambiguous near-miss is refused rather than guessed', () => {
+  const texts = [tc('t1', 'squad-room-chat'), tc('t2', 'squad-room-notes')];
+  assert.equal(pairTextChannel(vc('v1', 'Squad Room'), texts), null, 'two candidates is no candidate');
+});
+
+test('a nameless or unmatched channel pairs with nothing', () => {
+  assert.equal(pairTextChannel(vc('v1', '🎙️'), [tc('t1', 'general')]), null);
+  assert.equal(pairTextChannel(vc('v1', 'Squad Room'), []), null);
+  // Never itself, even though a voice channel is text-capable.
+  assert.equal(pairTextChannel(vc('v1', 'Squad Room'), [tc('v1', 'Squad Room')]), null);
+});
+
+test('auto-join obeys every switch, and names which one said no', () => {
+  const on = { ...DEFAULT_TRANSCRIBE_CONFIG };
+  assert.deepEqual(shouldAutoJoin({ humans: 1, channelId: 'v1' }, on), { ok: true, reason: 'ok' });
+
+  assert.equal(shouldAutoJoin({ humans: 1, channelId: 'v1' }, { ...on, autoJoin: false }).reason, 'auto-join-off');
+  assert.equal(shouldAutoJoin({ humans: 1, channelId: 'v1' }, { ...on, enabled: false }).reason, 'disabled');
+  assert.equal(shouldAutoJoin({ humans: 0, channelId: 'v1' }, on).reason, 'too-quiet');
+  assert.equal(
+    shouldAutoJoin({ humans: 1, channelId: 'v1' }, { ...on, voiceChannelIds: ['v9'] }).reason,
+    'out-of-scope',
+  );
+  assert.equal(shouldAutoJoin({ humans: 1, channelId: 'v9' }, { ...on, voiceChannelIds: ['v9'] }).ok, true);
+  // A higher bar for a busier room.
+  assert.equal(shouldAutoJoin({ humans: 1, channelId: 'v1' }, { ...on, autoJoinMinimum: 2 }).reason, 'too-quiet');
+  assert.equal(shouldAutoJoin({ humans: 2, channelId: 'v1' }, { ...on, autoJoinMinimum: 2 }).ok, true);
+});
+
+test('the bot never counts itself, so it leaves an empty room', () => {
+  const room = (people) => ({ members: new Map(people.map((p, i) => [`m${i}`, p])) });
+  const human = { user: { bot: false } };
+  const bot = { user: { bot: true } };
+
+  assert.equal(humansIn(room([human, human, bot])), 2);
+  assert.equal(humansIn(room([bot])), 0, 'the bot alone is an empty room');
+  assert.equal(humansIn(undefined), 0);
+  assert.equal(humansIn({ members: [human, bot] }), 1, 'a plain array works too');
+
+  // Counting itself would leave the bot transcribing its own silence forever.
+  assert.equal(shouldAutoLeave(humansIn(room([bot]))), true);
+  assert.equal(shouldAutoLeave(humansIn(room([human, bot]))), false);
+});
+
+test('auto-join is on by default, because the owner asked for exactly that', () => {
+  assert.equal(DEFAULT_TRANSCRIBE_CONFIG.autoJoin, true);
+  assert.deepEqual(DEFAULT_TRANSCRIBE_CONFIG.voiceChannelIds, [], 'every voice channel');
+  assert.equal(DEFAULT_TRANSCRIBE_CONFIG.autoJoinMinimum, 1);
+});
+
+test('the autojoin knobs exist and are Manage Server', () => {
+  const subs = transcribeCommand.group.subcommands;
+  for (const name of ['autojoin', 'voicechannel']) {
+    const sub = subs.find((s) => s.name === name);
+    assert.ok(sub, name);
+    assert.equal(sub.permission, PermissionFlagsBits.ManageGuild, name);
+  }
 });
