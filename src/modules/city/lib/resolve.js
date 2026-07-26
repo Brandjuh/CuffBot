@@ -128,14 +128,19 @@ export function bailCost(remainingMs, settings = DEFAULT_CITY_SETTINGS) {
  * @param {object} input.member           { streak, highest, lastCrimeAt, balance }
  * @param {number} [input.targetBalance]  required for a targeted crime
  * @param {object} [input.settings]
+ * @param {Array} [input.events]          events already drawn by the narrator
  * @param {number} input.now
  * @returns {object} the whole attempt, including what the caller must apply
  */
 export function resolveCrime(
-  { crimeType, crime, member, targetBalance = 0, settings = DEFAULT_CITY_SETTINGS, now },
+  { crimeType, crime, member, targetBalance = 0, settings = DEFAULT_CITY_SETTINGS, events: drawn = null, now },
   rng = defaultRng,
 ) {
-  const events = drawEvents(crimeType, rng);
+  // S124: the panel narrates the events one at a time BEFORE the crime
+  // settles, so it draws them itself and hands them in here. Drawing a second
+  // set would mean the story the player watched and the outcome they got came
+  // from different crimes.
+  const events = drawn ?? drawEvents(crimeType, rng);
   const folded = applyEvents(events, { successChance: crime.successRate, jailMs: crime.jailMs });
   const success = rng.float() < folded.successChance;
   const streak = nextStreak(member, success, now);

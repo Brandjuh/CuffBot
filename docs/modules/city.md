@@ -34,15 +34,52 @@ This is why the divergence was a **gameplay** problem and not a navigation one. 
 
 A command-only surface has nowhere to put that decision, so for four sessions it simply was not in the game.
 
-> **Recorded deviation.** The cog re-checks the bail flag *between each narrated event*, giving a longer window. Our resolver settles a crime in one call, so the window is the 2-second beat the cog also has. Same decision, same price, fewer moments to take it. Splitting the resolver into narrated steps is 26.3b.
+## The crime plays out (M26.3b)
 
-**Still subcommands, not buttons yet:** the black market, the leaderboard, and picking a target for `pickpocket`/`mug`. The panel deliberately shows **no button for those** — a dead button is worse than a missing one.
+S122's Bail Out lived for one 2-second beat, because the resolver drew its events and settled in the same call. **It now plays out**, the way the source does:
+
+| Beat | Wait | What the player sees |
+|---|---|---|
+| Opening | 2 s | *"@you is running the bank heist…"* |
+| Each drawn event | 4 s each | *"You spotted a security guard nearby! 🚔 (-15% success chance)"* |
+| Suspense | 4 / 5 / 6 s by risk | *"This is it…"* |
+| Verdict | — | the result card, buttons gone |
+
+**The bail flag is checked before every beat.** A four-event bank job therefore offers six chances to walk away, and each one comes *after* you have learned something — which is what makes the 100 🍩 a decision rather than a coin flip on a timer.
+
+The whole crime happens on **one message**, edited in place, so the Bail Out button is always directly under the latest thing that happened. (The source posts a message per event and deletes them afterwards.)
+
+> **Invariant, tested:** the slowest possible crime (every event the draw can yield, plus the high-risk suspense) is **24 s**, inside the button's own **30 s** lifetime. If a script could outlast the button, the last beats would be narrated under a dead Bail Out. `worstCaseDurationMs()` is computed from `EVENT_CHANCES` rather than a hard-coded event count, so adding a fifth draw step breaks the test instead of the game.
+
+The narrator draws the events and hands **the same list** to the resolver. Drawing twice would mean the story you watched and the outcome you got came from different crimes; a test asserts the result card lists exactly the events that were narrated.
+
+## Picking a mark (M26.3b)
+
+`pickpocket` and `mugging` need a victim. The panel used to answer *"that one needs a mark, run `!crime pickpocket @member`"* — sending you back out to the text surface the panel exists to replace. It now asks:
+
+- a **user select menu** (the source uses a modal you type a name into; a picker cannot be misspelled),
+- **🎯 Random Target**, which skips bots, you, anyone in a cell, anyone carrying less than `max(minStealBalance, crime.minReward)`, and **your previous victim**,
+- **✖️ Cancel**, which returns to the panel.
+
+The last-victim rule only applies to the roll, not to a name you chose yourself — refusing a deliberate pick is a different thing from refusing to roll it. And when the *only* eligible mark is your last one (a small guild), the roll allows the repeat rather than refusing to play.
+
+The roller shuffles the member list before capping it at 60, so one button press cannot read a whole guild's balances and the roll stays fair across everyone rather than always drawing from the same alphabetical prefix.
+
+## Market and board, on the panel (M26.3b)
+
+Both are now buttons on the panel — **including in jail**, because buying a Get Out of Jail Free card is exactly what a jailed player wants the market for.
+
+- **🕯️ Market** replaces the panel with the shelf plus a **buy select**, so purchasing is one press instead of `!crime buy <item>`. When everything is owned or unaffordable the menu is disabled rather than accepting a press it would only refuse.
+- **🏆 Board** shows the leaderboard with a category switcher that re-renders in place.
+- **◀️ Back** returns to the panel from either.
+
+S122 deliberately left these buttons off because they had nowhere to go — that was the scaffolding-as-product trap avoided, not a permanent decision. The test that guarded it was a hard-coded `['refresh']`, which a literal list cannot express; it now asserts the real rule instead — **every button the panel offers is an action the pump handles** — which survives the next slice adding one.
 
 ## Commands
 
 | Command | What it does | Key options | Who may use it | Example |
 |---|---|---|---|---|
-| `!crime` (alias `!city`) | Group: four crimes plus your record; bare = the board, your streak and your status | subs below | Everyone | `!crime bank` |
+| `!crime` | Group: four crimes plus your record; bare = **the panel** (S122 removed the `!city` alias — this table still claimed it until S124) | subs below | Everyone | `!crime bank` |
 
 ### !crime (S69-style group)
 
@@ -70,7 +107,20 @@ A command-only surface has nowhere to put that decision, so for four sessions it
 
 ## Events
 
-None — the crime resolves the moment you run the command.
+`events/panel.js` — one `InteractionCreate` listener for every `cty:`-prefixed component. (The claim "None — the crime resolves the moment you run the command" stood here until S124; it was already false when S122 added the panel.)
+
+| Custom id | What it does |
+|---|---|
+| `cty:refresh:<user>` | Re-render the panel — also the Back and Cancel buttons |
+| `cty:pick:<user>` | A job was chosen from the select |
+| `cty:mark:<crime>:<user>` | A victim was chosen from the user select |
+| `cty:roll:<crime>:<user>` | 🎯 Random Target |
+| `cty:bail-out:<crime>:<user>` | Walk away mid-attempt for 100 🍩 |
+| `cty:bail` / `cty:jailbreak` `:<user>` | The two jail actions |
+| `cty:market:<user>` / `cty:buy:<user>` | Open the shelf / buy from it |
+| `cty:board:<user>` / `cty:board-cat:<user>` | Open the board / switch category |
+
+The owner's id rides in the custom id, so a press is attributable **without keeping panel state in memory across a restart**. The panel is a personal board, so it has exactly one owner: a stranger's press is answered privately with a pointer to `!crime` for their own, rather than silently doing nothing.
 
 ## Configuration
 
@@ -107,18 +157,31 @@ src/modules/city/
   service.js               the record, the gates, the money, bail + jailbreak
   lib/scenarios.js         46 scenarios + 14 prison breaks, and their resolvers
   lib/market.js            the black market's two items + the sentence perk
-  commands/crime.js        the !crime group and its result card
+  lib/panel.js             the pure panel: picker rows, buttons, bail, mark prompt
+  lib/narrate.js           the pure beat script: timings, event text, story so far
+  lib/targets.js           who can be robbed, and the random-mark roll
+  attempts.js              live attempt flags (own module: breaks an ESM cycle)
+  events/panel.js          the `cty:` component pump
+  commands/crime.js        the !crime group, the result card, the panel payloads
   data/crime-events.json   96 events, dumped verbatim from the source
   data/scenarios.json      46 one-off crimes, dumped (constants resolved)
   data/prison-breaks.json  14 escape scripts with their own events, dumped
 test/city.test.js          tables, event pool, draw, modifiers, streaks, attempts
 test/city-service.test.js  record, gates, payouts, victim clamp, card, group shape
+test/city-panel.test.js    picker rows, button sets, bail cost, wait formatting
+test/city-narrate.test.js  the beat script, the bail-window invariant, the story
+test/city-targets.test.js  target eligibility, refusal messages, the random roll
+test/city-attempt.test.js  the narrated attempt end to end, market/board payloads
 ```
 
 ## Testing
 
 - `test/city.test.js` (11 tests): the crime values (including the comment-vs-value case), the 96-event pool's integrity and key set, the draw (four distinct events when every roll lands, one when none do, the `0.75` boundary, and no rng calls at all for a crime with no pool), the modifier folds with both clamps, the streak ladder and its 24-hour expiry, all five steal branches, a scripted success proving the two-stage rounding, a failure with its fine and folded sentence, the broke-and-doubled path, a targeted success, and the cooldown/jail/bail helpers.
 - `test/city-service.test.js` (11 tests): the record's shape and round-trip, settings layering, the jail and cooldown gates with their clocks, all five target refusals (including the too-poor mark at exactly `max(100, minReward)`), a successful store job's payout/cooldown/streak/stats, a failed bank job's fine and sentence, a mugging moving money and writing both sides' records, the **defensive victim clamp** (unreachable in normal play — a steal is a percentage of the victim's own balance — so the test forces an oversized draw to prove nobody goes negative), the leaderboard sort, the result card in both outcomes, and the group shape.
+- `test/city-panel.test.js` (17 tests): every crime present in the picker, a cooled-down job visible-but-unselectable with its wait, jail replacing the picker, jail leading with its own two buttons, the market reachable from a cell, **every offered button matched against the pump's handlers**, the argument-carrying custom ids, the bail cost and the empty-wallet refusal, the 30-second window, and the wait formatter's boundaries.
+- `test/city-narrate.test.js` (14 tests): the script's shape for 0–4 events, the risk-scaled suspense and its fallback, the bail-window invariant computed from `EVENT_CHANCES` (and checked against every real event pool), placeholder substitution — including a sweep proving **no shipped event text can print a literal `{currency}`** — and the story growing one event at a time while keeping the bail offer on every beat.
+- `test/city-targets.test.js` (13 tests): the four reasons a mark is refused and their precedence, the exact-minimum boundary, a message for every reason, the last-victim rule applying to the roll but not to a deliberate pick, the roll landing only on eligible members, the two-person-guild repeat fallback, and a malformed candidate refused rather than crashing the roll.
+- `test/city-attempt.test.js` (17 tests): the attempt edited once per beat, **the narrated events matching the result card exactly** (with a non-repeating rng, because a deterministic one cannot tell a double draw apart), the bail offer on every pre-verdict beat, a bail at the second *and* at the last beat both stopping the crime with no money moved, a control proving the crime does settle when nobody bails, the picker opening for an unmarked targeted crime, the victim being remembered, candidate gathering and its cap, and the market/board payloads including the disabled-when-broke menu and the unknown-category fallback.
 - **Manual (live server) checklist:**
   1. `!crime` → the board with four crimes, all ready, no streak.
   2. `!crime store` → a result card with at least one event line and, on a win, the reward maths.
@@ -130,6 +193,11 @@ test/city-service.test.js  record, gates, payouts, victim clamp, card, group sha
   8. `!crime random` → a titled one-off job with its own flavour text.
   9. `!crime market` → `!crime buy jail_pass` → get caught → `!crime usepass` walks you out.
   10. `!crime leaderboard streak` → the board for best streaks; `!crime admin` → the four knobs.
+  11. **(S124)** `!crime` → pick **Rob store** → the message narrates each event ~4 s apart, Bail Out stays under the latest line, and the result card replaces it at the end.
+  12. **(S124)** Start a bank heist and press **Bail Out** after the second event → 100 🍩 gone, cooldown running, no jail, no payout.
+  13. **(S124)** Pick **Pickpocket** → the mark picker appears; **🎯 Random Target** never lands on you, a bot, or the member you just robbed.
+  14. **(S124)** Press **🕯️ Market** → buy a jail pass from the select → the shelf updates and the receipt is private; **◀️ Back** returns to the panel.
+  15. **(S124)** Press **🏆 Board** → switch category in the select → the board re-renders on the same message.
 
 ## Troubleshooting
 
@@ -144,6 +212,7 @@ test/city-service.test.js  record, gates, payouts, victim clamp, card, group sha
 
 | Session | Change |
 |---|---|
+| S124 (M26.3b) | **The crime plays out.** Events are narrated one at a time (2 s opening, 4 s per event, 4–6 s of suspense by risk) with **the bail flag checked before every beat** — a four-event bank job now offers six chances to walk away instead of S122's one. The narrator draws the events and hands the same list to the resolver, so the story and the outcome are one crime. **The mark picker** replaces the panel's pointer back to `!crime pickpocket @member`: a user select, a 🎯 random roll that skips bots/you/cellmates/the too-poor/your last victim, and Cancel. **Market and Board are panel buttons** on both the street and jail views, each with a Back button; buying is one press. Fixed on the way: `boardPayload` crashed on an unknown category (`cityLeaderboard` returns `null`, and the raw key was passed through while only the label fell back). |
 | S122 (M26.3a) | **The panel.** `!crime` opens an interactive board — a select menu of jobs with reward/risk/cooldown per row, jail's two buttons when you are inside — instead of a wall of subcommands. Adds the source's **Bail Out** mechanic, which had no home on a command-only surface: pay 100 🍩 mid-attempt to walk away, cooldown still burns. **`city` is no longer an alias of `crime`** — the owner noticed they were the same command; in the source they are two. Market, leaderboard and target-picking stay subcommands until 26.3b, and the panel shows no buttons for them. |
 | S92 | **Slice D — M16.13 complete**: the black market (the permanent −20% sentence perk and the get-out-of-jail card, with an inventory on the member record), six leaderboards, and `!crime admin` (Manage Server) for bail and steal limits. The cog's third market item is deliberately not sold — see the deviation above. |
 | S91 | **Slice C**: the ways out of a cell and the 46 one-off scores. `!crime bail` (the cog's exact `int(multiplier × minutes left)` — slice A's formula was rounding the minutes up first, corrected), `!crime jailbreak` (one attempt per sentence, claimed before the roll; a drawn script's events all apply; a failure adds 30% of what was left), and `!crime random` (46 scenarios overriding the `random` crime's numbers). Both scenario tables dumped from the Python with their module constants resolved. |

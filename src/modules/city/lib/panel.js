@@ -105,16 +105,25 @@ export function crimePanel({ criminal, balance, jail, cooldownLeft, now = Date.n
   // Jail replaces the crime picker entirely — the source does the same, and
   // offering jobs you cannot do would be noise on the one screen where the
   // player has exactly two meaningful choices.
+  //
+  // S124 adds Market and Board to both views. S122 deliberately left them off
+  // because they had nowhere to go — that was the scaffolding-as-product trap
+  // (skill 0.5.38) avoided, not a permanent decision. Now that the pump can
+  // render both in place, the buttons lead somewhere and belong here. They sit
+  // on BOTH views on purpose: buying a Get Out of Jail Free card is exactly
+  // what a jailed player wants the market for.
   const buttons = jailed
     ? [
         { id: 'bail', label: 'Pay Bail', style: 'success', emoji: '💸' },
         { id: 'jailbreak', label: 'Jail Break', style: 'danger', emoji: '🔓' },
+        { id: 'market', label: 'Market', style: 'secondary', emoji: '🕯️' },
+        { id: 'board', label: 'Board', style: 'secondary', emoji: '🏆' },
       ]
-    : [{ id: 'refresh', label: 'Refresh', style: 'secondary', emoji: '🔄' }];
-  // Deliberately NOT offering black-market and leaderboard buttons yet: the
-  // panel is slice A and those still live as subcommands. A button that does
-  // nothing is worse than no button — it is the scaffolding-as-product trap
-  // (skill 0.5.38) in miniature.
+    : [
+        { id: 'refresh', label: 'Refresh', style: 'secondary', emoji: '🔄' },
+        { id: 'market', label: 'Market', style: 'secondary', emoji: '🕯️' },
+        { id: 'board', label: 'Board', style: 'secondary', emoji: '🏆' },
+      ];
 
   return {
     title: jailed ? '🚔 Behind bars' : '🌃 The city',
@@ -136,5 +145,29 @@ export function attemptPanel(crimeType, userId) {
       `-# Second thoughts? **Bail Out** costs ${BAIL_OUT_COST} 🍩 and burns the cooldown, but you walk away clean.`,
     ],
     buttons: [{ id: `bail-out:${crimeType}`, label: 'Bail Out!', style: 'danger', emoji: '🏃' }],
+  };
+}
+
+/**
+ * The mark-picking step for a crime that needs a victim (S124).
+ *
+ * Before this, the panel's answer to "pickpocket" was a pointer back to
+ * `!crime pickpocket @member` — which sends the player out of the panel the
+ * panel exists to replace. The source has a whole view for this; ours is a
+ * user select plus the source's Random and Cancel.
+ */
+export function targetPanel(crimeType, userId, minBalance) {
+  const crime = CRIMES[crimeType];
+  return {
+    title: `${crime?.emoji ?? '🌃'} ${crimeType.replace(/_/g, ' ')} — pick a mark`,
+    lines: [
+      'Choose someone below, or let the street decide.',
+      '',
+      `-# They need at least **${Number(minBalance).toLocaleString('en-US')} 🍩** on them to be worth it. Bots, cellmates and you are off the table.`,
+    ],
+    buttons: [
+      { id: `roll:${crimeType}`, label: 'Random Target', style: 'primary', emoji: '🎯' },
+      { id: 'refresh', label: 'Cancel', style: 'secondary', emoji: '✖️' },
+    ],
   };
 }

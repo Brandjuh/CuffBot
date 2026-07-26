@@ -2298,3 +2298,49 @@ Also recorded, as a second instance rather than a new rule: **render the output,
 Tests **1109 → 1124**.
 
 **Handoff:** M26.3b (narrated crime events with a bail check between each, the target picker, market/leaderboard as panel buttons), then M26.2b and M26.4. The Groq numbers are in `lib/limits.js` with a comment saying to change them only against the docs — they are free-tier figures and a paid plan has different ones.
+
+---
+
+## Session 124 — 2026-07-26
+
+**Goal:** M26.3b, the second half of the owner's twice-reported City complaint — *"dat werkt met panelen niet enkel met commands."* Narrated crime events with a bail check between each, the target picker, market/leaderboard as panel buttons.
+
+**S122 gave City a panel and the Bail Out button, and that was still not the mechanic.** The resolver drew its events and settled in one call, so the button lived for a single 2-second beat and the drawn events only ever appeared in the result card — after they could no longer affect anything. The player was being asked to decide with no information.
+
+**The crime now plays out.** 2 s opening, 4 s per drawn event, 4–6 s of suspense by risk (the source's numbers), and **the bail flag checked before every beat**. A four-event bank job offers six chances to walk away, each arriving after you learned something. `lib/narrate.js` is pure — events in, beats out — so the caller owns the waiting and a test plays a full 24-second crime in zero milliseconds.
+
+One message, edited in place, rather than the source's message-per-event-then-delete: the Bail Out button stays directly under the latest line.
+
+⚠️ **The invariant that makes the button honest, and it is tested:** the slowest possible crime is **24 s**, inside the button's own **30 s** lifetime. `worstCaseDurationMs()` derives that from `EVENT_CHANCES.length`, not a literal `4`, so adding a fifth draw step fails the test instead of silently narrating the last beats under a dead button. Verified by raising `EVENT_BEAT_MS` to 7 000 and watching two tests fail.
+
+**One draw, not two.** `resolveCrime` and `commitCrime` gained an `events` option; the narrator draws and hands the same list down. Otherwise the story you watched and the outcome you got come from different crimes.
+
+**The mark picker exists** (`lib/targets.js` + a user select). The panel used to answer a targeted crime with *"run `!crime pickpocket @member`"* — sending the player out of the panel the panel exists to replace. 🎯 Random Target skips bots, you, cellmates, the too-poor and **your last victim** (new `lastTargetId`); when the only eligible mark IS your last one, the roll allows the repeat rather than refusing to play, because a two-person guild would otherwise never get a target. The last-victim rule applies to the roll only — refusing a name the player chose themselves is a different thing.
+
+**Market and Board are panel buttons now**, on the street and jail views both (a jailed player is precisely who wants the jail pass), each with Back. Buying is one press instead of `!crime buy <item>`.
+
+### What went wrong, and what it taught
+
+⚠️ **A test I wrote was vacuous, and only mutation testing found it.** "The narrated events are the events the outcome used" **passed** against code deliberately mutated to draw twice — because my deterministic rng always picked index 0, so both draws returned the same events. The test could not distinguish the thing it existed to distinguish. Fixed with a walking rng (`pick` advances each call) and a strict set comparison of the rendered bullet lines, then re-verified against the same mutation, which now fails.
+
+**Rule promoted (skill 0.5.45): a test that asserts two things share a source must use a source that can tell them apart.** A deterministic fixture is the right default for "what does this compute", and the wrong one for "where did this come from" — it makes provenance bugs invisible by construction.
+
+**Two real defects the new tests caught:**
+- `boardPayload` crashed on an unknown category. `cityLeaderboard` returns `null` for one it does not know; I fell back on the *label* but passed the raw key through, so `rows.map` hit `null`. Normalised before the lookup.
+- The S122 button test was a hard-coded `['refresh']`. That guard could only ever be "fixed" by editing the literal, which is what I started to do. Replaced with the rule it was standing in for — **every button the panel offers is an action the pump handles** — verified by adding a dead `ghost` button and watching it fail.
+
+**Corrections found in Step 2 (reality beat the documents):**
+- `STATE.md`'s Verification block claimed `1095/1095 as of S120` and still listed **`connect4`**, a module **S116 deleted** eight sessions ago. A verification block that has drifted verifies nothing — it either fails for the wrong reason or gets skipped as "always a bit off". Both rows fixed, with a note to update them in the same commit as any test-count or module-list change.
+- `docs/modules/city.md` claimed `!crime` had an `!city` alias (S122 removed it) and that the module had **no event listeners** (false since S122's pump). Both corrected.
+
+### Definition of Done — city
+
+- [x] Layout per architecture.md; `node --check` clean across `src` and `test`
+- [x] Pure logic tested: `city-narrate` (14), `city-targets` (13), `city-panel` (17), `city-attempt` (17)
+- [x] Manual `docs/modules/city.md` updated: the beat table, the invariant, the picker, the buttons, the event-id table, the changelog row, and both stale claims corrected
+- [x] Listed in `docs/README.md` (unchanged — already there)
+- [x] `STATE.md` + `SESSION_LOG.md` reflect reality
+
+Tests **1124 → 1171**. **M26.3 is complete.**
+
+**Handoff:** M26.2b (Tic-Tac-Toe, donut staking — bet 100, winner takes 400–600, refunded on a pre-start cancel — sortable `!gameleaderboard`, admin config), then M26.4 (heist's seven remaining panels). M24.3 stays unscheduled pending an owner decision. The City engine from S89–S92 has still not been touched: every session since has been presentation, which is what the audit said was wrong.

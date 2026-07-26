@@ -22,6 +22,7 @@ const emptyMember = () => ({
   streak: 0,
   highest: 0,
   lastCrimeAt: 0,
+  lastTargetId: null, // S124: the roller will not hand you the same mark twice
   perks: [], // permanent black-market perks
   items: {}, // consumables: { itemId: count }
   stats: {
@@ -73,6 +74,16 @@ export function updateCriminal(guildId, userId, mutate) {
 }
 
 export const allCriminals = (guildId) => getGuildData(guildId, CITY_MEMBERS_KEY, {});
+
+/**
+ * Remember who was just robbed (S124).
+ *
+ * The cog keeps a `last_target` per member so the Random Target button cannot
+ * hand you the same victim twice running — without it, one unlucky member
+ * absorbs every roll in a small guild.
+ */
+export const rememberTarget = (guildId, userId, targetId) =>
+  updateCriminal(guildId, userId, (current) => ({ ...current, lastTargetId: targetId }));
 
 /** Test seam. */
 export function resetCity(guildId) {
@@ -156,7 +167,7 @@ export async function commitCrime(
   guildId,
   userId,
   crimeType,
-  { targetId = null, now = Date.now(), rng = defaultRng, crimeOverride = null } = {},
+  { targetId = null, now = Date.now(), rng = defaultRng, crimeOverride = null, events = null } = {},
 ) {
   const crime = crimeOverride ?? CRIMES[crimeType];
   const criminal = getCriminal(guildId, userId);
@@ -165,7 +176,7 @@ export async function commitCrime(
   const targetBalance = targetId ? await cityBalance(guildId, targetId) : 0;
 
   const outcome = resolveCrime(
-    { crimeType, crime, member: { ...criminal, balance }, targetBalance, settings, now },
+    { crimeType, crime, member: { ...criminal, balance }, targetBalance, settings, events, now },
     rng,
   );
 
