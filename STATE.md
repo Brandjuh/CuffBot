@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 120 · 2026-07-26
+**Last updated:** Session 121 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -328,6 +328,16 @@ Owner ran `setup-pi.sh`, then `!update`, and was still told the bot was behind a
 **Bug 2 — the message asserted a cause it had never checked.** `!update` polled for 3 minutes and, if `HEAD` had not moved, announced *"the updater never ran — the update service or its sudo rights are probably missing"*. It knew only that HEAD had not moved. The 3-minute limit was set when the suite was ~350 tests with no dependencies; it is **1,095 tests plus an `npm install`** now, and a Pi is far slower than this container (18 s here). **So a perfectly healthy update in progress was reported as a broken installation, and the owner was sent to re-run `setup-pi.sh` for nothing.**
 
 Now 12 minutes, and the message **asks systemd** (`LoadState`, `ActiveState`, `Result`, `ExecMainStartTimestamp`) and reports only what it finds: still running / not installed / last run failed / installed-and-healthy-so-it-has-not-fired-yet. Only the "not installed" branch mentions `setup-pi.sh`. This is skill rule 0.5.41 again — a diagnosis must not claim more than it measured.
+
+## S121 — the limits now say what they measure (owner question)
+
+Owner: *"ik zie dat de rate limit 100 is, is dat 100 minuten? 100 seconden? 100 berichten?"* Nothing anywhere answered that. The status rendered `3 / 100 transcribed` — a bare number beside a slash — with no unit, no window and no mention of when it resets, and the recording-length cap was not shown at all.
+
+It is **100 transcriptions per UTC day, per guild**: `spendBudget` adds exactly 1 per successful call **regardless of audio length**, so a 9-minute memo costs the same as a 3-second one.
+
+⚠️ **The number is generous for memos and tight for live voice, and that asymmetry is the real finding.** A live "turn" ends after 800 ms of silence and is force-cut at 25 s, so a two-person conversation produces roughly 4–10 turns a minute — **100 is therefore about 10–25 minutes of live conversation**, after which everything including memos stops until midnight UTC. The default was chosen in **S101, when memos were the only spender**; auto-join (S110) changed what the unit means without anyone re-sizing it. Flagged to the owner as a decision rather than silently raised.
+
+Fixed: the status reads `3 / 100 transcriptions · resets at midnight UTC`, shows the length cap, and `!transcribe limit` states the unit each choice takes (`duration` in seconds, `daily` a count) and says out loud that live voice spends the same budget per turn.
 
 ## Environment facts (S61)
 

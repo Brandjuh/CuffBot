@@ -58,6 +58,22 @@ An ambiguous near-miss (two candidates, neither exact) is **refused**, not guess
 
 It stays out entirely when: auto-join is off, the desk is off, the channel is outside `voiceChannelIds`, there is no `GROQ_API_KEY`, or it lacks **Connect** on the voice channel or **Send Messages** in the text one. All of that is checked *before* joining, so it never appears in a channel it cannot actually work in.
 
+### What the daily limit actually counts (S121)
+
+Owner: *"is dat 100 minuten? 100 seconden? 100 berichten?"* — none of those. It counts **transcriptions**: pieces of audio actually turned into text. `spendBudget` adds exactly **1 per successful call, regardless of length**, so a 9-minute memo and a 3-second one cost the same.
+
+**That is generous for memos and expensive for live voice**, and the difference is worth understanding before setting the number:
+
+| What | Cost |
+|---|---|
+| A voice memo, any length up to the duration cap | **1** |
+| `!transcribe now` on an old recording | **1** |
+| **One speaker turn in a voice channel** | **1** |
+
+A live "turn" ends after **800 ms** of silence and is force-cut at **25 s**, so a normal two-person conversation produces something like 4–10 turns a minute. **100 transcriptions is therefore roughly 10–25 minutes of live conversation**, after which everything — including voice memos — stops until midnight UTC.
+
+The default of `100` was chosen in S101, when memos were the only thing that spent it. If the precinct uses auto-join much, raise it: `!transcribe limit daily 2000`. `!transcribe` shows today's usage so the burn rate is visible before it runs out.
+
 ### Ignoring music (S117)
 
 Owner: *"Is er ook een manier om muziek te negeren?"* Yes — and until S117 the case that matters was broken.
@@ -152,7 +168,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 | `ignoreBots` | `true` | Skip other bots entirely. **This is the music switch** — a music bot is an ordinary speaker to the voice receiver. |
 | `ignoredUserIds` | `[]` | Members never transcribed. Ids as **strings**. |
 | `voicePairs` | `{}` | This server's own voice → text pairings, laid over the four committed defaults. Keys and values are channel ids **as strings**. |
-| `dailyLimit` | `100` | Transcriptions per UTC day, per guild. `0` = uncapped. **Live voice spends from the same budget** — one turn in a voice channel costs what one memo costs. |
+| `dailyLimit` | `100` | **Transcriptions** per UTC day, per guild — not minutes, not messages: pieces of audio actually turned into text. `0` = uncapped. **One call costs 1 whatever its length**, so a 9-minute memo and a 3-second one cost the same. ⚠️ **Live voice spends the same budget one TURN at a time** — see below. |
 | `voiceTimestamps` | `true` | Prefix each live line with `HH:MM` (UTC). |
 
 **On the two `auto` switches:** a Discord voice message is unambiguous — somebody recorded a message *for this channel*, so transcribing it uninvited is helpful. An attached `.mp3` is as likely to be a song as a memo, and spending the precinct's API budget on someone's music is the wrong default. Hence: voice messages on, files off, and `!transcribe now` for the rest.
@@ -241,6 +257,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 
 | Session | Change |
 |---|---|
+| S121 | **The limits say what they measure.** Owner asked whether `100` meant minutes, seconds or messages — nothing anywhere said. The status now reads `3 / 100 transcriptions · resets at midnight UTC`, shows the recording-length cap (which was invisible), and `!transcribe limit` states the unit each choice takes and spells out that live voice spends the same budget one **turn** at a time. |
 | S118 | **`!transcribe pairs` answers the question it was asked** (owner: *"een optie dat ik kan zien welke VC kanalen aan welke kanalen zijn gekoppeld"*): it walks every voice channel instead of the pairing table, so rooms matched by name — most of them — are no longer invisible, and each row states its reason. Deleted targets and orphaned pairings are flagged rather than rendered as broken mentions. New **`!transcribe unpair`** takes a raw id so a deleted channel's pairing can still be cleaned up, and names the fallback rather than just saying "removed". |
 | S117 | **Music is ignored**, **auto-join says why it is not firing**, and usage lines spell out their options. A music bot was being transcribed because the receiver saw it as an ordinary speaker (`ignoreBots`, on by default, checked before subscribing). The bare `!transcribe` status gained an **Auto-join** line naming which of five conditions is blocking it and the fix for each — every refusal in the handler is a silent `return`, which is right for a background feature and useless for diagnosing one. `!transcribe auto` now reads `<voice|files> <true|false>` instead of `<kind> <state>`, framework-wide. |
 | S111 | **Declared pairings** (owner gave four VC → text channel ids): a stated pairing beats the name matcher, because a fact must not lose to an inference. The four ship as code defaults (S35) so they work the moment the Pi updates; `!transcribe pair` overrides one per guild, `!transcribe pairs` lists what is in force, and a stale id falls through to the matcher instead of posting into a void. |
