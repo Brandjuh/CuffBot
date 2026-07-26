@@ -440,15 +440,17 @@ const runGroup = (message, line) =>
 test('the group offers exactly the documented subcommands', () => {
   assert.deepEqual(
     SUBS.map((s) => s.name),
-    // S102 added the live-voice trio; S110 the auto-join pair.
-    ['now', 'join', 'leave', 'autojoin', 'voicechannel', 'timestamps', 'on', 'off', 'auto', 'english', 'channel', 'everywhere', 'limit'],
+    // S102 the live-voice trio, S110 the auto-join pair, S111 the pairings.
+    ['now', 'join', 'leave', 'autojoin', 'voicechannel', 'pair', 'pairs', 'timestamps', 'on', 'off', 'auto', 'english', 'channel', 'everywhere', 'limit'],
   );
   assert.deepEqual(transcribeCommand.group.aliases, ['stt', 'statement']);
 });
 
 test('reading is public; every knob is Manage Server', () => {
   const open = SUBS.filter((s) => !s.permission).map((s) => s.name);
-  assert.deepEqual(open, ['now'], 'only the on-demand transcription is unguarded');
+  // `now` transcribes on demand and `pairs` only reads the pairing table back;
+  // neither changes anything, so neither is gated. Everything that writes is.
+  assert.deepEqual(open, ['now', 'pairs'], 'only the two read-only subcommands are unguarded');
   for (const sub of SUBS.filter((s) => s.permission)) {
     assert.equal(sub.permission, PermissionFlagsBits.ManageGuild, sub.name);
   }

@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.35 — 2026-07-26 (Session 111)
+
+- `references/architecture.md` (Verification habits): **a check that derives its expected value from the thing under test cannot fail.** Restate the truth independently — from the owner's message, a fixture, or a literal typed out a second time. Includes the concrete trap that produced it: a Discord snowflake is a string, always.
+- Evidence: S111 committed the owner's four voice→text channel pairings as an object literal with unquoted 18-digit keys. `Number` cannot hold `411633952961593345`; it silently became `411633952961593340`, so the map could never have matched a real channel — and nothing throws, the source looks correct, and the diff looks correct. **The verification returned a false green**: it iterated `Object.entries()` and looked each key back up, which reads the already-rounded key and compares it with itself. This is 0.5.34 (*verify the verification*) narrowed to its most common concrete shape — the tautological check — which is worth naming separately because the previous three instances were all *wrong* checks, and this one was a *circular* one.
+
 ## 0.5.34 — 2026-07-26 (Session 107)
 
 - `references/architecture.md` (Verification habits): **verify the check before believing its result** — and when a check passes, make sure it *could* have failed.

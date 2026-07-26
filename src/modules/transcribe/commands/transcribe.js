@@ -3,6 +3,7 @@
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { hasAudioKey } from '../lib/audio-provider.js';
 import { audioAttachmentsOf, refusalFor } from '../lib/transcribe.js';
+import { DEFAULT_VOICE_PAIRS } from '../lib/pairing.js';
 import { getBudget, getTranscribeConfig, setTranscribeConfig, transcribeMessage } from '../service.js';
 import { isListening, sessionFor, startListening, stopListening } from '../voice/session.js';
 
@@ -194,6 +195,54 @@ export default {
             content: removed
               ? `🎙️ ${channel} dropped.${next.voiceChannelIds.length === 0 ? ' The list is empty, so I auto-join **every** voice channel again.' : ''}`
               : `🎙️ ${channel} added — I now auto-join **only** ${next.voiceChannelIds.map((id) => `<#${id}>`).join(', ')}.`,
+            allowedMentions: { parse: [] },
+          });
+        },
+      },
+      {
+        name: 'pair',
+        description: 'Say which text channel goes with a voice channel.',
+        permission: PermissionFlagsBits.ManageGuild,
+        args: [
+          { name: 'voice', type: 'channel', required: true },
+          { name: 'text', type: 'channel', postable: true }, // omit to unpair
+        ],
+        async run(ctx, { voice, text }) {
+          const pairs = { ...getTranscribeConfig(ctx.guild.id).voicePairs };
+          if (!text) {
+            // Unpairing restores the DEFAULT for that channel rather than
+            // nothing — an explicit blank would be a third state nobody wants.
+            delete pairs[voice.id];
+            setTranscribeConfig(ctx.guild.id, { voicePairs: pairs });
+            await ctx.reply({
+              content: `🎙️ ${voice} is back to the built-in pairing (or the name match).`,
+              allowedMentions: { parse: [] },
+            });
+            return;
+          }
+          pairs[voice.id] = text.id;
+          setTranscribeConfig(ctx.guild.id, { voicePairs: pairs });
+          await ctx.reply({
+            content: `🎙️ ${voice} → ${text}. That beats any name match.`,
+            allowedMentions: { parse: [] },
+          });
+        },
+      },
+      {
+        name: 'pairs',
+        description: 'Every voice → text pairing in force.',
+        args: [],
+        async run(ctx) {
+          const merged = { ...DEFAULT_VOICE_PAIRS, ...getTranscribeConfig(ctx.guild.id).voicePairs };
+          const rows = Object.entries(merged).map(
+            ([voice, text]) =>
+              `<#${voice}> → <#${text}>${DEFAULT_VOICE_PAIRS[voice] === text ? '' : ' *(this server)*'}`,
+          );
+          await ctx.reply({
+            content:
+              rows.length === 0
+                ? '🎙️ No pairings — every voice channel is matched by name.'
+                : `🎙️ **Voice → text pairings**\n${rows.join('\n')}\n\nAnything not listed is matched by name.`,
             allowedMentions: { parse: [] },
           });
         },

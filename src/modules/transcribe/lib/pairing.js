@@ -11,6 +11,30 @@
 // discord.js, so the whole matcher is testable without a guild.
 
 /**
+ * The precinct's own voice → text pairings (owner, 2026-07-26, given as ids).
+ *
+ * Committed as a code default rather than left for an admin to configure
+ * (S35): the owner named concrete ids in chat, so they belong in the repo and
+ * work the moment the Pi self-updates. A guild's stored `voicePairs` still
+ * wins, because config storage is sparse.
+ *
+ * These take priority over the name matcher below. An explicit pairing is a
+ * statement of fact; a name match is an inference, and an inference must never
+ * beat a fact.
+ */
+// ⚠️ The keys are STRINGS on purpose. An unquoted 18-digit snowflake is a
+// JavaScript *number*, and Number cannot hold it: `411633952961593345`
+// silently becomes `411633952961593340`, so the lookup would never match a
+// real channel id. This bug is invisible — the object looks correct in source
+// and the map simply never hits.
+export const DEFAULT_VOICE_PAIRS = {
+  '411633952961593345': '411634025426321438',
+  '436248103310327808': '436248239855894538',
+  '442066086159187978': '442059736263688213',
+  '411634241965916191': '411634286655963146',
+};
+
+/**
  * Reduce a channel name to what it is actually *called*.
  *
  * Strips the decoration servers put in names — emoji, box-drawing, separators,
@@ -37,6 +61,8 @@ export function normalizeChannelName(name) {
  * Three passes, most specific first — a wrong pairing posts a private
  * conversation into the wrong room, so a near-miss must never win over an
  * exact one:
+ *   0. **A declared pairing** (`DEFAULT_VOICE_PAIRS`, or a guild's own) — a
+ *      fact, not an inference, so it beats everything below.
  *   1. **Normalised equality** — `🎙️ Squad Room` ↔ `squad-room`.
  *   2. **Same category, normalised equality** is already covered by (1); the
  *      second pass is same-category *containment*, for `squad-room-chat`.
@@ -45,9 +71,19 @@ export function normalizeChannelName(name) {
  *
  * @param {{id: string, name: string, parentId?: string|null}} voiceChannel
  * @param {Array<{id: string, name: string, parentId?: string|null, isTextBased?: boolean}>} textChannels
- * @returns {{ id: string, how: 'exact'|'category' }|null}
+ * @returns {{ id: string, how: 'declared'|'exact'|'category' }|null}
  */
-export function pairTextChannel(voiceChannel, textChannels) {
+export function pairTextChannel(voiceChannel, textChannels, pairs = DEFAULT_VOICE_PAIRS) {
+  // 0. An explicit pairing wins outright. The owner said which text channel
+  //    goes with which voice channel; nothing inferred from a name may
+  //    override that, even a perfect name match.
+  const declared = pairs?.[voiceChannel?.id];
+  if (declared) {
+    // Only if the channel actually exists — a stale id must fall through to
+    // the matcher rather than sending the transcript into a void.
+    if (textChannels.some((c) => c?.id === declared)) return { id: declared, how: 'declared' };
+  }
+
   const target = normalizeChannelName(voiceChannel?.name);
   if (target.length === 0) return null;
   const usable = textChannels.filter((c) => c && c.id !== voiceChannel.id);

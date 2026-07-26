@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 110 · 2026-07-26
+**Last updated:** Session 111 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 999/999 pass as of S110 |
+| Tests green | `npm test` | 1003/1003 pass as of S111 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).map(x => x.name)))"` | `[ 'academy', 'birthdays', 'channellist', 'chat-starter', 'city', 'connect4', 'core', 'detective', 'dispatch', 'economy', 'enforcement', 'goals', 'guessthecandy', 'hammertime', 'hangman', 'heist', 'hunting', 'killcounter', 'leveling', 'logbook', 'mafia', 'memorial', 'memory', 'patrol', 'public-affairs', 'records', 'rollout', 'rules', 'russianroulette', 'selfroles', 'splitorsteal', 'starboard', 'transcribe', 'trivia', 'welcome', 'wordle', 'youtube' ]` |
 | Manuals current | `ls docs/modules/` | academy, birthdays, channellist, chat-starter, city, connect4, core, detective, dispatch, economy, enforcement, goals, guessthecandy, hammertime, hangman, heist, hunting, killcounter, leveling, logbook, mafia, memorial, memory, patrol, public-affairs, records, rollout, rules, russianroulette, selfroles, splitorsteal, starboard, transcribe, trivia, welcome, wordle, youtube |
 | Data gitignored | `git check-ignore data/x.json` | Prints the path (member history never committed) |
@@ -83,7 +83,7 @@
 - **Enforcement (M2, S7; animated S10):** module `enforcement` — `/cite` (Papers-Please-style generated ticket PNG + DM copy; pure-JS renderer: pixel font → citation card → zero-dependency PNG encoder), `/detain` (duration parsing incl. compounds, 28-day cap), `/release` (timeout or ban, permission-tiered), `/arrest` (ban by member or id, wipe choices). Shared guards; audit reasons embed the officer; manual `enforcement.md`. **S10:** `/cite` emits an animated GIF (prints out of a slot) via a zero-dependency GIF89a encoder (`lib/gif.js`); added the public for-fun `/fine` (no perms, no records).
 - **Deployment/ops (M8 slices):** `scripts/setup-pi.sh` (8 steps incl. invite gate and self-update arming), `scripts/update.sh` (fetch → ff → npm install → **test gate** → deploy-commands → restart; rollback on red — proven in a clone-pair simulation incl. failure path and exit codes), runbook `docs/operations/raspberry-pi.md`.
 - **Product decisions:** single-guild bot (home precinct `411157175948541954`); citations rendered as tickets (owner request, concept credit in the manual); bot self-updates from `main` every 15 min, test-gated; **CuffBot's XP replaces the old leveler bot** and **existing members' XP is seeded from their current rank role** (S16); **XP curve is deliberately hard (S45 owner decision): voice 1 XP/min, baseXp 1000, exponent 1.8 — tunable live via /xp-config base-xp/exponent.** AI (M9) uses a free-tier provider with a GLOBAL rate limit — 1 msg / 7 s AND max 62 msgs / hour, shared across all users (S16); **Gemini model = gemini-2.5-flash-lite with a 20/day bot-side cap** (owner decision S27: RPM 10 / TPM 250K / RPD 20); **Groq llama-3.1-8b-instant limits enforced too (S33: RPM 30 / RPD 14.4K / TPM 6K / TPD 500K)** — request AND estimated-token windows live in the shared limiter, history is token-trimmed, chat-starter AI draws from the same budget.
-- **Tests:** 999 via `node:test` (was recorded as 358 until S93 caught the drift) — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges incl. token windows, prompt limits, both providers via fake fetch, pipeline branches, mention gates, desk-pile queue — **no network, ambient AI keys deleted at suite start**), birthdays, trivia, memorial RSS, starboard, chat-starter, logbook (models, gate matrix, event fakes), welcome, packaging (module data files git-tracked), and command smokes. **Command smokes are moving off fake interactions onto the real dispatch path** (`dispatchCommand`/`dispatchGroup` + `test/fixtures/fake-message.js`) as M17.3 converts each module — **every module is converted (S96) — there is no other kind of command test left.**
+- **Tests:** 1003 via `node:test` (was recorded as 358 until S93 caught the drift) — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges incl. token windows, prompt limits, both providers via fake fetch, pipeline branches, mention gates, desk-pile queue — **no network, ambient AI keys deleted at suite start**), birthdays, trivia, memorial RSS, starboard, chat-starter, logbook (models, gate matrix, event fakes), welcome, packaging (module data files git-tracked), and command smokes. **Command smokes are moving off fake interactions onto the real dispatch path** (`dispatchCommand`/`dispatchGroup` + `test/fixtures/fake-message.js`) as M17.3 converts each module — **every module is converted (S96) — there is no other kind of command test left.**
 
 ## Resume point
 
@@ -186,6 +186,16 @@ Somebody enters a voice channel → CuffBot follows and transcribes into the tex
 **The fallback is the voice channel's own built-in text chat.** Always correct by construction, never a guess, and the bot says when it used it.
 
 Everything is checked **before** joining — auto-join on, desk on, channel in scope, key present, Connect on the voice channel, Send Messages in the text one — so the bot never appears somewhere it cannot actually work.
+
+## S111 — the owner's four pairings, committed as code (owner request)
+
+The owner followed S110 with four explicit ids: *"411633952961593345 > 411634025426321438 · 436248103310327808 > 436248239855894538 · 442066086159187978 > 442059736263688213 · 411634241965916191 > 411634286655963146 · VC > Text kanaal."*
+
+They ship as **`DEFAULT_VOICE_PAIRS` in `src/modules/transcribe/lib/pairing.js`** — code defaults, not a post-deploy configuration step (S35), so they are live the moment the Pi self-updates. `pairTextChannel` gained a pass 0 that consults them **before** the name matcher: a declared pairing is a statement of fact and a name match is an inference, so the inference must never win. A declared id that no longer resolves to a real text channel **falls through** to the matcher rather than sending the transcript into a void.
+
+A guild's own `voicePairs` (new, sparse, default `{}`) is merged over the defaults, so `!transcribe pair <voice> [text]` corrects one without a code change and `!transcribe pair <voice>` alone restores the default. `!transcribe pairs` lists what is in force and marks the server's own overrides. `pairs` is the second unguarded subcommand after `now` — it only reads.
+
+⚠️ **The trap this session hit, for whoever edits that table next: an unquoted 18-digit snowflake is silently destroyed by `Number`.** `411633952961593345` becomes `411633952961593340`; the source looks correct and the lookup simply never matches a real channel. Worse, **my first verification returned a false green** because it iterated `Object.entries()` and looked the keys up again — it was reading the already-rounded value back and comparing it with itself. The keys are quoted strings now, and `test/transcribe-voice.test.js` spells all four ids out again as literals so a future rounding can only fail loudly. This is a concrete instance of skill rule 0.5.34 (*verify the verification*).
 
 ## Environment facts (S61)
 

@@ -26,6 +26,8 @@ Transcribing a memo on request is public; every knob, and everything to do with 
 | `!transcribe autojoin` | Join a voice channel by myself when somebody is in it | `<true\|false>` | Manage Server | `!transcribe autojoin false` |
 | `!transcribe voicechannel` | Auto-join only these voice channels | `<channel>` | Manage Server | `!transcribe voicechannel 🔊General` |
 | `!transcribe leave` | Leave the voice channel and stop | none | Manage Server | `!transcribe leave` |
+| `!transcribe pair` | Say which text channel goes with a voice channel — omit the text channel to unpair | `<voice> [text]` | Manage Server | `!transcribe pair 🔊General #general` |
+| `!transcribe pairs` | List every pairing in force | none | Everyone | `!transcribe pairs` |
 | `!transcribe timestamps` | Stamp each live line with `HH:MM` | `<true\|false>` | Manage Server | `!transcribe timestamps false` |
 | `!transcribe on` / `off` | Start / stop transcribing memos automatically | none | Manage Server | `!transcribe off` |
 | `!transcribe auto` | Which attachments are transcribed uninvited | `<voice\|files> <true\|false>` | Manage Server | `!transcribe auto files true` |
@@ -40,8 +42,9 @@ Aliases: the group answers to `!stt` and `!statement`; `join` takes `listen`, `l
 
 **The bot lets itself in.** The moment somebody enters a voice channel, CuffBot follows and starts transcribing into the text channel **with the same name** — the owner's own server convention. When the last person leaves, it leaves.
 
-**"The same name" is not string equality.** Discord lowercases text-channel names and turns spaces into hyphens, so a voice channel called `🎙️ Squad Room` is `squad-room` as a text one. The matcher normalises both sides: strips emoji and dividers (`・`, `|`, `—`), folds accents, and collapses everything else to hyphens. Three passes, most specific first:
+**"The same name" is not string equality.** Discord lowercases text-channel names and turns spaces into hyphens, so a voice channel called `🎙️ Squad Room` is `squad-room` as a text one. The matcher normalises both sides: strips emoji and dividers (`・`, `|`, `—`), folds accents, and collapses everything else to hyphens. Four passes, most specific first:
 
+0. **A declared pairing** (S111) — see below. A statement of fact beats every inference underneath it, including a perfect name match.
 1. **Exact** on the normalised name. Two channels with the same name → the one in the same category.
 2. **Containment, same category only** — `squad-room` finds `squad-room-chat`, but a `general` voice channel will never adopt `general-announcements` from the other side of the server.
 3. **Nothing matched** → the transcript goes to the **voice channel's own built-in text chat**. That is always the right room by construction and is never a guess; a wrongly-guessed channel would put a private conversation somewhere it does not belong. The bot says so when it happens.
@@ -51,6 +54,25 @@ An ambiguous near-miss (two candidates, neither exact) is **refused**, not guess
 **It announces itself, every time.** The bot let itself in, so the "🔴 Recording" line matters more here than for a manual `!transcribe join`, and it names both switches that stop it.
 
 It stays out entirely when: auto-join is off, the desk is off, the channel is outside `voiceChannelIds`, there is no `GROQ_API_KEY`, or it lacks **Connect** on the voice channel or **Send Messages** in the text one. All of that is checked *before* joining, so it never appears in a channel it cannot actually work in.
+
+### Declared pairings (S111)
+
+The name matcher is an inference. When the owner *says* which text channel goes with which voice channel, that is a fact, and a fact must never lose to an inference — so a declared pairing is consulted first and wins outright.
+
+Four pairings ship as **code defaults** (`DEFAULT_VOICE_PAIRS` in `lib/pairing.js`), given by the owner on 2026-07-26 and therefore live the moment the Pi self-updates — no post-deploy configuration:
+
+| Voice channel | Transcript goes to |
+|---|---|
+| `411633952961593345` | `411634025426321438` |
+| `436248103310327808` | `436248239855894538` |
+| `442066086159187978` | `442059736263688213` |
+| `411634241965916191` | `411634286655963146` |
+
+A guild's own `voicePairs` sits **on top** of those, so `!transcribe pair` corrects a default without touching code. `!transcribe pairs` lists everything in force and marks the server's own overrides. `!transcribe pair <voice>` with no text channel removes the override and restores the default (or the name match, if there is no default).
+
+A declared id that no longer resolves to a real text channel **falls through to the matcher** rather than sending the transcript into a void.
+
+> **Trap, for whoever edits that table next.** The keys are quoted strings on purpose. An unquoted 18-digit snowflake is a JavaScript `Number`, which cannot hold it: `411633952961593345` silently becomes `411633952961593340` and the lookup never matches anything. The source *looks* right and the map simply never hits — and a check that reads the keys back off the object cannot catch it, because it reads the already-rounded value. `test/transcribe-voice.test.js` spells the four ids out again as literals for exactly this reason.
 
 ### Live voice, exactly
 
@@ -105,6 +127,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 | `autoJoin` | `true` | Join a voice channel unprompted. **On by default** — the owner asked for exactly this. |
 | `voiceChannelIds` | `[]` | **Empty = every voice channel.** A non-empty list restricts auto-join. |
 | `autoJoinMinimum` | `1` | How many humans must be in the channel first. |
+| `voicePairs` | `{}` | This server's own voice → text pairings, laid over the four committed defaults. Keys and values are channel ids **as strings**. |
 | `dailyLimit` | `100` | Transcriptions per UTC day, per guild. `0` = uncapped. **Live voice spends from the same budget** — one turn in a voice channel costs what one memo costs. |
 | `voiceTimestamps` | `true` | Prefix each live line with `HH:MM` (UTC). |
 
@@ -151,7 +174,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 | `src/modules/transcribe/service.js` | Config, the persisted budget, the download → transcribe → format sequence |
 | `src/modules/transcribe/events/message.js` | `MessageCreate` auto path |
 | `src/modules/transcribe/events/voice-state.js` | `VoiceStateUpdate` — auto-join and auto-leave (S110) |
-| `src/modules/transcribe/lib/pairing.js` | Pure name matching: voice channel ↔ text channel (S110) |
+| `src/modules/transcribe/lib/pairing.js` | Pure voice ↔ text pairing: the declared table (S111) and the name matcher (S110) |
 | `src/modules/transcribe/commands/transcribe.js` | The `!transcribe` group |
 | `src/modules/transcribe/lib/ogg.js` | Pure Ogg/Opus muxer (S102) — the reason no decoder is needed |
 | `src/modules/transcribe/lib/voice-session.js` | Pure live-voice policy (S102): chunking, hallucination filter, line batching |
@@ -170,7 +193,8 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
   5. `!transcribe channel #general` → the status shows only that channel; a memo elsewhere is ignored. `!transcribe everywhere` puts it back.
   6. `!transcribe limit daily 1`, transcribe twice → the second is refused with the budget message.
   7. **Auto-join, the S110 half:** walk into a voice channel on your own. The bot appears within a second or two and posts "🔴 Recording" in the text channel **with the same name**. Say something → a line appears there. Walk out → the bot leaves and says so. Then `!transcribe autojoin false`, rejoin the channel → nothing happens.
-  8. **Live voice, the part only the Pi can prove:** `npm run doctor` → the **Voice stack** section is all ✅. Join a voice channel, run `!transcribe join` → the bot announces the recording and appears in the channel, muted. Talk → a line appears within a few seconds. Have two people talk → both are named correctly. Stay silent for a minute → **nothing is posted** (this is the hallucination filter earning its place). `!transcribe leave` → the bot leaves and the last lines are flushed.
+  8. **Declared pairings, the S111 half:** `!transcribe pairs` → the four committed pairings are listed and every `<#id>` renders as a real channel name (a mention that stays a raw id is the snowflake-rounding trap). Walk into one of those four voice channels → the transcript appears in its paired text channel, even if another channel shares its name.
+  9. **Live voice, the part only the Pi can prove:** `npm run doctor` → the **Voice stack** section is all ✅. Join a voice channel, run `!transcribe join` → the bot announces the recording and appears in the channel, muted. Talk → a line appears within a few seconds. Have two people talk → both are named correctly. Stay silent for a minute → **nothing is posted** (this is the hallucination filter earning its place). `!transcribe leave` → the bot leaves and the last lines are flushed.
 
 ## Troubleshooting
 
@@ -193,6 +217,7 @@ Per-guild settings live under `transcribeConfig` and are **sparse** (S35).
 
 | Session | Change |
 |---|---|
+| S111 | **Declared pairings** (owner gave four VC → text channel ids): a stated pairing beats the name matcher, because a fact must not lose to an inference. The four ship as code defaults (S35) so they work the moment the Pi updates; `!transcribe pair` overrides one per guild, `!transcribe pairs` lists what is in force, and a stale id falls through to the matcher instead of posting into a void. |
 | S110 | **Auto-join** (owner request): the bot follows anyone into a voice channel and transcribes into the text channel with the matching name, then leaves when the room empties. Name matching is pure and normalised (emoji, dividers, accents, Discord's own hyphenation), exact beats near, near only inside the same category, ambiguity is refused, and an unmatched channel falls back to the voice channel's own built-in chat. On by default with `!transcribe autojoin false` to stop it and `!transcribe voicechannel` to narrow it. |
 | S102 | Live voice chat (M21.2): `!transcribe join`/`leave` — the bot sits in a voice channel and writes the conversation into a text channel, per speaker, announcing the recording unprompted. **No audio decoder**: Opus packets are muxed straight into Ogg by a hand-written pure muxer, cross-checked against `mutagen`. First dependencies beyond discord.js (`@discordjs/voice`, `@noble/ciphers`), both compiler-free on a Pi; `npm run doctor` gained a Voice stack section. 16 more tests, still none touching a gateway. |
 | S101 | Created (M21.1, owner request + owner backend decision): voice messages and audio attachments are transcribed to English via Groq/Whisper, with **zero new dependencies** — the key is the one the detective module already uses. Automatic for voice messages, on request for files, `!transcribe now` for anything out of scope. Per-guild on/off, channel scope, language, duration and daily-budget knobs. 27 tests, none touching the network. |
