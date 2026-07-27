@@ -83,6 +83,33 @@ Mentions are **two layers**: the `<@id>`/`<@&id>` text in `content` only *render
 - **Render without pinging** → mention in content + `allowedMentions: { parse: [] }` (S35 no-ping welcome) or `{ repliedUser: false }` for no-ping replies (S50/S54 text-path ephemerals).
 - Rule of thumb: every outbound bot message that interpolates any external text sets `allowedMentions` explicitly.
 
+## Timestamps — `<t:unix:style>` (S134)
+
+Owner request: *"Times in discord relative time."* Use `src/core/timestamps.js` (`relative`, `clockTime`, `relativeIn`, `discordTime`) rather than formatting a time by hand.
+
+**Why it is not cosmetic.** A rendered duration ("out in 45m 00s") is wrong the moment the message is sent and stays wrong forever — Discord does not re-render it, and the bot is not going to edit a panel every minute. A hand-formatted clock time is worse: it is in the HOST's timezone, and the Pi runs UTC while the precinct does not. `<t:…:R>` counts down live, in each reader's own locale, with no edits.
+
+**The unit is SECONDS.** `<t:1753632000000:R>` is a date in the year 57000. It renders happily; nothing throws. That is why the conversion lives in one helper.
+
+**⚠️ Discord does not render the markup everywhere.** It resolves in:
+
+- message content
+- embed descriptions
+- embed field **values**
+
+and is printed as the literal string `<t:1753632000:R>` in:
+
+- select-menu option **labels and descriptions**
+- button labels
+- embed **titles**, **footers**, author names
+- anything inside a code span — `` `<t:…:R>` `` shows the token, not a time
+
+So a countdown that appears in an embed line **and** in a select option needs **two forms**, not one shared string: the timestamp for the embed, a plain duration for the option. Both the city crime picker and the heist job board are shaped that way (`unavailable` plain, `readyAt` timestamped), and `test/timestamps.test.js` walks every panel payload in the repo asserting no `<t:` reaches a component.
+
+**A duration is not a moment.** "cooldown 6h", "each turn gives 5 seconds", "I check every 15 minutes", "detained for 10 minutes" describe how LONG something lasts. A relative timestamp there is not nicer, it is wrong. Convert the ones that answer *when*, leave the ones that answer *how long*.
+
+**Guard the epoch, not the shape.** `<t:NaN:R>` matches `/<t:.*:R>/` and renders as 1970. Assert the computed seconds.
+
 ## Common pitfalls
 
 | Symptom | Cause |

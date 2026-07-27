@@ -228,7 +228,13 @@ test('Whisper’s silence hallucinations never reach the channel', () => {
 
 test('a transcript line names the speaker and can be stamped', () => {
   const at = Date.parse('2026-07-26T14:32:09Z');
-  assert.equal(formatLine({ name: 'Alice', text: 'Suspect fled north.', at }), '`14:32` **Alice:** Suspect fled north.');
+  // S134: `<t:…:t>` renders 14:32 in the READER's timezone. It was
+  // `\`14:32\`` — UTC, i.e. the Pi's zone, and inside a code span, which would
+  // have stopped Discord rendering the markup at all.
+  assert.equal(
+    formatLine({ name: 'Alice', text: 'Suspect fled north.', at }),
+    `<t:${Math.floor(at / 1000)}:t> **Alice:** Suspect fled north.`,
+  );
   assert.equal(
     formatLine({ name: 'Alice', text: 'Suspect fled north.', at, timestamps: false }),
     '**Alice:** Suspect fled north.',

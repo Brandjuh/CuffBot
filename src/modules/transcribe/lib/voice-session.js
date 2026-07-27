@@ -4,6 +4,7 @@
 //
 // The impure half (joining, subscribing, streaming) lives in ../voice/.
 import { SAMPLES_PER_FRAME, SAMPLE_RATE, durationOf } from './ogg.js';
+import { clockTime } from '../../../core/timestamps.js';
 
 // S123: batch short turns toward Groq's 10-second minimum billing.
 //
@@ -108,8 +109,12 @@ export function formatLine({ name, text, at, timestamps = true }) {
   const clean = cleanTranscript(text);
   if (clean === '') return null;
   if (!timestamps) return `**${name}:** ${clean}`;
-  const stamp = new Date(at).toISOString().slice(11, 16); // HH:MM, UTC
-  return `\`${stamp}\` **${name}:** ${clean}`;
+  // S134: was `new Date(at).toISOString().slice(11, 16)` — HH:MM in UTC, so
+  // the Pi's zone rather than the reader's. `:t` (short time), NOT `:R`:
+  // relative is right for a countdown and useless down a transcript, where
+  // every line would read "a minute ago".
+  const stamp = clockTime(at);
+  return `${stamp} **${name}:** ${clean}`;
 }
 
 /**

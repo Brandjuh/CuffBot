@@ -65,12 +65,13 @@ import {
   pricePayload,
   shopPayload,
 } from '../panel-runtime.js';
+import { relative } from '../../../core/timestamps.js';
 
 const CRIME = 0x8b1a1a;
 const TEAL = 0x11806a;
 
 const money = (n) => n.toLocaleString('en-US');
-const relative = (ms) => `<t:${Math.floor(ms / 1000)}:R>`;
+
 const itemLabel = (id) => `${ITEMS[id]?.emoji ?? '❓'} ${fmt(id)}`;
 /** Accept "bank drill", "Bank Drill" or "bank_drill" for any table id. */
 const normalizeId = (raw) => String(raw).toLowerCase().trim().replaceAll(' ', '_');

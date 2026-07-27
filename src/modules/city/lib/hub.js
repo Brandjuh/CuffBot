@@ -16,7 +16,7 @@
 // Pure, like `panel.js`: plain objects in, a description of what to render out.
 // What the hub says in each state a criminal can be in is assertable without a
 // gateway.
-import { shortWait } from './panel.js';
+import { relative } from '../../../core/timestamps.js';
 
 const money = (n) => Number(n).toLocaleString('en-US');
 
@@ -48,7 +48,7 @@ export const HUB_BUTTONS = [
  * @param {object}  args.jail      `jailState(criminal)`
  * @returns {{title: string, lines: string[], buttons: typeof HUB_BUTTONS, jailed: boolean}}
  */
-export function cityHub({ criminal, balance, jail }) {
+export function cityHub({ criminal, balance, jail, now = Date.now() }) {
   const jailed = Boolean(jail?.jailed);
   const stats = criminal?.stats ?? {};
   const clean = stats.successes ?? 0;
@@ -66,7 +66,10 @@ export function cityHub({ criminal, balance, jail }) {
     jailed
       ? // Jail is the one state where the hub must say what to do next: the way
         // out is behind the Jobs button, which does not read like an exit.
-        `🚔 **You are in a cell** — out in **${shortWait(jail.remainingMs)}**. Bail and jailbreak are on the jobs board.`
+        // A Discord timestamp, not a rendered duration: the hub is a message
+        // that sits in the channel, and "out in 45m 00s" is a lie the moment
+        // it is sent (S134).
+        `🚔 **You are in a cell** — out ${relative(jail.releaseAt ?? now + jail.remainingMs)}. Bail and jailbreak are on the jobs board.`
       : '_Pick a door._',
     // `filter(Boolean)` would drop the '' separator above with the nulls, which
     // is how the blank line went missing until a mutation test exposed it.

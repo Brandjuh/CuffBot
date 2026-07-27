@@ -1,3 +1,4 @@
+import { relative } from '../../../core/timestamps.js';
 // Pure rap-sheet text formatting — no discord.js imports.
 
 const TYPE_BADGES = {
@@ -32,7 +33,12 @@ export function formatRapSheet(displayName, entries, { maxEntries = 10 } = {}) {
 
   const recent = entries.slice(-maxEntries).reverse();
   const lines = recent.map((entry) => {
-    const date = (entry.at ?? '').slice(0, 10);
+    // S134: `2026-07-14` told the reader nothing about how long ago that
+    // was, and was printed in whatever zone the host runs in. A Discord
+    // timestamp reads "3 weeks ago" in the reader's own locale. The rap sheet
+    // is message CONTENT, which renders the markup.
+    const filed = Date.parse(entry.at ?? '');
+    const date = Number.isNaN(filed) ? 'date unknown' : relative(filed);
     const reason = entry.reason ? ` — ${entry.reason}` : '';
     return `\`#${String(entry.caseNumber).padStart(4, '0')}\` ${TYPE_BADGES[entry.type] ?? '•'} ${entry.type.toUpperCase()} · ${date}${reason} · officer <@${entry.officerId}>`;
   });

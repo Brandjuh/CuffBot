@@ -17,6 +17,7 @@
 // gateway.
 import { HEISTS, ITEMS, RECIPES, fmt } from './tables.js';
 import { levelSuccessBonus } from './leveling.js';
+import { relative } from '../../../core/timestamps.js';
 
 /** The source's page sizes, kept so the panels break where the cog's do. */
 export const HEISTS_PER_PAGE = 7;
@@ -76,7 +77,7 @@ export function navRow(prefix, page, pages) {
  * @param {number} opts.level        the player's heist level
  * @param {(type:string)=>number} opts.cooldownLeft
  */
-export function jobPanel({ level = 1, cooldownLeft = () => 0, page = 0, jobs = HEISTS } = {}) {
+export function jobPanel({ level = 1, cooldownLeft = () => 0, page = 0, jobs = HEISTS, now = Date.now() } = {}) {
   const all = Object.entries(jobs);
   const pages = pageCount(all.length, HEISTS_PER_PAGE);
   const current = clampPage(page, all.length, HEISTS_PER_PAGE);
@@ -101,7 +102,12 @@ export function jobPanel({ level = 1, cooldownLeft = () => 0, page = 0, jobs = H
       // city picker follows, and for the same reason: a list that changes
       // shape between glances is unreadable.
       selectable: wait <= 0,
+      // S134: two forms of one fact, because they land in two places with
+      // different rules. `unavailable` is PLAIN — it goes in a select-menu
+      // option description, where Discord prints `<t:…:R>` literally instead
+      // of rendering it. `readyAt` is the live timestamp for the embed body.
       unavailable: wait > 0 ? `⏳ ${cooldownLabel(wait)}` : null,
+      readyAt: wait > 0 ? `⏳ ready ${relative(now + wait)}` : null,
     };
   });
 
@@ -111,7 +117,7 @@ export function jobPanel({ level = 1, cooldownLeft = () => 0, page = 0, jobs = H
   // exact thing he complained about.
   const lines = ['**🎯 Choose your job**', ''];
   for (const row of rows) {
-    lines.push(`**${row.emoji} ${row.label}** — ${row.risk}${row.selectable ? '' : ` · ${row.unavailable}`}`);
+    lines.push(`**${row.emoji} ${row.label}** — ${row.risk}${row.selectable ? '' : ` · ${row.readyAt}`}`);
     lines.push(`-# ${row.reward} 🍩 · ${row.success} success · cooldown ${row.cooldown} · takes ${row.duration}`);
   }
   if (bonus > 0) lines.push('', `-# Success shown includes **+${Math.round(bonus * 100)}%** from level ${level}.`);

@@ -3,7 +3,7 @@
 > Part of **CuffBot**, the police-themed Discord bot. This manual is the single source of truth for what the module does and how to operate it. If the code and this manual disagree, that is a bug — fix one of them and log it.
 
 **Status:** stable — the staged port is complete (S89–S92), panel-driven since S122/S124, hub since S133
-**Last updated:** Session 133 · 2026-07-26
+**Last updated:** Session 134 · 2026-07-26
 
 ## Purpose
 
@@ -231,6 +231,7 @@ test/city-attempt.test.js  the narrated attempt end to end, market/board payload
 
 | Session | Change |
 |---|---|
+| S134 | **Times are Discord timestamps.** The cell's release on both `!city` and the `!crime` panel is now `<t:…:R>` — it counts down live and shows in each reader's own timezone, instead of a `45m 00s` that was stale the moment it was sent. The crime picker's `⏳ wait 24h 00m` stays **plain on purpose**: Discord prints timestamp markup literally inside select-menu options. |
 | S133 | **`!city` exists again.** The owner reported City/Crime a third time; the crime panel was fine, but `!city` — removed as an alias in S122 with the name reserved "for the hub when it exists" — had been answering with **silence** for eleven sessions, because the router drops an unknown command without a word. The hub is the source's `MainMenuView`, the one view in M26.3's inventory that was never built: wallet/record/streak/cell plus 🌃 Jobs, 🕯️ Market, 🏆 Board, 📋 Record. The crime panel gains 🌆 **Streets**; the market/board **Back** now returns to whichever screen opened it (origin in the custom id) instead of always the jobs board; `!crime stats` and the Record button share one builder. The regression test resolves `!city` **through the loader**, because a file existing on disk is not the same fact as the bot having the command — and it was the second that was false. |
 | S124 (M26.3b) | **The crime plays out.** Events are narrated one at a time (2 s opening, 4 s per event, 4–6 s of suspense by risk) with **the bail flag checked before every beat** — a four-event bank job now offers six chances to walk away instead of S122's one. The narrator draws the events and hands the same list to the resolver, so the story and the outcome are one crime. **The mark picker** replaces the panel's pointer back to `!crime pickpocket @member`: a user select, a 🎯 random roll that skips bots/you/cellmates/the too-poor/your last victim, and Cancel. **Market and Board are panel buttons** on both the street and jail views, each with a Back button; buying is one press. Fixed on the way: `boardPayload` crashed on an unknown category (`cityLeaderboard` returns `null`, and the raw key was passed through while only the label fell back). |
 | S122 (M26.3a) | **The panel.** `!crime` opens an interactive board — a select menu of jobs with reward/risk/cooldown per row, jail's two buttons when you are inside — instead of a wall of subcommands. Adds the source's **Bail Out** mechanic, which had no home on a command-only surface: pay 100 🍩 mid-attempt to walk away, cooldown still burns. **`city` is no longer an alias of `crime`** — the owner noticed they were the same command; in the source they are two. Market, leaderboard and target-picking stay subcommands until 26.3b, and the panel shows no buttons for them. |

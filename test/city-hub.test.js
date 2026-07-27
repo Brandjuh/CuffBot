@@ -141,12 +141,26 @@ test('the best streak is only mentioned when it beats the current one', () => {
   assert.match(better, /2 in a row \(best 9\)/);
 });
 
-test('jail says how long AND where the exit is, because the exit is behind Jobs', () => {
-  const view = hub({ jail: { jailed: true, remainingMs: 45 * 60_000 } });
+test('jail says WHEN you are out and where the exit is, because the exit is behind Jobs', () => {
+  // S134: a Discord timestamp of the release moment, not a rendered duration.
+  // The epoch is asserted, not just the shape — `<t:NaN:R>` matches /<t:.*:R>/
+  // happily and renders as 1970.
+  const NOW = 1_700_000_000_000;
+  const view = hub({ jail: { jailed: true, releaseAt: NOW + 45 * 60_000 }, now: NOW });
   assert.equal(view.jailed, true);
   const lines = view.lines.join('\n');
-  assert.match(lines, /out in \*\*45m 00s\*\*/);
+  assert.match(lines, new RegExp(`out <t:${Math.floor((NOW + 45 * 60_000) / 1000)}:R>`));
   assert.match(lines, /jobs board/i, 'a jailed player is told nothing about how to get out');
+});
+
+test('the hub falls back to remainingMs when the caller has no releaseAt', () => {
+  // `jailState` always supplies `releaseAt`, but a caller that only knows how
+  // much time is left must not render `<t:NaN:R>` — which shows as 1970 and
+  // still matches any regex looking for a timestamp.
+  const NOW = 1_700_000_000_000;
+  const lines = hub({ jail: { jailed: true, remainingMs: 10 * 60_000 }, now: NOW }).lines.join('\n');
+  assert.match(lines, new RegExp(`<t:${Math.floor((NOW + 10 * 60_000) / 1000)}:R>`));
+  assert.doesNotMatch(lines, /NaN/);
 });
 
 test('the hub keeps its full button set in jail — the way out is one of them', () => {

@@ -87,5 +87,6 @@ None — this module only adds commands and a library other modules call.
 
 | Session | Change |
 |---|---|
+| S134 | **Filing dates are Discord timestamps.** A rap sheet entry read `· 2026-07-23 ·` — a bare date in the host's timezone that said nothing about how long ago it was. It now reads `3 weeks ago` in the reader's own locale. An unparseable `at` renders `date unknown` rather than `<t:NaN:R>`, which Discord would show as 1970. |
 | S8 | Created: store seam, rap-sheet API + case numbers, `!rapsheet`, `!expunge`, enforcement wiring, 14 new tests. |
 | S93 | Converted to the flat `{ command }` shape (M17.3 slice A): `!rapsheet` now refuses with **Moderate Members** instead of the wrong "Manage Server", `case < 1` is caught by the arg spec, and the tests run through the real dispatch path. Manual corrected — replies were documented as ephemeral, which stopped being true in S54. |

@@ -76,6 +76,13 @@ test('formatRapSheet: clean sheet, counts, and truncation', () => {
   assert.match(sheet, /#0003/); // newest shown
   assert.match(sheet, /officer <@o2>/);
 
+  // S134: each entry's filing date is a Discord timestamp, so it reads "3
+  // weeks ago" in the READER's timezone rather than a bare `2026-07-23` in
+  // whatever zone the host runs in. The epoch is asserted, not the shape.
+  const filed = Math.floor(Date.parse('2026-07-23T12:00:00Z') / 1000);
+  assert.match(sheet, new RegExp(`<t:${filed}:R>`), 'the filing date is not a Discord timestamp');
+  assert.doesNotMatch(sheet, /2026-07-23/, 'a raw ISO date is still being printed');
+
   const many = Array.from({ length: 25 }, (_, i) => ({
     caseNumber: i + 1,
     type: 'citation',
@@ -87,4 +94,15 @@ test('formatRapSheet: clean sheet, counts, and truncation', () => {
   const long = formatRapSheet('Repeat Offender', many);
   assert.match(long, /and 15 older record\(s\)/);
   assert.ok(long.length <= 1990);
+});
+
+test('formatRapSheet: an unparseable filing date says so instead of rendering 1970', () => {
+  // `<t:NaN:R>` is what a missing or malformed `at` used to produce once the
+  // slice became a Date.parse — and Discord renders it as a date in 1970
+  // rather than erroring, so only a test catches it.
+  const sheet = formatRapSheet('Perp', [
+    { caseNumber: 9, type: 'citation', userId: 'u', officerId: 'o', reason: 'x', at: undefined },
+  ]);
+  assert.doesNotMatch(sheet, /<t:NaN|<t:undefined/);
+  assert.match(sheet, /date unknown/);
 });
