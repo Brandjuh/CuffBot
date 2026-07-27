@@ -11,6 +11,7 @@
 // so a test can assert "a crime on cooldown is not selectable" without a
 // gateway.
 import { CRIMES } from './tables.js';
+import { relative } from '../../../core/timestamps.js';
 
 /**
  * Bailing out of an attempt (the source's `CrimeAttemptView`).
@@ -62,6 +63,9 @@ export function crimeOptions(criminal, cooldownLeft, jailed, now = Date.now()) {
     const label = type.replace(/_/g, ' ');
     let unavailable = null;
     if (jailed) unavailable = 'in jail';
+    // PLAIN, deliberately: this string lands in a select-menu option
+    // description, where Discord prints `<t:…:R>` as literal text instead of
+    // rendering it (S134). The embed body above uses a real timestamp.
     else if (wait > 0) unavailable = `wait ${shortWait(wait)}`;
     return {
       type,
@@ -91,7 +95,9 @@ export function crimePanel({ criminal, balance, jail, cooldownLeft, now = Date.n
   ].filter(Boolean);
 
   if (jailed) {
-    lines.push('', `🚔 **You are in jail** — out in **${shortWait(jail.remainingMs)}**.`);
+    // S134: the embed body renders Discord markup, so the release is a live
+    // timestamp. The select options below CANNOT render it — see `crimeOptions`.
+    lines.push('', `🚔 **You are in jail** — out ${relative(jail.releaseAt ?? now + jail.remainingMs)}.`);
   } else {
     const ready = options.filter((o) => o.selectable).length;
     lines.push(

@@ -57,7 +57,10 @@ test('jail replaces the picker entirely rather than offering jobs you cannot do'
   assert.deepEqual(p.options, []);
   assert.equal(p.jailed, true);
   assert.match(p.title, /Behind bars/);
-  assert.match(p.lines.join('\n'), /out in \*\*1h 30m\*\*/);
+  // S134: the embed body carries a live Discord timestamp; the epoch is
+  // asserted so a NaN cannot pass as "a timestamp".
+  const releaseAt = NOW + 90 * 60_000;
+  assert.match(p.lines.join('\n'), new RegExp(`out <t:${Math.floor(releaseAt / 1000)}:R>`));
 });
 
 test('jail leads with the two choices that only exist there', () => {

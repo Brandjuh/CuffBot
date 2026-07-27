@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 133 · 2026-07-26
+**Last updated:** Session 134 · 2026-07-26
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1353/1353 pass as of S133 |
+| Tests green | `npm test` | 1363/1363 pass as of S134 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).length))"` | `37` — a number, not a list. The **names** are checked by `test/docs-consistency.test.js` against `docs/modules/`, so there is nothing here to copy or to rot. |
 
 ⚠️ **Hand-copied lists in this block have rotted three times** — S124 found `1095/1095 as of S120` and a `connect4` that S116 had deleted; S131 found the manuals row *still* naming `connect4` and missing `minigames`, seven sessions after the module was replaced. The lists are gone rather than corrected a fourth time: `test/docs-consistency.test.js` now checks modules ↔ manuals ↔ index against the loader, so `npm test` is the verification and this table only has to say what number to expect.
@@ -535,6 +535,26 @@ The owner, third report on this game: *"Crime, dat werkt met een panel en knoppe
 **Two defects in my own new code, both found by mutation testing rather than by reading it:** `lines.filter(Boolean)` stripped the `''` separator along with the nulls, so the hub's blank line never rendered; and four guards were vacuous — two origin tests read only the Back button (which the pump recomputes from the *incoming* id, so a select that drops the origin looks right for exactly one press), and the record-card comparison checked the description only, so a `.setFooter()` divergence survived. All 18 mutations are killed now.
 
 **The general guard (`test/docs-consistency.test.js`, +2):** **every command name a manual's command table documents must be registered by the loader.** 57 documented names, all resolving today. This is the fifth hand-maintained list in this repo caught rotting and the first whose rot the owner experienced as a *missing feature* — and the city manual's own table kept claiming `!city` for two sessions after S122 deleted it. Mutation-proven against S122's exact mistake: unregister `city` while the manual still documents it, and the build fails.
+
+## S134 — times are Discord timestamps
+
+Owner: *"Times in discord relative time."*
+
+**What was wrong.** Two different bugs wearing one complaint. A rendered duration — `out in 45m 00s` on the city panel, `⏳ 2h 15m` on the heist board — is **stale the moment it is sent**, and nothing re-renders it; the panel sits in the channel lying about the clock until somebody presses Refresh. A hand-formatted clock time is worse: the live-transcript stamp was `new Date(at).toISOString().slice(11, 16)`, i.e. **UTC**, which is the Pi's zone and not the precinct's. `<t:…:R>` counts down live in each reader's own locale, with no edits from us.
+
+**Converted** (moments): the cell's release on `!city` and on the `!crime` panel; the cooldown refusal on a picker press; the heist job board's ready-at; rap-sheet filing dates (`· 2026-07-23 ·` → `3 weeks ago`); live-transcript line stamps (`<t:…:t>`, short time).
+
+**Deliberately NOT converted** (durations, not moments): `cooldown 30m`, `takes 2m`, `every 15 minutes`, `detained for 10 minutes`, `each turn gives 5 seconds`, `Recordings longer than 5m`. These answer *how long*, not *when* — a relative timestamp there is wrong rather than nicer. **Do not "finish the job" by converting these.**
+
+⚠️ **The load-bearing constraint: Discord does not render `<t:…>` everywhere.** It resolves in message content, embed descriptions and embed field VALUES. It prints as the literal string `<t:1753632000:R>` in **select-menu option labels and descriptions, button labels, embed titles, embed footers**, and inside any code span. Both the city crime picker and the heist job board show a cooldown in an embed line **and** in a select option, from what used to be one string — converting in place would have put raw markup in front of every player, in the picker, permanently. Those rows now carry **two forms**: `unavailable` (plain, for the option) and `readyAt` (timestamped, for the embed).
+
+I hit the code-span half of this myself: the transcript stamp was `` `14:32` ``, and the first pass produced `` `<t:…:t>` `` — backticks make Discord print the token verbatim. Caught by rendering it, not by reading it.
+
+**New:** `src/core/timestamps.js` — `discordTime`/`relative`/`clockTime`/`relativeIn` + `TIME_STYLES`. The ms→**seconds** conversion lives there once; `<t:1753632000000:R>` is a date in the year 57000 and renders without complaint. City's and heist's hand-rolled `const relative = …` copies now import it.
+
+**Guard:** `test/timestamps.test.js` (8) walks every city and heist panel payload and fails if a `<t:` token reaches any component label, placeholder or select option — plus embed titles and footers. It also asserts the picker still shows a plain wait, so the guard cannot be satisfied by deleting the text. 13 mutations, all killed, including both "leak the timestamp into the select option" cases.
+
+**Restraint (skill 0.5.52 again):** my first version of the code-span guard grepped `src/` for a backtick near a `<t:`. It cannot tell a JS template literal from a Discord code span, and it fired on `!ht`, which prints both forms side by side **on purpose**. Deleted and replaced with a runtime assertion on the rendered transcript line. A guard that fires on correct code is worse than no guard.
 
 ## Environment facts (S61)
 

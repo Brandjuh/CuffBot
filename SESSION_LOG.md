@@ -2662,3 +2662,40 @@ Tests **1353/1353** (from 1333: +18 hub, +2 docs-consistency).
 **Retrospective (skill 0.5.53–0.5.54):** two new rules, both earned this session and neither a restatement. **0.5.53 — a milestone closed against a written inventory must diff the inventory against the code, in the session that closes it.** M26.3's own entry listed eight source views and shipped seven; the ninth line of that entry was the evidence and nobody read it back. **0.5.54 — deleting a command with a plan to replace it leaves nothing behind that fails.** The router's silence on unknown commands is correct behaviour for chatter and catastrophic for a *removed* command: no test, no log, no degraded reply. Either keep the name pointing somewhere until the replacement lands, or write the guard in the same commit as the deletion. The docs↔loader test is that guard, generalised.
 
 **Handoff:** M26.3 is genuinely complete now, with the inventory diffed. The only scheduled item left is **M24.3** (mafia's anomalies/achievements), still gated on the owner saying whether mafia is played often enough to warrant a long tail — do not invent that scope. If the owner reports a game misbehaving again, the pattern from this session is worth repeating: **verify the thing he named actually works before believing it is broken, then look for what is missing next to it.** Twice now the report has been accurate about the *game* while pointing at a different mechanism than the words suggested.
+
+## Session 134 — 2026-07-26
+
+**Goal:** the owner, in five words — *"Times in discord relative time."*
+
+**Two bugs wearing one complaint.** A rendered duration (`out in 45m 00s`, `⏳ 2h 15m`) is **stale the instant it is sent** — nothing re-renders a posted message, so a panel sits in the channel lying about the clock until somebody presses Refresh. A hand-formatted clock time is worse: the live-transcript stamp was `new Date(at).toISOString().slice(11, 16)`, which is **UTC** — the Pi's timezone, not the precinct's. `<t:…:R>` counts down live, in each reader's own locale, with no edits from us.
+
+**What I converted** (moments — they answer *when*): the cell's release on `!city` and on the `!crime` panel; the cooldown refusal on a picker press; the heist job board's ready-at; rap-sheet filing dates (`· 2026-07-23 ·` → `3 weeks ago`); live-transcript line stamps.
+
+**What I deliberately did not** (durations — they answer *how long*): `cooldown 30m`, `takes 2m`, `checks every 15 minutes`, `detained for 10 minutes`, `each turn gives 5 seconds`, `Recordings longer than 5m`. A relative timestamp on a cooldown *length* is not nicer, it is wrong. I swept for these explicitly rather than converting every duration the grep found, and recorded the list in `STATE.md` so a later session does not "finish the job".
+
+⚠️ **The constraint that shaped the whole session: Discord does not render `<t:…>` everywhere.** It resolves in message content, embed descriptions and embed field **values**. It prints as the literal string `<t:1753632000:R>` in select-menu option labels and descriptions, button labels, embed titles, embed footers — and inside any code span.
+
+Both the city crime picker and the heist job board show a cooldown in an embed line **and** in a select option, from what had been one shared string. Converting in place — the obvious edit — would have put raw `<t:1753632000:R>` in front of every player, in the picker, permanently. Those rows now carry **two forms**: `unavailable` (plain, for the option) and `readyAt` (timestamped, for the embed).
+
+I walked into the code-span half of this myself. The transcript stamp was `` `14:32` ``, and my first pass produced `` `<t:…:t>` `` — backticks make Discord print the token verbatim. Caught by **rendering** the line, not by reading the diff.
+
+**New: `src/core/timestamps.js`** — `discordTime` / `relative` / `clockTime` / `relativeIn` plus `TIME_STYLES`. The milliseconds→**seconds** conversion lives there once, because `<t:1753632000000:R>` is a date in the year 57000 and Discord renders it without complaint. City's and heist's hand-rolled `const relative = (ms) => …` copies now import it, so there is one definition of the format in the repo.
+
+**Guard: `test/timestamps.test.js` (8 tests).** It walks every city and heist panel payload and fails if a `<t:` token reaches any component label, placeholder or select option, or an embed title or footer. It also asserts the picker **still shows a plain wait**, so the guard cannot be satisfied by deleting the text instead of keeping both forms. Epochs are asserted rather than shapes: `<t:NaN:R>` matches `/<t:.*:R>/` and renders as 1970.
+
+**13 mutations, all killed** — including both "leak the timestamp into the select option" cases, the ms→s regression, the missing `releaseAt` fallback, the code span coming back, and the rap sheet reverting.
+
+**Restraint, and it is the entry's second point.** My first code-span guard grepped `src/` for a backtick near a `<t:`. It cannot distinguish a **JS template literal** from a **Discord code span** — and it fired on `hammertime`, which prints `` `<t:…:d>` `` next to the rendered form **on purpose**, that being the entire feature. I deleted it and replaced it with a runtime assertion on the rendered transcript line. Skill 0.5.52 verbatim: a guard that fires on correct code is worse than no guard, and I nearly shipped one for the second time in three sessions.
+
+**Definition of Done — city / heist / records / transcribe:**
+- [x] `node --check` clean on every touched file
+- [x] Pure logic tested: `timestamps` (8) + updated `city-hub`, `city-panel`, `records`, `transcribe-voice`
+- [x] Manuals updated: `city.md`, `heist.md`, `records.md`, `transcribe.md` (changelog rows; city's status line)
+- [x] All four already listed in `docs/README.md` — no new module
+- [x] `STATE.md` + `SESSION_LOG.md` updated
+
+Tests **1363/1363** (from 1353: +8 timestamps, +1 hub fallback, +1 rap-sheet NaN).
+
+**Retrospective (skill 0.5.54):** one rule, in `references/discord-reference.md` as a new **Timestamps** section rather than a one-liner, because it is a lookup table people will need again: **where Discord renders `<t:…>` and where it prints it**, the seconds unit, the two-forms pattern for a fact that appears in both an embed and a component, *a duration is not a moment*, and *assert the epoch, not the shape*. This is the same family as 0.5.50 (a permission on a command does not protect its panel) — **a component is not an embed, and every assumption that holds for embed text has to be re-established for component text.**
+
+**Handoff:** unchanged from S133 — **M24.3** (mafia anomalies/achievements) is the only scheduled item and is still gated on the owner saying whether mafia is played enough to warrant a long tail. If a future session is tempted to convert the remaining plain durations, read the "deliberately NOT converted" list in `STATE.md` first: those are lengths, not moments.

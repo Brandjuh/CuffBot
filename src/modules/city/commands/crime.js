@@ -12,6 +12,7 @@ import {
   UserSelectMenuBuilder,
 } from 'discord.js';
 import { BAIL_OUT_COST, attemptPanel, crimePanel, shortWait, targetPanel } from '../lib/panel.js';
+import { relative } from '../../../core/timestamps.js';
 import { OPENING_BEAT_MS, crimeScript, formatEventText, storyLines } from '../lib/narrate.js';
 import { TARGET_REFUSAL } from '../lib/targets.js';
 import { forgetAttempt, trackAttempt } from '../attempts.js';
@@ -45,7 +46,7 @@ const WIN = 0xa020f0;
 const LOSS = 0xff6600;
 
 const money = (n) => n.toLocaleString('en-US');
-const relative = (ms) => `<t:${Math.floor(ms / 1000)}:R>`;
+
 const title = (id) => id.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const normalizeItemId = (raw) => String(raw).toLowerCase().trim().replaceAll(' ', '_');
 const TEAL_ADMIN = 0x11806a;
@@ -820,7 +821,7 @@ export async function attemptFromPanel(interaction, crimeType, { wait = defaultW
         gate.reason === 'jailed'
           ? '🚨 You are behind bars.'
           : gate.reason === 'cooldown'
-            ? `⏱️ Not yet — ${shortWait(gate.remainingMs)} to go.`
+            ? `⏱️ Not yet — try again ${relative(Date.now() + gate.remainingMs)}.`
             : gate.reason === 'target-too-poor'
               ? `${TARGET_REFUSAL['too-poor']} (needs **${money(gate.minimum)} 🍩**)`
               : (TARGET_REFUSAL[String(gate.reason).replace('target-', '')] ?? '🚫 You cannot run that one right now.'),
