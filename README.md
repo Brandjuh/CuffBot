@@ -15,6 +15,11 @@ own cog. All strings are English, faithful to the Node originals.
 | `crookhunt` | CrookHunt | `$hunting …` (replaces vrt hunting) | hunting (police theme) |
 | `crackpot` | CrackPot | `$steal`, `$crackpot …`, `$crackpotset …` | economy steal + donut pot |
 
+> **Prefix note (2026-07-29):** the prefixes were SWAPPED — the Node bot now
+> uses `$` and Red is moving to `!`. Once Red runs on `!`, read every `$command`
+> below as `!command` (e.g. `!xp migratecuff`). The Node counterparts to
+> disable are then `$xp off`, `$ai off`, etc.
+
 ## Deployment (in Discord, as bot owner)
 
 ```
