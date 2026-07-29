@@ -1,0 +1,12 @@
+{
+  "author": ["Brandjuh"],
+  "name": "CuffTranscribe",
+  "short": "Transcribe voice memos and audio attachments with the Groq Whisper API.",
+  "description": "Turns Discord voice memos and attached audio files into written statements using Groq's Whisper models, translated to English by default. Automatic transcription of voice messages, an on-demand `transcribe now` command, per-channel scoping, duration and daily caps, and a budget guard that mirrors Groq's published free-tier rate limits. Requires a Groq API key: `[p]set api groq api_key,<key>`. Live voice capture (joining voice channels) is not supported on Red — voice memos and audio files only.",
+  "end_user_data_statement": "This cog does not persistently store message content or audio. Audio attachments are sent to the Groq API (a third party) for transcription and the resulting text is posted back to the channel; neither is stored by the cog. Per guild it stores: configuration settings, anonymous API-usage timestamps for rate limiting, and a list of user IDs whose audio should never be transcribed. Users can be removed from that list via Red's data deletion requests.",
+  "install_msg": "Thanks for installing CuffTranscribe. Set a Groq API key with `[p]set api groq api_key,<key>`, then run `[p]transcribe` for the status of the transcription desk. Note: live voice capture is not supported on Red — this cog transcribes voice memos and audio file attachments only.",
+  "min_bot_version": "3.5.0",
+  "requirements": [],
+  "tags": ["transcription", "speech-to-text", "whisper", "groq", "voice-messages", "audio"],
+  "type": "COG"
+}

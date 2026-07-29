@@ -1,0 +1,9 @@
+{
+  "author": ["Brandjuh"],
+  "name": "CuffLevels",
+  "short": "XP/leveling with promote-only rank-role sync.",
+  "description": "Chat and voice XP with a rank ladder detected from the server's own roles under a pinned header role. Promote-only role sync, debounced ladder reconciliation, rank-up announcements. Port of the Node CuffBot leveling module.",
+  "end_user_data_statement": "This cog stores per-member XP totals and last-message timestamps.",
+  "min_bot_version": "3.5.0",
+  "tags": ["leveling", "xp", "roles", "cuffbot"]
+}

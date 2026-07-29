@@ -1,0 +1,9 @@
+{
+  "author": ["Brandjuh"],
+  "name": "CrookHunt",
+  "short": "Police-themed crook hunting for donut bounties.",
+  "description": "Crooks spawn in configured channels; shout STOP POLICE or react 🚨 to cuff them for donuts. Salute the undercover officer! Escaped crooks pickpocket a random member into the donut pot (CrackPot cog). Police retheme of the classic hunting cog, ported from the Node CuffBot.",
+  "end_user_data_statement": "This cog stores per-member crook-catch statistics.",
+  "min_bot_version": "3.5.0",
+  "tags": ["fun", "economy", "game", "cuffbot"]
+}

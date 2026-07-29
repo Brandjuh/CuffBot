@@ -1,0 +1,11 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffAffairs",
+    "short": "Police-themed fun and image commands.",
+    "description": "Police-themed fun for CuffBot: WANTED posters with the member's photo, officer badges, break-room donuts, 911 citizen reports to the evidence locker, and Papers-Please-style animated citation tickets (cosmetic fines and real warnings).",
+    "end_user_data_statement": "This cog does not store any end user data. It only stores a per-guild log channel id.",
+    "install_msg": "CuffAffairs installed. Set an evidence locker with `[p]affairsset logchannel #channel` so `[p]911` reports and `[p]cite` copies have somewhere to go.",
+    "min_bot_version": "3.5.0",
+    "requirements": ["Pillow"],
+    "tags": ["fun", "image", "police"]
+}

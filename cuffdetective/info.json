@@ -1,0 +1,9 @@
+{
+  "author": ["Brandjuh"],
+  "name": "CuffDetective",
+  "short": "The precinct's AI detective (Groq).",
+  "description": "Ask the precinct detective with the detective command or by @mentioning the bot. Shared precinct-wide rate budget with a 'desk pile' queue, short-lived per-channel conversation memory, and a channel-locked desk. Port of the Node CuffBot detective module.",
+  "end_user_data_statement": "This cog keeps a short-lived, in-memory conversation history per channel (30 minutes). Nothing is persisted to disk.",
+  "min_bot_version": "3.5.0",
+  "tags": ["ai", "chat", "cuffbot"]
+}

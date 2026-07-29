@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffStarboard",
+    "short": "The commendation board: enough star reactions repost a message to the board channel.",
+    "description": "The commendation board: react with enough ⭐ and the message is reposted to the configured board channel — community-curated highlights, each message boarded once.",
+    "end_user_data_statement": "This cog stores the IDs of messages that were posted to the starboard. It does not store any personal end user data.",
+    "tags": ["starboard", "reactions", "fun", "utility"],
+    "min_bot_version": "3.5.0"
+}

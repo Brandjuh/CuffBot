@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "KillCounter",
+    "short": "Chat kills: the last word before a channel goes quiet scores a point.",
+    "description": "Chat kills: when a channel goes quiet after someone speaks, the last word scores a point. Includes a leaderboard.",
+    "end_user_data_statement": "This cog stores per-member chat kill counts and the timestamp of each member's last kill. Users can request deletion of their data through Red's data deletion API.",
+    "tags": ["fun", "leaderboard", "chat", "game"],
+    "min_bot_version": "3.5.0"
+}

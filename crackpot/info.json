@@ -1,0 +1,9 @@
+{
+  "author": ["Brandjuh"],
+  "name": "CrackPot",
+  "short": "Donut steal + donut pot on top of Red's bank.",
+  "description": "Steal donuts from other officers (30% odds, busted stakes feed the pot) and take a daily 0.5% shot at cracking the donut pot. Port of the Node CuffBot economy extras.",
+  "end_user_data_statement": "This cog stores per-member steal cooldown timestamps and daily pot-crack attempt dates.",
+  "min_bot_version": "3.5.0",
+  "tags": ["economy", "fun", "cuffbot"]
+}
