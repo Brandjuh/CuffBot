@@ -1,4 +1,4 @@
-"""CuffTranscribe — Groq Whisper speech-to-text for voice memos and audio files."""
+"""CuffTranscribe — Groq Whisper speech-to-text for voice memos, audio files and live voice."""
 
 import json
 from pathlib import Path

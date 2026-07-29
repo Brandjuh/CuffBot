@@ -1,27 +1,30 @@
-"""CuffTranscribe — speech-to-text for voice memos and audio attachments.
+"""CuffTranscribe — speech-to-text for voice memos, audio files and live voice.
 
 Ported from CuffBot's Node.js ``transcribe`` module. Voice memos (Discord's
 native voice messages) and attached audio files are sent to the Groq Whisper
 API and posted back as a written statement, translated to English by default.
 
-Known limitation: the Node bot could also join voice channels and transcribe
-live conversation (voice sessions, auto-join, channel pairing). **Live voice
-capture is not supported on Red** — this cog covers voice memos and audio
-file attachments only.
+Live voice is supported too (see ``livevoice.py``): the bot joins a voice
+channel — on request or automatically — and writes the conversation into the
+paired text channel. Live listening and the Audio (music) cog cannot use
+voice in the same guild at the same time; whoever holds the connection wins.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import aiohttp
 import discord
 from redbot.core import Config, checks, commands
 
+from . import livevoice
 from .limits import (
     REFUSAL_TEXT,
     check_budget,
@@ -259,8 +262,9 @@ class CuffTranscribe(commands.Cog):
     """Turn voice memos into written statements, in English.
 
     Voice memos and audio attachments are transcribed through the Groq
-    Whisper API. Live voice capture (joining a voice channel and writing
-    down the conversation) is not supported on Red.
+    Whisper API. Live voice is supported too: the bot can join a voice
+    channel and write the conversation into the paired text channel. Live
+    listening and the Audio (music) cog cannot use voice at the same time.
     """
 
     def __init__(self, bot):
@@ -277,10 +281,19 @@ class CuffTranscribe(commands.Cog):
             ignored_user_ids=[],
             rate={"requests": [], "audio": []},
             budget={"day": "", "used": 0},
+            # Live voice (port of the Node bot's voice-session settings).
+            voice_timestamps=True,
+            auto_join=True,
+            voice_channel_ids=[],
+            auto_join_minimum=1,
+            voice_pairs={},
+            ignore_bots=True,
         )
         self.session: Optional[aiohttp.ClientSession] = None
         self._has_key = False
         self._locks: Dict[int, asyncio.Lock] = {}
+        #: guild id → LiveSession — one live capture per guild at a time.
+        self.live_sessions: Dict[int, livevoice.LiveSession] = {}
 
     # ── Lifecycle ───────────────────────────────────────────────────────────
 
@@ -290,6 +303,13 @@ class CuffTranscribe(commands.Cog):
         self._has_key = bool(tokens.get("api_key"))
 
     async def cog_unload(self) -> None:
+        # Voice sessions first: they use the aiohttp session for Whisper, and
+        # a dangling VoiceRecvClient would keep its decoder thread alive.
+        for guild_id in list(self.live_sessions):
+            try:
+                await self._stop_live(guild_id, post_remaining=False)
+            except Exception:
+                log.exception("Transcribe: could not stop the live session in %s", guild_id)
         if self.session is not None:
             await self.session.close()
 
@@ -500,6 +520,152 @@ class CuffTranscribe(commands.Cog):
         except discord.HTTPException as error:
             log.warning("Transcribe: could not post a transcript: %s", error)
 
+    # ── Live voice (port of voice/session.js + events/voice-state.js) ───────
+
+    async def _start_live(
+        self, guild: discord.Guild, voice_channel, text_channel, how: str
+    ) -> Dict[str, Any]:
+        """Join a voice channel and start writing down what is said."""
+        ok, why = livevoice.live_voice_available()
+        if not ok:
+            return {"ok": False, "reason": "no-deps", "detail": why}
+        if guild.id in self.live_sessions:
+            return {"ok": False, "reason": "already-listening"}
+        session = livevoice.LiveSession(self, guild, voice_channel, text_channel, how)
+        self.live_sessions[guild.id] = session
+        try:
+            await session.start()
+        except Exception as error:
+            self.live_sessions.pop(guild.id, None)
+            with contextlib.suppress(Exception):
+                await session.stop(post_remaining=False)
+            log.warning("Transcribe: could not join %s: %s", voice_channel.id, error)
+            return {"ok": False, "reason": "join-failed"}
+        return {"ok": True}
+
+    async def _stop_live(self, guild_id: int, *, post_remaining: bool = True) -> bool:
+        """Leave the channel, posting whatever transcript lines are buffered."""
+        session = self.live_sessions.pop(guild_id, None)
+        if session is None:
+            return False
+        await session.stop(post_remaining=post_remaining)
+        return True
+
+    def _voice_slot_free(self, guild: discord.Guild) -> bool:
+        """Is the guild's one voice connection actually free? The Audio
+        (Lavalink) cog may own it — refuse rather than fight over the slot."""
+        me_voice = guild.me.voice if guild.me else None
+        return guild.voice_client is None and me_voice is None
+
+    async def _live_prefix(self, guild: discord.Guild) -> str:
+        """A usable text prefix for messages sent outside a command context."""
+        try:
+            prefixes = await self.bot.get_valid_prefixes(guild)
+            for prefix in prefixes:
+                if not prefix.startswith("<@"):
+                    return prefix
+            if prefixes:
+                return prefixes[0]
+        except Exception:
+            pass
+        return "[p]"
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(
+        self,
+        member: discord.Member,
+        before: discord.VoiceState,
+        after: discord.VoiceState,
+    ) -> None:
+        guild = member.guild
+        if guild is None:
+            return
+        # The bot's own comings and goings must not trigger anything, or
+        # joining would immediately re-trigger itself.
+        if guild.me and member.id == guild.me.id:
+            return
+        if not livevoice.live_voice_available()[0]:
+            return
+        if await self.bot.cog_disabled_in_guild(self, guild):
+            return
+        try:
+            await self._handle_voice_leave(guild, before, after)
+            await self._handle_voice_join(guild, before, after)
+        except Exception as error:
+            log.warning("Transcribe: voice-state handling failed: %s", error)
+
+    async def _handle_voice_leave(
+        self, guild: discord.Guild, before: discord.VoiceState, after: discord.VoiceState
+    ) -> None:
+        """The last human left the channel the bot is sitting in."""
+        left = before.channel
+        if left is None or (after.channel is not None and after.channel.id == left.id):
+            return
+        session = self.live_sessions.get(guild.id)
+        if session is None or session.voice_channel.id != left.id:
+            return
+        if not livevoice.should_auto_leave(livevoice.humans_in(left)):
+            return
+        # Sitting alone in an empty channel would transcribe silence forever.
+        text_channel = session.text_channel
+        await self._stop_live(guild.id)
+        with contextlib.suppress(Exception):
+            await text_channel.send("⚪ Everyone left, so I did too. Recording stopped.")
+
+    async def _handle_voice_join(
+        self, guild: discord.Guild, before: discord.VoiceState, after: discord.VoiceState
+    ) -> None:
+        """Somebody arrived in a channel the bot is not already in."""
+        channel = after.channel
+        if channel is None or (before.channel is not None and before.channel.id == channel.id):
+            return
+        if guild.id in self.live_sessions:
+            return  # one table at a time; already busy
+
+        settings = await self.config.guild(guild).all()
+        ok, _reason = livevoice.should_auto_join(
+            livevoice.humans_in(channel), channel.id, settings
+        )
+        if not ok:
+            return
+        # No key means no transcript, so joining would only make the bot
+        # appear in the channel doing nothing. Stay out.
+        if not await self._api_key():
+            return
+
+        text_channel, how = livevoice.transcript_channel_for(
+            guild, channel, settings["voice_pairs"]
+        )
+        if text_channel is None:
+            log.warning("Transcribe: no text channel found for voice channel %s", channel.name)
+            return
+        if not livevoice.can_work(guild, channel, text_channel):
+            return
+        # The Audio (music) cog may own the guild's one voice slot. Auto-join
+        # backs off silently — barging into the DJ booth is not its call.
+        if not self._voice_slot_free(guild):
+            return
+
+        result = await self._start_live(guild, channel, text_channel, how)
+        if not result["ok"]:
+            return
+
+        # Everyone in earshot is told, unprompted — the bot let itself in, so
+        # the announcement matters more here than for `transcribe join`.
+        prefix = await self._live_prefix(guild)
+        content = (
+            f"🔴 **Recording {channel.mention}.** I joined automatically; everything said "
+            f"there is transcribed here{' in English' if settings['translate_to_english'] else ''}.\n"
+            f"`{prefix}transcribe leave` stops it now · "
+            f"`{prefix}transcribe autojoin false` stops it for good."
+        )
+        if how == "built-in":
+            content += (
+                "\n*(No text channel is paired with that voice channel, so this is its own chat.)*"
+            )
+        with contextlib.suppress(Exception):
+            await text_channel.send(content, allowed_mentions=discord.AllowedMentions.none())
+
     # ── Commands ────────────────────────────────────────────────────────────
 
     @commands.guild_only()
@@ -568,13 +734,42 @@ class CuffTranscribe(commands.Cog):
                 else "no limit"
             )
         )
-        lines.append(
-            "**Live voice:** not supported on Red — voice memos and audio files only"
+        deps_ok, deps_why = livevoice.live_voice_available()
+        live_session = self.live_sessions.get(ctx.guild.id)
+        if not deps_ok:
+            lines.append(
+                f"**Live voice:** ⚠️ unavailable — {deps_why}; voice memos and audio files still work"
+            )
+        elif live_session is not None:
+            lines.append(f"**Live voice:** 🔴 recording <#{live_session.voice_channel.id}>")
+        else:
+            lines.append(
+                "**Live voice:** not in a voice channel — "
+                f"`{ctx.clean_prefix}transcribe join`"
+            )
+        diagnosis = livevoice.auto_join_diagnosis(
+            settings,
+            has_key=self._has_key,
+            in_voice=live_session is not None,
+            prefix=ctx.clean_prefix,
         )
-        skipping = "**Skipping:** other bots ✅"
+        lines.append(f"**Auto-join:** {'🟢' if diagnosis['ok'] else '⚪'} {diagnosis['detail']}")
+        pair_count = len({**livevoice.DEFAULT_VOICE_PAIRS, **(settings["voice_pairs"] or {})})
+        lines.append(
+            f"**Pairs:** {pair_count} declared — "
+            f"`{ctx.clean_prefix}transcribe pairs` shows where every voice channel writes"
+        )
+        skipping = "**Skipping:** other bots " + (
+            "✅ (music is ignored)"
+            if settings["ignore_bots"]
+            else "❌ (music IS transcribed)"
+        )
         if ignored:
             skipping += " · " + ", ".join(f"<@{uid}>" for uid in ignored)
         lines.append(skipping)
+        lines.append(
+            "-# Live listening and the Audio (music) cog cannot use voice at the same time."
+        )
         lines.append("")
         lines.append(
             f"Reply to a recording and run `{ctx.clean_prefix}transcribe now` "
@@ -758,6 +953,266 @@ class CuffTranscribe(commands.Cog):
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
+    # ── Live-voice commands (port of the Node subcommands) ──────────────────
+
+    async def _live_deps_ok(self, ctx: commands.Context) -> bool:
+        ok, why = livevoice.live_voice_available()
+        if not ok:
+            await ctx.send(
+                f"🎙️ Live voice is unavailable: {why}. "
+                "Voice memos and audio files still work."
+            )
+        return ok
+
+    @transcribe.command(name="join", aliases=["listen"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_join(self, ctx: commands.Context) -> None:
+        """Join your voice channel and write down what is said."""
+        if not await self._live_deps_ok(ctx):
+            return
+        voice_state = ctx.author.voice
+        voice_channel = voice_state.channel if voice_state else None
+        if voice_channel is None:
+            await ctx.send("🎙️ Join a voice channel first, then run this there.")
+            return
+        session = self.live_sessions.get(ctx.guild.id)
+        if session is not None:
+            await ctx.send(
+                f"🎙️ Already recording <#{session.voice_channel.id}>. "
+                f"`{ctx.clean_prefix}transcribe leave` first."
+            )
+            return
+        if not await self._api_key():
+            await ctx.send(
+                "🎙️ No transcription service is configured. The owner must set a "
+                f"Groq key with `{ctx.clean_prefix}set api groq api_key,<key>`."
+            )
+            return
+        perms = voice_channel.permissions_for(ctx.guild.me)
+        if not perms.connect:
+            await ctx.send(
+                f"🎙️ I am not allowed to connect to {voice_channel.mention}.",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            return
+        if not self._voice_slot_free(ctx.guild):
+            await ctx.send(
+                "🎙️ The DJ booth is occupied — another cog (probably Audio) is using "
+                "this server's voice connection. Live listening and music cannot use "
+                "voice at the same time; stop the music first."
+            )
+            return
+
+        async with ctx.typing():
+            result = await self._start_live(ctx.guild, voice_channel, ctx.channel, "declared")
+        if not result["ok"]:
+            await ctx.send(
+                "🎙️ I could not connect to that voice channel."
+                if result["reason"] == "join-failed"
+                else "🎙️ I am already listening somewhere."
+            )
+            return
+        # Say it out loud, in the channel, unprompted: the bot is recording
+        # people, and everyone within earshot is entitled to know that
+        # without having to run a command to find out.
+        translate = await self.config.guild(ctx.guild).translate_to_english()
+        await ctx.send(
+            f"🔴 **Recording {voice_channel.mention}.** Everything said there will be "
+            f"transcribed into this channel{' in English' if translate else ''}. "
+            f"`{ctx.clean_prefix}transcribe leave` stops it.",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+
+    @transcribe.command(name="leave", aliases=["stop"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_leave(self, ctx: commands.Context) -> None:
+        """Leave the voice channel and stop transcribing it."""
+        if not await self._stop_live(ctx.guild.id):
+            await ctx.send("🎙️ I am not in a voice channel here.")
+            return
+        await ctx.send("🎙️ Left the channel. Recording stopped.")
+
+    @transcribe.command(name="autojoin", aliases=["follow"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_autojoin(self, ctx: commands.Context, state: bool) -> None:
+        """Join a voice channel by myself when somebody is in it."""
+        await self.config.guild(ctx.guild).auto_join.set(state)
+        await ctx.send(
+            "🎙️ I will join a voice channel on my own and write into the text channel "
+            "with the same name."
+            if state
+            else (
+                "🎙️ I will stay out unless somebody runs "
+                f"`{ctx.clean_prefix}transcribe join`."
+            )
+        )
+
+    @transcribe.command(name="voicechannel", aliases=["vc"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_voicechannel(
+        self,
+        ctx: commands.Context,
+        channel: Union[discord.VoiceChannel, discord.StageChannel],
+    ) -> None:
+        """Auto-join only these voice channels — run it per channel to add or remove."""
+        async with self.config.guild(ctx.guild).voice_channel_ids() as channel_ids:
+            removed = channel.id in channel_ids
+            if removed:
+                channel_ids.remove(channel.id)
+            else:
+                channel_ids.append(channel.id)
+            remaining = list(channel_ids)
+        if removed:
+            note = (
+                " The list is empty, so I auto-join **every** voice channel again."
+                if not remaining
+                else ""
+            )
+            content = f"🎙️ {channel.mention} dropped.{note}"
+        else:
+            mentions = ", ".join(f"<#{cid}>" for cid in remaining)
+            content = f"🎙️ {channel.mention} added — I now auto-join **only** {mentions}."
+        await ctx.send(content, allowed_mentions=discord.AllowedMentions.none())
+
+    @transcribe.command(name="pair")
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_pair(
+        self,
+        ctx: commands.Context,
+        voice: Union[discord.VoiceChannel, discord.StageChannel],
+        text: Optional[discord.TextChannel] = None,
+    ) -> None:
+        """Say which text channel goes with a voice channel (omit text to unpair)."""
+        async with self.config.guild(ctx.guild).voice_pairs() as pairs:
+            if text is None:
+                # Unpairing restores the DEFAULT for that channel rather than
+                # nothing — an explicit blank would be a third state nobody wants.
+                pairs.pop(str(voice.id), None)
+            else:
+                pairs[str(voice.id)] = str(text.id)
+        if text is None:
+            await ctx.send(
+                f"🎙️ {voice.mention} is back to the built-in pairing (or the name match).",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        else:
+            await ctx.send(
+                f"🎙️ {voice.mention} → {text.mention}. That beats any name match.",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+
+    @transcribe.command(name="unpair")
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_unpair(self, ctx: commands.Context, voice: str) -> None:
+        """Remove a voice → text pairing (accepts a deleted channel's id too)."""
+        # A STRING, not a channel: a pairing whose voice channel has been
+        # deleted is exactly the one you most want to remove, and a channel
+        # arg cannot resolve a channel that is gone.
+        match = re.match(r"^<#(\d+)>$", voice) or re.match(r"^(\d{15,21})$", voice)
+        if not match:
+            await ctx.send("🎙️ Give me a voice channel (#mention) or its raw id.")
+            return
+        channel_id = match.group(1)
+
+        async with self.config.guild(ctx.guild).voice_pairs() as pairs:
+            had_override = channel_id in pairs
+            pairs.pop(channel_id, None)
+
+        # Removing a guild override falls back to the committed default, so
+        # saying "removed" without that caveat would be wrong for the four
+        # pairings the owner gave in S111.
+        falls_back_to = livevoice.DEFAULT_VOICE_PAIRS.get(channel_id)
+        where = (
+            f"back to its built-in pairing with <#{falls_back_to}>"
+            if falls_back_to
+            else "back to matching by name"
+        )
+        if had_override:
+            content = f"🎙️ Override removed — <#{channel_id}> goes {where}."
+        elif falls_back_to:
+            content = (
+                f"🎙️ <#{channel_id}> has no override to remove; it uses the built-in "
+                f"pairing with <#{falls_back_to}>. Point it somewhere else with "
+                f"`{ctx.clean_prefix}transcribe pair`."
+            )
+        else:
+            content = f"🎙️ Nothing stored for `{channel_id}` — it was already matched by name."
+        await ctx.send(content, allowed_mentions=discord.AllowedMentions.none())
+
+    @transcribe.command(name="pairs", aliases=["list", "where"])
+    async def transcribe_pairs(self, ctx: commands.Context) -> None:
+        """Where every voice channel's transcript goes, and why."""
+        # S118: this used to list only the STORED pairings, which answers
+        # "what is configured" and not "where does each channel write".
+        guild_pairs = await self.config.guild(ctx.guild).voice_pairs()
+        pairs = {**livevoice.DEFAULT_VOICE_PAIRS, **(guild_pairs or {})}
+        voices = [
+            {"id": str(c.id), "name": c.name, "parent_id": str(c.category_id) if c.category_id else None}
+            for c in list(ctx.guild.voice_channels) + list(ctx.guild.stage_channels)
+        ]
+        texts = [
+            {"id": str(c.id), "name": c.name, "parent_id": str(c.category_id) if c.category_id else None}
+            for c in ctx.guild.text_channels
+        ]
+
+        described = livevoice.describe_pairings(voices, texts, pairs, guild_pairs or {})
+        rows, orphans = described["rows"], described["orphans"]
+
+        lines = []
+        for row in rows:
+            target = (
+                f"<#{row['text_id']}>"
+                if row["text_id"]
+                else f"🔊 {row['voice_name']}'s own chat"
+            )
+            marks = [livevoice.HOW_LABEL[row["how"]]]
+            if row["overridden"]:
+                marks.append("this server")
+            if row["stale_target"]:
+                marks.append(f"⚠️ paired to `{row['stale_target']}`, which no longer exists")
+            lines.append(f"<#{row['voice_id']}> → {target}\n-# {' · '.join(marks)}")
+
+        if orphans:
+            lines.append(
+                "\n⚠️ **Pairings for voice channels that no longer exist** — "
+                f"`{ctx.clean_prefix}transcribe unpair <id>` clears one:"
+            )
+            lines.extend(
+                f"-# `{o['voice_id']}` → <#{o['text_id']}>"
+                + (" *(built-in default)*" if o["from_default"] else "")
+                for o in orphans
+            )
+
+        if not rows:
+            await ctx.send("🎙️ This server has no voice channels.")
+            return
+        header = "🎙️ **Where each voice channel writes**\n"
+        for post in livevoice.pack_lines([header] + lines):
+            await ctx.send(post, allowed_mentions=discord.AllowedMentions.none())
+
+    @transcribe.command(name="timestamps")
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_timestamps(self, ctx: commands.Context, state: bool) -> None:
+        """Prefix each live-voice line with the time it was said."""
+        await self.config.guild(ctx.guild).voice_timestamps.set(state)
+        await ctx.send(
+            "🎙️ Live transcript lines carry a time stamp (shown in each reader's own timezone)."
+            if state
+            else "🎙️ Live transcript lines are just **name:** and the words."
+        )
+
+    @transcribe.command(name="bots")
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_bots(self, ctx: commands.Context, state: bool) -> None:
+        """Transcribe other bots too — off by default, which is what skips music."""
+        await self.config.guild(ctx.guild).ignore_bots.set(not state)
+        await ctx.send(
+            "🎙️ Other bots **are** transcribed now — a music bot in the channel will be "
+            "written down as lyrics, and it spends the daily budget."
+            if state
+            else "🎙️ Other bots are skipped. Music playing through a bot is ignored."
+        )
+
     @transcribe.command(name="migratecuff")
     @checks.is_owner()
     async def transcribe_migratecuff(
@@ -766,8 +1221,8 @@ class CuffTranscribe(commands.Cog):
         """Migrate settings from the legacy CuffBot data file.
 
         `preview` (default) shows what would change; `apply` writes it.
-        Live-voice settings (auto-join, pairings, timestamps) are skipped —
-        live voice is not supported on Red.
+        Live-voice settings (auto-join, pairings, timestamps, bot skipping)
+        migrate too.
         """
         mode = mode.lower()
         if mode not in ("preview", "apply"):
@@ -798,8 +1253,17 @@ class CuffTranscribe(commands.Cog):
             "maxDurationSecs": ("max_duration_secs", int),
             "dailyLimit": ("daily_limit", int),
             "ignoredUserIds": ("ignored_user_ids", lambda v: [int(x) for x in v]),
+            # Live voice migrates too, now that Red supports it.
+            "voiceTimestamps": ("voice_timestamps", bool),
+            "autoJoin": ("auto_join", bool),
+            "voiceChannelIds": ("voice_channel_ids", lambda v: [int(x) for x in v]),
+            "autoJoinMinimum": ("auto_join_minimum", int),
+            "voicePairs": (
+                "voice_pairs",
+                lambda v: {str(key): str(val) for key, val in dict(v).items()},
+            ),
+            "ignoreBots": ("ignore_bots", bool),
         }
-        # Live-voice knobs are meaningless here and are skipped on purpose.
         changes: Dict[str, Any] = {}
         skipped: List[str] = []
         for legacy_key, value in stored.items():
@@ -810,7 +1274,7 @@ class CuffTranscribe(commands.Cog):
                 except (TypeError, ValueError):
                     skipped.append(f"`{legacy_key}` (unreadable value)")
             else:
-                skipped.append(f"`{legacy_key}` (live voice — not supported on Red)")
+                skipped.append(f"`{legacy_key}` (no matching setting on Red)")
 
         lines = ["🎙️ **Legacy CuffBot migration**"]
         if changes:

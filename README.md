@@ -8,7 +8,7 @@ own cog. All strings are English, faithful to the Node originals.
 |---|---|---|---|
 | `cufflevels` | CuffLevels | `$level`, `$levels`, `$xp …` | leveling + academy ladder |
 | `cuffdetective` | CuffDetective | `$detective`, `$ai …`, @mention | detective (Groq AI) |
-| `cufftranscribe` | CuffTranscribe | `$transcribe …` | transcribe (Whisper; no live voice on Red) |
+| `cufftranscribe` | CuffTranscribe | `$transcribe …` | transcribe (Whisper voice memos, audio files AND live voice) |
 | `cuffstarboard` | CuffStarboard | `$starboard …` | starboard |
 | `killcounter` | KillCounter | `$killcounter` / `$kills …` | killcounter |
 | `cuffaffairs` | CuffAffairs | `$wanted`, `$badge`, `$donut`, `$911`, `$fine`, `$cite`, `$affairsset …` | publicaffairs + enforcement renderers |
@@ -55,7 +55,8 @@ Then disable the Node counterparts so nothing runs double
 
 - `$level`, `$levels`, `$xp ladder` (25 ranks, thresholds 1000 → 328 316)
 - `$detective test` in the AI channel; @mention the bot; ask twice fast (7 s cooldown → desk pile)
-- send a voice memo (auto-transcribes); `$transcribe now` on a reply
+- send a voice memo (auto-transcribes); `$transcribe now` on a reply;
+  `$transcribe join` in a VC → speak → transcript lines in the paired channel
 - react with the custom star emoji ×5 → Commendation Board post
 - stay silent 1 h in the kill-counter channel → 💀 kill
 - `$wanted @member`, `$fine @member <reason>`, `$badge`, `$donut`
@@ -66,8 +67,10 @@ Then disable the Node counterparts so nothing runs double
 
 - Balances live in Red's own bank (currency: donut). Node balances are NOT
   migrated; the pot (16 448 🍩 at port time) is.
-- Live voice transcription is deliberately out of scope: discord.py cannot
-  receive voice and Lavalink (Audio cog) owns the voice connection.
+- Live voice transcription works via `pynacl` + `discord-ext-voice-recv`
+  (installed in the venv). One voice connection per guild: live listening
+  and Audio (music) playback are mutually exclusive — the cog refuses to
+  join while the DJ booth is occupied, and vice versa.
 - `extendedeconomy` hooks all bank events; `$addcost` also applies to `$steal`
   and `$crackpot crack` — feature, not a bug.
 - Don't re-load the vrt `hunting` cog while `crookhunt` is loaded (same
