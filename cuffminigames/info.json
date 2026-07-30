@@ -1,0 +1,9 @@
+{
+  "author": ["Brandjuh", "hollowstrawberry"],
+  "name": "CuffMinigames",
+  "short": "Connect 4 and Tic-Tac-Toe played for donuts, winner takes the pot.",
+  "description": "Fork of crab-cogs minigames with the precinct's money rules: every seat pays a fixed entry fee (the bot's included), the winner takes the whole pot, and a pot the player does not win goes into the crack pot. Connect 4 also shows which line won.",
+  "end_user_data_statement": "This cog stores per-guild game settings only.",
+  "min_bot_version": "3.5.0",
+  "tags": ["fun", "game", "economy", "connect4", "tictactoe", "cuffbot"]
+}
