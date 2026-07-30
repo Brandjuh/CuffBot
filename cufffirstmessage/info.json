@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffFirstMessage",
+    "short": "Clickable link to the first message in a channel, with a jump button.",
+    "description": "A copy of the Fox_V3 firstmessage cog with a genuinely clickable result: the answer carries a real link button (Jump to first message), a linked embed title and the raw jump URL, so it works on desktop and mobile. When the bot lacks Embed Links in the channel it falls back to plain text with the bare URL and the same button, instead of silently posting nothing. Shows who posted it, when, and a short preview of the message. Works in text channels, threads and voice text chats.",
+    "end_user_data_statement": "This cog does not store any personal end user data. It reads the oldest message of a channel on request in order to link to it, and stores nothing from it.",
+    "tags": ["utility", "channel", "history", "link"],
+    "min_bot_version": "3.5.0"
+}

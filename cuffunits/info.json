@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffUnits",
+    "short": "Posts metric/imperial conversions when someone writes a quantity in chat.",
+    "description": "For servers with a mix of American and European members: when someone writes 72F, 60 mph, 15 gallons, 100 km/h, 6 feet or 80 kg, the bot posts a small embed with the same figure in the other system. Covers temperature, speed, volume, distance and mass, each family individually switchable. Detection is deliberately conservative — bare 'm', 'g' and 'in' are not treated as units, so 'see you at 10 in the morning' and 'brb 5 m' stay silent — and a message that already states both figures is left alone. Per-channel allow/deny lists, a per-channel cooldown and an on-demand [p]convert command.",
+    "end_user_data_statement": "This cog does not store any personal end user data. It reads message content in watched channels only to detect quantities, and stores nothing from it.",
+    "tags": ["units", "conversion", "metric", "imperial", "utility"],
+    "min_bot_version": "3.5.0"
+}

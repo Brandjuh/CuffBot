@@ -15,9 +15,12 @@ watchdog.
 Audio path: the sink receives 48 kHz s16 **stereo** PCM in 20 ms frames
 (3840 bytes each) **on a non-asyncio thread**; ``LiveSession.feed`` therefore
 only appends to a lock-protected buffer. The watchdog (asyncio, ~200 ms tick)
-does everything else: ends turns after silence, batches them per speaker,
-downmixes to 16 kHz mono WAV, and sends them through the cog's existing
-budget claim and Whisper client.
+does everything else: ends turns after silence, batches them per speaker, and
+dispatches them. The batch itself — downmix to 16 kHz mono WAV, budget claim,
+Whisper, line buffer — runs in its own task, at most MAX_INFLIGHT at a time, so
+no single request can hold up the beat. Because those tasks finish out of
+order, every batch carries a sequence number and the transcript is sorted back
+into speech order before it is posted.
 """
 
 from __future__ import annotations
@@ -87,7 +90,12 @@ HARD_CAP_MS = 60_000
 # charges a floor of 10 audio-seconds per request, so a 1.5-second "yeah"
 # costs exactly as much as ten seconds of speech.
 BATCH_TARGET_MS = 10_000  # Groq's minimum billed length
-BATCH_MAX_WAIT_MS = 6_000  # never hold a line longer than this
+#: How long a lone remark may sit waiting for a second one to batch with. Every
+#: millisecond here lands directly in the delay a reader sees, and in a normal
+#: conversation the follow-up turn arrives within a second or not at all — a
+#: longer hold mostly buys dead time. Raise it to trade latency back for the
+#: billing floor.
+BATCH_MAX_WAIT_MS = 1_500
 
 #: The sink delivers 48 kHz, 16-bit, stereo PCM: 48000 × 2 bytes × 2 channels
 #: per second = 192 bytes per millisecond. The byte count IS the clock — every
@@ -97,8 +105,30 @@ HARD_CAP_BYTES = HARD_CAP_MS * PCM_BYTES_PER_MS
 
 WATCHDOG_TICK_SECS = 0.2
 
+#: How many Whisper requests may be in flight at once. Batches are dispatched
+#: as tasks instead of awaited inside the tick, so one speaker's request no
+#: longer delays every other speaker's turn — but an unbounded fan-out would
+#: burst straight through Groq's RPM ceiling.
+MAX_INFLIGHT = 3
+
+#: Guild settings change when someone types a command, not five times a second.
+#: Re-reading Config every beat cost a round-trip and a full dict copy per tick.
+SETTINGS_TTL_SECS = 2.0
+
+#: Concurrent transcription means completions arrive out of speech order, so a
+#: post is held back while an OLDER batch is still running. This caps that
+#: hold: one hung request must not strand the whole transcript behind it.
+ORDER_HOLD_MS = 8_000
+
+#: How long teardown waits for running transcriptions, so the final post is not
+#: missing the last thing anyone said.
+STOP_DRAIN_SECS = 3.0
+
 # Line buffer thresholds (port of createLineBuffer defaults).
-FLUSH_AFTER_MS = 5_000
+#: The buffer exists so a busy channel gets one post per burst instead of one
+#: per utterance. That only needs to span the gap between near-simultaneous
+#: speakers, not five seconds of it.
+FLUSH_AFTER_MS = 1_200
 SOFT_LIMIT = 1_500
 
 
@@ -226,20 +256,26 @@ def pack_lines(lines: List[str], limit: int = 1900) -> List[str]:
 
 class LineBuffer:
     """A buffer that batches lines and says when it wants flushing — either
-    because enough time has passed or because it is nearly a full post."""
+    because enough time has passed or because it is nearly a full post.
+
+    Every line carries the sequence number of the batch that produced it.
+    Transcriptions run concurrently, so they finish in whatever order Groq
+    answers them — the buffer sorts on drain, and the session holds a post back
+    while an older batch is still running.
+    """
 
     def __init__(self, *, flush_after_ms: int = FLUSH_AFTER_MS, soft_limit: int = SOFT_LIMIT):
         self._flush_after_ms = flush_after_ms
         self._soft_limit = soft_limit
-        self._lines: List[str] = []
+        self._lines: List[Tuple[int, str]] = []
         self._first_at: Optional[int] = None
 
-    def add(self, line: Optional[str], now: int) -> None:
+    def add(self, line: Optional[str], now: int, seq: int = 0) -> None:
         if line is None:
             return
         if not self._lines:
             self._first_at = now
-        self._lines.append(line)
+        self._lines.append((seq, line))
 
     @property
     def size(self) -> int:
@@ -247,7 +283,17 @@ class LineBuffer:
 
     @property
     def length(self) -> int:
-        return sum(len(line) + 1 for line in self._lines)
+        return sum(len(line) + 1 for _seq, line in self._lines)
+
+    @property
+    def max_seq(self) -> int:
+        """Newest batch sitting in the buffer; -1 when it is empty."""
+        return max((seq for seq, _line in self._lines), default=-1)
+
+    @property
+    def waiting_since(self) -> Optional[int]:
+        """When the oldest held line arrived, or None when empty."""
+        return self._first_at
 
     def should_flush(self, now: int) -> bool:
         """Time-based OR size-based; a long silence must not strand a line."""
@@ -257,7 +303,7 @@ class LineBuffer:
         return now - self._first_at >= self._flush_after_ms or self.length >= self._soft_limit
 
     def drain(self) -> List[str]:
-        out = self._lines
+        out = [line for _seq, line in sorted(self._lines, key=lambda item: item[0])]
         self._lines = []
         self._first_at = None
         return out
@@ -628,6 +674,17 @@ class LiveSession:
         #: Injected clock so the turn logic is testable with a fake time.
         self._clock = time.monotonic
 
+        #: Batch dispatch bookkeeping. Transcriptions run as tasks so a slow
+        #: Whisper call cannot stall turn detection for everyone else; the
+        #: sequence numbers put the transcript back into speech order.
+        self._seq = 0
+        self._inflight: Dict[int, asyncio.Task] = {}
+        self._slots = asyncio.Semaphore(MAX_INFLIGHT)
+
+        #: Guild settings, refreshed at most every SETTINGS_TTL_SECS.
+        self._settings: Optional[Dict[str, Any]] = None
+        self._settings_at = 0.0
+
         # Speaker-filter snapshot, refreshed by the watchdog. The sink thread
         # reads these, so they are plain immutable values, swapped atomically.
         self._ignore_bots = True
@@ -636,8 +693,7 @@ class LiveSession:
     # ── Lifecycle (asyncio side) ────────────────────────────────────────────
 
     async def start(self) -> None:
-        settings = await self.cog.config.guild(self.guild).all()
-        self._apply_settings(settings)
+        await self._settings_now(self._clock(), force=True)
         # Deafening itself would stop the receiver, but muting costs nothing
         # and tells everyone in the channel that the bot will not talk back.
         self.vc = await self.voice_channel.connect(
@@ -654,6 +710,17 @@ class LiveSession:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
+        # Running transcriptions hold the tail of the conversation. Give them a
+        # moment to land so the final post is not missing the last thing anyone
+        # said — but never block teardown on a request that has hung, so the
+        # wait is bounded and whatever is left over is cancelled.
+        inflight = [t for t in self._inflight.values() if t is not asyncio.current_task()]
+        if inflight:
+            with contextlib.suppress(Exception):
+                await asyncio.wait(inflight, timeout=STOP_DRAIN_SECS)
+            for pending in inflight:
+                if not pending.done():
+                    pending.cancel()
         if post_remaining:
             with contextlib.suppress(Exception):
                 await self._post_lines()
@@ -667,6 +734,20 @@ class LiveSession:
     def _apply_settings(self, settings: Dict[str, Any]) -> None:
         self._ignore_bots = bool(settings.get("ignore_bots", True))
         self._ignored_ids = frozenset(int(i) for i in (settings.get("ignored_user_ids") or []))
+
+    async def _settings_now(self, now: float, *, force: bool = False) -> Dict[str, Any]:
+        """Guild settings, cached for SETTINGS_TTL_SECS.
+
+        The tick runs five times a second and the settings behind it change by
+        hand. Reading Config every beat put an await — and a copy of the whole
+        guild scope, rate counters included — between turn detection and
+        dispatch, five times a second, for nothing.
+        """
+        if force or self._settings is None or now - self._settings_at >= SETTINGS_TTL_SECS:
+            self._settings = await self.cog.config.guild(self.guild).all()
+            self._settings_at = now
+            self._apply_settings(self._settings)
+        return self._settings
 
     # ── Audio thread side ───────────────────────────────────────────────────
 
@@ -745,9 +826,8 @@ class LiveSession:
             await self.stop(post_remaining=False)
             return True
 
-        settings = await self.cog.config.guild(self.guild).all()
-        self._apply_settings(settings)
         now = self._clock()
+        settings = await self._settings_now(now)
 
         # Finished turns join their speaker's pending batch (S123: batching
         # toward Groq's 10-second billing floor).
@@ -768,13 +848,64 @@ class LiveSession:
             if not send:
                 continue
             del self._pending[user_id]
-            await self._transcribe_batch(user_id, bytes(held["pcm"]), settings)
+            self._dispatch_batch(user_id, bytes(held["pcm"]), settings)
 
-        if self._lines.should_flush(_now_ms()):
+        if self._ready_to_post(_now_ms()):
             await self._post_lines()
         return False
 
-    async def _transcribe_batch(self, user_id: int, pcm: bytes, settings: Dict[str, Any]) -> None:
+    # ── Dispatch ────────────────────────────────────────────────────────────
+
+    def _dispatch_batch(self, user_id: int, pcm: bytes, settings: Dict[str, Any]) -> None:
+        """Hand a batch to a background task and return within the same beat.
+
+        Awaiting the call here — as this used to — meant one speaker's request
+        blocked the tick for its whole duration (up to WHISPER_TIMEOUT_SECS):
+        no other speaker's turn ended, no other batch went out, and nothing was
+        posted until it came back. With three people talking the calls queued
+        behind each other and the transcript fell steadily further behind.
+        """
+        self._seq += 1
+        seq = self._seq
+        # Stamp the line when the audio was captured, not when Groq answers.
+        # The old stamp drifted by the round-trip; concurrent batches would
+        # make it drift by a different amount per line.
+        at_ms = _now_ms()
+        task = asyncio.create_task(self._run_batch(seq, user_id, pcm, settings, at_ms))
+        self._inflight[seq] = task
+        task.add_done_callback(lambda _task, key=seq: self._inflight.pop(key, None))
+
+    async def _run_batch(
+        self, seq: int, user_id: int, pcm: bytes, settings: Dict[str, Any], at_ms: int
+    ) -> None:
+        """Run one batch under the concurrency cap.
+
+        Deliberately does NOT bail out on ``_stopping``: a batch that has been
+        dispatched is audio someone already spoke, and teardown sets that flag
+        before it drains. Shutdown bounds these with a timeout and a cancel
+        instead.
+        """
+        async with self._slots:
+            await self._transcribe_batch(seq, user_id, pcm, settings, at_ms)
+
+    def _ready_to_post(self, now: int) -> bool:
+        """Is the line buffer both due and safe to post?
+
+        Due: the usual time/size thresholds. Safe: no batch older than the
+        newest buffered line is still running — posting now would put that
+        line in the channel ahead of speech that came before it. The hold is
+        capped at ORDER_HOLD_MS so one slow request cannot strand the rest.
+        """
+        if not self._lines.should_flush(now):
+            return False
+        if all(seq > self._lines.max_seq for seq in self._inflight):
+            return True
+        first_at = self._lines.waiting_since
+        return first_at is not None and now - first_at >= ORDER_HOLD_MS
+
+    async def _transcribe_batch(
+        self, seq: int, user_id: int, pcm: bytes, settings: Dict[str, Any], at_ms: int
+    ) -> None:
         """One batch through the EXISTING pipeline: budget claim → Whisper →
         refund on failure → hallucination filter → line buffer."""
         try:
@@ -811,10 +942,10 @@ class LiveSession:
             line = format_line(
                 name=name,
                 text=text,
-                at_ms=_now_ms(),
+                at_ms=at_ms,
                 timestamps=settings["voice_timestamps"],
             )
-            self._lines.add(line, _now_ms())
+            self._lines.add(line, _now_ms(), seq)
         except Exception:
             log.exception("Transcribe: live-voice batch failed in guild %s", self.guild.id)
 

@@ -230,8 +230,11 @@ class CuffAffairs(commands.Cog):
             )
 
         warned = await self._file_warning(ctx, member, reason)
+        case = await self._file_record(ctx, member, reason)
 
         content = f"📋 Citation issued to {member.mention}. Reason: {reason}"
+        if case is not None:
+            content += f" (case `#{case:04d}`)"
         if not warned:
             content += " (warning not filed)"
         await ctx.send(
@@ -257,6 +260,31 @@ class CuffAffairs(commands.Cog):
                 await channel.send(embed=embed)
             except discord.HTTPException:
                 log.debug("Cite: evidence-locker mirror failed", exc_info=True)
+
+    async def _file_record(
+        self, ctx: commands.Context, member: discord.Member, reason: str
+    ) -> Optional[int]:
+        """Put the citation on the member's rap sheet, if CuffRecords is loaded.
+
+        Cross-cog seam, and a strictly optional one: the archive going wrong
+        must never stop a citation from being issued, so every failure here is
+        logged and swallowed. Returns the case number, or None.
+        """
+        records = self.bot.get_cog("CuffRecords")
+        if records is None:
+            return None
+        try:
+            entry = await records.add_record(
+                ctx.guild,
+                record_type="citation",
+                user_id=member.id,
+                officer_id=ctx.author.id,
+                reason=reason,
+            )
+            return int(entry["case_number"])
+        except Exception:
+            log.warning("Affairs: could not file a record for %s", member.id, exc_info=True)
+            return None
 
     async def _file_warning(
         self, ctx: commands.Context, member: discord.Member, reason: str

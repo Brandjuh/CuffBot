@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffHelp",
+    "short": "A button-panel help menu grouped by category.",
+    "description": "Replaces the bot-level help menu with a panel of category buttons (Moderation, Games, Information, Economy, Media, Community, Utility, Owner). Pressing a button lists that category's commands with a one-line explanation, paginated when needed. Commands are filtered per viewer with Red's own permission checks. [p]help <command> and [p]help <cog> fall through to Red's normal formatter unchanged. WARNING: this cog replaces Red's help formatter — do not load a second cog that does the same.",
+    "end_user_data_statement": "This cog does not store any personal end user data. It stores only bot-wide settings: whether the panel is enabled, the button timeout, and cog-to-category overrides.",
+    "tags": ["help", "menu", "buttons", "utility"],
+    "min_bot_version": "3.5.0"
+}

@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import time
+from collections import deque
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -102,6 +103,10 @@ class CuffDetective(commands.Cog):
         self.config.register_guild(**DEFAULT_GUILD)
         self.limiter = RateLimiter()
         self.history: dict[int, list[dict]] = {}  # channel_id -> [{role, content, at}]
+        #: Message ids of answers we posted, so replying to one is recognised
+        #: as a follow-up. RAM-only and bounded; after a restart the emoji
+        #: fallback in _is_followup takes over.
+        self._answer_ids: deque = deque(maxlen=500)
         self.queue: list[dict] = []  # desk pile, RAM-only
         self._story_counter = 0
         self._session: Optional[aiohttp.ClientSession] = None
@@ -276,12 +281,14 @@ class CuffDetective(commands.Cog):
             self._remember(item["channel_id"], item["asker_name"], item["question"], reply)
             q = item["question"]
             q_short = q[:150] + ("…" if len(q) > 150 else "")
-            await channel.send(
+            sent = await channel.send(
                 f"🕵️ <@{item['user_id']}> Case reopened — you asked: “{q_short}”\n{reply}",
                 allowed_mentions=discord.AllowedMentions(
                     users=[discord.Object(item["user_id"])]
                 ),
             )
+            # A parked answer is an answer: replying to it continues the case.
+            self._track_answer(sent)
         except Exception:
             log.exception("Queue flush delivery failed")
 
@@ -357,9 +364,11 @@ class CuffDetective(commands.Cog):
         self._remember(channel.id, author.display_name, question, reply)
         text = f"🕵️ {reply}"
         if reply_to is not None:
-            await reply_to.reply(text, mention_author=True)
+            sent = await reply_to.reply(text, mention_author=True)
         else:
-            await channel.send(text)
+            sent = await channel.send(text)
+        # Remember it so a reply to this answer continues the conversation.
+        self._track_answer(sent)
 
     @commands.command(name="detective", aliases=["vraag"])
     @commands.guild_only()
@@ -367,19 +376,52 @@ class CuffDetective(commands.Cog):
         """Ask the precinct detective (AI)."""
         await self._handle_ask(ctx.channel, ctx.author, question)
 
+    def _track_answer(self, message: Optional[discord.Message]) -> None:
+        if message is not None:
+            self._answer_ids.append(message.id)
+
+    def _is_followup(self, message: discord.Message) -> bool:
+        """Is this a reply to one of the detective's own answers?
+
+        Checked by message id first, which needs no cache and no API call.
+        After a restart that list is empty, so fall back to "the bot wrote it
+        and it opens with the detective's badge" — which is every answer this
+        cog posts, and none of the birthday or starter messages.
+        """
+        reference = message.reference
+        if reference is None or self.bot.user is None:
+            return False
+        if reference.message_id and reference.message_id in self._answer_ids:
+            return True
+        target = (
+            reference.resolved
+            if isinstance(reference.resolved, discord.Message)
+            else reference.cached_message
+        )
+        if target is None:
+            return False
+        return target.author.id == self.bot.user.id and target.content.startswith("🕵️")
+
     @commands.Cog.listener()
     async def on_message_without_command(self, message: discord.Message):
-        """@mentioning the bot talks to the detective."""
+        """@mentioning the bot — or replying to its answer — talks to the detective."""
         if message.author.bot or message.guild is None or message.is_system():
             return
         if message.mention_everyone:
             return
-        if self.bot.user not in message.mentions:
-            return
-        # Require a DIRECT mention in the content (not just a reply ping).
+
         mention_forms = (f"<@{self.bot.user.id}>", f"<@!{self.bot.user.id}>")
-        if not any(m in message.content for m in mention_forms):
+        # A DIRECT mention means the id appears in the text. Discord does not
+        # put it there for a reply, and a reply with the ping switched off does
+        # not even land in message.mentions — so replies need their own check
+        # or the conversation dies after the detective's first answer.
+        direct_mention = self.bot.user in message.mentions and any(
+            form in message.content for form in mention_forms
+        )
+        followup = self._is_followup(message)
+        if not (direct_mention or followup):
             return
+
         ctx = await self.bot.get_context(message)
         if ctx.valid:
             return
@@ -396,6 +438,11 @@ class CuffDetective(commands.Cog):
         for form in (*mention_forms, f"<@&{self.bot.user.id}>"):
             stripped = stripped.replace(form, " ")
         stripped = re.sub(r"\s+", " ", stripped).strip()
+        # An empty follow-up is a sticker, an image or a "lol" reply — not a
+        # question. Say nothing rather than nag; a bare @mention still gets the
+        # "ask me something" prompt, because that one was aimed at the desk.
+        if followup and not direct_mention and not stripped:
+            return
         if conf["channel_id"] and message.channel.id != conf["channel_id"]:
             await message.reply(
                 f"🕵️ You’ll find my desk in <#{conf['channel_id']}> — ask me there!",

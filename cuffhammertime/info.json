@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffHammertime",
+    "short": "Natural time phrases become Discord timestamps that render right for every reader.",
+    "description": "The precinct clock desk: type 'in 1 day and 12 hrs', 'saturday at 6:30pm' or 'now' and get Discord <t:...> timestamps in all seven styles, with copyable codes. Backed by a per-member timezone registry with role defaults, a whole-server 'list' view, and an optional auto-convert mode for plain chat messages. Timezone lookup accepts cities, IANA names, US abbreviations (est/cst/pst, in either half of the year) and numeric offsets. Ported from the CuffBot Node module src/modules/hammertime, itself a port of Dumb-Cogs/hammertime.",
+    "end_user_data_statement": "This cog stores, per member who opts in, the IANA timezone name they chose. Members can remove it themselves through the timezone picker, and Red's data deletion request removes it everywhere.",
+    "tags": ["time", "timezone", "timestamp", "utility"],
+    "min_bot_version": "3.5.0"
+}

@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffMemorial",
+    "short": "Honours new Fallen Firefighter and Fallen Officer entries from their feeds.",
+    "description": "Polls the Fallen Firefighters (firehero.org) and Fallen Officers (odmp.org) RSS feeds every 30 minutes and honours new entries in the configured channel, tagging a ping role. Each feed can have its own channel and role, falling back to a shared channel. A feed baselines on first sight — the first successful fetch marks everything currently on it as seen without posting, so a fresh install honours the fallen going forward instead of dumping years of history. An unreachable feed is never mistaken for an empty one. firehero.org has no memorial-only feed, so only hero-profile items pass its filter and site news is dropped. Includes preview and probe commands to inspect any feed without posting. Ported from the CuffBot Node module src/modules/memorial.",
+    "end_user_data_statement": "This cog does not store any personal end user data. It stores the ids of feed entries it has already posted so they are not posted twice.",
+    "tags": ["rss", "feed", "memorial", "announcements"],
+    "min_bot_version": "3.5.0"
+}

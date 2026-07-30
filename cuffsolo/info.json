@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffSolo",
+    "short": "Single-player versions of the games that normally need a full channel.",
+    "description": "Solo mode for the precinct's multiplayer games. Four word games (bomb party, fastest word, longest word, most words) against bot officers who type at a believable speed, draw blanks and prefer a certain word length, so they are beatable at Rookie and genuinely annoying at Detective — three difficulties, one to four opponents. Plus Split or Steal against a bot running a classic iterated prisoner's-dilemma strategy (mirror, grudge, kitten, detective, saint, crook, coin) that is only revealed once the game ends. The 3-letter word prompts are derived from the bundled dictionary itself, so every prompt is guaranteed to have plenty of answers. Optional bank prize, off by default.",
+    "end_user_data_statement": "This cog does not store any personal end user data. Scores exist only for the duration of a single game and are discarded when it ends.",
+    "tags": ["games", "solo", "singleplayer", "wordgame", "party", "fun"],
+    "min_bot_version": "3.5.0"
+}

@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffBank",
+    "short": "Every member gets a bank account automatically, on join and in bulk.",
+    "description": "Red opens a bank account lazily — the record only exists once something touches it, so members are missing from the leaderboard until they use an economy command. This cog opens an account the moment a member joins, and backfills everyone already in the server with one command. An existing balance is never overwritten: opening an account writes the current balance straight back, so leaving and rejoining is not a free reset. Levelling everyone up to a starting amount is a separate, explicit argument to the backfill command, and it only ever raises a balance.",
+    "end_user_data_statement": "This cog stores no data of its own. It creates and reads bank accounts in Red's own bank, which handles its own data deletion.",
+    "tags": ["economy", "bank", "utility", "onboarding"],
+    "min_bot_version": "3.5.0"
+}

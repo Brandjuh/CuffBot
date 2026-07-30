@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffBirthday",
+    "short": "Birthday watch: members register once and are celebrated on their own calendar day.",
+    "description": "Birthday watch — members register their birthday once (their own timezone supported) and the precinct celebrates them in the configured channel, on THEIR calendar day, once a year. Celebrants wear a birthday role for their whole local day and receive a configurable bank gift. Everything the Node module hard-coded (channel, role, gift, default timezone, announcement text, sweep cadence) is a command here. Ported from the CuffBot Node module src/modules/birthdays.",
+    "end_user_data_statement": "This cog stores, per member who opts in: their birth day, month and year, their chosen IANA timezone, and the last year they were announced. The birth year is stored but never displayed. Members can delete their own record with [p]birthday remove, and Red's data deletion request removes it everywhere.",
+    "tags": ["birthday", "announcements", "timezone", "utility", "fun"],
+    "min_bot_version": "3.5.0"
+}

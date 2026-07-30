@@ -1,0 +1,10 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffEmbed",
+    "short": "Posts other cogs' plain-text messages as embeds (payday, freecredits, drops).",
+    "description": "The stock and third-party cogs answer in plain text where every cuff-cog answers in an embed. This cog wraps the two send paths every cog goes through and re-renders their messages as embeds — with a title and colour for the ones it recognises (a payday payout, a cooldown, a refusal) and a plain precinct-gold box for the rest. Only allow-listed cogs are touched (economy, payday, cashdrop, extendedeconomy, heist, city, simplecasino by default; widen with [p]cuffembed add). No upstream file is edited, so a cog update cannot undo it.",
+    "end_user_data_statement": "This cog does not store any end user data. It only rewrites the appearance of messages the bot sends.",
+    "tags": ["embed", "economy", "payday", "utility", "cosmetic"],
+    "min_bot_version": "3.5.0",
+    "min_python_version": [3, 9, 0]
+}

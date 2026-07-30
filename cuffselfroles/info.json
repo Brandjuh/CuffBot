@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffSelfRoles",
+    "short": "Button list members use to pick their own roles, read live from the role list.",
+    "description": "Self-assignable roles as a button list. The roster is not a stored list: it is read live from the guild's own role list — everything positioned under a header role named self-roles, stopping at the next divider — so an admin adds a self role by dragging it into that section in Discord's role editor and the posted list follows within 15 seconds. Roles that are managed by an integration or carry elevated permissions (Administrator, any Manage, Kick, Ban, Timeout, Mention Everyone) are skipped and reported rather than offered. Every button press is validated against the live role list, so a role that left the section is refused and the stale list refreshes itself. Spans multiple messages of 25 buttons for large rosters, with per-role info text and emoji. Ported from the CuffBot Node module src/modules/selfroles.",
+    "end_user_data_statement": "This cog does not store any personal end user data. Role membership lives in Discord itself; the cog only stores which roles have an info text and where its own list message was posted.",
+    "tags": ["roles", "selfroles", "buttons", "utility"],
+    "min_bot_version": "3.5.0"
+}

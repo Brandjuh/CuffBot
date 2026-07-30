@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffChannelList",
+    "short": "A self-updating directory of every category and channel, with topics.",
+    "description": "Posts one or more embeds listing every category and channel with its topic, grouped exactly the way the Discord client shows them, and keeps them current as channels are created, renamed, moved or deleted (debounced, so a burst of edits is one refresh). Visibility is judged for a configurable role — @everyone by default — so the list shows what that role can actually see and staff channels do not leak into a public directory. The list edits itself in place whenever it can and only reposts when it needs more messages than are up or one was deleted, so it does not climb the channel. Per-category emoji, custom header, embed colour, voice channels on or off, and an ignore list for channels or whole categories. Ported from the CuffBot Node module src/modules/channellist.",
+    "end_user_data_statement": "This cog does not store any personal end user data. It stores channel ids and its own posted message ids only.",
+    "tags": ["utility", "channels", "directory", "server"],
+    "min_bot_version": "3.5.0"
+}

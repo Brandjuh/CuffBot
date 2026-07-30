@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffChatStarter",
+    "short": "Posts an open-ended question when the watched channel goes quiet.",
+    "description": "Chat starter — when the configured channel has been silent for long enough (12 hours by default) the bot posts an open-ended question to get the precinct talking again. Questions come from a bundled 40-question bank that never repeats within the last ten, or from the detective's AI provider with the bank as fallback. The bot never monologues: after a starter, a human has to speak before the next one is allowed. The idle clock is seeded from the channel's real last message at boot, so a restart does not reset the silence counter. The AI path shares the detective's daily rate budget on purpose, so ice-breakers cannot starve members' own questions. Ported from the CuffBot Node module src/modules/chat-starter.",
+    "end_user_data_statement": "This cog does not store any personal end user data. It keeps the timestamp of the most recent message in the watched channel in memory only, and discards it on restart.",
+    "tags": ["chat", "engagement", "questions", "icebreaker", "ai"],
+    "min_bot_version": "3.5.0"
+}

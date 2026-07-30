@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffRecords",
+    "short": "Rap sheets: every enforcement action on file with a case number.",
+    "description": "The precinct archive — every enforcement action lands on a member's rap sheet with its own case number. [p]rapsheet reads a member's sheet (relative Discord timestamps, newest first, counts per type), [p]filerecord files one by hand, [p]expunge erases one case or a whole sheet, and [p]archive summarises what is on file. Other cogs file through the add_record seam: CuffAffairs calls it whenever a citation is issued. Ported from the CuffBot Node module src/modules/records.",
+    "end_user_data_statement": "This cog stores, per member with a record: the record type, the reason text an officer wrote, the officer's user id and the time it was filed. Moderators can erase a sheet with [p]expunge, and Red's data deletion request removes it everywhere.",
+    "tags": ["moderation", "records", "enforcement", "logging"],
+    "min_bot_version": "3.5.0"
+}
