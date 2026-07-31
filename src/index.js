@@ -4,6 +4,7 @@ import { loadConfig } from './core/config.js';
 import { logger } from './core/logger.js';
 import { loadModules } from './core/loader.js';
 import { wirePrefixRouter } from './core/prefix/router.js';
+import { gracefulExit } from './modules/core/updater.js';
 
 loadEnvFile();
 const config = loadConfig();
@@ -39,6 +40,17 @@ async function buildAndLogin(intents, { messageContent, memberEvents }) {
   } catch (error) {
     await client.destroy().catch(() => {});
     throw error;
+  }
+
+  // S136: `systemctl stop/restart` sends SIGTERM. Exiting through the same
+  // graceful path as the self-updater lets live state (a voice session) drain
+  // and leave its channel, and closes the gateway so Discord's picture of the
+  // bot matches reality instead of showing a ghost in a voice channel.
+  for (const signal of ['SIGTERM', 'SIGINT']) {
+    process.once(signal, () => {
+      logger.info(`${signal} received — shutting down cleanly.`);
+      void gracefulExit(client);
+    });
   }
   return client;
 }

@@ -44,7 +44,7 @@ export function transcriptChannelFor(guild, voiceChannel, config = {}) {
 }
 
 /** Can the bot actually do this here? Checked before joining, not after. */
-function canWork(guild, voiceChannel, textChannel) {
+export function canWork(guild, voiceChannel, textChannel) {
   const me = guild.members.me;
   if (!me) return false;
   const voice = voiceChannel.permissionsFor?.(me);

@@ -204,7 +204,7 @@ async function deliver(guild, userId, packets, { force = false } = {}) {
     if (result.reason === 'failed') logger.warn(`Transcribe: voice chunk failed — ${result.detail}`);
     // A rate refusal is not a defect: Groq's own ceiling was reached. Say so
     // once rather than dropping the turn in silence (skill 0.5.41).
-    else if (['rpm', 'rpd', 'audio-hour', 'audio-day'].includes(result.reason)) {
+    else if (['rpm', 'rpd', 'audio-hour', 'audio-day', 'daily-limit'].includes(result.reason)) {
       logger.warn(`Transcribe: Groq limit "${result.reason}" reached; skipping a turn.`);
     }
     return;
@@ -257,6 +257,24 @@ async function flushNow(session) {
       .send({ content: post, allowedMentions: { parse: [] } })
       .catch((error) => logger.warn('Transcribe: could not post a voice transcript:', error));
   }
+}
+
+/**
+ * Drain and destroy every session before the process exits (S136).
+ *
+ * The self-updater exits this process on every merged PR; without this, the
+ * held audio and buffered lines died with it and Discord kept showing the bot
+ * in the voice channel. Bounded: an upload that will not finish in time loses
+ * to the restart, which is the right trade — the update IS the point.
+ */
+export async function shutdownVoice({ timeoutMs = 2_500 } = {}) {
+  const guildIds = [...sessions.keys()];
+  if (guildIds.length === 0) return;
+  await Promise.race([
+    Promise.allSettled(guildIds.map((guildId) => drainBeforeLeaving(guildId))),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+  for (const guildId of guildIds) stopListening(guildId);
 }
 
 /** Whether the bot is already in a voice channel in this guild (any reason). */

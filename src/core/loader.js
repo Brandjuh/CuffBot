@@ -108,8 +108,19 @@ export async function loadModules(client) {
   // Exposed so /help and !help can generate the roster from what is actually
   // loaded (never a hand-maintained list that drifts).
   client.moduleList = modules;
+  // S136: a module may export an optional async `shutdown()` — run before the
+  // process exits (self-update restart, SIGTERM), so live state with a VISIBLE
+  // footprint (a voice session, an open lobby) ends honestly instead of dying
+  // into a ghost. Collected here so core never imports module internals.
+  client.moduleShutdowns = [];
 
   for (const mod of modules) {
+    if (mod.shutdown !== undefined) {
+      if (typeof mod.shutdown !== 'function') {
+        throw new Error(`Module "${mod.name}" has a shutdown that is not a function.`);
+      }
+      client.moduleShutdowns.push({ name: mod.name, run: mod.shutdown });
+    }
     for (const command of mod.commands) {
       // Two shapes, since S96 finished M17.3: a Red-style group ({ group },
       // S69) or a flat command ({ command }, S93). Both register under their

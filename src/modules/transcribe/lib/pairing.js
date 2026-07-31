@@ -236,3 +236,54 @@ export const HOW_LABEL = {
   category: "matched by name (same category)",
   "built-in": "its own built-in chat",
 };
+
+/**
+ * What to do about voice at BOOT (S136).
+ *
+ * The bot restarts itself on every self-update now (S127: exit + systemd
+ * `Restart=always`), and a live transcription session is RAM-only — so every
+ * merged PR used to kill the session mid-conversation. Discord kept showing
+ * the bot in the voice channel (its voice state outlives a dead process), the
+ * new process had no session, and nothing re-established one because
+ * auto-join only fires when a human ENTERS a channel. The owner's report,
+ * verbatim: "Waarom werkt de transcribe niet, de bot is wel in het kanaal."
+ *
+ * Pure: the boot sweep hands in what Discord shows and gets a decision back.
+ * The persistence is Discord's own state — the same move as the heist
+ * scheduler's boot re-arm (S87), where the durable half is the stored record.
+ *
+ * @param {object}  args
+ * @param {{channelId: string, humans: number}|null} args.lingering
+ *   the bot's OWN voice state at boot, if any — evidence a session was running
+ * @param {Array<{id: string, humans: number}>} args.channels  every voice channel
+ * @param {object}  args.config  transcribe config
+ * @param {boolean} args.hasKey  whether an audio provider key exists
+ * @returns {{action: 'resume'|'disconnect'|'join'|'none', channelId?: string, reason?: string}}
+ */
+export function resumePlan({ lingering, channels = [], config, hasKey }) {
+  if (lingering) {
+    // The bot sitting in a channel is a live promise to transcribe. Either
+    // keep the promise (people are there, we are able) or visibly withdraw
+    // it — a bot that stays and writes nothing is this very bug report.
+    //
+    // Deliberately NOT gated on `autoJoin`: the lingering state may be a
+    // manual `!transcribe join`, and the bot's own presence is the record of
+    // that decision. `enabled` and the key still gate, because without them
+    // resuming would sit there transcribing nothing.
+    if (hasKey && config.enabled !== false && lingering.humans >= 1) {
+      return { action: 'resume', channelId: lingering.channelId };
+    }
+    return { action: 'disconnect', channelId: lingering.channelId };
+  }
+
+  // No lingering state (clean shutdown, or first boot). People may already be
+  // sitting in a channel — they will never re-trigger auto-join by entering,
+  // so the boot sweep applies the same gate auto-join would have applied.
+  if (!hasKey) return { action: 'none', reason: 'no-key' };
+  const candidates = channels
+    .filter((c) => shouldAutoJoin({ humans: c.humans, channelId: c.id }, config).ok)
+    .sort((a, b) => b.humans - a.humans);
+  if (candidates.length === 0) return { action: 'none', reason: 'nobody' };
+  // One table per guild (the session map is guild-keyed): the fullest room wins.
+  return { action: 'join', channelId: candidates[0].id };
+}
