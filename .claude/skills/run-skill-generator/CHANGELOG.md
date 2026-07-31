@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.57 — 2026-07-31 (Session 137)
+
+- `references/self-improvement.md`: new section **"The world outranks the code"** — an owner sentence about the WORLD (platform, deployment, tooling) invalidates the queue; update the world-model first, then re-derive what every open item means under it. `STATE.md`'s phase line is where the world-model lives.
+- Evidence: the owner said *"De node bot wordt niet meer gebruikt, we gebruiken exclusief Red bot nu."* Retroactively: S136 had shipped a correct transcribe fix to the wrong bot (the report was about Red); M27.1's 1:1 rebuild became true by construction (Red runs the genuine cogs); and *"Ik wil een screening van de Red bot, niet van de node"* had meant the platform itself, one full session before the pivot registered. 136 sessions of "the bot" having one referent made the misread invisible. Also from this session: a workflow's aggregated result file came back EMPTY while all 13 agents had completed — the per-agent journal is the recovery path, and checking it before re-running saved the whole screening.
+
 ## 0.5.56 — 2026-07-31 (Session 136)
 
 - `references/architecture.md`: **the bot restarts itself constantly — RAM state with a VISIBLE footprint must reconcile at boot and at exit** (ClientReady sweep + the new loader-collected module `shutdown()` hook, run by `gracefulExit` on update-exit and SIGTERM). Manifest shape gains optional `shutdown`.

@@ -212,7 +212,24 @@ Owner, after playing what S66–S92 shipped: *"Connect4: Vervang deze met https:
 
 *Standing constraint, unchanged:* pure rules in `lib/` with tests, components via the module-owned pump with the S98 non-originator rules, and a manual per module.
 
-## M27 — Owner batch, 2026-07-31
+## ⚠️ PLATFORM PIVOT — 2026-07-31, after S136
+
+Owner: *"De node bot wordt niet meer gebruikt, we gebruiken exclusief Red bot nu."* The precinct now runs
+**Red-DiscordBot** with the actual source cogs installed. Consequences, recorded the moment they landed:
+
+- **M27.1 is SUPERSEDED**: city and heist run natively on Red as the real cogs — "1:1 with the source" is true by
+  construction. The S135 divergence report stands as the record of what the Node port did differently.
+- **M27.2–M27.5 are SUSPENDED pending owner direction**: they were specified against the Node bot. On Red they
+  would be Python cogs or patches to existing cogs (steal rework, chat-kill announcement, US timezone aliases,
+  module disable ≈ Red's own `[p]load`/`[p]unload`, which Red ships out of the box).
+- **M24.3 (mafia long tail) is MOOT** in its Node form.
+- The Node codebase (37 modules, 1377 tests) is complete and green as of S136 and becomes an **archive** unless the
+  owner says otherwise. Open questions put to the owner: does CuffBot keep running alongside Red for the custom
+  features that have no cog equivalent (live voice transcription, logbook, selfroles poster, YouTube announcer,
+  memorial feeds, birthdays, leveling ladder), and should new work be Python cogs in an owner repo?
+- The Red screening the owner asked for is delivered: `docs/redbot/cog-spec-city.md` + `cog-spec-heist.md`.
+
+## M27 — Owner batch, 2026-07-31 (pre-pivot, see the pivot note above)
 
 Owner's words, recorded the moment they landed (chat does not survive sessions):
 

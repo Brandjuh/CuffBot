@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 136 · 2026-07-31
-**Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
+**Last updated:** Session 137 · 2026-07-31
+**Phase:** ⚠️ **PLATFORM PIVOT (S137)** — the owner runs **Red-DiscordBot exclusively** now; the Node bot is no longer in use. The Node codebase is complete and green (1377/1377) and stands as an archive. See ROADMAP → Platform pivot, and the resume point.
 
 ## Verification block — run this before trusting the rest
 
@@ -90,7 +90,9 @@
 
 ## Resume point
 
-**NEXT: S136 = M27.1 City-A** — `!crime` becomes the cog's Criminal Underworld menu (8-action dropdown + record field), the confirm step before every crime (free Cancel, cooldown only at resolution), narration on EVERY path, `!crime status`. Cut the session from `docs/reports/S135-system-report.md` §5 — not from memory. The recommended order for the whole M27 batch is the report's §8 table. Source clones: re-clone `CalaMariGold/CalaMari-Cogs` and `ltzmax/maxcogs` into the scratchpad (S61 note: public repos clone fine through the git proxy).
+**THE PIVOT GOVERNS EVERYTHING.** Owner (2026-07-31, after S136): *"De node bot wordt niet meer gebruikt, we gebruiken exclusief Red bot nu."* Do NOT build Node-bot features. M27.1 is superseded (Red runs the real cogs); M27.2–M27.5 suspended pending owner direction. Two questions are with the owner: (1) does CuffBot keep running next to Red for the features with no cog equivalent (live voice transcription, logbook, selfroles poster, YouTube announcer, memorial feeds, birthdays, leveling), or is it fully retired? (2) is new work Python cogs (natural home: the owner's own cog repo, e.g. `Brandjuh/FireAndRescueAcademyCogs`, installable with `[p]repo add`)? The Red screening is delivered in `docs/redbot/`. A session arriving here without owner answers should NOT invent Node work — verify whether the questions were answered, and otherwise say so.
+
+*(Pre-pivot resume point kept for the archive:)* S136 was to be M27.1 City-A — `!crime` becomes the cog's Criminal Underworld menu (8-action dropdown + record field), the confirm step before every crime (free Cancel, cooldown only at resolution), narration on EVERY path, `!crime status`. Cut the session from `docs/reports/S135-system-report.md` §5 — not from memory. The recommended order for the whole M27 batch is the report's §8 table. Source clones: re-clone `CalaMariGold/CalaMari-Cogs` and `ltzmax/maxcogs` into the scratchpad (S61 note: public repos clone fine through the git proxy).
 
 
 
@@ -559,6 +561,16 @@ I hit the code-span half of this myself: the transcript stamp was `` `14:32` ``,
 **Guard:** `test/timestamps.test.js` (8) walks every city and heist panel payload and fails if a `<t:` token reaches any component label, placeholder or select option — plus embed titles and footers. It also asserts the picker still shows a plain wait, so the guard cannot be satisfied by deleting the text. 13 mutations, all killed, including both "leak the timestamp into the select option" cases.
 
 **Restraint (skill 0.5.52 again):** my first version of the code-span guard grepped `src/` for a backtick near a `<t:`. It cannot tell a JS template literal from a Discord code span, and it fired on `!ht`, which prints both forms side by side **on purpose**. Deleted and replaced with a runtime assertion on the rendered transcript line. A guard that fires on correct code is worse than no guard.
+
+## S137 — the platform pivot, and the Red screening delivered
+
+Owner, answering "which bot did you modify?": *"De node bot wordt niet meer gebruikt, we gebruiken exclusief Red bot nu."*
+
+**What this reframes.** The transcribe report S136 fixed was about the RED bot, not the Node bot — S136 fixed the wrong bot (the fix is correct for CuffBot and moot for the owner). "Crime en heist werken al" — because on Red the owner runs the ACTUAL cogs. The earlier "$repo add …" fragment was Red's own repo command. The signal was present one message earlier ("Ik wil een screening van de Red bot, niet van de node") and was misread as "screen the cogs' code, not our port" when it meant "the Red bot IS the bot now".
+
+**Delivered:** the screening the owner asked for — `docs/redbot/cog-spec-city.md` (~750 lines) and `docs/redbot/cog-spec-heist.md` (~770 lines): every command, screen, flow, text and number of the two cogs, from an 11-agent pass with per-cog completeness review; the critics' remaining gaps are included as an honest appendix in each doc. Since the pivot these are OPERATING documentation for what the precinct runs.
+
+**Recorded:** the pivot note in ROADMAP (M27.1 superseded; M27.2–M27.5 and M24.3 suspended pending direction), this file's phase line, and the two open questions to the owner (CuffBot's fate next to Red; whether new work is Python cogs).
 
 ## S136 — live voice sessions survive the self-updating bot
 
