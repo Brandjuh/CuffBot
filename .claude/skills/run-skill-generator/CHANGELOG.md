@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.55 — 2026-07-31 (Session 135)
+
+- `references/self-improvement.md`: **a clean sweep is only as broad as its classes — record what an audit does NOT measure next to what it does.**
+- Evidence: the owner reported city and heist a fourth time ("deze lijken niet eens op werking van de cogs"). S132's five-class audit (parameters, persistence, leaderboards, bare-word invocation, coverage) had come back clean and still holds — and S135's screen-by-screen audit found 27 real divergences per game, every one in flow/pacing/presentation/texts, dimensions no S132 class covered. Both verdicts are true; the misread was letting "clean on five classes" stand in for "clean". One recording-time sentence naming the unmeasured dimensions would have kept the question visibly open. The S135 audit itself (16 agents: independent maps → evidenced diff → adversarial verification of top findings) confirmed 7 of 8 headline divergences and produced `docs/reports/S135-system-report.md`, which M27.1's rebuild sessions are cut from.
+
 ## 0.5.54 — 2026-07-26 (Session 134)
 
 - `references/discord-reference.md`: a new **Timestamps** section — **where Discord renders `<t:unix:style>` and where it prints it literally**, the seconds unit, the two-forms pattern, *a duration is not a moment*, and *assert the epoch, not the shape*.

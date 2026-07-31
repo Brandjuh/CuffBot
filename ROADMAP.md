@@ -211,3 +211,20 @@ Owner, after playing what S66–S92 shipped: *"Connect4: Vervang deze met https:
 **The pattern the audit found, which matters more than either fix:** S68's text-only mandate was *not* the cause — nine games kept their panels, and trivia, connect4, the patrol wizard and the help panel all use buttons today. Both divergences are in the two **largest** ports (heist, 4 sessions; city, 4 sessions), and both were sliced *engine → storage → commands → extras*. The command surface was built in slice B as scaffolding to reach the engine, and by slice D it **was** the product, because every later slice added features to the commands that already existed. The panel was never dropped — it was never scheduled. **Slicing rule for next time: when a staged port's source is panel-driven, the panel belongs in the first slice a player can touch**, not after the features, because after the features it is a rewrite rather than a starting point.
 
 *Standing constraint, unchanged:* pure rules in `lib/` with tests, components via the module-owned pump with the S98 non-originator rules, and a manual per module.
+
+## M27 — Owner batch, 2026-07-31
+
+Owner's words, recorded the moment they landed (chat does not survive sessions):
+
+- [ ] **M27.1 — City + Heist: 1:1 with the source cogs** — *"Controleer Heist en City, deze lijken niet eens op werking van de cogs die ik je gestuurd heb. Ik wil 1:1 de werking hebben."* Sources: `CalaMariGold/CalaMari-Cogs/city` and `ltzmax/maxcogs/heist`. **This is new evidence and re-opens both games** (the S132 closure rule allows exactly this: an owner report of specific misbehaviour). The S135 system report (`docs/reports/S135-system-report.md`) carries the verified divergence list that scopes this milestone; sessions are cut from that list, not from memory. Standing target: a player who has used the source cog must not be able to tell ours apart, except where the S68 text-only mandate replaces slash invocation with `!command`.
+- [ ] **M27.2 — Steal rework** (economy) — the full owner spec, assembled from both messages:
+  - amount becomes **random 5–500** donuts (was flat 500);
+  - a member may be **robbed at most once per day** (per guild);
+  - **no steal-backs**: you cannot target the person who last robbed you — pick another;
+  - a chance to get **caught**, where the victim takes donuts **from the thief**;
+  - **remove slash references** from its texts;
+  - **all replies as embeds** ("Niet alle commands zijn in embed");
+  - `!steal` with **no member named picks a random target**.
+- [ ] **M27.3 — Chat killer announces** (killcounter) — when someone kills the chat, post *"person X killed the chat for the Nth time"* — **no pings**.
+- [ ] **M27.4 — Hammertime: US timezone abbreviations** — Americans work with EST/CST/MST/PST (and EDT/CDT/MDT/PDT); make those first-class in `!ht tz` and everywhere a zone query resolves.
+- [ ] **M27.5 — Module disable** — an owner/admin option to disable modules per guild: commands refuse (or stay silent), events and pumps stop, help hides them. Admin surface + storage + router gate; scoped in the S135 report.

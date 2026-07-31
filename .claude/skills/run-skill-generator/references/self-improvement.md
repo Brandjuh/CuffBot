@@ -66,6 +66,8 @@ Your own unit tests share your own blind spots — they pass precisely because t
 
 Finding nothing is a legitimate outcome, and it has its own obligations.
 
+**A clean sweep is only as broad as its classes — record what it does NOT measure.** S132 closed the game audit on five objectively checkable classes and recorded them faithfully; S135 found 54 real divergences in the SAME two games, every one in a dimension (flow, pacing, presentation, texts) that no S132 class covered. Both verdicts were true. The misread happened at the *reading* end: "no divergence in five classes" stood in for "no divergence", and the owner reported the games a fourth time. When recording any audit's clean result, add one sentence naming the dimensions it did not check — that sentence is what stops the next session from treating the verdict as broader than the method.
+
 **Record the sweep, or it gets re-run.** S115's game audit stayed open for seventeen sessions because its verdict claimed more than its method measured; S132 closed it with five checkable classes and no divergence. That result is only worth the session if the *next* session can find it — so it goes in the audit document and in `STATE.md`, with a note about what would justify re-opening it (an owner report of specific misbehaviour is new evidence; a general worry is not).
 
 **Do not ship a guard you do not trust in order to have a commit.** S132's first attempt at a leaderboard↔stats check misread the module's exports and would have produced false failures until a later session deleted it. A fragile test is worse than no test: it costs every future session attention and teaches them to distrust the suite. This is scaffolding-as-product (0.5.38) in test form.

@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 134 · 2026-07-26
+**Last updated:** Session 135 · 2026-07-31
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -89,6 +89,10 @@
 - **Tests:** 1095 via `node:test` (was recorded as 358 until S93 caught the drift) — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges incl. token windows, prompt limits, both providers via fake fetch, pipeline branches, mention gates, desk-pile queue — **no network, ambient AI keys deleted at suite start**), birthdays, trivia, memorial RSS, starboard, chat-starter, logbook (models, gate matrix, event fakes), welcome, packaging (module data files git-tracked), and command smokes. **Command smokes are moving off fake interactions onto the real dispatch path** (`dispatchCommand`/`dispatchGroup` + `test/fixtures/fake-message.js`) as M17.3 converts each module — **every module is converted (S96) — there is no other kind of command test left.**
 
 ## Resume point
+
+**NEXT: S136 = M27.1 City-A** — `!crime` becomes the cog's Criminal Underworld menu (8-action dropdown + record field), the confirm step before every crime (free Cancel, cooldown only at resolution), narration on EVERY path, `!crime status`. Cut the session from `docs/reports/S135-system-report.md` §5 — not from memory. The recommended order for the whole M27 batch is the report's §8 table. Source clones: re-clone `CalaMariGold/CalaMari-Cogs` and `ltzmax/maxcogs` into the scratchpad (S61 note: public repos clone fine through the git proxy).
+
+
 
 **M1–M13 + M15 complete plus S34–S41 (logbook, welcome, channellist, ladder resilience, economy incl. /steal + /pot, categorized viewer-filtered /help, /xp-ladder, YYYY/MM/DD birthdays + timezone picker, patrol wizard, /daily, youtube announcer): 21 modules, 60 commands, 493 tests, dual invocation, self-update, audited. The entire owner backlog is built except M14 (goal tracker — still awaits owner scope). The economy is designed for more games to plug into (`adjustBalance` seam). `/help` paginates against the 6000-char embed total (S39) — rosters can keep growing.** The FRA cog source used for S36 lives in repo `brandjuh/fireandrescueacademycogs` (`channellist/`) — re-add via add_repo if a future session needs it again. S24 fixed the marathon's packaging defect (gitignored question banks) — verify the Pi picked up d5e7ff6+ before assuming module data exists there.
 
@@ -555,6 +559,18 @@ I hit the code-span half of this myself: the transcript stamp was `` `14:32` ``,
 **Guard:** `test/timestamps.test.js` (8) walks every city and heist panel payload and fails if a `<t:` token reaches any component label, placeholder or select option — plus embed titles and footers. It also asserts the picker still shows a plain wait, so the guard cannot be satisfied by deleting the text. 13 mutations, all killed, including both "leak the timestamp into the select option" cases.
 
 **Restraint (skill 0.5.52 again):** my first version of the code-span guard grepped `src/` for a backtick near a `<t:`. It cannot tell a JS template literal from a Discord code span, and it fired on `!ht`, which prints both forms side by side **on purpose**. Deleted and replaced with a runtime assertion on the rendered transcript line. A guard that fires on correct code is worse than no guard.
+
+## S135 — the system report, and the games re-opened on new evidence
+
+Owner batch (2026-07-31): *"Controleer Heist en City, deze lijken niet eens op werking van de cogs… Ik wil 1:1 de werking hebben"* + four feature items + *"Geef mij een rapportage over de algehele staat van het systeem."*
+
+**The report is `docs/reports/S135-system-report.md`** — a 16-agent audit (source cogs re-cloned at HEAD, mapped screen by screen; divergences diffed with file:line evidence on both sides; top findings adversarially verified by independent agents). Headline: **the platform is healthy; the two big game ports are functionally complete but not faithful.** 27 divergences per game; 7 of the 8 most severe CONFIRMED, 1 PARTIAL. The worst, verified: the city panel's 🎲 random job never draws a scenario (plays placeholder numbers on the game's main surface); a failed jailbreak from the panel answers "✅ Done."; no confirm step before a crime; text-path crimes resolve instantly with no narration; heist lost the debt/jail pay-now prompts; heist's start flow is inverted (cog: bare command opens the picker); we invented an 8 h crew cooldown the cog does not have; crew joiners are missing the cog's level-20 gate.
+
+**S132 and this report are BOTH true.** S132's five classes (numeric parameters, stats persistence, leaderboards, bare-word invocation, test coverage) still hold — they never measured flow, pacing, presentation or texts, which is where every S135 finding lives. Lesson recorded (skill 0.5.55): a clean sweep is only as broad as its classes — record what an audit does NOT measure next to what it does.
+
+**M27 queue is recorded in ROADMAP.md** with scopes from the report: M27.1 city+heist 1:1 (slices City-A…D, Heist-A…C; sessions are cut from the report's list, not from memory), M27.2 steal rework (medium), M27.3 chat-killer announcement (small; the killcounter manual documents silence as a principle — that section gets REWRITTEN), M27.4 hammertime US zone aliases (small; verified live: `EST` today resolves to 5 Caribbean zones, `PST` leaks through as a literal pseudo-zone; alias table est/edt→New_York, cst/cdt→Chicago, mst/mdt→Denver, pst/pdt→Los_Angeles), M27.5 module disable (medium; router gate for commands, loader-wrapper gate for events/pumps, quiet refusal not silence per 0.5.54).
+
+**Repo-health findings** (report §7): `welcome` is the only module without a dedicated test file; manual "Last updated" headers rot systemically (absent in 12, >15 sessions stale in 17 — the sixth hand-maintained-list instance, no guard yet); 16 truly dead exports; STATE.md is 130 KB and operationally heavy; SESSION_LOG dates wobble ±1 day around S130–S134 (append-only, noted not rewritten).
 
 ## Environment facts (S61)
 
