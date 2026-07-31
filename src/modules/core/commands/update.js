@@ -27,6 +27,7 @@ import {
   restartPolicy,
   runUpdateScript,
   updateState,
+  gracefulExit,
 } from '../updater.js';
 import { autoUpdateEnabled, lastAutoRun, setAutoUpdate } from '../update-store.js';
 import { clearUpdateMarker, getHead, writeUpdateMarker } from '../update-status.js';
@@ -45,7 +46,7 @@ export const lock = { busy: false };
  * @param {object} opts
  * @param {(text:string)=>Promise<any>} [opts.onProgress] live status, if a human is waiting
  */
-export async function performUpdate({ onProgress = async () => {}, guildId = null, markerFor = null } = {}) {
+export async function performUpdate({ onProgress = async () => {}, guildId = null, markerFor = null, client = null } = {}) {
   if (lock.busy) return { result: 'busy', from: null, to: null };
   lock.busy = true;
   try {
@@ -76,7 +77,9 @@ export async function performUpdate({ onProgress = async () => {}, guildId = nul
 
     // New code is on disk and green. Getting it RUNNING is the only step left.
     const plan = restartPlan(restartPolicy());
-    const restarted = applyRestart(plan);
+    // S136: the exit drains module state first (voice sessions leave their
+    // channel instead of dying into a ghost) and closes the gateway cleanly.
+    const restarted = applyRestart(plan, { exitFn: () => void gracefulExit(client) });
     return { ...run, meaning, plan, restarted };
   } finally {
     // The success path exits the process shortly after this, so releasing the
@@ -115,6 +118,7 @@ export default {
             onProgress: edit,
             guildId: ctx.guild.id,
             markerFor: { channelId: ctx.channel?.id ?? null, requesterId: ctx.user.id },
+            client: ctx.client ?? null,
           });
           logger.info(`Manual update by ${ctx.user.tag ?? ctx.user.username}: ${outcome.result}`);
 

@@ -2,6 +2,11 @@
 
 Every change to this skill (SKILL.md or anything under its directory) gets an entry here, newest first. Versioning: patch = clarification/fix, minor = new capability/section/promoted lesson, major = protocol change (owner approval required). Each entry cites its evidence — the session and observation that motivated it — so future sessions can judge whether a rule still earns its place.
 
+## 0.5.56 — 2026-07-31 (Session 136)
+
+- `references/architecture.md`: **the bot restarts itself constantly — RAM state with a VISIBLE footprint must reconcile at boot and at exit** (ClientReady sweep + the new loader-collected module `shutdown()` hook, run by `gracefulExit` on update-exit and SIGTERM). Manifest shape gains optional `shutdown`.
+- Evidence: owner — "Waarom werkt de transcribe niet, de bot is wel in het kanaal." The audio pipeline was intact; the kill was the update loop itself. Live voice sessions are RAM-only, S127 made restarts routine (three merged PRs that day), the exit cleaned nothing (Discord kept showing the dead process's bot in the voice channel), and auto-join only reacts to a human ENTERING a channel, so nothing ever resumed. The S87 scheduler already solved this class for heist ("the durable half is the stored record"); the general rule was never written down, so the next long-lived session repeated the mistake. Fix is two-sided by necessity: resume-at-boot from Discord's own state AND drain-at-exit so the footprint disappears when resuming is wrong. Also: a lingering voice state resumes even with `autoJoin` off — the bot's presence IS the record of a manual join; gating resume on autoJoin was a mutation the tests killed. 11/11 mutations killed; 14 new tests.
+
 ## 0.5.55 — 2026-07-31 (Session 135)
 
 - `references/self-improvement.md`: **a clean sweep is only as broad as its classes — record what an audit does NOT measure next to what it does.**

@@ -164,6 +164,34 @@ export function runUpdateScript({ onLine = () => {}, timeoutMs = UPDATE_TIMEOUT_
   });
 }
 
+/**
+ * Exit the process HONESTLY (S136): run every module's shutdown hook (bounded),
+ * close the gateway, then exit. Before this, the update-restart just died —
+ * which left a live voice session as a ghost: Discord kept showing the bot in
+ * the channel while the fresh process knew nothing about it, and the owner
+ * read that as "transcribe is broken". A clean `client.destroy()` clears the
+ * bot's voice state server-side, so what Discord shows matches what is true.
+ */
+export async function gracefulExit(client, { exitFn = () => process.exit(0), timeoutMs = 4_000 } = {}) {
+  const hooks = client?.moduleShutdowns ?? [];
+  await Promise.race([
+    Promise.allSettled(
+      hooks.map(({ name, run }) =>
+        Promise.resolve()
+          .then(run)
+          .catch((error) => logger.warn(`Shutdown hook "${name}" failed:`, error)),
+      ),
+    ),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+  try {
+    await client?.destroy?.();
+  } catch {
+    // The gateway may already be gone; exiting is still the job.
+  }
+  exitFn();
+}
+
 /** Carry out a restart plan. Returns false only when the caller must be told. */
 export function applyRestart(plan, { exitFn = () => process.exit(0), runner = spawnSync } = {}) {
   if (plan.action === 'exit') {

@@ -38,7 +38,7 @@ export async function checkOnce(client, { update = performUpdate } = {}) {
   const wanting = guilds.filter((guild) => autoUpdateEnabled(guild.id));
   if (wanting.length === 0) return null;
 
-  const outcome = await update({});
+  const outcome = await update({ client });
   if (outcome.result === 'busy') return null;
 
   for (const guild of wanting) rememberAutoRun(guild.id, outcome);

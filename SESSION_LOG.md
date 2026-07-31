@@ -2717,3 +2717,30 @@ Tests **1363/1363** (from 1353: +8 timestamps, +1 hub fallback, +1 rap-sheet NaN
 **No code changed this session** — deliberately. The report is evidence for six build sessions; mixing the first fix into the audit session would have repeated the scaffolding-as-product shape. Tests 1363/1363, untouched.
 
 **Handoff:** resume point = S136 = M27.1 City-A (Criminal Underworld menu, confirm step, narration everywhere, `!crime status`), cut from report §5, order per report §8. Re-clone the cogs into the scratchpad first.
+
+## Session 136 — 2026-07-31
+
+**Goal:** owner live report — *"Waarom werkt de transcribe niet, de bot is wel in het kanaal."*
+
+**Diagnosis first, S133's lesson applied: verify the named thing before believing its framing.** The audio pipeline (receiver → Ogg mux → Groq → transcript) is intact; nothing in it explains a silent bot. The cause is a four-fact pile-up outside it: (1) live sessions are RAM-only; (2) since S127 the bot restarts itself on every merged PR — and this day had three merges while the owner was testing; (3) the update-exit was `process.exit(0)` with no cleanup, so Discord kept showing the dead process's bot in the voice channel; (4) nothing resumed at boot, because auto-join reacts only to a human ENTERING a channel — people already sitting there can never re-trigger it. The bot LOOKED present and heard nothing. What made this visible as a defect rather than a restart hiccup is that the restart rate went from "rare" to "several per day" the moment the update chain started working well.
+
+**Fix half 1 — the boot sweep.** Pure `resumePlan()` (lib/pairing.js): lingering voice state + humans → RESUME (deliberately not gated on `autoJoin` — the bot's own presence is the record of a possibly-manual `!transcribe join`; Discord's state is the persistence, the S87 move); lingering + empty/disabled/keyless → DISCONNECT visibly; no lingering → apply the ordinary auto-join gate to every channel, fullest room wins, because the people already in a VC at boot are exactly the ones auto-join structurally misses. `events/ready.js` carries the plan out and announces a resume with its reason ("I restarted for an update…").
+
+**Fix half 2 — the graceful exit.** New loader-level mechanism: a module manifest may export `shutdown()` (collected onto `client.moduleShutdowns`; validated; architecture.md's manifest shape updated). `gracefulExit(client)` in core/updater.js runs all hooks bounded at 4 s, `client.destroy()`s the gateway (which clears the bot's voice state server-side), then exits — wired into BOTH restart paths via `performUpdate({client})` → `applyRestart`'s `exitFn`, and into SIGTERM/SIGINT in src/index.js. Transcribe's hook = `shutdownVoice()`: drain held audio (bounded), stop sessions, leave. The S135 health sweep's dead `drainBeforeLeaving` export now has a real caller.
+
+**Also:** `deliver()`'s logged-refusal list missed `daily-limit`, so a budget refusal mid-session vanished without a trace even in the Pi's own log.
+
+**Mid-build slip worth recording:** a regex-driven import edit produced `updateState,, gracefulExit` — a double comma — and 15 tests went red at once (every loader-dependent file). The suite caught it instantly; the lesson is old (0.5.51's "confirm the mutation ran" has a sibling: confirm the EDIT parsed — `node --check` before `npm test` finds it in one second).
+
+**Definition of Done:**
+- [x] `node --check` clean on every touched file
+- [x] Tests: `transcribe-resume` (14 new) — resumePlan matrix, sweep wiring with injected seams, gracefulExit incl. the hanging-hook bound, loader hook collection through the REAL loader
+- [x] Mutation-tested: 11/11 killed (resume gate, ghost-disconnect, autoJoin over-gate, fullest-room sort, announce-on-failure, hook skip, destroy skip, unbounded hang, loader collection)
+- [x] Manuals: transcribe.md (changelog + troubleshooting row), core.md (graceful exit row); architecture.md manifest shape + new rule
+- [x] STATE.md + SESSION_LOG.md
+
+Tests **1377/1377** (from 1363: +14).
+
+**Retrospective (skill 0.5.56):** *the bot restarts itself constantly now — any RAM state with a VISIBLE footprint must reconcile at boot and at exit.* Games forfeiting on restart is accepted (the message merely goes stale); a voice session is different in kind because Discord keeps SHOWING the promise. The rule + the two-halves mechanism (ClientReady sweep + `shutdown` hook) are in architecture.md; the next long-lived session (an open lobby, a pinned live panel) must answer "who reconciles Discord's picture after the next restart?" at design time.
+
+**Handoff:** unchanged — S137 = M27.1 City-A from the S135 report (the red-cog screening spec lands in the parallel workflow and becomes the build document). The Pi-side proof of THIS fix is the next merged PR while someone sits in a VC.

@@ -2,7 +2,7 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 135 · 2026-07-31
+**Last updated:** Session 136 · 2026-07-31
 **Phase:** ALL buildable milestones complete (M1–M13, M15). M14 awaits owner scope. Marathon of 2026-07-24 delivered S18–S23.
 
 ## Verification block — run this before trusting the rest
@@ -16,7 +16,7 @@
 | Runtime available | `node --version` | v18 or newer (v22 as of S0) |
 | Deps installed | `ls node_modules/discord.js/package.json` | Exists (else `npm install` first) |
 | Syntax clean | `find src test -name '*.js' -exec node --check {} +` | No output (no errors) |
-| Tests green | `npm test` | 1363/1363 pass as of S134 |
+| Tests green | `npm test` | 1377/1377 pass as of S136 |
 | Discovery smoke | `node -e "import('./src/core/loader.js').then(async m => console.log((await m.discoverModules()).length))"` | `37` — a number, not a list. The **names** are checked by `test/docs-consistency.test.js` against `docs/modules/`, so there is nothing here to copy or to rot. |
 
 ⚠️ **Hand-copied lists in this block have rotted three times** — S124 found `1095/1095 as of S120` and a `connect4` that S116 had deleted; S131 found the manuals row *still* naming `connect4` and missing `minigames`, seven sessions after the module was replaced. The lists are gone rather than corrected a fourth time: `test/docs-consistency.test.js` now checks modules ↔ manuals ↔ index against the loader, so `npm test` is the verification and this table only has to say what number to expect.
@@ -559,6 +559,21 @@ I hit the code-span half of this myself: the transcript stamp was `` `14:32` ``,
 **Guard:** `test/timestamps.test.js` (8) walks every city and heist panel payload and fails if a `<t:` token reaches any component label, placeholder or select option — plus embed titles and footers. It also asserts the picker still shows a plain wait, so the guard cannot be satisfied by deleting the text. 13 mutations, all killed, including both "leak the timestamp into the select option" cases.
 
 **Restraint (skill 0.5.52 again):** my first version of the code-span guard grepped `src/` for a backtick near a `<t:`. It cannot tell a JS template literal from a Discord code span, and it fired on `!ht`, which prints both forms side by side **on purpose**. Deleted and replaced with a runtime assertion on the rendered transcript line. A guard that fires on correct code is worse than no guard.
+
+## S136 — live voice sessions survive the self-updating bot
+
+Owner: *"Waarom werkt de transcribe niet, de bot is wel in het kanaal."*
+
+**The audio pipeline was fine. The bot's own update loop was the killer.** Four facts lined up: live sessions are RAM-only (`sessions` Map); since S127 the bot restarts itself on EVERY merged PR (three restarts on this day alone, while the owner was testing); the update-exit cleaned nothing up, so Discord kept showing the bot in the voice channel after the process died; and nothing resumed at boot — auto-join fires only when a human ENTERS a channel, so whoever was already sitting there never re-triggered it. Net: bot visibly in the channel, zero transcription — the report, exactly.
+
+**The fix, two halves (both mutation-tested, 11/11 killed):**
+
+1. **Boot sweep** — `events/ready.js` + pure `resumePlan()` in `lib/pairing.js`: a lingering voice state with people present RESUMES (announced: *"I restarted for an update and picked the session back up"*) — deliberately not gated on `autoJoin`, because the bot's own presence is the record of a possibly-manual join; a lingering state in an empty/disabled/keyless room DISCONNECTS visibly (a bot that sits and writes nothing is this very bug); no lingering state → people already in a channel are joined per the normal auto-join gate, fullest room first. The persistence is Discord's own state — the S87 scheduler move.
+2. **Graceful exit** — modules may now export an optional `shutdown()` hook (loader-collected onto `client.moduleShutdowns`; architecture.md updated). `gracefulExit(client)` in `core/updater.js` runs the hooks bounded (4 s), `client.destroy()`s the gateway so Discord clears the voice state, then exits; wired into BOTH restart paths (`performUpdate` → `applyRestart`'s exitFn, manual and auto) and into SIGTERM/SIGINT in `src/index.js` for `systemctl stop/restart`. Transcribe's hook drains held audio and leaves the channel. This also revives `drainBeforeLeaving` (dead export in the S135 health list) with a real caller.
+
+Also fixed: a `daily-limit` refusal mid-session was dropped with no log at all (the logged-reason list missed it).
+
+**Not verifiable from this container:** the actual resume on the Pi. The live checklist row is in `transcribe.md`; first real test is the next merged PR while someone sits in a VC.
 
 ## S135 — the system report, and the games re-opened on new evidence
 

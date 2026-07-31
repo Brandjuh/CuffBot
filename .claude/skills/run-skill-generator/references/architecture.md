@@ -29,7 +29,7 @@ CuffBot/
 │   │   └── prefix/           # !command parsing + the two dispatchers (group.js, command.js)
 │   └── modules/
 │       └── <module-name>/
-│           ├── index.js      # module manifest: { name, description, commands, events }
+│           ├── index.js      # module manifest: { name, description, commands, events, shutdown? }
 │           ├── commands/     # one file per command (text-only since S68)
 │           ├── events/       # one file per event listener (optional)
 │           └── lib/          # pure logic, no discord.js imports (optional)
@@ -57,6 +57,8 @@ export default {
   description: 'Law-enforcement actions: citations, detainment, arrests.',
   commands: [cite, arrest], // command objects (see below)
   events: [],               // { name, once?, execute } listeners
+  // shutdown?: async () => {}  // S136, optional: runs before every process
+  //                            // exit (self-update restart, SIGTERM)
 };
 ```
 
@@ -100,6 +102,8 @@ The loader (`src/core/loader.js`) imports every `src/modules/*/index.js`, regist
 **The larger reason, found by playing the result (S115): when the source is PANEL-DRIVEN, a layer slice ships the scaffolding as the product.** The intermediate command surface exists only to make the engine reachable — but it is genuinely usable, so every later slice adds features *to the commands that already exist*, and by the last slice nobody remembers that a panel was the point. The panel is never dropped; it is never scheduled. Heist and city were each sliced this way over four sessions, and they are the only two of thirteen games whose interaction model does not match its source: heist kept 1 of the source's 8 panels, city 0 of 48 UI references. The owner found city by playing it (*"dat werkt met panelen niet enkel met commands"*), and its source puts a `Bail Out!` button on screen **during** an attempt — so what went missing was a player decision, not decoration. **If the source is panel-driven, the panel belongs in the first slice a player can touch**; after the features it is a rewrite instead of a starting point.
 
 **Converting a command surface? Convert its tests to the real dispatch path, not just its code.** The old tests hand-built an interaction and called `execute(it)` — which meant the arg parsing and the permission gate were *simulated by the test*, so neither was ever actually covered. Rewriting them onto `dispatchCommand`/`dispatchGroup` with a fake **message** (`test/fixtures/fake-message.js`) makes the framework part of what each test proves; it is what caught that every refusal named "Manage Server" no matter the gate (S93). Two consequences worth expecting: entity args need real 15–21 digit snowflakes, because the resolver applies Discord's own id rule; and a conversion regularly turns up commands with no test at all (`!xp-ladder`, `!hunt-stats`, `!hunt-board` in S93) — write those before moving on, they are the reason the slice found anything.
+
+**The bot restarts itself constantly — RAM state with a VISIBLE footprint must reconcile at boot and at exit.** Since S127 every merged PR restarts the process within ~15 minutes, so "RAM-only, lost on restart" went from a rare event to routine. For games that is an accepted forfeit (the message just goes stale). It is NOT acceptable when the state has a footprint Discord keeps showing: S136's bug was a live voice session dying in a self-update while Discord went on showing the bot in the voice channel — a visible promise the new process knew nothing about, which the owner read as "transcribe is broken". Two halves, both required: a **ClientReady sweep** that rebuilds the session from Discord's own state (the bot's lingering voice state, who is sitting in which channel — the S87 scheduler move: the durable half is state that survives the process), and a module **`shutdown` hook** (loader-collected, run by `gracefulExit` on the update-exit and on SIGTERM) so a clean exit drains the state and removes the footprint. When adding any long-lived RAM session, ask: what does Discord SHOW while this exists, and who reconciles that picture after the next restart?
 
 **Timed multiplayer games use the io-injected engine** (proven S73/S79/S81): the whole match lives in `runGame(game, io)` where `io` = `{ say/askX/sleep/… }` — production wires `channel.send` plus a promise bridge the button pump resolves; tests script entire matches with seeded randomness and zero real waiting. Timers in these engines are `unref()`'d (never block shutdown) — consequence for tests: **a test that genuinely awaits an unref'd timer needs an explicit event-loop keep-alive** (`setInterval` in a try/finally), or node:test cancels the whole file with "Promise resolution is still pending" (bit S73 and S81).
 
