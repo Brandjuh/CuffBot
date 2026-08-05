@@ -2,8 +2,8 @@
 
 > Written by the latest session. These are **claims, not truth** — run the Verification block below before building on anything here. If reality disagrees with this file, reality wins: fix this file and record the correction in `SESSION_LOG.md`.
 
-**Last updated:** Session 137 · 2026-07-31
-**Phase:** ⚠️ **PLATFORM PIVOT (S137)** — the owner runs **Red-DiscordBot exclusively** now; the Node bot is no longer in use. The Node codebase is complete and green (1377/1377) and stands as an archive. See ROADMAP → Platform pivot, and the resume point.
+**Last updated:** Session 138 · 2026-08-05
+**Phase:** 🏁 **ARCHIVED (S138)** — the owner runs **Red-DiscordBot exclusively**; active development moved to **`Brandjuh/CuffBotRed`** (Python cogs, session numbering continues there — S138 was the Enigmic takeover). This repo is the archive of the Node era: 37 modules, 1377/1377 tests, plus the process skill under `.claude/skills/run-skill-generator/` that CuffBotRed's CLAUDE.md cites as precedent. Do not build Node features here.
 
 ## Verification block — run this before trusting the rest
 
@@ -89,6 +89,8 @@
 - **Tests:** 1095 via `node:test` (was recorded as 358 until S93 caught the drift) — config, env loader, loader integrity, core lib, diagnostics, prefix parse/adapter (incl. role resolution, min/max bounds, channel types), help, enforcement lib + GIF, academy ladder + commands (incl. XP coupling), dispatch, patrol screen/event/commands, leveling (pure math, seeding + self-heal, pinned-ladder gates, race guard, service, commands, both events), detective (limiter edges incl. token windows, prompt limits, both providers via fake fetch, pipeline branches, mention gates, desk-pile queue — **no network, ambient AI keys deleted at suite start**), birthdays, trivia, memorial RSS, starboard, chat-starter, logbook (models, gate matrix, event fakes), welcome, packaging (module data files git-tracked), and command smokes. **Command smokes are moving off fake interactions onto the real dispatch path** (`dispatchCommand`/`dispatchGroup` + `test/fixtures/fake-message.js`) as M17.3 converts each module — **every module is converted (S96) — there is no other kind of command test left.**
 
 ## Resume point
+
+**THE RELAY CONTINUES IN `Brandjuh/CuffBotRed`.** The S137 questions are answered: new work = Python cogs in CuffBotRed (S138 took over the Enigmic cog there; its own STATE.md/SESSION_LOG.md/CLAUDE.md carry the method). A session starting HERE should only be doing archive maintenance the owner explicitly asked for.
 
 **THE PIVOT GOVERNS EVERYTHING.** Owner (2026-07-31, after S136): *"De node bot wordt niet meer gebruikt, we gebruiken exclusief Red bot nu."* Do NOT build Node-bot features. M27.1 is superseded (Red runs the real cogs); M27.2–M27.5 suspended pending owner direction. Two questions are with the owner: (1) does CuffBot keep running next to Red for the features with no cog equivalent (live voice transcription, logbook, selfroles poster, YouTube announcer, memorial feeds, birthdays, leveling), or is it fully retired? (2) is new work Python cogs (natural home: the owner's own cog repo, e.g. `Brandjuh/FireAndRescueAcademyCogs`, installable with `[p]repo add`)? The Red screening is delivered in `docs/redbot/`. A session arriving here without owner answers should NOT invent Node work — verify whether the questions were answered, and otherwise say so.
 

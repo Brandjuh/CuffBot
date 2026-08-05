@@ -2760,3 +2760,7 @@ Tests **1377/1377** (from 1363: +14).
 **Retrospective (skill 0.5.57):** *the platform is a fact to re-verify, not a constant — and an owner sentence about the WORLD outranks every sentence about code.* For 136 sessions "the bot" had exactly one referent, so the reports of the last day were auto-attached to it; the two-word signal ("Red bot") was present a full session before the pivot registered, and S136 shipped a correct fix to the wrong bot because of it. The general rule added to the skill: when an owner message names a platform, a deployment, or a tool as *what we use now*, stop and update the world-model before touching the queue — every queued item silently inherits the old world.
 
 **Handoff:** blocked on the owner's two answers (CuffBot's fate; cogs or not). A session arriving here without them: do not invent Node work, do not re-fix Red reports in the Node codebase — ask, or work only on what the pivot note marks as still valid (documentation).
+
+## Session 138 (cross-repo note) — 2026-08-05
+
+S138 happened in **`Brandjuh/CuffBotRed`** — the owner's answer to S137's direction questions arrived as *"Neem de Enigmic cog over"* plus the new repo. The takeover, its verification (330 tests green under real Red 3.5.24), one deprecation fix, and the relay scaffolding are logged in `CuffBotRed/SESSION_LOG.md`. This repo's phase is now ARCHIVED; its session log continues only for archive maintenance. Numbering continues in CuffBotRed.
