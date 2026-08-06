@@ -1,0 +1,9 @@
+{
+  "author": ["Brandjuh"],
+  "name": "CuffIdWatch",
+  "short": "Ping and/or DM members when their raw user ID is used.",
+  "description": "A real @mention already notifies you; a pasted raw ID, ban list or another bot's modlog embed does not. Members opt in to an in-channel ping and/or a DM whenever their user ID appears.",
+  "end_user_data_statement": "This cog stores per-user notification preferences (ping on/off, DM on/off). No message content is stored.",
+  "min_bot_version": "3.5.0",
+  "tags": ["utility", "notifications", "cuffbot"]
+}
