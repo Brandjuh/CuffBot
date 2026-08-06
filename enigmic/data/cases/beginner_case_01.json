@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "id": "lighthouse_vigil",
+  "title": "The Lighthouse Vigil",
+  "difficulty": "beginner",
+  "story": "The great lamp of Gullpoint Lighthouse went dark at midnight. When it was lit again, keeper Silas Crane lay still at the foot of the stairs, and the three people who had sheltered from the storm with him all claimed to have seen nothing. Reconstruct where everyone stood when the light failed.",
+  "size": 4,
+  "rooms": [
+    {
+      "id": "lamp_room",
+      "name": "Lamp Room",
+      "cells": [
+        "A1",
+        "A2",
+        "B1",
+        "B2"
+      ],
+      "render_label_cell": "A1"
+    },
+    {
+      "id": "watch_room",
+      "name": "Watch Room",
+      "cells": [
+        "C1",
+        "C2",
+        "D1",
+        "D2"
+      ],
+      "render_label_cell": "C1"
+    },
+    {
+      "id": "store_room",
+      "name": "Store Room",
+      "cells": [
+        "A3",
+        "A4",
+        "B3",
+        "B4"
+      ],
+      "render_label_cell": "A3"
+    },
+    {
+      "id": "quarters",
+      "name": "Keeper's Quarters",
+      "cells": [
+        "C3",
+        "C4",
+        "D3",
+        "D4"
+      ],
+      "render_label_cell": "C3"
+    }
+  ],
+  "blocked_cells": [],
+  "cell_features": {
+    "B2": [
+      "rope_mat"
+    ],
+    "C4": [
+      "salt_stain"
+    ]
+  },
+  "objects": [
+    {
+      "id": "supply_crate",
+      "name": "supply crate",
+      "cell": "B3",
+      "blocks_movement": true,
+      "symbol": "CR"
+    },
+    {
+      "id": "brass_telescope",
+      "name": "brass telescope",
+      "cell": "D1",
+      "blocks_movement": false,
+      "symbol": "TL"
+    }
+  ],
+  "walls": [
+    [
+      "C1",
+      "D1"
+    ],
+    [
+      "B2",
+      "C2"
+    ],
+    [
+      "A3",
+      "B3"
+    ],
+    [
+      "C3",
+      "C4"
+    ]
+  ],
+  "characters": [
+    {
+      "id": "victim_silas",
+      "name": "Silas Crane",
+      "short_name": "Silas",
+      "role": "victim",
+      "symbol": "V",
+      "description": "The veteran keeper of Gullpoint Lighthouse."
+    },
+    {
+      "id": "suspect_nora",
+      "name": "Nora Quinn",
+      "short_name": "Nora",
+      "role": "suspect",
+      "symbol": "N",
+      "description": "The ambitious assistant keeper."
+    },
+    {
+      "id": "suspect_tobias",
+      "name": "Tobias Marsh",
+      "short_name": "Tobias",
+      "role": "suspect",
+      "symbol": "T",
+      "description": "A fisherman who rowed in ahead of the storm."
+    },
+    {
+      "id": "suspect_greta",
+      "name": "Greta Holm",
+      "short_name": "Greta",
+      "role": "suspect",
+      "symbol": "G",
+      "description": "The cook, who kept the storm lanterns filled."
+    }
+  ],
+  "victim_id": "victim_silas",
+  "clues": [
+    {
+      "owner": "victim_silas",
+      "type": "north_of_character",
+      "character_id": "suspect_greta",
+      "text": "Silas was found somewhere north of Greta."
+    },
+    {
+      "owner": "victim_silas",
+      "type": "east_of_character",
+      "character_id": "suspect_greta",
+      "text": "Silas was found somewhere east of Greta."
+    },
+    {
+      "owner": "suspect_nora",
+      "type": "west_of_character",
+      "character_id": "suspect_greta",
+      "text": "Nora was somewhere west of Greta."
+    },
+    {
+      "owner": "suspect_tobias",
+      "type": "different_room_from_character",
+      "character_id": "victim_silas",
+      "text": "Tobias was not in the same room as Silas."
+    },
+    {
+      "owner": "suspect_tobias",
+      "type": "not_beside_object",
+      "object_id": "supply_crate",
+      "text": "Tobias was not beside the supply crate."
+    },
+    {
+      "owner": "suspect_greta",
+      "type": "north_of_character",
+      "character_id": "suspect_nora",
+      "text": "Greta was somewhere north of Nora."
+    },
+    {
+      "owner": "suspect_greta",
+      "type": "east_of_object",
+      "object_id": "supply_crate",
+      "text": "Greta was somewhere east of the supply crate."
+    }
+  ],
+  "solution": {
+    "suspect_greta": "C2",
+    "suspect_nora": "B4",
+    "suspect_tobias": "A3",
+    "victim_silas": "D1"
+  },
+  "killer_id": "suspect_greta",
+  "author": "Enigmic Cog",
+  "version": 1
+}

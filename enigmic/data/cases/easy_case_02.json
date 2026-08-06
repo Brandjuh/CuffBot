@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "id": "bijou_backstage",
+  "title": "Backstage at the Bijou",
+  "difficulty": "easy",
+  "story": "On the closing night of 'The Paper Moon', stage manager Ruth Alden never called the final curtain. She was found backstage after the applause faded. Four members of the company were behind the curtain when it happened - place them all to find who shared her final scene.",
+  "size": 5,
+  "rooms": [
+    {
+      "id": "stage",
+      "name": "Stage",
+      "cells": [
+        "A1",
+        "A2",
+        "B1",
+        "B2",
+        "C1",
+        "C2"
+      ],
+      "render_label_cell": "A1"
+    },
+    {
+      "id": "dressing_room",
+      "name": "Dressing Room",
+      "cells": [
+        "D1",
+        "D2",
+        "E1",
+        "E2"
+      ],
+      "render_label_cell": "D1"
+    },
+    {
+      "id": "prop_room",
+      "name": "Prop Room",
+      "cells": [
+        "A3",
+        "A4",
+        "B3",
+        "B4"
+      ],
+      "render_label_cell": "A3"
+    },
+    {
+      "id": "green_room",
+      "name": "Green Room",
+      "cells": [
+        "C3",
+        "C4",
+        "D3",
+        "D4",
+        "E3",
+        "E4"
+      ],
+      "render_label_cell": "C3"
+    },
+    {
+      "id": "workshop",
+      "name": "Workshop",
+      "cells": [
+        "A5",
+        "B5",
+        "C5",
+        "D5",
+        "E5"
+      ],
+      "render_label_cell": "A5"
+    }
+  ],
+  "blocked_cells": [
+    "A3"
+  ],
+  "cell_features": {
+    "B1": [
+      "chalk_marks"
+    ],
+    "D4": [
+      "worn_carpet"
+    ]
+  },
+  "objects": [
+    {
+      "id": "props_chest",
+      "name": "props chest",
+      "cell": "B3",
+      "blocks_movement": true,
+      "symbol": "PC"
+    },
+    {
+      "id": "spotlight",
+      "name": "spotlight rig",
+      "cell": "E1",
+      "blocks_movement": false,
+      "symbol": "SP"
+    },
+    {
+      "id": "sewing_table",
+      "name": "sewing table",
+      "cell": "E4",
+      "blocks_movement": true,
+      "symbol": "SW"
+    }
+  ],
+  "walls": [
+    [
+      "D1",
+      "E1"
+    ],
+    [
+      "C2",
+      "D2"
+    ],
+    [
+      "A3",
+      "B3"
+    ],
+    [
+      "B4",
+      "B5"
+    ]
+  ],
+  "characters": [
+    {
+      "id": "victim_ruth",
+      "name": "Ruth Alden",
+      "short_name": "Ruth",
+      "role": "victim",
+      "symbol": "V",
+      "description": "The stage manager who ran the Bijou like clockwork."
+    },
+    {
+      "id": "suspect_jasper",
+      "name": "Jasper Cole",
+      "short_name": "Jasper",
+      "role": "suspect",
+      "symbol": "J",
+      "description": "The lead actor, allergic to bad reviews."
+    },
+    {
+      "id": "suspect_dora",
+      "name": "Dora Winters",
+      "short_name": "Dora",
+      "role": "suspect",
+      "symbol": "D",
+      "description": "The costumer, always within reach of her pins."
+    },
+    {
+      "id": "suspect_emil",
+      "name": "Emil Barta",
+      "short_name": "Emil",
+      "role": "suspect",
+      "symbol": "E",
+      "description": "The stagehand who knows every trapdoor."
+    },
+    {
+      "id": "suspect_faye",
+      "name": "Faye Lennox",
+      "short_name": "Faye",
+      "role": "suspect",
+      "symbol": "F",
+      "description": "The understudy who never got her opening night."
+    }
+  ],
+  "victim_id": "victim_ruth",
+  "clues": [
+    {
+      "owner": "victim_ruth",
+      "type": "east_of_character",
+      "character_id": "suspect_dora",
+      "text": "Ruth was found somewhere east of Dora."
+    },
+    {
+      "owner": "victim_ruth",
+      "type": "same_room_as_character",
+      "character_id": "suspect_emil",
+      "text": "Ruth was found in the same room as Emil."
+    },
+    {
+      "owner": "victim_ruth",
+      "type": "not_beside_object",
+      "object_id": "spotlight",
+      "text": "Ruth was found not beside the spotlight rig."
+    },
+    {
+      "owner": "suspect_jasper",
+      "type": "west_of_character",
+      "character_id": "victim_ruth",
+      "text": "Jasper was somewhere west of Ruth."
+    },
+    {
+      "owner": "suspect_dora",
+      "type": "north_of_character",
+      "character_id": "suspect_jasper",
+      "text": "Dora was somewhere north of Jasper."
+    },
+    {
+      "owner": "suspect_emil",
+      "type": "south_of_character",
+      "character_id": "victim_ruth",
+      "text": "Emil was somewhere south of Ruth."
+    },
+    {
+      "owner": "suspect_emil",
+      "type": "east_of_character",
+      "character_id": "victim_ruth",
+      "text": "Emil was somewhere east of Ruth."
+    },
+    {
+      "owner": "suspect_emil",
+      "type": "south_of_object",
+      "object_id": "spotlight",
+      "text": "Emil was somewhere south of the spotlight rig."
+    },
+    {
+      "owner": "suspect_faye",
+      "type": "in_column",
+      "column": "A",
+      "text": "Faye was in column A."
+    },
+    {
+      "owner": "suspect_faye",
+      "type": "north_of_character",
+      "character_id": "suspect_jasper",
+      "text": "Faye was somewhere north of Jasper."
+    }
+  ],
+  "solution": {
+    "suspect_dora": "C3",
+    "suspect_emil": "E2",
+    "suspect_faye": "A4",
+    "suspect_jasper": "B5",
+    "victim_ruth": "D1"
+  },
+  "killer_id": "suspect_emil",
+  "author": "Enigmic Cog",
+  "version": 1
+}

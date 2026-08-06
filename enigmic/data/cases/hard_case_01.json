@@ -1,0 +1,389 @@
+{
+  "schema_version": 1,
+  "id": "alpine_lodge",
+  "title": "The Alpine Lodge Mystery",
+  "difficulty": "hard",
+  "story": "An avalanche closed the pass, trapping six guests with their host, Konrad Abt, in the Edelweiss Lodge. On the third night the generator failed, and when the lamps came back Konrad did not. The snow kept everyone in - which means the answer is still inside. Reconstruct the lodge, cell by cell.",
+  "size": 7,
+  "rooms": [
+    {
+      "id": "great_hall",
+      "name": "Great Hall",
+      "cells": [
+        "A1",
+        "A2",
+        "A3",
+        "B1",
+        "B2",
+        "B3",
+        "C1",
+        "C2",
+        "C3",
+        "D1",
+        "D2",
+        "D3"
+      ],
+      "render_label_cell": "A1"
+    },
+    {
+      "id": "lounge",
+      "name": "Lounge",
+      "cells": [
+        "E1",
+        "E2",
+        "E3",
+        "F1",
+        "F2",
+        "F3",
+        "G1",
+        "G2",
+        "G3"
+      ],
+      "render_label_cell": "E1"
+    },
+    {
+      "id": "kitchen",
+      "name": "Kitchen",
+      "cells": [
+        "A4",
+        "A5",
+        "B4",
+        "B5",
+        "C4",
+        "C5"
+      ],
+      "render_label_cell": "A4"
+    },
+    {
+      "id": "guest_wing",
+      "name": "Guest Wing",
+      "cells": [
+        "D4",
+        "D5",
+        "E4",
+        "E5",
+        "F4",
+        "F5",
+        "G4",
+        "G5"
+      ],
+      "render_label_cell": "D4"
+    },
+    {
+      "id": "ski_room",
+      "name": "Ski Room",
+      "cells": [
+        "A6",
+        "A7",
+        "B6",
+        "B7"
+      ],
+      "render_label_cell": "A6"
+    },
+    {
+      "id": "cellar",
+      "name": "Cellar",
+      "cells": [
+        "C6",
+        "C7",
+        "D6",
+        "D7",
+        "E6",
+        "E7"
+      ],
+      "render_label_cell": "C6"
+    },
+    {
+      "id": "terrace",
+      "name": "Terrace",
+      "cells": [
+        "F6",
+        "F7",
+        "G6",
+        "G7"
+      ],
+      "render_label_cell": "F6"
+    }
+  ],
+  "blocked_cells": [
+    "A6",
+    "D4"
+  ],
+  "cell_features": {
+    "B2": [
+      "bearskin_rug"
+    ],
+    "G2": [
+      "frosted_glass"
+    ],
+    "F5": [
+      "stone_tiles"
+    ],
+    "C6": [
+      "wet_footprints"
+    ]
+  },
+  "objects": [
+    {
+      "id": "fireplace",
+      "name": "stone fireplace",
+      "cell": "C1",
+      "blocks_movement": true,
+      "symbol": "FP"
+    },
+    {
+      "id": "wine_rack",
+      "name": "wine rack",
+      "cell": "C7",
+      "blocks_movement": true,
+      "symbol": "WR"
+    },
+    {
+      "id": "ski_rack",
+      "name": "ski rack",
+      "cell": "A7",
+      "blocks_movement": false,
+      "symbol": "SK"
+    },
+    {
+      "id": "kettle",
+      "name": "copper kettle",
+      "cell": "B4",
+      "blocks_movement": false,
+      "symbol": "KT"
+    },
+    {
+      "id": "trophy",
+      "name": "antler trophy",
+      "cell": "F1",
+      "blocks_movement": false,
+      "symbol": "AT"
+    }
+  ],
+  "walls": [
+    [
+      "B1",
+      "C1"
+    ],
+    [
+      "E1",
+      "F1"
+    ],
+    [
+      "D2",
+      "E2"
+    ],
+    [
+      "D3",
+      "E3"
+    ],
+    [
+      "A4",
+      "B4"
+    ],
+    [
+      "C4",
+      "C5"
+    ],
+    [
+      "F4",
+      "F5"
+    ],
+    [
+      "B5",
+      "B6"
+    ],
+    [
+      "E5",
+      "E6"
+    ],
+    [
+      "B7",
+      "C7"
+    ]
+  ],
+  "characters": [
+    {
+      "id": "victim_konrad",
+      "name": "Konrad Abt",
+      "short_name": "Konrad",
+      "role": "victim",
+      "symbol": "V",
+      "description": "The lodge's host, who never forgot a guest - or a debt."
+    },
+    {
+      "id": "suspect_britta",
+      "name": "Britta Lang",
+      "short_name": "Britta",
+      "role": "suspect",
+      "symbol": "B",
+      "description": "A mountaineer who arrived without a booking."
+    },
+    {
+      "id": "suspect_emile",
+      "name": "Emile Fontaine",
+      "short_name": "Emile",
+      "role": "suspect",
+      "symbol": "E",
+      "description": "A chef who once ran the lodge kitchen - until Konrad let him go."
+    },
+    {
+      "id": "suspect_sofia",
+      "name": "Sofia Marek",
+      "short_name": "Sofia",
+      "role": "suspect",
+      "symbol": "S",
+      "description": "Konrad's business partner, holder of the other ledger."
+    },
+    {
+      "id": "suspect_nils",
+      "name": "Nils Oster",
+      "short_name": "Nils",
+      "role": "suspect",
+      "symbol": "N",
+      "description": "The taciturn ski guide who knows every path out."
+    },
+    {
+      "id": "suspect_rosa",
+      "name": "Rosa Peretti",
+      "short_name": "Rosa",
+      "role": "suspect",
+      "symbol": "R",
+      "description": "A travel writer working on an expose of alpine resorts."
+    },
+    {
+      "id": "suspect_yuri",
+      "name": "Yuri Malen",
+      "short_name": "Yuri",
+      "role": "suspect",
+      "symbol": "Y",
+      "description": "A quiet guest whose luggage is heavier than it looks."
+    }
+  ],
+  "victim_id": "victim_konrad",
+  "clues": [
+    {
+      "owner": "victim_konrad",
+      "type": "east_of_character",
+      "character_id": "suspect_britta",
+      "text": "Konrad was found somewhere east of Britta."
+    },
+    {
+      "owner": "suspect_britta",
+      "type": "north_of_character",
+      "character_id": "suspect_emile",
+      "text": "Britta was somewhere north of Emile."
+    },
+    {
+      "owner": "suspect_britta",
+      "type": "west_of_character",
+      "character_id": "suspect_sofia",
+      "text": "Britta was somewhere west of Sofia."
+    },
+    {
+      "owner": "suspect_britta",
+      "type": "not_beside_object",
+      "object_id": "fireplace",
+      "text": "Britta was not beside the stone fireplace."
+    },
+    {
+      "owner": "suspect_emile",
+      "type": "west_of_character",
+      "character_id": "suspect_britta",
+      "text": "Emile was somewhere west of Britta."
+    },
+    {
+      "owner": "suspect_emile",
+      "type": "north_of_character",
+      "character_id": "suspect_sofia",
+      "text": "Emile was somewhere north of Sofia."
+    },
+    {
+      "owner": "suspect_sofia",
+      "type": "any_of",
+      "constraints": [
+        {
+          "type": "in_room",
+          "room_id": "great_hall"
+        },
+        {
+          "type": "in_room",
+          "room_id": "guest_wing"
+        }
+      ],
+      "text": "Sofia was either in the Great Hall or the Guest Wing."
+    },
+    {
+      "owner": "suspect_sofia",
+      "type": "north_of_character",
+      "character_id": "suspect_nils",
+      "text": "Sofia was somewhere north of Nils."
+    },
+    {
+      "owner": "suspect_sofia",
+      "type": "south_of_object",
+      "object_id": "trophy",
+      "text": "Sofia was somewhere south of the antler trophy."
+    },
+    {
+      "owner": "suspect_nils",
+      "type": "north_of_character",
+      "character_id": "victim_konrad",
+      "text": "Nils was somewhere north of Konrad."
+    },
+    {
+      "owner": "suspect_nils",
+      "type": "west_of_character",
+      "character_id": "suspect_sofia",
+      "text": "Nils was somewhere west of Sofia."
+    },
+    {
+      "owner": "suspect_nils",
+      "type": "south_of_character",
+      "character_id": "suspect_yuri",
+      "text": "Nils was somewhere south of Yuri."
+    },
+    {
+      "owner": "suspect_rosa",
+      "type": "in_column",
+      "column": "F",
+      "text": "Rosa was in column F."
+    },
+    {
+      "owner": "suspect_rosa",
+      "type": "south_of_character",
+      "character_id": "victim_konrad",
+      "text": "Rosa was somewhere south of Konrad."
+    },
+    {
+      "owner": "suspect_rosa",
+      "type": "same_room_as_character",
+      "character_id": "victim_konrad",
+      "text": "Rosa was in the same room as Konrad."
+    },
+    {
+      "owner": "suspect_yuri",
+      "type": "east_of_character",
+      "character_id": "suspect_sofia",
+      "text": "Yuri was somewhere east of Sofia."
+    },
+    {
+      "owner": "suspect_yuri",
+      "type": "north_of_object",
+      "object_id": "ski_rack",
+      "text": "Yuri was somewhere north of the ski rack."
+    }
+  ],
+  "solution": {
+    "suspect_britta": "B1",
+    "suspect_emile": "A2",
+    "suspect_nils": "C5",
+    "suspect_rosa": "F7",
+    "suspect_sofia": "D3",
+    "suspect_yuri": "E4",
+    "victim_konrad": "G6"
+  },
+  "killer_id": "suspect_rosa",
+  "author": "Enigmic Cog",
+  "version": 1
+}

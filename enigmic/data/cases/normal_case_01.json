@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "id": "observatory_affair",
+  "title": "The Observatory Affair",
+  "difficulty": "normal",
+  "story": "Dr. Casper Thorne summoned five colleagues to the mountain observatory to announce a discovery that would, he said, 'rewrite the star charts'. The announcement never came. When the dome reopened at dawn, Thorne was gone from this world and his notebook was missing. Chart the positions of everyone under the dome.",
+  "size": 6,
+  "rooms": [
+    {
+      "id": "dome_hall",
+      "name": "Dome Hall",
+      "cells": [
+        "A1",
+        "A2",
+        "A3",
+        "B1",
+        "B2",
+        "B3",
+        "C1",
+        "C2",
+        "C3"
+      ],
+      "render_label_cell": "A1"
+    },
+    {
+      "id": "chart_room",
+      "name": "Chart Room",
+      "cells": [
+        "D1",
+        "D2",
+        "D3",
+        "E1",
+        "E2",
+        "E3",
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "render_label_cell": "D1"
+    },
+    {
+      "id": "workshop",
+      "name": "Workshop",
+      "cells": [
+        "A4",
+        "A5",
+        "A6",
+        "B4",
+        "B5",
+        "B6"
+      ],
+      "render_label_cell": "A4"
+    },
+    {
+      "id": "office",
+      "name": "Office",
+      "cells": [
+        "C4",
+        "C5",
+        "D4",
+        "D5"
+      ],
+      "render_label_cell": "C4"
+    },
+    {
+      "id": "gallery",
+      "name": "Gallery",
+      "cells": [
+        "C6",
+        "D6",
+        "E4",
+        "E5",
+        "E6",
+        "F4",
+        "F5",
+        "F6"
+      ],
+      "render_label_cell": "E4"
+    }
+  ],
+  "blocked_cells": [
+    "A5"
+  ],
+  "cell_features": {
+    "B2": [
+      "star_mosaic"
+    ],
+    "E4": [
+      "iron_grate"
+    ],
+    "D6": [
+      "marble_tiles"
+    ]
+  },
+  "objects": [
+    {
+      "id": "telescope",
+      "name": "great telescope",
+      "cell": "B1",
+      "blocks_movement": true,
+      "symbol": "TS"
+    },
+    {
+      "id": "star_globe",
+      "name": "star globe",
+      "cell": "E2",
+      "blocks_movement": false,
+      "symbol": "SG"
+    },
+    {
+      "id": "drafting_desk",
+      "name": "drafting desk",
+      "cell": "C5",
+      "blocks_movement": true,
+      "symbol": "DD"
+    },
+    {
+      "id": "orrery",
+      "name": "brass orrery",
+      "cell": "F6",
+      "blocks_movement": false,
+      "symbol": "OR"
+    }
+  ],
+  "walls": [
+    [
+      "A1",
+      "B1"
+    ],
+    [
+      "C2",
+      "D2"
+    ],
+    [
+      "D2",
+      "E2"
+    ],
+    [
+      "B4",
+      "B5"
+    ],
+    [
+      "C4",
+      "D4"
+    ],
+    [
+      "E5",
+      "F5"
+    ]
+  ],
+  "characters": [
+    {
+      "id": "victim_casper",
+      "name": "Dr. Casper Thorne",
+      "short_name": "Casper",
+      "role": "victim",
+      "symbol": "V",
+      "description": "The observatory's director, on the edge of a great discovery."
+    },
+    {
+      "id": "suspect_ines",
+      "name": "Ines Duval",
+      "short_name": "Ines",
+      "role": "suspect",
+      "symbol": "I",
+      "description": "Thorne's assistant, who kept his calculations - and his secrets."
+    },
+    {
+      "id": "suspect_ralf",
+      "name": "Ralf Emmerich",
+      "short_name": "Ralf",
+      "role": "suspect",
+      "symbol": "R",
+      "description": "A rival astronomer whose comet was named after someone else."
+    },
+    {
+      "id": "suspect_selma",
+      "name": "Selma Kraus",
+      "short_name": "Selma",
+      "role": "suspect",
+      "symbol": "S",
+      "description": "The instrument maker, owed money for the new lens."
+    },
+    {
+      "id": "suspect_pavel",
+      "name": "Pavel Nowak",
+      "short_name": "Pavel",
+      "role": "suspect",
+      "symbol": "P",
+      "description": "A journal editor hungry for the discovery."
+    },
+    {
+      "id": "suspect_willa",
+      "name": "Willa Hart",
+      "short_name": "Willa",
+      "role": "suspect",
+      "symbol": "W",
+      "description": "The night caretaker, who says the dome creaks lies."
+    }
+  ],
+  "victim_id": "victim_casper",
+  "clues": [
+    {
+      "owner": "victim_casper",
+      "type": "west_of_character",
+      "character_id": "suspect_ines",
+      "text": "Casper was found somewhere west of Ines."
+    },
+    {
+      "owner": "victim_casper",
+      "type": "south_of_character",
+      "character_id": "suspect_pavel",
+      "text": "Casper was found somewhere south of Pavel."
+    },
+    {
+      "owner": "suspect_ines",
+      "type": "north_of_character",
+      "character_id": "suspect_selma",
+      "text": "Ines was somewhere north of Selma."
+    },
+    {
+      "owner": "suspect_ralf",
+      "type": "in_row",
+      "row": 4,
+      "text": "Ralf was in row 4."
+    },
+    {
+      "owner": "suspect_ralf",
+      "type": "in_room",
+      "room_id": "workshop",
+      "text": "Ralf was in the Workshop."
+    },
+    {
+      "owner": "suspect_ralf",
+      "type": "west_of_character",
+      "character_id": "victim_casper",
+      "text": "Ralf was somewhere west of Casper."
+    },
+    {
+      "owner": "suspect_selma",
+      "type": "any_of",
+      "constraints": [
+        {
+          "type": "in_room",
+          "room_id": "chart_room"
+        },
+        {
+          "type": "in_room",
+          "room_id": "workshop"
+        }
+      ],
+      "text": "Selma was either in the Chart Room or the Workshop."
+    },
+    {
+      "owner": "suspect_selma",
+      "type": "north_of_character",
+      "character_id": "suspect_pavel",
+      "text": "Selma was somewhere north of Pavel."
+    },
+    {
+      "owner": "suspect_selma",
+      "type": "not_beside_object",
+      "object_id": "star_globe",
+      "text": "Selma was not beside the star globe."
+    },
+    {
+      "owner": "suspect_pavel",
+      "type": "east_of_character",
+      "character_id": "victim_casper",
+      "text": "Pavel was somewhere east of Casper."
+    },
+    {
+      "owner": "suspect_willa",
+      "type": "west_of_character",
+      "character_id": "suspect_pavel",
+      "text": "Willa was somewhere west of Pavel."
+    },
+    {
+      "owner": "suspect_willa",
+      "type": "north_of_object",
+      "object_id": "orrery",
+      "text": "Willa was somewhere north of the brass orrery."
+    },
+    {
+      "owner": "suspect_willa",
+      "type": "in_same_room_as_object",
+      "object_id": "orrery",
+      "text": "Willa was in the same room as the brass orrery."
+    }
+  ],
+  "solution": {
+    "suspect_ines": "C1",
+    "suspect_pavel": "F3",
+    "suspect_ralf": "A4",
+    "suspect_selma": "D2",
+    "suspect_willa": "E5",
+    "victim_casper": "B6"
+  },
+  "killer_id": "suspect_ralf",
+  "author": "Enigmic Cog",
+  "version": 1
+}

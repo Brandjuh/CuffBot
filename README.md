@@ -24,10 +24,12 @@ own cog. All strings are English, faithful to the Node originals.
 | `cuffchatstarter` | CuffChatStarter | `$chatstarter …` / `$starter …` | chat-starter |
 | `cuffselfroles` | CuffSelfRoles | `$selfroles …` / `$rolepanel …` | selfroles |
 | `cuffchannellist` | CuffChannelList | `$channellist …` / `$clist …` | channellist |
-| `cuffmemorial` | CuffMemorial | `$memorial …` | memorial |
+| `cuffmemorial` | CuffMemorial | `$memorial …` (5 feeds: odmp, firehero, usfa, iaff, cpof) | memorial |
 | `cuffrecords` | CuffRecords | `$rapsheet`, `$filerecord`, `$expunge`, `$archive` | records |
 | `cuffembed` | CuffEmbed | `!cuffembed …` | — (new) posts the STOCK cogs' plain-text messages as embeds |
 | `cuffminigames` | CuffMinigames | `$connect4` / `$c4`, `$tictactoe` / `$ttt`, `$minigamesset …` | — (fork of crab-cogs `minigames`, replaces it) |
+| `cuffidwatch` | CuffIdWatch | `$idwatch ping/dm/on/off`, `$idwatchset list/user` | — (new) ping/DM you when your raw user ID is used |
+| `cuffsay` | CuffSay | `$say <text>` (mod/admin) | — (new) bot repeats it anonymously, invoking message deleted |
 
 > **Prefix note (2026-07-29, done):** the prefixes were SWAPPED — the Node bot
 > took `$` and Red now runs on `!` (verified in `core/settings.json`). Read every
@@ -115,6 +117,52 @@ Then disable the Node counterparts so nothing runs double
 - `$c4` (no opponent) → play it out: the entry leaves your balance, the winning
   four turn into squares with a line naming the direction, and the pot lands
   where it should — `$crackpot` after losing one shows it went up
+- `$memorial test` in a private channel → one embed per feed, exactly as the
+  tracker would post it: the fallen hero's name (odmp.org hides it in the
+  profile slug — its `<title>` is the agency), their story, their photo. It
+  pings nobody and marks nothing as seen, so the real sweep still honours those
+  entries. `$memorial test odmp 3` for the last three officers; `$memorial
+  preview` fetches without posting anything at all.
+- Five feeds, all posting in <#451095508560379934>: `odmp` (Fallen Officers),
+  `firehero` (Fallen Firefighters), `usfa` (FEMA firefighter fatality notices),
+  `iaff` (union line-of-duty deaths) and `cpof` (correctional officers). The
+  ping role follows the **kind of service**, not the feed, so the three
+  firefighter feeds share one: police `627946543273738240`, firefighter
+  `627946690024046675`, correctional `1533202959624830976`. Move or re-aim any
+  single feed with `$memorial feedchannel <id> #chan` /
+  `$memorial feedrole <id> @role`.
+  Photos: odmp and cpof have them (cpof's are lifted off the article page, one
+  page at a time — their site 429s a burst, so a `backfill cpof 5` takes a
+  couple of minutes and the odd entry ends up without one). **usfa and iaff
+  publish no photograph anywhere** — not in the feed, not in USFA's API, not on
+  either page. For usfa that gap is filled with the fatality record behind the
+  notice (`/api/fatalityDatums/<id>`): the account of what happened, the
+  department, age and years of service. iaff gives a name and a local, and that
+  is all it has.
+- Long accounts are cut at 700 characters and every embed closes with a link
+  line in the source's own words — `Read their full memorial →`,
+  `Read the full tribute →`, `View their line-of-duty-death profile →`. The
+  title links there too, but a story that stops mid-sentence should say where
+  the rest of it is. Set per feed with `link_text`.
+- Two of those sources push back, and the cog is shaped around it:
+  `cpof.org`'s WAF answers **429 to any user agent that is not Mozilla-shaped**
+  regardless of rate, so the agent is `Mozilla/5.0 (compatible; CuffBot/1.0;
+  +url) memorial-feed-reader` — self-identifying, but in the shape they accept.
+  `iaff.org` is behind Cloudflare, which refuses aiohttp on its TLS
+  fingerprint (403 for every header combination) while `curl` on the same
+  machine and IP gets 200 — so that one feed is read with curl
+  (`"fetch_via": "curl"`, fixed argv, no shell).
+- `$memorial backfill` then fills the **real** channel with the last 5 per feed,
+  oldest first and **without pinging** — for a channel that was baselined empty
+  and has nobody on it yet. It deliberately posts entries that are already
+  marked *seen*: baselining marks them seen without ever posting them, and
+  those are exactly the ones a backfill is for. What it skips instead is
+  entries the bot has really placed before (tracked separately, in `posted`),
+  so a second run does not give anyone two memorials. If a feed had never been
+  baselined at all, the rest of its backlog is marked seen too, so the next
+  sweep cannot dump history *with* pings. `$memorial backfill odmp 3` for one
+  feed, max 10. Logic is covered by `tests/test_memorial.py`
+  (`~/cuffenv/bin/python tests/test_memorial.py`).
 - `!payday` and `!freecredits all` come back as embeds; `!cuffembed preview`
   renders all five sample messages without waiting out a cooldown, and
   `!cuffembed` shows which cogs are covered

@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "id": "orchard_estate",
+  "title": "The Orchard Estate",
+  "difficulty": "easy",
+  "story": "Edwin Hale, master of the Hale orchard estate, missed the evening cider tasting for the first time in thirty years. He was found in the house he loved, and the four people on the grounds each tell a different story. Map out the household to learn who was alone with him.",
+  "size": 5,
+  "rooms": [
+    {
+      "id": "veranda",
+      "name": "Veranda",
+      "cells": [
+        "A1",
+        "B1",
+        "C1",
+        "D1",
+        "E1"
+      ],
+      "render_label_cell": "A1"
+    },
+    {
+      "id": "parlor",
+      "name": "Parlor",
+      "cells": [
+        "A2",
+        "A3",
+        "B2",
+        "B3"
+      ],
+      "render_label_cell": "A2"
+    },
+    {
+      "id": "library",
+      "name": "Library",
+      "cells": [
+        "C2",
+        "C3",
+        "D2",
+        "D3",
+        "E2",
+        "E3"
+      ],
+      "render_label_cell": "C2"
+    },
+    {
+      "id": "kitchen",
+      "name": "Kitchen",
+      "cells": [
+        "A4",
+        "A5",
+        "B4",
+        "B5",
+        "C4",
+        "C5"
+      ],
+      "render_label_cell": "A4"
+    },
+    {
+      "id": "cellar",
+      "name": "Cider Cellar",
+      "cells": [
+        "D4",
+        "D5",
+        "E4",
+        "E5"
+      ],
+      "render_label_cell": "D4"
+    }
+  ],
+  "blocked_cells": [
+    "E1"
+  ],
+  "cell_features": {
+    "D3": [
+      "woven_rug"
+    ],
+    "B4": [
+      "creaky_floor"
+    ]
+  },
+  "objects": [
+    {
+      "id": "apple_press",
+      "name": "apple press",
+      "cell": "E5",
+      "blocks_movement": true,
+      "symbol": "AP"
+    },
+    {
+      "id": "clock",
+      "name": "grandfather clock",
+      "cell": "C2",
+      "blocks_movement": false,
+      "symbol": "GC"
+    }
+  ],
+  "walls": [
+    [
+      "C1",
+      "C2"
+    ],
+    [
+      "B3",
+      "C3"
+    ],
+    [
+      "C3",
+      "C4"
+    ],
+    [
+      "D4",
+      "D5"
+    ],
+    [
+      "D5",
+      "E5"
+    ]
+  ],
+  "characters": [
+    {
+      "id": "victim_edwin",
+      "name": "Edwin Hale",
+      "short_name": "Edwin",
+      "role": "victim",
+      "symbol": "V",
+      "description": "The estate's owner, famous for his winter cider."
+    },
+    {
+      "id": "suspect_marta",
+      "name": "Marta Voss",
+      "short_name": "Marta",
+      "role": "suspect",
+      "symbol": "M",
+      "description": "The housekeeper who knows every key on the ring."
+    },
+    {
+      "id": "suspect_cyril",
+      "name": "Cyril Dunn",
+      "short_name": "Cyril",
+      "role": "suspect",
+      "symbol": "C",
+      "description": "The orchard foreman, passed over in the will."
+    },
+    {
+      "id": "suspect_lena",
+      "name": "Lena Pryce",
+      "short_name": "Lena",
+      "role": "suspect",
+      "symbol": "L",
+      "description": "Edwin's niece, home early from the city."
+    },
+    {
+      "id": "suspect_otto",
+      "name": "Otto Ferris",
+      "short_name": "Otto",
+      "role": "suspect",
+      "symbol": "O",
+      "description": "The bookkeeper, whose ledgers never quite balance."
+    }
+  ],
+  "victim_id": "victim_edwin",
+  "clues": [
+    {
+      "owner": "victim_edwin",
+      "type": "north_of_character",
+      "character_id": "suspect_marta",
+      "text": "Edwin was found somewhere north of Marta."
+    },
+    {
+      "owner": "victim_edwin",
+      "type": "south_of_character",
+      "character_id": "suspect_cyril",
+      "text": "Edwin was found somewhere south of Cyril."
+    },
+    {
+      "owner": "victim_edwin",
+      "type": "east_of_character",
+      "character_id": "suspect_cyril",
+      "text": "Edwin was found somewhere east of Cyril."
+    },
+    {
+      "owner": "victim_edwin",
+      "type": "west_of_character",
+      "character_id": "suspect_lena",
+      "text": "Edwin was found somewhere west of Lena."
+    },
+    {
+      "owner": "suspect_marta",
+      "type": "in_column",
+      "column": "E",
+      "text": "Marta was in column E."
+    },
+    {
+      "owner": "suspect_marta",
+      "type": "not_in_room",
+      "room_id": "parlor",
+      "text": "Marta was not in the Parlor."
+    },
+    {
+      "owner": "suspect_marta",
+      "type": "east_of_object",
+      "object_id": "clock",
+      "text": "Marta was somewhere east of the grandfather clock."
+    },
+    {
+      "owner": "suspect_cyril",
+      "type": "east_of_character",
+      "character_id": "suspect_otto",
+      "text": "Cyril was somewhere east of Otto."
+    },
+    {
+      "owner": "suspect_cyril",
+      "type": "north_of_object",
+      "object_id": "apple_press",
+      "text": "Cyril was somewhere north of the apple press."
+    },
+    {
+      "owner": "suspect_lena",
+      "type": "south_of_character",
+      "character_id": "suspect_otto",
+      "text": "Lena was somewhere south of Otto."
+    },
+    {
+      "owner": "suspect_lena",
+      "type": "not_beside_object",
+      "object_id": "apple_press",
+      "text": "Lena was not beside the apple press."
+    },
+    {
+      "owner": "suspect_otto",
+      "type": "west_of_character",
+      "character_id": "victim_edwin",
+      "text": "Otto was somewhere west of Edwin."
+    }
+  ],
+  "solution": {
+    "suspect_cyril": "B1",
+    "suspect_lena": "D5",
+    "suspect_marta": "E3",
+    "suspect_otto": "A4",
+    "victim_edwin": "C2"
+  },
+  "killer_id": "suspect_marta",
+  "author": "Enigmic Cog",
+  "version": 1
+}

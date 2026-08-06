@@ -1,0 +1,296 @@
+{
+  "schema_version": 1,
+  "id": "silent_gavel",
+  "title": "The Silent Gavel",
+  "difficulty": "normal",
+  "story": "The final lot of the evening - a sealed cabinet from a shuttered manor - never went under the hammer. Auctioneer Desmond Cray was found in his own saleroom moments before the bidding, gavel still in hand. Five people remained in the building after the doors closed. Place them all to see who stood with him at the end.",
+  "size": 6,
+  "rooms": [
+    {
+      "id": "saleroom",
+      "name": "Saleroom",
+      "cells": [
+        "A1",
+        "A2",
+        "A3",
+        "B1",
+        "B2",
+        "B3",
+        "C1",
+        "C2",
+        "C3"
+      ],
+      "render_label_cell": "A1"
+    },
+    {
+      "id": "exhibit_gallery",
+      "name": "Exhibit Gallery",
+      "cells": [
+        "D1",
+        "D2",
+        "D3",
+        "E1",
+        "E2",
+        "E3",
+        "F1",
+        "F2",
+        "F3"
+      ],
+      "render_label_cell": "D1"
+    },
+    {
+      "id": "lobby",
+      "name": "Lobby",
+      "cells": [
+        "A4",
+        "B4",
+        "C4",
+        "D4",
+        "E4",
+        "F4"
+      ],
+      "render_label_cell": "A4"
+    },
+    {
+      "id": "vault",
+      "name": "Vault",
+      "cells": [
+        "A5",
+        "A6",
+        "B5",
+        "B6",
+        "C5",
+        "C6"
+      ],
+      "render_label_cell": "A5"
+    },
+    {
+      "id": "office",
+      "name": "Office",
+      "cells": [
+        "D5",
+        "D6",
+        "E5",
+        "E6",
+        "F5",
+        "F6"
+      ],
+      "render_label_cell": "D5"
+    }
+  ],
+  "blocked_cells": [
+    "F1"
+  ],
+  "cell_features": {
+    "B3": [
+      "parquet_floor"
+    ],
+    "E5": [
+      "red_runner"
+    ],
+    "C6": [
+      "steel_plate"
+    ]
+  },
+  "objects": [
+    {
+      "id": "podium",
+      "name": "auction podium",
+      "cell": "B2",
+      "blocks_movement": true,
+      "symbol": "PD"
+    },
+    {
+      "id": "marble_bust",
+      "name": "marble bust",
+      "cell": "D1",
+      "blocks_movement": false,
+      "symbol": "MB"
+    },
+    {
+      "id": "crated_painting",
+      "name": "crated painting",
+      "cell": "B5",
+      "blocks_movement": true,
+      "symbol": "CP"
+    },
+    {
+      "id": "ledger_desk",
+      "name": "ledger desk",
+      "cell": "E6",
+      "blocks_movement": true,
+      "symbol": "LD"
+    }
+  ],
+  "walls": [
+    [
+      "C1",
+      "D1"
+    ],
+    [
+      "C3",
+      "C4"
+    ],
+    [
+      "A4",
+      "A5"
+    ],
+    [
+      "D4",
+      "D5"
+    ],
+    [
+      "A5",
+      "B5"
+    ],
+    [
+      "C5",
+      "D5"
+    ]
+  ],
+  "characters": [
+    {
+      "id": "victim_desmond",
+      "name": "Desmond Cray",
+      "short_name": "Desmond",
+      "role": "victim",
+      "symbol": "V",
+      "description": "The auctioneer, famous for never missing a reserve price."
+    },
+    {
+      "id": "suspect_freya",
+      "name": "Freya Olsen",
+      "short_name": "Freya",
+      "role": "suspect",
+      "symbol": "F",
+      "description": "The appraiser who valued the sealed cabinet."
+    },
+    {
+      "id": "suspect_gideon",
+      "name": "Gideon Park",
+      "short_name": "Gideon",
+      "role": "suspect",
+      "symbol": "G",
+      "description": "A collector who bid on the cabinet - and lost - twice before."
+    },
+    {
+      "id": "suspect_helena",
+      "name": "Helena Cruz",
+      "short_name": "Helena",
+      "role": "suspect",
+      "symbol": "H",
+      "description": "The auction house's bookkeeper."
+    },
+    {
+      "id": "suspect_joel",
+      "name": "Joel Amsel",
+      "short_name": "Joel",
+      "role": "suspect",
+      "symbol": "J",
+      "description": "The porter who crated the final lot."
+    },
+    {
+      "id": "suspect_kira",
+      "name": "Kira Stein",
+      "short_name": "Kira",
+      "role": "suspect",
+      "symbol": "K",
+      "description": "A dealer whose gallery went quiet last winter."
+    }
+  ],
+  "victim_id": "victim_desmond",
+  "clues": [
+    {
+      "owner": "victim_desmond",
+      "type": "on_feature",
+      "feature": "parquet_floor",
+      "text": "Desmond was found standing on the parquet floor."
+    },
+    {
+      "owner": "victim_desmond",
+      "type": "north_of_character",
+      "character_id": "suspect_joel",
+      "text": "Desmond was found somewhere north of Joel."
+    },
+    {
+      "owner": "suspect_freya",
+      "type": "south_of_character",
+      "character_id": "suspect_helena",
+      "text": "Freya was somewhere south of Helena."
+    },
+    {
+      "owner": "suspect_freya",
+      "type": "south_of_object",
+      "object_id": "marble_bust",
+      "text": "Freya was somewhere south of the marble bust."
+    },
+    {
+      "owner": "suspect_freya",
+      "type": "west_of_object",
+      "object_id": "crated_painting",
+      "text": "Freya was somewhere west of the crated painting."
+    },
+    {
+      "owner": "suspect_gideon",
+      "type": "any_of",
+      "constraints": [
+        {
+          "type": "in_room",
+          "room_id": "exhibit_gallery"
+        },
+        {
+          "type": "in_room",
+          "room_id": "office"
+        }
+      ],
+      "text": "Gideon was either in the Exhibit Gallery or the Office."
+    },
+    {
+      "owner": "suspect_helena",
+      "type": "east_of_character",
+      "character_id": "suspect_joel",
+      "text": "Helena was somewhere east of Joel."
+    },
+    {
+      "owner": "suspect_joel",
+      "type": "east_of_character",
+      "character_id": "suspect_gideon",
+      "text": "Joel was somewhere east of Gideon."
+    },
+    {
+      "owner": "suspect_joel",
+      "type": "north_of_character",
+      "character_id": "suspect_helena",
+      "text": "Joel was somewhere north of Helena."
+    },
+    {
+      "owner": "suspect_joel",
+      "type": "different_room_from_character",
+      "character_id": "suspect_kira",
+      "text": "Joel was not in the same room as Kira."
+    },
+    {
+      "owner": "suspect_kira",
+      "type": "north_of_character",
+      "character_id": "suspect_gideon",
+      "text": "Kira was somewhere north of Gideon."
+    },
+    {
+      "owner": "suspect_kira",
+      "type": "not_beside_object",
+      "object_id": "marble_bust",
+      "text": "Kira was not beside the marble bust."
+    }
+  ],
+  "solution": {
+    "suspect_freya": "A6",
+    "suspect_gideon": "D2",
+    "suspect_helena": "F5",
+    "suspect_joel": "E4",
+    "suspect_kira": "C1",
+    "victim_desmond": "B3"
+  },
+  "killer_id": "suspect_kira",
+  "author": "Enigmic Cog",
+  "version": 1
+}

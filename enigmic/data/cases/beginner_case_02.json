@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "id": "tearoom_trouble",
+  "title": "Trouble at the Tearoom",
+  "difficulty": "beginner",
+  "story": "Opal Finch, owner of the Willow Leaf Tearoom, was found slumped over her account book just after closing time. The doors were locked from the inside, and only three people were still in the building. Work out where everyone was when the teacups stopped rattling.",
+  "size": 4,
+  "rooms": [
+    {
+      "id": "parlor",
+      "name": "Tea Parlor",
+      "cells": [
+        "A1",
+        "A2",
+        "B1",
+        "B2"
+      ],
+      "render_label_cell": "A1"
+    },
+    {
+      "id": "veranda",
+      "name": "Veranda",
+      "cells": [
+        "C1",
+        "C2",
+        "D1",
+        "D2"
+      ],
+      "render_label_cell": "C1"
+    },
+    {
+      "id": "kitchen",
+      "name": "Kitchen",
+      "cells": [
+        "A3",
+        "A4",
+        "B3",
+        "B4"
+      ],
+      "render_label_cell": "A3"
+    },
+    {
+      "id": "pantry",
+      "name": "Pantry",
+      "cells": [
+        "C3",
+        "C4",
+        "D3",
+        "D4"
+      ],
+      "render_label_cell": "C3"
+    }
+  ],
+  "blocked_cells": [],
+  "cell_features": {
+    "C2": [
+      "checkered_rug"
+    ],
+    "A4": [
+      "tiled_floor"
+    ]
+  },
+  "objects": [
+    {
+      "id": "samovar",
+      "name": "silver samovar",
+      "cell": "A1",
+      "blocks_movement": true,
+      "symbol": "SV"
+    },
+    {
+      "id": "cake_stand",
+      "name": "cake stand",
+      "cell": "C4",
+      "blocks_movement": false,
+      "symbol": "CK"
+    }
+  ],
+  "walls": [
+    [
+      "A1",
+      "B1"
+    ],
+    [
+      "B1",
+      "C1"
+    ],
+    [
+      "C3",
+      "C4"
+    ],
+    [
+      "B4",
+      "C4"
+    ]
+  ],
+  "characters": [
+    {
+      "id": "victim_opal",
+      "name": "Opal Finch",
+      "short_name": "Opal",
+      "role": "victim",
+      "symbol": "V",
+      "description": "The meticulous owner of the Willow Leaf Tearoom."
+    },
+    {
+      "id": "suspect_hugo",
+      "name": "Hugo Brandt",
+      "short_name": "Hugo",
+      "role": "suspect",
+      "symbol": "H",
+      "description": "The baker, owed three months of wages."
+    },
+    {
+      "id": "suspect_ida",
+      "name": "Ida Sorel",
+      "short_name": "Ida",
+      "role": "suspect",
+      "symbol": "I",
+      "description": "A regular guest who never sits with her back to a door."
+    },
+    {
+      "id": "suspect_felix",
+      "name": "Felix Nash",
+      "short_name": "Felix",
+      "role": "suspect",
+      "symbol": "F",
+      "description": "The waiter, hired only last week."
+    }
+  ],
+  "victim_id": "victim_opal",
+  "clues": [
+    {
+      "owner": "victim_opal",
+      "type": "north_of_character",
+      "character_id": "suspect_hugo",
+      "text": "Opal was found somewhere north of Hugo."
+    },
+    {
+      "owner": "victim_opal",
+      "type": "different_room_from_character",
+      "character_id": "suspect_hugo",
+      "text": "Opal was found not in the same room as Hugo."
+    },
+    {
+      "owner": "victim_opal",
+      "type": "not_beside_object",
+      "object_id": "samovar",
+      "text": "Opal was found not beside the silver samovar."
+    },
+    {
+      "owner": "suspect_hugo",
+      "type": "east_of_character",
+      "character_id": "victim_opal",
+      "text": "Hugo was somewhere east of Opal."
+    },
+    {
+      "owner": "suspect_hugo",
+      "type": "south_of_character",
+      "character_id": "suspect_felix",
+      "text": "Hugo was somewhere south of Felix."
+    },
+    {
+      "owner": "suspect_ida",
+      "type": "west_of_character",
+      "character_id": "suspect_felix",
+      "text": "Ida was somewhere west of Felix."
+    },
+    {
+      "owner": "suspect_felix",
+      "type": "east_of_object",
+      "object_id": "cake_stand",
+      "text": "Felix was somewhere east of the cake stand."
+    }
+  ],
+  "solution": {
+    "suspect_felix": "D3",
+    "suspect_hugo": "C4",
+    "suspect_ida": "A2",
+    "victim_opal": "B1"
+  },
+  "killer_id": "suspect_ida",
+  "author": "Enigmic Cog",
+  "version": 1
+}
