@@ -1,0 +1,9 @@
+{
+  "author": ["Brandjuh"],
+  "name": "CuffSay",
+  "short": "Let moderators speak through the bot.",
+  "description": "!say repeats the text in the same channel without naming who typed it, forwards attachments, and deletes the invoking message. Mod/admin only.",
+  "end_user_data_statement": "This cog does not store any user data.",
+  "min_bot_version": "3.5.0",
+  "tags": ["moderation", "utility", "cuffbot"]
+}
