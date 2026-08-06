@@ -6,7 +6,7 @@
   "end_user_data_statement": "This cog does not persistently store message content or audio. Audio attachments — and, while a live voice session is active, short in-memory captures of speech from the voice channel — are sent to the Groq API (a third party) for transcription and the resulting text is posted back to the channel; neither is stored by the cog. Per guild it stores: configuration settings, anonymous API-usage timestamps for rate limiting, and a list of user IDs whose audio should never be transcribed. Users can be removed from that list via Red's data deletion requests.",
   "install_msg": "Thanks for installing CuffTranscribe. Set a Groq API key with `[p]set api groq api_key,<key>`, then run `[p]transcribe` for the status of the transcription desk. Live voice: `[p]transcribe join` records your current voice channel into the paired text channel; auto-join is on by default. Note: live listening and the Audio (music) cog cannot use voice at the same time.",
   "min_bot_version": "3.5.0",
-  "requirements": ["pynacl", "discord-ext-voice-recv"],
+  "requirements": ["pynacl", "discord-ext-voice-recv", "davey"],
   "tags": ["transcription", "speech-to-text", "whisper", "groq", "voice-messages", "audio", "live-voice"],
   "type": "COG"
 }

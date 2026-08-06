@@ -38,6 +38,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import discord
 
+from .limits import RateLimited, describe_usage
+
 log = logging.getLogger("red.cuff-cogs.cufftranscribe.livevoice")
 
 # ── Optional dependencies ────────────────────────────────────────────────────
@@ -48,8 +50,20 @@ log = logging.getLogger("red.cuff-cogs.cufftranscribe.livevoice")
 
 try:  # pragma: no cover - environment dependent
     from discord.ext import voice_recv
+    from discord.ext.voice_recv import opus as voice_recv_opus
+    from discord.ext.voice_recv import rtp as voice_recv_rtp
 except Exception:  # ImportError, or PyNaCl/opus loading trouble inside it
     voice_recv = None  # type: ignore[assignment]
+    voice_recv_opus = None  # type: ignore[assignment]
+    voice_recv_rtp = None  # type: ignore[assignment]
+
+try:  # pragma: no cover - environment dependent
+    # Discord's end-to-end encryption. discord.py picks this up on its own and
+    # will not negotiate E2EE without it — which since 2026-03-02 means it
+    # cannot join a normal voice channel at all.
+    import davey
+except Exception:
+    davey = None  # type: ignore[assignment]
 
 try:  # pragma: no cover - stdlib on 3.11/3.12, gone in 3.13
     import audioop
@@ -61,6 +75,11 @@ def live_voice_available() -> Tuple[bool, str]:
     """Can live voice work in this install? Returns ``(ok, why-not)``."""
     if voice_recv is None:
         return False, "the `discord-ext-voice-recv` / `pynacl` packages are not installed"
+    if davey is None:
+        return (
+            False,
+            "the `davey` package is not installed — Discord requires E2EE (DAVE) on voice",
+        )
     if audioop is None:
         return False, "the `audioop` module is unavailable on this Python"
     return True, "ok"
@@ -76,6 +95,11 @@ SILENCE_MS = 800
 #: Ignore anything shorter than this. Discord emits a stream for a cough, a
 #: keyboard click and an "mm" — transcribing those costs an API call each and
 #: produces Whisper's favourite hallucination, "Thank you.".
+#:
+#: Briefly lowered to 400 on the theory that the silence stripping had made
+#: this measure four times stricter. It had not: the buffer still carries the
+#: KEEP_SILENCE_MS kept after each word, so 400 let through turns holding
+#: 140 ms of actual speech — which came back as "Ha ha ha ha.". Back at 700.
 MIN_SPEECH_MS = 700
 
 #: Force a cut in a monologue. Without it a continuous speaker produces one
@@ -89,13 +113,49 @@ HARD_CAP_MS = 60_000
 # S123: batch short turns toward Groq's 10-second minimum billing. Groq
 # charges a floor of 10 audio-seconds per request, so a 1.5-second "yeah"
 # costs exactly as much as ten seconds of speech.
-BATCH_TARGET_MS = 10_000  # Groq's minimum billed length
+#: Whisper was trained on THIRTY-SECOND windows, and that — not Groq's billing
+#: floor — is what should set this. Ten-second batches were sized for the
+#: invoice and they cost accuracy twice over: less context for the model to
+#: anchor on, and three times the requests against a 20-per-minute ceiling
+#: that is already saturated, so turns get dropped and the transcript ends up
+#: with holes in it. A longer batch is not more expensive (the 10-second floor
+#: is a minimum, not a maximum) and it is the same audio either way; it only
+#: arrives later.
+BATCH_TARGET_MS = 25_000
 #: How long a lone remark may sit waiting for a second one to batch with. Every
 #: millisecond here lands directly in the delay a reader sees, and in a normal
 #: conversation the follow-up turn arrives within a second or not at all — a
 #: longer hold mostly buys dead time. Raise it to trade latency back for the
 #: billing floor.
-BATCH_MAX_WAIT_MS = 1_500
+#: There is no good reason to ever send Whisper a second and a half of speech:
+#: it is billed as ten, it carries no context, and it is exactly the input
+#: that makes the model invent a fluent sentence out of nothing. So even a
+#: lone remark in a silent channel waits this long for company. It is the
+#: floor on transcript latency, and it buys the accuracy back.
+BATCH_MAX_WAIT_MS = 5_000
+
+#: ...but that trade is only affordable while there is budget to spend, and
+#: the day's REQUESTS are what runs out first. Groq's free tier allows 2,000 a
+#: day and bills a 10-second floor on every one, so what a request costs in
+#: budget is fixed while what it buys depends entirely on how much speech it
+#: carries: batches of a full 10 seconds buy ~5.5 hours of conversation a day,
+#: batches of 1.5 seconds buy well under one. Holding every turn for the full
+#: floor would pay for that with latency nobody wants during a quiet call, so
+#: the wait is stretched only as the budget actually tightens — responsive
+#: while there is room, frugal once there is not.
+BATCH_PRESSURE_LOW = 0.35
+BATCH_PRESSURE_HIGH = 0.85
+
+#: Refusals worth waiting out rather than treating as a lost turn.
+RATE_REASONS = ("rpm", "rpd", "audio-hour", "audio-day")
+
+#: Hold speech for a window that rolls this soon; past it the wait is longer
+#: than the conversation and posting stale lines helps nobody.
+REQUEUE_MAX_WAIT_MS = 60_000
+
+#: Never stop offering batches for longer than this, however far off the
+#: window's own estimate is — a stuck hold is a silent session.
+RATE_HOLD_CAP_MS = 30_000
 
 #: The sink delivers 48 kHz, 16-bit, stereo PCM: 48000 × 2 bytes × 2 channels
 #: per second = 192 bytes per millisecond. The byte count IS the clock — every
@@ -104,6 +164,68 @@ PCM_BYTES_PER_MS = 48_000 * 2 * 2 // 1000
 HARD_CAP_BYTES = HARD_CAP_MS * PCM_BYTES_PER_MS
 
 WATCHDOG_TICK_SECS = 0.2
+
+#: Below this RMS a 20 ms frame carries no speech. Discord does not transmit
+#: during a pause, voice-recv fills the gap with silence frames to keep the
+#: stream continuous, and every frame this cog could not decrypt became
+#: silence too — so dead air arrives from three directions and lands in the
+#: MIDDLE of somebody's sentence.
+#:
+#: Measured on real captures: batches under 50% silence transcribed correctly,
+#: batches over 75% came back as confident nonsense ("PICKING WINGS." for two
+#: seconds of audio holding 0.16 s of speech). Whisper does not fail on quiet
+#: audio, it invents — so the silence has to go before it is uploaded, not be
+#: paid for at ten seconds a request and then hallucinated over.
+SILENCE_RMS = 150
+
+#: A pause is part of speech; only DEAD air is not. This much silence is kept
+#: after each word, so sentences keep their rhythm instead of being crushed
+#: into one breathless run that Whisper would re-punctuate for us.
+KEEP_SILENCE_MS = 200
+
+#: The least speech worth a request.
+#:
+#: Density is NOT the signal down here — a batch holding 1.09 s at 30.8%
+#: silence still came back "Ha ha ha ha." — so this is a duration threshold,
+#: and where to put it was measured rather than reasoned. Across 35 captures
+#: taken once the silence stripping was in place there is a clean gap: the
+#: longest invention is 1.56 s ("Thank you.") and the shortest real utterance
+#: above it is 1.63 s ("Oh, see ya. Look at the chat."). Sitting in that gap
+#: lets nothing invented through.
+#:
+#: It was briefly 2,500, which blocked exactly the same inventions while
+#: throwing away twelve real remarks instead of five — the extra strictness
+#: bought nothing and cost "So you can shoot it there, right?".
+#:
+#: The remaining cost is real and accepted: five short utterances in that
+#: sample ("Yeah.", "Oh.", "Hell yeah.") are dropped rather than delayed.
+#: Inventing laughter nobody made is worse than missing a word.
+BATCH_MIN_MS = 1_600
+
+#: How long a batch too thin to transcribe is kept in case more arrives. Past
+#: this it is DISCARDED, not sent — see the "drop" branch below. Sending it
+#: anyway is how "Thank you." and "Ha ha ha." reached the channel even while
+#: the threshold above was doing its job.
+BATCH_GIVE_UP_MS = 30_000
+
+#: davey reports its failures as a ValueError with a message rather than as a
+#: type, and this is the one that is not really a failure: the frame was never
+#: encrypted, which is what a speaker's audio looks like until they finish
+#: joining the group.
+DAVE_UNENCRYPTED = "UnencryptedWhenPassthroughDisabled"
+
+#: Turns batched into one request were NOT said back to back — under pressure
+#: they can be seconds apart — so they are glued together with a little
+#: silence. Butted straight against each other, Whisper reads two separate
+#: remarks as one run-on sentence and re-punctuates both to make it fit,
+#: which is how a transcript ends up fluent and wrong. Silence is cheap:
+#: every request is billed a 10-second floor regardless.
+BATCH_GAP_MS = 300
+
+#: How many recent utterances travel with the next request as context. Enough
+#: to carry names and the thread of a sentence; short enough that the prompt
+#: stays a hint rather than something Whisper starts reciting.
+CONTEXT_LINES = 4
 
 #: How many Whisper requests may be in flight at once. Batches are dispatched
 #: as tasks instead of awaited inside the tick, so one speaker's request no
@@ -123,6 +245,30 @@ ORDER_HOLD_MS = 8_000
 #: How long teardown waits for running transcriptions, so the final post is not
 #: missing the last thing anyone said.
 STOP_DRAIN_SECS = 3.0
+
+#: voice-recv tears down its ENTIRE receiver when one packet fails to decode:
+#: the router thread raises out of its loop and calls ``stop_listening`` on the
+#: way out. The voice connection stays up, so the session goes on looking
+#: healthy while being permanently deaf. These bound how often the sink may be
+#: restarted before the session gives up and says so.
+MAX_RELISTENS = 3
+#: A restart that survives this long counts as recovered, so an hour-long call
+#: with the occasional lost packet does not exhaust the allowance.
+RELISTEN_WINDOW_SECS = 60.0
+
+#: Discord allows a bot ~5 messages per 5 seconds in one channel. The flush
+#: interval below already keeps the steady state under that, but a drain can
+#: still yield several posts at once — a rate hold that releases, or an order
+#: hold that finally clears, hands over a backlog in one go. Posting those
+#: back-to-back buys nothing: discord.py would queue them against the bucket
+#: and the transcript arrives at the same time either way, just with a 429
+#: round-trip in between. So a flush posts at most this many and leaves the
+#: rest for the next beat, which spreads a burst instead of racing it.
+MAX_POSTS_PER_FLUSH = 2
+
+#: A backlog longer than this means the channel is further behind than anyone
+#: will read. Keep the NEWEST — stale transcript is the part worth losing.
+MAX_BACKLOG_POSTS = 20
 
 # Line buffer thresholds (port of createLineBuffer defaults).
 #: The buffer exists so a busy channel gets one post per burst instead of one
@@ -169,11 +315,41 @@ def should_send_batch(
     """
     if ms >= target_ms:
         return True, "enough"
-    # A single remark in a quiet channel must not sit unsent forever waiting
-    # for a second one that is never coming.
+    if ms < BATCH_MIN_MS:
+        # Too little speech to transcribe: below BATCH_MIN_MS the model does
+        # not return a poor transcript, it returns a confident invention. Wait
+        # for more — and if none comes, DROP it. Sending it anyway was the
+        # hole every hallucination came through: the threshold held the batch
+        # back and then the timeout posted it regardless.
+        return False, "thin" if held_since_ms < BATCH_GIVE_UP_MS else "drop"
+    # A remark in a quiet channel must not sit unsent waiting for a second one
+    # that is never coming.
     if held_since_ms >= max_wait_ms:
         return True, "waited"
     return False, "hold"
+
+
+def batch_wait_for(pressure: float) -> int:
+    """How long a short turn may wait for company, given how much of the
+    tightest Groq window is already spent (``describe_usage()["tightest"]``).
+
+    Latency while there is budget, thrift once there is not: below
+    ``BATCH_PRESSURE_LOW`` nothing changes, above ``BATCH_PRESSURE_HIGH``
+    every turn is held for the full billing floor, and in between the wait
+    slides between the two. Pure, so the policy is testable with plain
+    numbers.
+    """
+    try:
+        used = float(pressure)
+    except (TypeError, ValueError):
+        used = 0.0
+    if used <= BATCH_PRESSURE_LOW:
+        return BATCH_MAX_WAIT_MS
+    if used >= BATCH_PRESSURE_HIGH:
+        return BATCH_TARGET_MS
+    span = BATCH_PRESSURE_HIGH - BATCH_PRESSURE_LOW
+    climbed = (used - BATCH_PRESSURE_LOW) / span
+    return int(BATCH_MAX_WAIT_MS + climbed * (BATCH_TARGET_MS - BATCH_MAX_WAIT_MS))
 
 
 # ── Hallucination filter (port of cleanTranscript, verbatim list) ────────────
@@ -195,14 +371,81 @@ HALLUCINATIONS = [
     "transcription by castingwords",
     "please subscribe",
     "okay",
+    # Observed live on near-silent captures in this precinct.
+    "baa",
+    "baa baa",
+    "picking wings",
 ]
 
 _TRAILING_NOISE = re.compile(r"[!?.,\s]+$")
+
+#: What Whisper returns for "there was no speech in here" once it is given a
+#: language instead of made to guess. Not punctuation and not a word, so the
+#: filter below has to recognise it or every silent fragment posts a line of
+#: asterisks.
+_NO_SPEECH = re.compile(r"^[\s*\-–—_.·•]+$")
+
+
+#: A run of the same short utterance is Whisper stuttering at near-silence,
+#: not somebody repeating themselves. Observed live as "Baa. Baa. Baa. Baa."
+#: — including as a prefix on an otherwise perfectly good 17-second batch,
+#: which is the shape that matters: a blocklist would have to know the word,
+#: and the next one will be different.
+_SEGMENT = re.compile(r"[^.!?]+[.!?]*")
+REPEAT_RUN = 3
+REPEAT_MAX_CHARS = 14
+
+
+def _is_word_stutter(segment: str) -> bool:
+    """Is this segment one short word repeated, and nothing else?
+
+    Whisper's rendering of laughter and breath on thin audio — "Ha ha ha ha."
+    — is a single segment, so the sentence-level pass below never sees it.
+    Matching the SHAPE rather than the word keeps this from becoming a list of
+    every noise a model has ever invented.
+    """
+    words = re.findall(r"[^\W\d_]+", segment.lower())
+    return len(words) >= REPEAT_RUN and len(set(words)) == 1 and len(words[0]) <= 3
+
+
+def collapse_repeats(text: str) -> str:
+    """Collapse a stutter to one instance, keeping anything real after it.
+
+    Only short segments repeated at least ``REPEAT_RUN`` times in a row are
+    touched, so "No, no, no — stop" survives while "Baa. Baa. Baa. Baa." does
+    not.
+    """
+    segments = [s.strip() for s in _SEGMENT.findall(text) if s.strip()]
+    kept = [s for s in segments if not _is_word_stutter(s)]
+    if len(kept) != len(segments):
+        # "Ha ha ha. I meant it." keeps the half that is speech.
+        return " ".join(kept)
+    if len(segments) < REPEAT_RUN:
+        return text
+    out: List[str] = []
+    index = 0
+    while index < len(segments):
+        run = 1
+        while index + run < len(segments) and segments[index + run] == segments[index]:
+            run += 1
+        if run >= REPEAT_RUN and len(segments[index]) <= REPEAT_MAX_CHARS:
+            out.append(segments[index])  # one is enough; the rest was stutter
+        else:
+            out.extend(segments[index : index + run])
+        index += run
+    return " ".join(out)
 
 
 def clean_transcript(text: Any) -> str:
     """Strip a transcript that is really just silence. Returns '' when it is."""
     trimmed = str(text if text is not None else "").strip()
+    if _NO_SPEECH.match(trimmed):
+        return ""
+    collapsed = collapse_repeats(trimmed)
+    if collapsed != trimmed:
+        # What is left may now be a bare hallucination on its own, so it goes
+        # back through the checks below rather than straight out.
+        trimmed = collapsed
     bare = _TRAILING_NOISE.sub("", trimmed.lower()).strip()
     if len(bare) == 0:
         return ""
@@ -212,6 +455,144 @@ def clean_transcript(text: Any) -> str:
 
 
 # ── Transcript lines (port of formatLine / packLines / createLineBuffer) ─────
+
+
+def apply_replacements(text: str, mapping: Optional[Dict[str, str]]) -> str:
+    """Swap configured words for their stand-ins, whole words only.
+
+    Whole words on purpose: a substring rule would rewrite the middle of
+    innocent words, and the point is to catch what was said rather than every
+    string that contains it. Longest key first, so a two-word rule wins over a
+    one-word rule that starts the same way.
+    """
+    if not mapping or not text:
+        return text
+    pattern = re.compile(
+        r"\b(" + "|".join(re.escape(w) for w in sorted(mapping, key=len, reverse=True)) + r")\b",
+        re.IGNORECASE,
+    )
+    # A function replacement, not a template: a stand-in containing a
+    # backslash would otherwise be read as a regex escape.
+    return pattern.sub(lambda m: mapping.get(m.group(0).lower(), m.group(0)), text)
+
+
+#: Orpheus refuses more than this in one request, so anything longer is read
+#: in pieces rather than truncated mid-word.
+TTS_INPUT_LIMIT = 200
+
+#: A backlog longer than this means the channel is typing faster than anyone
+#: can listen. Further messages are skipped rather than queued into a monologue
+#: that arrives minutes after the conversation moved on.
+SPEAK_QUEUE_MAX = 5
+
+_URL = re.compile(r"https?://\S+")
+_CUSTOM_EMOJI = re.compile(r"<a?:(\w+):\d+>")
+_CODE_BLOCK = re.compile(r"```.*?```", re.DOTALL)
+_INLINE_CODE = re.compile(r"`([^`]*)`")
+
+
+def clean_for_speech(text: Any) -> str:
+    """Turn a chat message into something worth hearing out loud.
+
+    A URL read character by character is thirty seconds of nobody listening,
+    and a code block is worse. Both are announced instead of recited.
+    """
+    out = str(text if text is not None else "")
+    out = _CODE_BLOCK.sub(" code block ", out)
+    out = _INLINE_CODE.sub(r"\1", out)
+    out = _URL.sub(" link ", out)
+    out = _CUSTOM_EMOJI.sub(r" \1 ", out)  # the name is the readable part
+    out = re.sub(r"[*_~|>#]", "", out)  # markdown that is punctuation, not speech
+    return re.sub(r"\s+", " ", out).strip()
+
+
+def chunk_for_speech(text: str, limit: int = TTS_INPUT_LIMIT) -> List[str]:
+    """Split into request-sized pieces, preferring sentence then word breaks.
+
+    Splitting mid-word is audible; splitting mid-sentence is not, so sentence
+    ends are used where they fall close enough to the limit to be worth it.
+    """
+    text = text.strip()
+    if not text:
+        return []
+    chunks: List[str] = []
+    while len(text) > limit:
+        window = text[:limit]
+        cut = max(window.rfind(". "), window.rfind("! "), window.rfind("? "))
+        if cut < limit // 2:
+            cut = window.rfind(" ")
+        if cut <= 0:
+            cut = limit  # one very long word: a hard cut is all that is left
+        else:
+            cut += 1
+        chunks.append(text[:cut].strip())
+        text = text[cut:].strip()
+    if text:
+        chunks.append(text)
+    return chunks
+
+
+async def play_wav(voice_client, wav: bytes) -> None:
+    """Play one piece of audio and wait for it to finish.
+
+    Waiting is what keeps callers serial: ``play`` returns the moment the
+    stream starts, and a second call while the first is running raises. The
+    ``after`` callback fires on the player THREAD, so the event that unblocks
+    us is set back on the loop rather than touched directly.
+    """
+    if voice_client is None or not voice_client.is_connected():
+        raise RuntimeError("not connected to voice")
+    while voice_client.is_playing():
+        await asyncio.sleep(0.1)
+    loop = asyncio.get_running_loop()
+    done = asyncio.Event()
+    failure: List[Exception] = []
+
+    def finished(error: Optional[Exception]) -> None:
+        if error:
+            failure.append(error)
+        loop.call_soon_threadsafe(done.set)
+
+    voice_client.play(discord.FFmpegPCMAudio(io.BytesIO(wav), pipe=True), after=finished)
+    await done.wait()
+    if failure:
+        raise failure[0]
+
+
+_MENTION = re.compile(r"<@!?(\d+)>")
+
+
+def mentions_in(text: Any) -> List[int]:
+    """User ids mentioned in a piece of text, in order, without duplicates."""
+    seen: List[int] = []
+    for raw in _MENTION.findall(str(text if text is not None else "")):
+        value = int(raw)
+        if value not in seen:
+            seen.append(value)
+    return seen
+
+
+def allowed_for(mapping: Optional[Dict[str, str]]) -> discord.AllowedMentions:
+    """Who a transcript is allowed to ping: exactly the people an admin wrote
+    into a replacement, and nobody else.
+
+    Transcripts are otherwise silent by design — the speaker's own name would
+    ping them on every single line, and a transcript is a record, not a
+    summons. But a replacement is a deliberate act by somebody with Manage
+    Server, so the ids inside one are allowed through by name. Everyone, here
+    and roles stay blocked whatever a rule says.
+    """
+    targets: List[int] = []
+    for value in (mapping or {}).values():
+        for user_id in mentions_in(value):
+            if user_id not in targets:
+                targets.append(user_id)
+    return discord.AllowedMentions(
+        everyone=False,
+        roles=False,
+        replied_user=False,
+        users=[discord.Object(id=user_id) for user_id in targets],
+    )
 
 
 def format_line(*, name: str, text: Any, at_ms: int, timestamps: bool = True) -> Optional[str]:
@@ -613,12 +994,14 @@ class _Capture:
     """One speaker's in-progress turn. Touched from the audio thread under the
     session lock; the watchdog reads it under the same lock."""
 
-    __slots__ = ("buf", "started", "last_packet")
+    __slots__ = ("buf", "started", "last_packet", "silent_ms")
 
     def __init__(self, now: float):
         self.buf = bytearray()
         self.started = now
         self.last_packet = now
+        #: Dead air since the last frame with speech in it.
+        self.silent_ms = 0.0
 
 
 if voice_recv is not None:
@@ -645,6 +1028,152 @@ if voice_recv is not None:
 
         def cleanup(self) -> None:
             pass
+
+    class _DaveDecryptor:
+        """The end-to-end decryption step voice-recv does not have.
+
+        Voice packets carry TWO layers of encryption. voice-recv undoes the
+        transport layer and hands what comes out straight to the Opus decoder
+        — correct until 2026-03-02, when Discord made DAVE (its E2EE scheme)
+        mandatory on every non-stage voice call. Since then the transport
+        layer only reveals MLS ciphertext, and Opus dies on it with
+        ``OpusError: corrupted stream``, taking the router thread and the
+        whole capture with it. voice-recv has been unmaintained since
+        2025-06 and knows nothing about any of this.
+
+        Nothing else is missing, though: discord.py runs the entire DAVE
+        handshake and owns the MLS session (that is what ``davey`` is for),
+        so the only absent piece is the per-frame decrypt. This class is that
+        piece, wrapped around voice-recv's own transport decryption.
+
+        Do NOT "fix" this by declining E2EE. Advertising
+        ``max_dave_protocol_version: 0`` gets the handshake rejected with
+        close code 4017 and discord.py then retries with backoff, which is a
+        join/leave storm rather than a session.
+
+        Installed on one reader's decryptor, so nothing is patched globally
+        and a session that ends takes its patch with it. ``__call__`` runs on
+        voice-recv's socket-listener thread while the event loop drives the
+        MLS session — the same split discord.py already relies on for
+        sending, where the audio thread encrypts against a session the loop
+        maintains.
+        """
+
+        #: One log line per 20 ms frame would bury everything else, so a
+        #: session complains a few times and then goes quiet.
+        LOG_LIMIT = 3
+
+        def __init__(self, voice_client, inner):
+            self._vc = voice_client
+            self._inner = inner  # voice-recv's transport decryption
+            self._complaints = 0
+
+        def __call__(self, packet) -> bytes:
+            data = self._inner(packet)
+
+            state = getattr(self._vc, "_connection", None)
+            session = getattr(state, "dave_session", None)
+            # No E2EE on this connection: the frame is already Opus. True for
+            # stage channels, which Discord exempts from the requirement.
+            if session is None or not getattr(state, "dave_protocol_version", 0):
+                return data
+
+            user_id = self._vc._get_id_from_ssrc(packet.ssrc)
+            if user_id is None:
+                # The ssrc → user map is filled from a speaking event that can
+                # lag the first frames of a turn. Silence is a valid Opus
+                # frame and costs one frame of audio; ciphertext is not and
+                # costs the whole session.
+                return voice_recv_rtp.OPUS_SILENCE
+
+            try:
+                # Frames sent in the clear during a protocol transition are
+                # passed through by libdave itself, so this one call covers
+                # both states.
+                plain = session.decrypt(user_id, davey.MediaType.audio, data)
+            except Exception as error:
+                if DAVE_UNENCRYPTED in str(error):
+                    # Not a failure: this frame was never encrypted, so the
+                    # bytes in hand ARE the Opus frame. Happens while a
+                    # speaker is still joining the group — silencing it would
+                    # throw away everything they say until they finish.
+                    return data
+                self._complain(user_id, error)
+                return voice_recv_rtp.OPUS_SILENCE
+            return plain or voice_recv_rtp.OPUS_SILENCE
+
+        def _complain(self, user_id: int, error: Exception) -> None:
+            self._complaints += 1
+            if self._complaints > self.LOG_LIMIT:
+                return
+            log.warning(
+                "Transcribe: could not decrypt a voice frame from %s: %s%s",
+                user_id,
+                error,
+                " — further frames will not be reported" if self._complaints == self.LOG_LIMIT else "",
+            )
+
+    class _ResilientDecoder(voice_recv_opus.Decoder):
+        """An Opus decoder that loses a frame instead of the whole session.
+
+        This is the fragility underneath every "the bot went quiet" symptom.
+        voice-recv lets a decode error escape the router thread, and that
+        thread's ``finally`` calls ``stop_listening`` on its way out — so ONE
+        malformed 20 ms frame permanently ends the capture for everyone in
+        the channel. Nothing about that is exceptional: packets get corrupted
+        in flight, speakers send frames mid-transition, and the E2EE layer
+        cannot always vouch for what it hands over.
+
+        Twenty milliseconds of silence is the honest substitute. Losing a
+        frame is inaudible; losing the session costs the whole conversation.
+        """
+
+        #: One 20 ms frame of 48 kHz stereo silence — what the caller expects.
+        SILENT_FRAME = b"\x00" * voice_recv_opus.Decoder.FRAME_SIZE
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._undecodable = 0
+
+        def decode(self, data, *, fec: bool = False) -> bytes:
+            try:
+                return super().decode(data, fec=fec)
+            except Exception as error:
+                self._undecodable += 1
+                if self._undecodable == 1:
+                    log.warning(
+                        "Transcribe: dropping an undecodable voice frame (%s); the session "
+                        "continues and further frames from this speaker stay quiet about it.",
+                        error,
+                    )
+                return self.SILENT_FRAME
+
+    def _install_resilient_decoder() -> None:
+        """Make voice-recv build resilient decoders from here on.
+
+        Patched on the module voice-recv itself reads at decoder-construction
+        time, because the decoders are made per speaker deep inside the
+        router where there is nothing to inject into. Idempotent, and left in
+        place afterwards: taking it back out could only reinstate the crash.
+        """
+        if voice_recv_opus.Decoder is not _ResilientDecoder:
+            voice_recv_opus.Decoder = _ResilientDecoder
+
+    def _install_dave_decryption(voice_client) -> None:
+        """Slot the E2EE step into one connection's receive path.
+
+        voice-recv builds the decryptor once per reader and only ever swaps
+        the key inside it, so wrapping the bound method here holds for the
+        life of that reader. A new reader — a fresh ``listen`` — needs this
+        again.
+        """
+        reader = getattr(voice_client, "_reader", None)
+        decryptor = getattr(reader, "decryptor", None)
+        if decryptor is None:
+            raise RuntimeError("voice-recv exposed no packet decryptor to hook")
+        if isinstance(decryptor.decrypt_rtp, _DaveDecryptor):
+            return  # already wrapped; never stack two of them
+        decryptor.decrypt_rtp = _DaveDecryptor(voice_client, decryptor.decrypt_rtp)
 
 else:  # pragma: no cover - environment dependent
     _CaptureSink = None  # type: ignore[assignment]
@@ -685,26 +1214,72 @@ class LiveSession:
         self._settings: Optional[Dict[str, Any]] = None
         self._settings_at = 0.0
 
+        #: Receiver restarts, and when the last one happened.
+        self._relistens = 0
+        self._relisten_at = 0.0
+
+        #: How much of the tightest Groq window is spent, refreshed with the
+        #: settings; drives how hard short turns are batched.
+        self._pressure = 0.0
+        #: Monotonic deadline: no batch is offered to Groq before this.
+        self._rate_hold_until = 0.0
+        #: Posts packed but not yet sent, oldest first (see MAX_POSTS_PER_FLUSH).
+        self._backlog: List[str] = []
+        self._dropped_ms = 0.0
+        #: The last few things actually said, fed back to Whisper as context.
+        self._context: List[str] = []
+
+        #: Text waiting to be spoken into the channel, and the worker that
+        #: does it. One at a time: a voice client plays a single stream, and
+        #: two people typing at once should queue, not overlap.
+        self._speak_queue: "asyncio.Queue[str]" = asyncio.Queue(maxsize=SPEAK_QUEUE_MAX)
+        self._speaker: Optional[asyncio.Task] = None
+        #: Set by silence() to abandon whatever is being read right now.
+        self._skip = False
+        #: Monotonic deadline: Groq's speech budget is spent until then.
+        self._speak_hold_until = 0.0
+
         # Speaker-filter snapshot, refreshed by the watchdog. The sink thread
         # reads these, so they are plain immutable values, swapped atomically.
         self._ignore_bots = True
         self._ignored_ids: frozenset = frozenset()
+        #: Who transcript posts may ping — nobody until the settings say so.
+        self._allowed = discord.AllowedMentions.none()
 
     # ── Lifecycle (asyncio side) ────────────────────────────────────────────
 
     async def start(self) -> None:
         await self._settings_now(self._clock(), force=True)
-        # Deafening itself would stop the receiver, but muting costs nothing
-        # and tells everyone in the channel that the bot will not talk back.
+        # Deafening itself would stop the receiver. Muting is a signal, not a
+        # restriction — but it IS a restriction on speaking, so a session that
+        # is going to read the chat out loud must not start muted.
+        speaking = bool((self._settings or {}).get("tts_enabled"))
         self.vc = await self.voice_channel.connect(
-            cls=voice_recv.VoiceRecvClient, self_deaf=False, self_mute=True
+            cls=voice_recv.VoiceRecvClient, self_deaf=False, self_mute=not speaking
         )
-        self.vc.listen(_CaptureSink(self))
+        self._listen()
         self._task = asyncio.create_task(self._watchdog())
+
+    def _listen(self) -> None:
+        """Put a sink on the connection, E2EE decryption included.
+
+        Both callers go through here: a sink attached without the DAVE step
+        receives ciphertext and dies on the first frame anyone speaks.
+        """
+        # Before listen(): the decoders are built as speakers appear, so the
+        # patch has to be in place before the first packet arrives.
+        _install_resilient_decoder()
+        self.vc.listen(_CaptureSink(self))
+        _install_dave_decryption(self.vc)
 
     async def stop(self, *, post_remaining: bool = True) -> None:
         """Disconnect and clean up. Never raises."""
         self._stopping = True
+        speaker, self._speaker = self._speaker, None
+        if speaker is not None and speaker is not asyncio.current_task():
+            speaker.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await speaker
         task, self._task = self._task, None
         if task is not None and task is not asyncio.current_task():
             task.cancel()
@@ -723,7 +1298,7 @@ class LiveSession:
                     pending.cancel()
         if post_remaining:
             with contextlib.suppress(Exception):
-                await self._post_lines()
+                await self._post_lines(final=True)
         vc, self.vc = self.vc, None
         if vc is not None:
             with contextlib.suppress(Exception):
@@ -734,6 +1309,14 @@ class LiveSession:
     def _apply_settings(self, settings: Dict[str, Any]) -> None:
         self._ignore_bots = bool(settings.get("ignore_bots", True))
         self._ignored_ids = frozenset(int(i) for i in (settings.get("ignored_user_ids") or []))
+        self._allowed = allowed_for(settings.get("replacements"))
+        # The rate counters ride along in the guild scope, so how much budget
+        # is left costs nothing extra to work out here — and doing it on the
+        # settings refresh keeps it off the 5-per-second tick.
+        try:
+            self._pressure = float(describe_usage(settings.get("rate"))["tightest"])
+        except Exception:  # a malformed counter must not stop the session
+            self._pressure = 0.0
 
     async def _settings_now(self, now: float, *, force: bool = False) -> Dict[str, Any]:
         """Guild settings, cached for SETTINGS_TTL_SECS.
@@ -764,16 +1347,33 @@ class LiveSession:
         if user_id in self._ignored_ids:
             return
         now = self._clock()
+        # Cheap and on the decoder thread, but it is a C loop over 3840 bytes
+        # and it decides whether this frame is worth carrying at all.
+        speech = audioop.rms(pcm, 2) >= SILENCE_RMS if audioop is not None else True
+        frame_ms = pcm_ms(len(pcm))
         with self._lock:
             capture = self._captures.get(user_id)
             if capture is None:
+                if not speech:
+                    return  # a turn does not begin with dead air
                 capture = _Capture(now)
                 self._captures[user_id] = capture
+
+            if speech:
+                capture.silent_ms = 0.0
+                # Only speech refreshes the clock. Were silence to refresh it,
+                # a stream that keeps sending silence frames would look like
+                # somebody talking without pause and the turn would never end.
+                capture.last_packet = now
+            else:
+                capture.silent_ms += frame_ms
+                if capture.silent_ms > KEEP_SILENCE_MS:
+                    return  # dead air: dropped rather than uploaded
+
             # Hard cap: stop accepting packets for this turn rather than grow
             # without bound; the turn still ends on real silence.
             if len(capture.buf) < HARD_CAP_BYTES:
                 capture.buf += pcm
-            capture.last_packet = now
 
     # ── Watchdog (asyncio side) ─────────────────────────────────────────────
 
@@ -826,33 +1426,285 @@ class LiveSession:
             await self.stop(post_remaining=False)
             return True
 
+        # A receiver that has stopped is NOT visible in `is_connected` — the
+        # websocket is fine, there is simply nothing listening on it any more.
+        # Left alone the bot sits in the channel writing nothing, which is the
+        # one failure mode nobody in the channel can see.
+        if self.vc is not None and not self._stopping and not self.vc.is_listening():
+            if not self._restart_listening(self._clock()):
+                log.warning(
+                    "Transcribe: the voice receiver in guild %s could not be restarted; "
+                    "ending the session.",
+                    self.guild.id,
+                )
+                self.cog.live_sessions.pop(self.guild.id, None)
+                with contextlib.suppress(Exception):
+                    await self.text_channel.send(
+                        "⚪ The voice receiver stopped and would not come back, so I left "
+                        "the channel. Recording stopped."
+                    )
+                await self.stop(post_remaining=True)
+                return True
+
         now = self._clock()
         settings = await self._settings_now(now)
 
         # Finished turns join their speaker's pending batch (S123: batching
         # toward Groq's 10-second billing floor).
         for user_id, pcm in self.collect_finished(now):
-            held = self._pending.get(user_id)
-            if held is None:
-                held = {"pcm": bytearray(), "since": now}
-                self._pending[user_id] = held
-            held["pcm"] += pcm
+            self._hold(user_id, pcm, now)
 
         # Send every batch that is big enough or has waited long enough. The
         # tick is also what ages out held audio — the difference between
         # "batching" and "losing the last thing anyone said".
-        for user_id, held in list(self._pending.items()):
-            send, _reason = should_send_batch(
-                pcm_ms(len(held["pcm"])), (now - held["since"]) * 1000
-            )
-            if not send:
-                continue
-            del self._pending[user_id]
-            self._dispatch_batch(user_id, bytes(held["pcm"]), settings)
+        #
+        # While Groq's window is full there is nothing to gain by offering
+        # batches it will only refuse, so speech keeps collecting instead —
+        # which also means it goes out later as ONE bigger batch rather than
+        # several small ones, exactly what the billing floor rewards.
+        if now >= self._rate_hold_until:
+            max_wait = batch_wait_for(self._pressure)
+            for user_id, held in list(self._pending.items()):
+                send, reason = should_send_batch(
+                    pcm_ms(len(held["pcm"])),
+                    (now - held["since"]) * 1000,
+                    max_wait_ms=max_wait,
+                )
+                if reason == "drop":
+                    # Never enough speech to be worth a request, and no more
+                    # is coming. Letting it go is the point.
+                    del self._pending[user_id]
+                    log.debug(
+                        "Transcribe: dropped %.0f ms of thin audio from %s in guild %s",
+                        pcm_ms(len(held["pcm"])),
+                        user_id,
+                        self.guild.id,
+                    )
+                    continue
+                if not send:
+                    continue
+                del self._pending[user_id]
+                self._dispatch_batch(user_id, bytes(held["pcm"]), settings)
 
         if self._ready_to_post(_now_ms()):
             await self._post_lines()
         return False
+
+    # ── Speaking (the mirror of the transcript) ─────────────────────────────
+
+    def say(self, text: str) -> bool:
+        """Queue a line to be read into the voice channel. Never blocks.
+
+        Called from the message listener, so it must not wait: a full queue
+        drops the line and says so rather than holding up the event loop.
+        """
+        if self._stopping or not text:
+            return False
+        if self._clock() < self._speak_hold_until:
+            # Groq's speech budget is gone. Queueing anyway would spend a
+            # failed request per line and post an error per line, which is
+            # what turned one exhausted budget into forty log entries.
+            return False
+        try:
+            self._speak_queue.put_nowait(text)
+        except asyncio.QueueFull:
+            log.debug("Transcribe: speech queue full in guild %s; skipped a line", self.guild.id)
+            return False
+        if self._speaker is None or self._speaker.done():
+            self._speaker = asyncio.create_task(self._speak_loop())
+        return True
+
+    def silence(self) -> int:
+        """Stop talking now and forget what was queued. Returns how many
+        waiting lines were dropped."""
+        dropped = 0
+        while True:
+            try:
+                self._speak_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            self._speak_queue.task_done()
+            dropped += 1
+        self._skip = True
+        # stop() fires the after-callback, which is what releases play_wav.
+        if self.vc is not None and self.vc.is_playing():
+            self.vc.stop()
+        return dropped
+
+    async def _speak_loop(self) -> None:
+        while not self._stopping:
+            try:
+                text = await self._speak_queue.get()
+            except asyncio.CancelledError:
+                return
+            self._skip = False  # a fresh line is not covered by an old skip
+            try:
+                await self._speak(text)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # One line that would not speak must not silence the rest.
+                log.exception("Transcribe: could not speak a line in guild %s", self.guild.id)
+            finally:
+                self._speak_queue.task_done()
+
+    async def _speak(self, text: str) -> None:
+        api_key = await self.cog._api_key()
+        if not api_key or self.vc is None:
+            return
+        settings = await self._settings_now(self._clock())
+        voice = settings.get("tts_voice") or "autumn"
+        for chunk in chunk_for_speech(text):
+            # Checked between pieces, so a long message can be cut off in the
+            # middle instead of only between messages — which is the whole
+            # point when one message can now run to twenty pieces.
+            if self._stopping or self._skip or self.vc is None:
+                return
+            try:
+                wav = await self.cog._speech(api_key, chunk, voice)
+            except RateLimited as error:
+                # The day's speech budget is spent. Abandon the rest of this
+                # message AND everything queued behind it: by the time the
+                # window rolls, minutes later, none of it is worth saying.
+                wait = max(1.0, error.retry_after_ms / 1000)
+                self._speak_hold_until = self._clock() + wait
+                dropped = self.silence()
+                self._skip = False  # silence() set it; the hold is the brake now
+                log.warning(
+                    "Transcribe: Groq's speech budget is spent in guild %s; quiet for %.0f min "
+                    "(%d queued message(s) dropped).",
+                    self.guild.id,
+                    wait / 60,
+                    dropped,
+                )
+                return
+            if self._skip:
+                return  # asked to stop while that piece was being synthesised
+            await self._play(wav)
+
+    async def _play(self, wav: bytes) -> None:
+        if self.vc is None:
+            return
+        await play_wav(self.vc, wav)
+
+    def _remember(self, text: Any) -> None:
+        """Keep what was just said, to hand to Whisper with the next fragment.
+
+        Only CLEANED text goes in. A hallucination in the context does not sit
+        there quietly — the prompt is a bias, so "Thank you." would make the
+        next fragment likelier to come back as "Thank you." too, and the
+        transcript would talk itself into a loop.
+        """
+        clean = clean_transcript(text)
+        if not clean:
+            return
+        self._context.append(clean)
+        del self._context[:-CONTEXT_LINES]
+
+    def _context_prompt(self) -> str:
+        return " ".join(self._context)
+
+    def _hold(self, user_id: int, pcm: bytes, now: float, *, first: bool = False) -> None:
+        """Add audio to a speaker's pending batch, bounded.
+
+        ``first`` puts it in FRONT: a batch Groq refused is older than
+        anything said since, and a transcript out of order reads worse than
+        one that is late.
+        """
+        held = self._pending.get(user_id)
+        if held is None:
+            held = {"pcm": bytearray(), "since": now}
+            self._pending[user_id] = held
+        # Only between turns, never leading or trailing: padding the edges
+        # would just buy silence for Whisper to hallucinate over.
+        gap = b"\x00" * (BATCH_GAP_MS * PCM_BYTES_PER_MS) if held["pcm"] else b""
+        if first:
+            held["pcm"][:0] = pcm + gap
+            # Keep the older wait, so requeued speech leaves at the first
+            # opportunity rather than serving a fresh sentence out of order.
+            held["since"] = min(held["since"], now)
+        else:
+            held["pcm"] += gap + pcm
+        # A long refusal must not turn into unbounded memory. The oldest audio
+        # is both the least useful and the most likely to be stale by the time
+        # capacity returns.
+        if len(held["pcm"]) > HARD_CAP_BYTES:
+            excess = len(held["pcm"]) - HARD_CAP_BYTES
+            del held["pcm"][:excess]
+            self._note_dropped_audio(pcm_ms(excess))
+
+    def _note_dropped_audio(self, ms: float) -> None:
+        """Say once, per session, that speech was thrown away."""
+        was_silent = self._dropped_ms == 0
+        self._dropped_ms += ms
+        if was_silent:
+            log.warning(
+                "Transcribe: dropping buffered speech in guild %s — Groq capacity has been "
+                "unavailable long enough that the backlog hit its ceiling.",
+                self.guild.id,
+            )
+
+    def _handle_refusal(self, user_id: int, pcm: bytes, verdict: Dict[str, Any]) -> None:
+        """A batch Groq would not take.
+
+        Keeps the speech when the window rolls soon enough to be worth
+        waiting for, and stops offering batches until then — without the hold
+        the tick re-offers the same refused audio five times a second.
+        """
+        reason = verdict.get("reason")
+        retry_ms = int(verdict.get("retry_after_ms") or 0)
+        if reason not in RATE_REASONS:
+            # A precinct's own daily cap, not Groq's: it resets at midnight
+            # UTC, which is not a wait — it is a decision already made.
+            log.warning('Transcribe: refused a turn in guild %s — "%s".', self.guild.id, reason)
+            return
+
+        self._rate_hold_until = self._clock() + min(retry_ms, RATE_HOLD_CAP_MS) / 1000
+        if 0 < retry_ms <= REQUEUE_MAX_WAIT_MS:
+            self._hold(user_id, pcm, self._clock(), first=True)
+            log.warning(
+                'Transcribe: Groq limit "%s" reached in guild %s; holding %.1fs and retrying.',
+                reason,
+                self.guild.id,
+                retry_ms / 1000,
+            )
+        else:
+            log.warning(
+                'Transcribe: Groq limit "%s" reached in guild %s; a turn was dropped '
+                "(the window does not roll for %.0f min).",
+                reason,
+                self.guild.id,
+                retry_ms / 60_000,
+            )
+
+    def _restart_listening(self, now: float) -> bool:
+        """Put a fresh sink on the connection after the receiver died.
+
+        Returns False when the allowance is spent or the restart itself
+        failed, which is the caller's cue to end the session rather than keep
+        a deaf bot in the channel.
+        """
+        if now - self._relisten_at > RELISTEN_WINDOW_SECS:
+            self._relistens = 0  # the last restart held; start counting again
+        if self._relistens >= MAX_RELISTENS:
+            return False
+        self._relistens += 1
+        self._relisten_at = now
+        try:
+            self.vc.stop_listening()  # drops the dead reader, if any is left
+            self._listen()
+        except Exception:
+            log.exception(
+                "Transcribe: could not restart the voice receiver in guild %s", self.guild.id
+            )
+            return False
+        log.warning(
+            "Transcribe: the voice receiver stopped in guild %s; restarted it (%d/%d).",
+            self.guild.id,
+            self._relistens,
+            MAX_RELISTENS,
+        )
+        return True
 
     # ── Dispatch ────────────────────────────────────────────────────────────
 
@@ -896,6 +1748,10 @@ class LiveSession:
         line in the channel ahead of speech that came before it. The hold is
         capped at ORDER_HOLD_MS so one slow request cannot strand the rest.
         """
+        # Posts deferred from an earlier flush are already packed and already
+        # late; they go before any ordering question about new lines.
+        if self._backlog:
+            return True
         if not self._lines.should_flush(now):
             return False
         if all(seq > self._lines.max_seq for seq in self._inflight):
@@ -917,11 +1773,8 @@ class LiveSession:
             verdict = await self.cog._claim(self.guild, seconds)
             if not verdict["ok"]:
                 # A rate refusal is not a defect: Groq's own ceiling was
-                # reached. Say so once rather than dropping the turn silently.
-                if verdict["reason"] in ("rpm", "rpd", "audio-hour", "audio-day"):
-                    log.warning(
-                        'Transcribe: Groq limit "%s" reached; skipping a turn.', verdict["reason"]
-                    )
+                # reached. The speech is put back rather than thrown away.
+                self._handle_refusal(user_id, pcm, verdict)
                 return
             try:
                 text = await self.cog._whisper(
@@ -930,34 +1783,65 @@ class LiveSession:
                     filename="live.wav",
                     content_type="audio/wav",
                     translate=settings["translate_to_english"],
+                    language=settings.get("language") or "",
+                    prompt=self._context_prompt(),
                 )
+            except RateLimited as error:
+                # Counted by Groq, so no refund — but the speech is still good
+                # and goes back in the queue to leave when the window rolls.
+                self._handle_refusal(
+                    user_id, pcm, {"reason": "rpm", "retry_after_ms": error.retry_after_ms}
+                )
+                return
             except Exception as error:
                 await self.cog._refund(self.guild, verdict["cost"])
                 log.warning("Transcribe: voice chunk failed — %s", error)
                 return
+
+            self.cog.dump_batch(self.guild, user_id, wav, seconds, text)
 
             # Member names on the asyncio side only — never on the sink thread.
             member = self.guild.get_member(user_id)
             name = member.display_name if member is not None else f"<@{user_id}>"
             line = format_line(
                 name=name,
-                text=text,
+                text=apply_replacements(text, settings.get("replacements")),
                 at_ms=at_ms,
                 timestamps=settings["voice_timestamps"],
             )
             self._lines.add(line, _now_ms(), seq)
+            # The ORIGINAL goes into the context, not the substituted version:
+            # the prompt is there to tell Whisper what was actually said, and
+            # feeding it the stand-in would steer the next fragment toward it.
+            self._remember(text)
         except Exception:
             log.exception("Transcribe: live-voice batch failed in guild %s", self.guild.id)
 
-    async def _post_lines(self) -> None:
-        lines = self._lines.drain()
-        if not lines:
+    async def _post_lines(self, *, final: bool = False) -> None:
+        """Send what is due, a couple of messages at a time.
+
+        ``pack_lines`` already keeps each post inside Discord's 2,000-character
+        ceiling; what is bounded here is how MANY go out at once. On teardown
+        there is no next beat to defer to, so everything left goes now.
+        """
+        posts = self._backlog + pack_lines(self._lines.drain())
+        self._backlog = []
+        if not posts:
             return
-        for post in pack_lines(lines):
-            try:
-                await self.text_channel.send(
-                    content=post, allowed_mentions=discord.AllowedMentions.none()
+        if not final and len(posts) > MAX_POSTS_PER_FLUSH:
+            posts, self._backlog = posts[:MAX_POSTS_PER_FLUSH], posts[MAX_POSTS_PER_FLUSH:]
+            if len(self._backlog) > MAX_BACKLOG_POSTS:
+                lost = len(self._backlog) - MAX_BACKLOG_POSTS
+                self._backlog = self._backlog[-MAX_BACKLOG_POSTS:]
+                log.warning(
+                    "Transcribe: %s transcript post(s) dropped in guild %s — the channel is "
+                    "further behind than it can catch up.",
+                    lost,
+                    self.guild.id,
                 )
+        for post in posts:
+            try:
+                await self.text_channel.send(content=post, allowed_mentions=self._allowed)
             except discord.HTTPException as error:
                 log.warning("Transcribe: could not post a voice transcript: %s", error)
             except Exception as error:

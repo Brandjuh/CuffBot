@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional
 __all__ = (
     "GROQ_FREE_LIMITS",
     "REFUSAL_TEXT",
+    "RateLimited",
     "billed_seconds",
     "check_budget",
     "day_key",
@@ -44,6 +45,26 @@ GROQ_FREE_LIMITS: Dict[str, int] = {
     # Every request is billed at least this much, however short the audio.
     "min_billed_seconds": 10,
 }
+
+#: What to assume when Groq refuses without saying how long to wait.
+DEFAULT_RATE_RETRY_MS = 5_000
+
+
+class RateLimited(RuntimeError):
+    """Groq received the request and refused it.
+
+    Worth its own type because of what it means for the local counters: the
+    attempt COUNTED against Groq's window even though no transcript came
+    back. Handing the claimed slot back — the right thing when a download
+    failed and nothing was ever sent — would let us straight back in for
+    another rejection, and the two counters would drift apart until every
+    request was a 429.
+    """
+
+    def __init__(self, message: str, *, retry_after_ms: int = DEFAULT_RATE_RETRY_MS):
+        super().__init__(message)
+        self.retry_after_ms = int(retry_after_ms)
+
 
 MINUTE_MS = 60_000
 HOUR_MS = 60 * MINUTE_MS

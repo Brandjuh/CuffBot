@@ -23,10 +23,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import aiohttp
 import discord
 from redbot.core import Config, checks, commands
+from redbot.core.data_manager import cog_data_path
 
 from . import livevoice
 from .limits import (
+    DEFAULT_RATE_RETRY_MS,
     REFUSAL_TEXT,
+    RateLimited,
     check_budget,
     day_key,
     describe_usage,
@@ -77,8 +80,29 @@ TRANSCRIBE_MODEL = "whisper-large-v3-turbo"
 TRANSLATIONS_URL = "https://api.groq.com/openai/v1/audio/translations"
 TRANSCRIPTIONS_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 
+# ── Text-to-speech: the transcript, backwards ───────────────────────────────
+
+SPEECH_URL = "https://api.groq.com/openai/v1/audio/speech"
+TTS_MODEL = "canopylabs/orpheus-v1-english"
+#: The voices Orpheus ships. Rejecting a typo here beats a 400 per message.
+TTS_VOICES = ("autumn", "diana", "hannah", "austin", "daniel", "troy")
+#: Whatever Discord let somebody send, the bot will read. 4,000 is the ceiling
+#: on a message with Nitro; anything shorter simply never reaches it.
+#:
+#: This is a deliberate choice with a real cost: Orpheus takes 200 characters
+#: per request, so a full-length message is twenty requests and roughly two
+#: minutes of talking, during which the channel has moved on. `[p]shush` is
+#: the answer to that rather than a lower ceiling.
+TTS_MAX_CHARS = 4_000
+SPEECH_TIMEOUT_SECS = 30
+
 DOWNLOAD_TIMEOUT_SECS = 30
 WHISPER_TIMEOUT_SECS = 60
+
+#: Whisper's prompt is capped at 224 tokens and silently truncated from the
+#: FRONT beyond that — which would drop the most recent words, the ones worth
+#: keeping. Cut it here instead, from the front, deliberately.
+PROMPT_MAX_CHARS = 480
 
 #: Where the legacy Node bot keeps its per-guild JSON, for ``migratecuff``.
 CUFFBOT_DATA_DIR = Path("/home/brand/CuffBot/data")
@@ -108,6 +132,26 @@ def refusal_for(reason: str) -> str:
 
 class TranscribeError(RuntimeError):
     """A download or Groq call that did not produce a transcript."""
+
+
+def retry_after_ms(headers: Any, body: str) -> int:
+    """How long Groq wants us to wait, from the header or from its own prose.
+
+    Groq states the wait twice — once in ``retry-after`` and once inside the
+    error message — and honouring what it actually said beats guessing, since
+    a guess that is too short spends the next slot on another rejection.
+    """
+    raw = None
+    with contextlib.suppress(Exception):
+        raw = headers.get("retry-after") or headers.get("Retry-After")
+    if raw is not None:
+        with contextlib.suppress(TypeError, ValueError):
+            return max(0, int(float(raw) * 1000))
+    match = re.search(r"try again in ([\d.]+)\s*s", body or "")
+    if match:
+        with contextlib.suppress(ValueError):
+            return max(0, int(float(match.group(1)) * 1000))
+    return DEFAULT_RATE_RETRY_MS
 
 
 # ── Pure helpers (ports of lib/transcribe.js, tested without a gateway) ─────
@@ -276,6 +320,12 @@ class CuffTranscribe(commands.Cog):
             auto_voice_messages=True,
             auto_audio_files=False,
             translate_to_english=True,
+            language="",
+            #: lowercased word → what the transcript shows instead.
+            replacements={},
+            tts_enabled=False,
+            tts_voice="autumn",
+            tts_max_chars=TTS_MAX_CHARS,
             max_duration_secs=600,
             daily_limit=0,
             ignored_user_ids=[],
@@ -292,6 +342,8 @@ class CuffTranscribe(commands.Cog):
         self.session: Optional[aiohttp.ClientSession] = None
         self._has_key = False
         self._locks: Dict[int, asyncio.Lock] = {}
+        #: Batches still to be written to disk for diagnosis; 0 = off.
+        self._dump_left = 0
         #: guild id → LiveSession — one live capture per guild at a time.
         self.live_sessions: Dict[int, livevoice.LiveSession] = {}
 
@@ -328,6 +380,43 @@ class CuffTranscribe(commands.Cog):
                 ).ignored_user_ids() as ignored:
                     while user_id in ignored:
                         ignored.remove(user_id)
+
+    # ── Diagnostics ─────────────────────────────────────────────────────────
+
+    def dump_batch(
+        self, guild: discord.Guild, user_id: int, wav: bytes, seconds: float, text: str
+    ) -> None:
+        """Write one batch to disk exactly as Groq received it, with what came
+        back, while ``[p]transcribe dump`` is armed.
+
+        A transcript that reads like nonsense has two possible causes and they
+        need opposite fixes: the audio arrived broken, or the audio was fine
+        and the model failed on it. Nothing in the logs distinguishes them —
+        so this saves the WAV that was actually uploaded next to the text that
+        actually returned, and the question stops being a matter of opinion.
+        """
+        if self._dump_left <= 0:
+            return
+        self._dump_left -= 1
+        try:
+            folder = cog_data_path(self) / "dumps"
+            folder.mkdir(parents=True, exist_ok=True)
+            stamp = f"{now_ms()}-{guild.id}-{user_id}"
+            (folder / f"{stamp}.wav").write_bytes(wav)
+            (folder / f"{stamp}.txt").write_text(
+                f"seconds: {seconds:.2f}\nbytes: {len(wav)}\ntext: {text!r}\n",
+                encoding="utf-8",
+            )
+            log.warning(
+                "Transcribe: dumped a batch to %s.wav — %.2fs, %d bytes, text=%r (%d left)",
+                stamp,
+                seconds,
+                len(wav),
+                text,
+                self._dump_left,
+            )
+        except Exception:
+            log.exception("Transcribe: could not write a diagnostic dump")
 
     # ── Budget (claim-before-send, port of service.js) ──────────────────────
 
@@ -404,6 +493,8 @@ class CuffTranscribe(commands.Cog):
         filename: str,
         content_type: str,
         translate: bool,
+        language: str = "",
+        prompt: str = "",
     ) -> str:
         """Speech in, text out. The ORIGINAL filename matters — Whisper infers
         the container from the extension."""
@@ -415,6 +506,21 @@ class CuffTranscribe(commands.Cog):
         # Whisper hallucinates fluent nonsense on silence at higher
         # temperatures; 0 is what the model card recommends.
         form.add_field("temperature", "0")
+        # Telling Whisper the language beats making it guess from a few
+        # seconds of speech — a wrong guess does not mispell a word, it
+        # transcribes the whole fragment as a different language. The
+        # translation endpoint has no such parameter (its output is English by
+        # definition) and rejects the request outright if one is sent.
+        if not translate and language:
+            form.add_field("language", language)
+        # Context. Whisper was trained on 30-second windows and we hand it a
+        # few seconds at a time with the silence removed, so it has nothing to
+        # anchor on; the prompt is where the words that came just before go,
+        # which is also how names and jargon stay spelled the same way twice.
+        if prompt:
+            # Keep the TAIL: the words spoken most recently are the context
+            # for what comes next, and the opening of a conversation is not.
+            form.add_field("prompt", prompt[-PROMPT_MAX_CHARS:])
 
         url = TRANSLATIONS_URL if translate else TRANSCRIPTIONS_URL
         timeout = aiohttp.ClientTimeout(total=WHISPER_TIMEOUT_SECS)
@@ -432,6 +538,13 @@ class CuffTranscribe(commands.Cog):
                         body = (await response.text())[:300]
                     except Exception:
                         body = "(unreadable body)"
+                    if response.status == 429:
+                        # Told apart from every other failure because this one
+                        # was COUNTED: see RateLimited.
+                        raise RateLimited(
+                            f"groq audio HTTP 429: {body}",
+                            retry_after_ms=retry_after_ms(response.headers, body),
+                        )
                     raise TranscribeError(f"groq audio HTTP {response.status}: {body}")
                 payload = await response.json()
         except asyncio.TimeoutError as exc:
@@ -442,6 +555,40 @@ class CuffTranscribe(commands.Cog):
         if not isinstance(text, str):
             raise TranscribeError("groq audio: no text in response")
         return text.strip()
+
+    async def _speech(self, api_key: str, text: str, voice: str) -> bytes:
+        """Text in, spoken WAV out. The mirror of :meth:`_whisper`."""
+        assert self.session is not None
+        payload = {
+            "model": TTS_MODEL,
+            "input": text,
+            "voice": voice if voice in TTS_VOICES else TTS_VOICES[0],
+            "response_format": "wav",
+        }
+        timeout = aiohttp.ClientTimeout(total=SPEECH_TIMEOUT_SECS)
+        try:
+            async with self.session.post(
+                SPEECH_URL,
+                json=payload,
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=timeout,
+            ) as response:
+                if response.status != 200:
+                    try:
+                        body = (await response.text())[:300]
+                    except Exception:
+                        body = "(unreadable body)"
+                    if response.status == 429:
+                        raise RateLimited(
+                            f"groq speech HTTP 429: {body}",
+                            retry_after_ms=retry_after_ms(response.headers, body),
+                        )
+                    raise TranscribeError(f"groq speech HTTP {response.status}: {body}")
+                return await response.read()
+        except asyncio.TimeoutError as exc:
+            raise TranscribeError("groq speech request timed out") from exc
+        except aiohttp.ClientError as exc:
+            raise TranscribeError(f"groq speech request failed: {exc}") from exc
 
     # ── Orchestration (port of service.js transcribeMessage) ────────────────
 
@@ -478,19 +625,40 @@ class CuffTranscribe(commands.Cog):
                 filename=attachment.filename or "voice-message.ogg",
                 content_type=attachment.content_type or downloaded_type,
                 translate=settings["translate_to_english"],
+                language=settings.get("language") or "",
             )
+        except RateLimited as error:
+            # Deliberately NOT refunded: the request reached Groq and spent the
+            # slot. Handing it back would only buy another 429.
+            return {
+                "ok": False,
+                "reason": "rpm",
+                "retry_after_ms": error.retry_after_ms,
+            }
         except Exception as error:  # the work never happened; do not charge
             await self._refund(guild, verdict["cost"])
             return {"ok": False, "reason": "failed", "detail": str(error)}
 
+        shown = livevoice.apply_replacements(text, settings.get("replacements"))
         embed_data = transcript_embed_data(
-            text=text,
+            text=shown,
             author_id=message.author.id,
             duration_secs=duration,
             translated=settings["translate_to_english"],
             filename=None if is_voice_message(message) else attachment.filename,
         )
-        return {"ok": True, "text": text, "embed": embed_from_data(embed_data)}
+        # A mention inside an EMBED never notifies anybody, whatever
+        # allowed_mentions says — Discord only pings from message content. So
+        # anyone a replacement named is repeated in the content, or the rule
+        # would look like it worked and quietly ping nobody.
+        pinged = livevoice.mentions_in(shown)
+        return {
+            "ok": True,
+            "text": text,
+            "embed": embed_from_data(embed_data),
+            "content": " ".join(f"<@{user_id}>" for user_id in pinged) or None,
+            "allowed": livevoice.allowed_for(settings.get("replacements")),
+        }
 
     # ── Auto path (port of events/message.js) ───────────────────────────────
 
@@ -515,10 +683,42 @@ class CuffTranscribe(commands.Cog):
                     log.warning("Transcribe: %s failed — %s", message.id, result.get("detail"))
                 return
             await message.reply(
-                embed=result["embed"], allowed_mentions=discord.AllowedMentions.none()
+                content=result.get("content"),
+                embed=result["embed"],
+                allowed_mentions=result["allowed"],
             )
         except discord.HTTPException as error:
             log.warning("Transcribe: could not post a transcript: %s", error)
+
+    @commands.Cog.listener(name="on_message")
+    async def on_message_speak(self, message: discord.Message) -> None:
+        """Read the paired text channel out loud, while a session is running.
+
+        Bots are excluded, and that is not politeness: this cog posts the
+        transcript into the very channel being read, so including them would
+        have the bot speak its own transcript, hear itself, and transcribe
+        that. The loop is the reason, the courtesy is a bonus.
+        """
+        guild = message.guild
+        if guild is None or message.author.bot or not message.content:
+            return
+        session = self.live_sessions.get(guild.id)
+        if session is None or message.channel.id != session.text_channel.id:
+            return
+        if not await self.config.guild(guild).tts_enabled():
+            return
+        if await self.bot.cog_disabled_in_guild(self, guild):
+            return
+        # A command is an instruction to the bot, not a remark to the room.
+        context = await self.bot.get_context(message)
+        if context.valid:
+            return
+
+        limit = await self.config.guild(guild).tts_max_chars()
+        spoken = livevoice.clean_for_speech(message.clean_content)[:limit]
+        if not spoken:
+            return
+        session.say(f"{message.author.display_name} says: {spoken}")
 
     # ── Live voice (port of voice/session.js + events/voice-state.js) ───────
 
@@ -669,6 +869,88 @@ class CuffTranscribe(commands.Cog):
     # ── Commands ────────────────────────────────────────────────────────────
 
     @commands.guild_only()
+    @commands.command(name="shush", aliases=["shutup", "ttsstop"])
+    async def shush(self, ctx: commands.Context) -> None:
+        """Stop reading out loud right now, and drop what is queued.
+
+        Deliberately open to everyone: whoever is stuck listening to a wall of
+        text being recited needs to be able to end it, and by the time you
+        have found an admin the bot is still talking.
+        """
+        session = self.live_sessions.get(ctx.guild.id)
+        if session is None:
+            await ctx.send("🔊 I am not in a voice channel here.")
+            return
+        dropped = session.silence()
+        await ctx.send(
+            "🔊 Stopped."
+            + (f" Dropped {dropped} message(s) that were waiting." if dropped else "")
+        )
+
+    @commands.guild_only()
+    @commands.command(name="speak", aliases=["tts"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def tts_test(self, ctx: commands.Context, *, text: str) -> None:
+        """Speak something out loud — a direct test of the speech pipeline.
+
+        Every step reports what it did, and a failure is shown here rather
+        than written to the log, which is the whole point of having it.
+        """
+        api_key = await self._api_key()
+        if not api_key:
+            await ctx.send("🔊 No Groq key is set.")
+            return
+        available, why = livevoice.live_voice_available()
+        if not available:
+            await ctx.send(f"🔊 Voice is unavailable: {why}")
+            return
+
+        session = self.live_sessions.get(ctx.guild.id)
+        temporary = None
+        if session is not None and session.vc is not None and session.vc.is_connected():
+            voice_client, where = session.vc, session.voice_channel
+        else:
+            state = ctx.author.voice
+            if state is None or state.channel is None:
+                await ctx.send("🔊 Join a voice channel first, or start a recording.")
+                return
+            if not self._voice_slot_free(ctx.guild):
+                await ctx.send("🔊 Another cog (probably Audio) holds this server's voice slot.")
+                return
+            where = state.channel
+            try:
+                voice_client = temporary = await where.connect(self_deaf=True, self_mute=False)
+            except Exception as error:
+                await ctx.send(f"🔊 Could not connect to {where.mention}: `{error}`")
+                return
+
+        # A recording session may have joined muted, which silently swallows
+        # everything played into it.
+        with contextlib.suppress(Exception):
+            await ctx.guild.change_voice_state(channel=where, self_mute=False)
+
+        voice = await self.config.guild(ctx.guild).tts_voice()
+        limit = await self.config.guild(ctx.guild).tts_max_chars()
+        chunks = livevoice.chunk_for_speech(text[:limit])
+        try:
+            async with ctx.typing():
+                audio = [await self._speech(api_key, chunk, voice) for chunk in chunks]
+            await ctx.send(
+                f"🔊 Groq returned {sum(len(a) for a in audio)} bytes in {len(audio)} piece(s) "
+                f"as **{voice}**. Playing in {where.mention}…",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            for piece in audio:
+                await livevoice.play_wav(voice_client, piece)
+            await ctx.send("🔊 Done — if you heard nothing, the fault is playback, not Groq.")
+        except Exception as error:
+            await ctx.send(f"🔊 **Speech failed.**\n```\n{str(error)[:900]}\n```")
+        finally:
+            if temporary is not None:
+                with contextlib.suppress(Exception):
+                    await temporary.disconnect(force=True)
+
+    @commands.guild_only()
     @commands.group(name="transcribe", aliases=["stt", "statement"], invoke_without_command=True)
     async def transcribe(self, ctx: commands.Context) -> None:
         """Turn voice memos into written statements, in English.
@@ -708,7 +990,15 @@ class CuffTranscribe(commands.Cog):
             (
                 "**Output:** always English"
                 if settings["translate_to_english"]
-                else "**Output:** the language that was spoken"
+                else (
+                    "**Output:** the language that was spoken"
+                    + (
+                        f" — told it is `{settings['language']}`"
+                        if settings.get("language")
+                        else f" — auto-detected (`{ctx.clean_prefix}transcribe language nl` "
+                        "is steadier on short clips)"
+                    )
+                )
             ),
             (
                 f"**Automatic:** voice messages {'✅' if settings['auto_voice_messages'] else '❌'}"
@@ -741,7 +1031,10 @@ class CuffTranscribe(commands.Cog):
                 f"**Live voice:** ⚠️ unavailable — {deps_why}; voice memos and audio files still work"
             )
         elif live_session is not None:
-            lines.append(f"**Live voice:** 🔴 recording <#{live_session.voice_channel.id}>")
+            lines.append(
+                f"**Live voice:** 🔴 recording <#{live_session.voice_channel.id}> "
+                f"→ writing in <#{live_session.text_channel.id}>"
+            )
         else:
             lines.append(
                 "**Live voice:** not in a voice channel — "
@@ -767,6 +1060,19 @@ class CuffTranscribe(commands.Cog):
         if ignored:
             skipping += " · " + ", ".join(f"<@{uid}>" for uid in ignored)
         lines.append(skipping)
+        if settings.get("tts_enabled"):
+            spoken = (
+                f"<#{live_session.text_channel.id}>" if live_session else "the paired channel"
+            )
+            lines.append(
+                f"**Reading aloud:** 🔊 {spoken}, as **{settings.get('tts_voice') or 'autumn'}**"
+            )
+        swaps = settings.get("replacements") or {}
+        if swaps:
+            lines.append(
+                f"**Swapped words:** {len(swaps)} — "
+                f"`{ctx.clean_prefix}transcribe replace` lists them"
+            )
         lines.append(
             "-# Live listening and the Audio (music) cog cannot use voice at the same time."
         )
@@ -775,7 +1081,11 @@ class CuffTranscribe(commands.Cog):
             f"Reply to a recording and run `{ctx.clean_prefix}transcribe now` "
             "to transcribe it on demand."
         )
-        await ctx.send("\n".join(lines), allowed_mentions=discord.AllowedMentions.none())
+        # The channel and ignore lists grow with the server, so this can pass
+        # Discord's 2,000-character ceiling on a big precinct — split between
+        # lines rather than letting the send fail outright.
+        for post in livevoice.pack_lines(lines):
+            await ctx.send(post, allowed_mentions=discord.AllowedMentions.none())
 
     async def _find_recording(self, ctx: commands.Context) -> Optional[discord.Message]:
         """Find the recording the member means: the message they replied to,
@@ -822,7 +1132,11 @@ class CuffTranscribe(commands.Cog):
             else:
                 await ctx.send(f"🎙️ {refusal_for(reason)}")
             return
-        await ctx.reply(embed=result["embed"], allowed_mentions=discord.AllowedMentions.none())
+        await ctx.reply(
+            content=result.get("content"),
+            embed=result["embed"],
+            allowed_mentions=result["allowed"],
+        )
 
     @transcribe.command(name="on")
     @checks.admin_or_permissions(manage_guild=True)
@@ -872,6 +1186,39 @@ class CuffTranscribe(commands.Cog):
             if state
             else "🎙️ Statements are written in the **language that was spoken**."
         )
+
+    @transcribe.command(name="language", aliases=["lang"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_language(self, ctx: commands.Context, code: str) -> None:
+        """Tell Whisper what language is being spoken — `nl`, `en`, … or `auto`.
+
+        Only applies when statements are written in the spoken language.
+        Translation to English has no language to choose.
+        """
+        cleaned = code.strip().lower()
+        if cleaned in ("auto", "off", "none", "detect"):
+            await self.config.guild(ctx.guild).language.set("")
+            await ctx.send(
+                "🎙️ Whisper works out the language by itself. On short recordings it "
+                "sometimes works out the wrong one — naming it is more reliable."
+            )
+            return
+        # ISO-639-1, which is what the API takes. Anything else is a typo, and
+        # a rejected language turns every transcription into an error.
+        if not re.fullmatch(r"[a-z]{2}", cleaned):
+            await ctx.send(
+                "🎙️ Give me a two-letter language code like `nl` or `en`, or `auto`."
+            )
+            return
+        await self.config.guild(ctx.guild).language.set(cleaned)
+        translate = await self.config.guild(ctx.guild).translate_to_english()
+        note = (
+            f"\n-# Statements are currently **translated to English**, which ignores this. "
+            f"`{ctx.clean_prefix}transcribe english false` writes what was actually said."
+            if translate
+            else ""
+        )
+        await ctx.send(f"🎙️ Whisper is told the audio is **{cleaned}**.{note}")
 
     @transcribe.command(name="channel")
     @checks.admin_or_permissions(manage_guild=True)
@@ -1212,6 +1559,154 @@ class CuffTranscribe(commands.Cog):
             if state
             else "🎙️ Other bots are skipped. Music playing through a bot is ignored."
         )
+
+    @transcribe.command(name="speak", aliases=["tts"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_speak(self, ctx: commands.Context, state: bool) -> None:
+        """Read the paired text channel out loud in the voice channel."""
+        await self.config.guild(ctx.guild).tts_enabled.set(state)
+        session = self.live_sessions.get(ctx.guild.id)
+        # A running session joined muted, which is a real restriction and not
+        # only a signal — so unmute it now rather than at the next join.
+        if session is not None and session.vc is not None:
+            with contextlib.suppress(Exception):
+                await ctx.guild.change_voice_state(
+                    channel=session.voice_channel, self_mute=not state
+                )
+        if not state:
+            await ctx.send("🔊 I will keep quiet.")
+            return
+
+        voice = await self.config.guild(ctx.guild).tts_voice()
+        # Naming the channel is the whole point of this message. Only the
+        # paired channel is read, and typing in the wrong one looks exactly
+        # like the feature being broken — silence either way.
+        if session is None:
+            where = (
+                "Nothing is being recorded yet. When I join, I read the text channel "
+                "paired with the voice channel — not necessarily this one; "
+                f"`{ctx.clean_prefix}transcribe pairs` shows which."
+            )
+        elif session.text_channel.id == ctx.channel.id:
+            where = "I am reading **this** channel."
+        else:
+            where = (
+                f"⚠️ I am reading {session.text_channel.mention}, not this one — "
+                "that is the channel paired with the voice channel I am in. "
+                "Type there and I will speak it."
+            )
+        await ctx.send(
+            f"🔊 Reading the chat out loud in **{voice}**'s voice. {where}\n"
+            "-# Other bots are skipped — including me, so I never read my own transcript back.\n"
+            f"-# `{ctx.clean_prefix}transcribe voice` picks another voice.",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+
+    @transcribe.command(name="ttslimit", aliases=["speaklimit"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_ttslimit(
+        self, ctx: commands.Context, characters: commands.Range[int, 0, 4000]
+    ) -> None:
+        """How much of a message is read aloud, in characters.
+
+        The ceiling is Discord's own 4,000. Groq's free tier allows far less
+        speech per day than that implies, so this is the dial that decides
+        whether the budget goes on a few long messages or many short ones.
+        """
+        await self.config.guild(ctx.guild).tts_max_chars.set(characters)
+        if characters == 0:
+            await ctx.send("🔊 Nothing will be read aloud (0 characters).")
+            return
+        # Measured against the live API: roughly 27 tokens per 200-character
+        # request, against a free-tier ceiling of 3,600 tokens a day.
+        per_message = max(1, round(characters / 200 * 27))
+        await ctx.send(
+            f"🔊 Up to **{characters}** characters of a message are read; longer ones are cut.\n"
+            f"-# That is about {per_message} tokens a message, so roughly "
+            f"**{max(1, 3600 // per_message)} messages a day** on Groq's free tier."
+        )
+
+    @transcribe.command(name="voice")
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_voice(self, ctx: commands.Context, name: str) -> None:
+        """Pick the speaking voice: autumn, diana, hannah, austin, daniel or troy."""
+        choice = name.strip().lower()
+        if choice not in TTS_VOICES:
+            await ctx.send(f"🔊 Pick one of: {', '.join(f'`{v}`' for v in TTS_VOICES)}.")
+            return
+        await self.config.guild(ctx.guild).tts_voice.set(choice)
+        await ctx.send(f"🔊 I will speak as **{choice}**.")
+
+    @transcribe.command(name="replace", aliases=["swap"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def transcribe_replace(
+        self,
+        ctx: commands.Context,
+        word: Optional[str] = None,
+        *,
+        replacement: Optional[str] = None,
+    ) -> None:
+        """Write something else whenever a word is said.
+
+        `[p]transcribe replace fuck Brandjuh is nice` swaps it everywhere.
+        Give just the word to drop the rule, or nothing to list them.
+        """
+        group = self.config.guild(ctx.guild).replacements
+        if word is None:
+            rules = await group()
+            if not rules:
+                await ctx.send(
+                    "🎙️ No words are being swapped. "
+                    f"`{ctx.clean_prefix}transcribe replace <word> <what to write instead>`."
+                )
+                return
+            listing = "\n".join(f"- `{k}` → {v}" for k, v in sorted(rules.items()))
+            await ctx.send(
+                f"🎙️ **Swapped in transcripts**\n{listing}",
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            return
+
+        # Stored lowercase: matching ignores case, so two rules differing only
+        # in capitals would be one rule with an arbitrary winner.
+        key = word.strip().lower()
+        if not key:
+            await ctx.send("🎙️ Give me a word to swap.")
+            return
+        async with group() as rules:
+            if replacement is None:
+                existed = rules.pop(key, None)
+                message = (
+                    f"🎙️ `{key}` is written as itself again."
+                    if existed
+                    else f"🎙️ Nothing was being swapped for `{key}`."
+                )
+            else:
+                rules[key] = replacement.strip()
+                message = f"🎙️ `{key}` will be written as **{replacement.strip()}**."
+        await ctx.send(message, allowed_mentions=discord.AllowedMentions.none())
+
+    @transcribe.command(name="dump")
+    @checks.is_owner()
+    async def transcribe_dump(
+        self, ctx: commands.Context, count: commands.Range[int, 0, 50] = 5
+    ) -> None:
+        """Save the next few live-voice batches to disk, audio and all.
+
+        `0` disarms it. The files land in the cog's data folder; the audio is
+        exactly what was uploaded, so it can be listened to.
+        """
+        self._dump_left = int(count)
+        folder = cog_data_path(self) / "dumps"
+        if count:
+            await ctx.send(
+                f"🎙️ The next **{count}** live batches will be written to `{folder}` "
+                "as .wav plus the text that came back. Play the audio: if it is chopped "
+                "or mostly silence the fault is in the capture; if it is clean speech "
+                "the fault is in the model."
+            )
+        else:
+            await ctx.send("🎙️ Diagnostic dumping is off.")
 
     @transcribe.command(name="migratecuff")
     @checks.is_owner()

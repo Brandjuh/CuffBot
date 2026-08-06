@@ -1,0 +1,12 @@
+{
+  "author": ["Brandjuh"],
+  "name": "CuffPurge",
+  "short": "Empty a channel of every message, with a confirmation and a stop button.",
+  "description": "Deletes every message in a channel — the blunt operation Red's Cleanup cog deliberately has no command for. Asks for confirmation first, naming the channel and the number of pinned messages at stake; pinned messages are kept unless explicitly included. A running purge can be stopped from a button and reports how far it got. Messages newer than 14 days go via bulk delete; older ones are deleted individually, which is slow, so progress is reported live. Every run is attributed to whoever started it in the audit log.",
+  "end_user_data_statement": "This cog stores no data. It deletes messages on request and records who requested the deletion in Discord's own audit log; message content is never read into storage or sent anywhere.",
+  "install_msg": "Thanks for installing CuffPurge. `[p]purge all` empties the channel you run it in, `[p]purge all #channel` another one. You are asked to confirm first, and pinned messages are kept unless you pass `yes` as the last argument.",
+  "min_bot_version": "3.5.0",
+  "requirements": [],
+  "tags": ["moderation", "cleanup", "purge", "delete", "channel"],
+  "type": "COG"
+}
