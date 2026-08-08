@@ -74,7 +74,7 @@ AI_TOKEN_ESTIMATE = 550
 class CuffChatStarter(commands.Cog):
     """Revives a quiet channel with an open-ended question."""
 
-    __version__ = "1.0.0"
+    __version__ = "1.1.0"
     __author__ = "Brandjuh"
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
@@ -99,6 +99,11 @@ class CuffChatStarter(commands.Cog):
         self.activity: Dict[int, Dict[str, Any]] = {}
         self._bank: Optional[list] = None
         self._test_tasks: set = set()
+        #: guild id -> why the last sweep posted nothing. Every bail below is a
+        #: plain `return False`, which made "it just never posts" impossible to
+        #: tell apart from "the channel is simply busy". Kept for the status
+        #: embed, and logged once whenever the reason changes.
+        self._last_reason: Dict[int, str] = {}
         self._startup = asyncio.create_task(self._start())
 
     async def _start(self):
@@ -278,16 +283,32 @@ class CuffChatStarter(commands.Cog):
     # Posting
     # ------------------------------------------------------------------
 
+    def note_reason(self, guild_id: int, reason: str) -> None:
+        """Remember why nothing was posted, and log it the first time.
+
+        The sweep runs every few minutes; logging every pass would bury the
+        rest of the log, so only a *change* of reason is worth a line.
+        """
+        if self._last_reason.get(guild_id) != reason:
+            self._last_reason[guild_id] = reason
+            if reason not in ("", "not-idle-enough", "no-human-since-last-starter"):
+                log.warning("Chat starter: nothing posted in %s — %s", guild_id, reason)
+
     async def post_starter(self, guild: discord.Guild) -> bool:
         """Post one starter right now — no idle or guard checks, callers decide."""
         conf = await self.config.guild(guild).all()
         channel = guild.get_channel(int(conf["channel_id"])) if conf["channel_id"] else None
         if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            # The usual cause of a starter that never appears: the configured
+            # channel was deleted, or the bot cannot see it.
+            self.note_reason(guild.id, f"channel {conf['channel_id']} not found")
             return False
         if not channel.permissions_for(guild.me).send_messages:
+            self.note_reason(guild.id, f"no Send Messages in #{channel.name}")
             return False
         question = await self.next_question(guild)
         if not question:
+            self.note_reason(guild.id, "no question available (AI and bank both empty)")
             return False
         try:
             await channel.send(
@@ -296,18 +317,25 @@ class CuffChatStarter(commands.Cog):
             )
         except discord.HTTPException as error:
             log.warning("Chat starter: post failed: %s", error)
+            self.note_reason(guild.id, f"send refused: {error}")
             return False
+        self.note_reason(guild.id, "")
         self.mark_posted(channel.id)
         return True
 
     async def sweep(self, guild: discord.Guild) -> bool:
         conf = await self.config.guild(guild).all()
-        if not conf["enabled"] or not conf["channel_id"]:
+        if not conf["enabled"]:
+            self.note_reason(guild.id, "disabled")
+            return False
+        if not conf["channel_id"]:
+            self.note_reason(guild.id, "no channel set")
             return False
         if await self.bot.cog_disabled_in_guild(self, guild):
+            self.note_reason(guild.id, "cog disabled in this guild")
             return False
         entry = self.activity_for(int(conf["channel_id"]))
-        post, _reason = should_post(
+        post, reason = should_post(
             enabled=conf["enabled"],
             channel_id=int(conf["channel_id"]),
             idle_minutes=int(conf["idle_minutes"]),
@@ -315,6 +343,7 @@ class CuffChatStarter(commands.Cog):
             human_since_starter=entry["human_since_starter"],
         )
         if not post:
+            self.note_reason(guild.id, reason)
             return False
         return await self.post_starter(guild)
 
@@ -379,11 +408,18 @@ class CuffChatStarter(commands.Cog):
         embed.add_field(
             name="Enabled", value="🟢 yes" if conf["enabled"] else "🔴 no", inline=True
         )
-        embed.add_field(
-            name="Channel",
-            value=f"<#{conf['channel_id']}>" if conf["channel_id"] else "⚠️ not set",
-            inline=True,
-        )
+        # A mention renders for any id, existing or not — resolve it, so a
+        # channel that was deleted shows up as deleted instead of as a link.
+        watched = ctx.guild.get_channel(int(conf["channel_id"])) if conf["channel_id"] else None
+        if not conf["channel_id"]:
+            channel_value = "⚠️ not set"
+        elif watched is None:
+            channel_value = f"⚠️ `{conf['channel_id']}` — no such channel here"
+        elif not watched.permissions_for(ctx.guild.me).send_messages:
+            channel_value = f"{watched.mention} ⚠️ I cannot send there"
+        else:
+            channel_value = watched.mention
+        embed.add_field(name="Channel", value=channel_value, inline=True)
         hours = int(conf["idle_minutes"]) / 60
         embed.add_field(
             name="Idle threshold",
@@ -398,9 +434,20 @@ class CuffChatStarter(commands.Cog):
             waiting = "✅ a human has spoken" if entry["human_since_starter"] else (
                 "⏸️ waiting for a human — the bot never posts twice in a row"
             )
+            blocked = self._last_reason.get(ctx.guild.id, "")
+            explained = {
+                "not-idle-enough": (
+                    f"⏳ waiting — needs **{conf['idle_minutes']}** min of silence"
+                ),
+                "no-human-since-last-starter": (
+                    "⏸️ waiting for a human — the bot never posts twice in a row"
+                ),
+                "disabled": "🔴 switched off",
+                "no-channel": "⚠️ no channel set",
+            }.get(blocked, f"⚠️ {blocked}" if blocked else "✅ ready to post")
             embed.add_field(
                 name="Right now",
-                value=f"Quiet for **{quiet_min}** min\n{waiting}",
+                value=f"Quiet for **{quiet_min}** min\n{waiting}\nLast sweep: {explained}",
                 inline=False,
             )
         embed.add_field(
@@ -517,7 +564,14 @@ class CuffChatStarter(commands.Cog):
             # purpose: the owner sees the real thing without waiting 12 hours.
             try:
                 await asyncio.sleep(TEST_DELAY_S)
-                await self.post_starter(ctx.guild)
+                if not await self.post_starter(ctx.guild):
+                    # Silence here used to look identical to success from where
+                    # the owner was standing. Say what stopped it.
+                    await self.nope(
+                        ctx,
+                        self._last_reason.get(ctx.guild.id) or "unknown reason",
+                        title="🚫 Test starter not posted",
+                    )
             except asyncio.CancelledError:
                 raise
             except Exception:
