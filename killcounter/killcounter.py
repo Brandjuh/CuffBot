@@ -10,6 +10,12 @@ The pending state is RAM-only, on purpose: a pending kill that a restart
 loses is one point in a game, and persisting a countdown would mean a disk
 write on every message. Ported from the CuffBot Node module
 ``src/modules/killcounter`` — strings and behavior are kept verbatim.
+
+One deliberate departure from the Node module: a scored kill is **announced**
+in the channel that died. The Node version scored in complete silence, so the
+board only moved for people who thought to run the command. Announcing there
+is safe because the bot's own message is not activity — `_note_message` drops
+bot authors — so the announcement cannot arm a fresh kill on itself.
 """
 
 import asyncio
@@ -107,7 +113,7 @@ def standing_for(scores: dict, user_id) -> tuple[int, Optional[int], int]:
 class KillCounter(commands.Cog):
     """Chat kills: go quiet after someone speaks and the last word scores."""
 
-    __version__ = "1.0.0"
+    __version__ = "1.1.0"
     __author__ = "Brandjuh"
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
@@ -122,6 +128,7 @@ class KillCounter(commands.Cog):
             silence_ms=30000,
             channel_ids=[],  # channel ids as str; empty = every channel
             ignore_commands=True,
+            announce=True,
         )
         self.config.register_member(
             kills=0,
@@ -218,7 +225,42 @@ class KillCounter(commands.Cog):
         kills = await member_conf.kills() + 1
         await member_conf.kills.set(kills)
         await member_conf.last_kill_at.set(now)
+        await self._announce_kill(guild_id, channel_id, award, kills)
         return award, kills
+
+    async def _announce_kill(self, guild_id: int, channel_id: int, user_id: int, kills: int):
+        """Name the killer in the channel they killed.
+
+        Scored *after* the counters are written, so the rank shown is the one
+        this kill just earned. Never raises: a game point is not worth losing
+        the award over a channel the bot cannot post in.
+        """
+        guild = self.bot.get_guild(guild_id)
+        if guild is None:
+            return
+        if not await self.config.guild(guild).announce():
+            return
+        channel = guild.get_channel(channel_id)
+        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            return
+        perms = channel.permissions_for(guild.me)
+        if not (perms.send_messages and perms.embed_links):
+            log.warning(
+                "Kill counter: cannot announce in %s — need Send Messages and Embed Links",
+                channel_id,
+            )
+            return
+        _kills, rank, of = standing_for(await self._scores(guild), user_id)
+        lines = [f"<@{user_id}> — kill **#{kills}**"]
+        if rank:
+            lines.append(f"#{rank} of {of} on the board")
+        embed = discord.Embed(
+            color=BOARD_COLOR, title="💀 Chat killed", description="\n".join(lines)
+        )
+        try:
+            await channel.send(embed=embed, allowed_mentions=discord.AllowedMentions.none())
+        except discord.HTTPException as error:
+            log.warning("Kill counter: announcing a kill failed: %s", error)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -248,6 +290,7 @@ class KillCounter(commands.Cog):
             f"**Enabled:** {'🟢 yes' if conf['enabled'] else '🔴 no'}",
             f"**Silence needed:** {_seconds(conf['silence_ms'])}",
             f"**Channels:** {channels}",
+            f"**Announce kills:** {'🟢 yes' if conf['announce'] else '🔴 no — the board is silent'}",
             f"**Your kills:** {kills}" + (f" — #{rank} of {of}" if rank else ""),
         ]
         embed = discord.Embed(title="💀 Kill counter", color=BOARD_COLOR, description="\n".join(lines))
@@ -295,6 +338,17 @@ class KillCounter(commands.Cog):
         """Stop counting chat kills."""
         await self.config.guild(ctx.guild).enabled.set(False)
         await ctx.send("💀 Chat kills are no longer counted. Existing scores are kept.")
+
+    @killcounter.command(name="announce")
+    @checks.admin_or_permissions(manage_guild=True)
+    async def killcounter_announce(self, ctx: commands.Context, state: bool):
+        """Post a message in the channel whenever someone scores a kill."""
+        await self.config.guild(ctx.guild).announce.set(state)
+        await ctx.send(
+            "💀 Kills are announced in the channel that died."
+            if state
+            else f"💀 Kills are counted quietly — check `{ctx.clean_prefix}killcounter board`."
+        )
 
     @killcounter.command(name="silence")
     @checks.admin_or_permissions(manage_guild=True)
