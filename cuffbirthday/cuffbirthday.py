@@ -289,7 +289,7 @@ async def send_error(
 class CuffBirthday(commands.Cog):
     """Birthday watch: register once, get celebrated on your own calendar day."""
 
-    __version__ = "1.0.0"
+    __version__ = "1.1.0"
     __author__ = "Brandjuh"
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
@@ -320,6 +320,10 @@ class CuffBirthday(commands.Cog):
         self.config.register_global(sweep_minutes=10)
         self._sweep_lock = asyncio.Lock()
         self._ready = asyncio.Event()
+        #: (guild id, channel id) pairs the API has already told us are not
+        #: reachable from that guild, so the sweep stops re-asking every tick.
+        #: Keyed on the channel id too, so changing the setting retries at once.
+        self._unreachable: set = set()
         self._startup = asyncio.create_task(self._start_sweep())
 
     async def _start_sweep(self) -> None:
@@ -427,18 +431,54 @@ class CuffBirthday(commands.Cog):
                 log.warning("Birthdays: could not remove the birthday role from %s: %s", user_id, error)
         return result
 
+    async def resolve_channel(self, guild: discord.Guild, channel_id) -> Optional[discord.abc.GuildChannel]:
+        """The announcement channel for this guild, or None.
+
+        The cache answers this almost always; the fetch is only for a channel
+        discord.py has not seen yet. It has one sharp edge: when the id belongs
+        to a *different* guild — which is what the default channel id is in
+        every guild but the home one — the API raises ``InvalidData``, and that
+        is a ``ClientException``, not an ``HTTPException``. It slipped past the
+        old except clause and put a traceback in the log on every tick.
+
+        A guild that cannot reach its configured channel is remembered, so the
+        sweep asks the API once instead of every ten minutes forever.
+        """
+        if not channel_id:
+            return None
+        try:
+            channel_id = int(channel_id)
+        except (TypeError, ValueError):
+            return None
+        channel = guild.get_channel(channel_id)
+        if channel is not None:
+            return channel
+        if (guild.id, channel_id) in self._unreachable:
+            return None
+        try:
+            return await guild.fetch_channel(channel_id)
+        except (discord.NotFound, discord.Forbidden, discord.InvalidData) as error:
+            # Settled answers: gone, not ours, or not in this guild at all.
+            self._unreachable.add((guild.id, channel_id))
+            log.warning(
+                "Birthdays: channel %s is unreachable from guild %s (%s) — not asking again",
+                channel_id,
+                guild.id,
+                type(error).__name__,
+            )
+            return None
+        except discord.HTTPException as error:
+            # Could be a blip; worth retrying on the next sweep.
+            log.warning("Birthdays: could not fetch channel %s: %s", channel_id, error)
+            return None
+
     async def sweep_birthdays(self, guild: discord.Guild, moment: Optional[int] = None) -> int:
         """Announce every birthday that has started, once per local year."""
         moment = now_ms() if moment is None else moment
         conf = await self.config.guild(guild).all()
         if not conf["enabled"] or not conf["channel_id"]:
             return 0
-        channel = guild.get_channel(int(conf["channel_id"]))
-        if channel is None:
-            try:
-                channel = await guild.fetch_channel(int(conf["channel_id"]))
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                return 0
+        channel = await self.resolve_channel(guild, conf["channel_id"])
         if not isinstance(channel, (discord.TextChannel, discord.Thread)):
             return 0
 
@@ -508,11 +548,16 @@ class CuffBirthday(commands.Cog):
         mine = conf["birthdays"].get(str(ctx.author.id))
         minutes = await self.config.sweep_minutes()
 
-        channel = (
-            f"<#{conf['channel_id']}>"
-            if conf["channel_id"]
-            else "⚠️ not set — nothing is announced"
-        )
+        # A mention renders for any id, existing or not, so resolve it: in a
+        # guild the configured channel does not belong to, a bare "<#id>" reads
+        # as correctly configured while nothing is ever announced.
+        resolved = await self.resolve_channel(ctx.guild, conf["channel_id"])
+        if not conf["channel_id"]:
+            channel = "⚠️ not set — nothing is announced"
+        elif resolved is None:
+            channel = f"⚠️ `{conf['channel_id']}` — not a channel in this server"
+        else:
+            channel = resolved.mention
         role = f"<@&{conf['birthday_role_id']}>" if conf["birthday_role_id"] else "none"
         if conf["gift_enabled"] and conf["gift_amount"] > 0:
             currency = await bank.get_currency_name(ctx.guild)
@@ -740,6 +785,9 @@ class CuffBirthday(commands.Cog):
     async def birthday_channel(self, ctx: commands.Context, channel: discord.TextChannel):
         """Channel where birthdays are announced."""
         await self.config.guild(ctx.guild).channel_id.set(channel.id)
+        # Setting the channel is the admin saying "try again" — forget every
+        # earlier verdict for this guild, including a stale Forbidden.
+        self._unreachable = {pair for pair in self._unreachable if pair[0] != ctx.guild.id}
         note = ""
         if not channel.permissions_for(ctx.guild.me).send_messages:
             note = "\n\n⚠️ I cannot send messages there — fix that or nothing will be announced."
