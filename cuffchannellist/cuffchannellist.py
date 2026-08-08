@@ -11,8 +11,13 @@ Two things worth knowing:
   what that role can actually see, so a staff-only channel does not leak into
   a public directory.
 * **The list edits itself in place** whenever it can. A repost only happens
-  when the render needs more messages than are posted, or when one of them was
-  deleted — otherwise the directory would climb the channel every ten seconds.
+  when the render needs more messages than are posted, when one of them was
+  deleted, or when an edit is refused — otherwise the directory would climb the
+  channel every ten seconds. Whatever goes wrong with the posted messages, the
+  answer is the same: throw them away and post a fresh list.
+* **A sweep runs every 15 minutes** on top of the channel events, so a list
+  that was deleted by hand, or that drifted while the bot was down, comes back
+  without anyone touching a channel.
 """
 
 import asyncio
@@ -50,6 +55,10 @@ SUCCESS_COLOR = 0x57F287
 ERROR_COLOR = 0xED4245
 INFO_COLOR = 0x5865F2
 
+#: Safety net behind the channel listeners: catches a list deleted by hand, or
+#: channels that changed while the bot was offline.
+SWEEP_INTERVAL_S = 900
+
 TEXTLIKE = (
     discord.ChannelType.text,
     discord.ChannelType.news,
@@ -61,7 +70,7 @@ VOICELIKE = (discord.ChannelType.voice, discord.ChannelType.stage_voice)
 class CuffChannelList(commands.Cog):
     """A self-updating list of every category and channel in the server."""
 
-    __version__ = "1.0.0"
+    __version__ = "1.1.0"
     __author__ = "Brandjuh"
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
@@ -87,8 +96,10 @@ class CuffChannelList(commands.Cog):
         )
         self._locks: Dict[int, asyncio.Lock] = {}
         self._pending: Dict[int, asyncio.Task] = {}
+        self._sweeper: asyncio.Task = asyncio.create_task(self._sweep_loop())
 
     def cog_unload(self):
+        self._sweeper.cancel()
         for task in self._pending.values():
             task.cancel()
 
@@ -201,29 +212,46 @@ class CuffChannelList(commands.Cog):
             if action == ACTION_SKIP:
                 return "skipped"
 
+            repaired = False
             if action == ACTION_EDIT:
-                for index, chunk in enumerate(chunks):
-                    embed = discord.Embed(color=color, description=chunk[:4096])
-                    await existing_messages[index].edit(embed=embed)
-                # The list shrank: drop the now-surplus messages.
-                for message in existing_messages[len(chunks) :]:
-                    try:
-                        await message.delete()
-                    except (discord.NotFound, discord.Forbidden, discord.HTTPException):
-                        pass
-                await group.message_ids.set([m.id for m in existing_messages[: len(chunks)]])
-                return "edited"
+                try:
+                    for index, chunk in enumerate(chunks):
+                        embed = discord.Embed(color=color, description=chunk[:4096])
+                        await existing_messages[index].edit(embed=embed)
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException) as error:
+                    # The message vanished mid-edit, or is no longer ours to
+                    # touch. Never leave a half-updated list up: fall through
+                    # to a repost, which clears the old messages first.
+                    log.warning(
+                        "Channel list: editing failed in %s, reposting instead (%s)",
+                        guild.id,
+                        error,
+                    )
+                    repaired = True
+                else:
+                    # The list shrank: drop the now-surplus messages.
+                    for message in existing_messages[len(chunks) :]:
+                        try:
+                            await message.delete()
+                        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                            pass
+                    await group.message_ids.set([m.id for m in existing_messages[: len(chunks)]])
+                    return "edited"
 
             # Repost: clear whatever we tracked before, wherever it was.
             await self._delete_tracked(guild, conf)
-            new_ids = []
-            for chunk in chunks:
-                embed = discord.Embed(color=color, description=chunk[:4096])
-                sent = await channel.send(embed=embed)
-                new_ids.append(sent.id)
             await group.message_channel_id.set(channel.id)
-            await group.message_ids.set(new_ids)
-            return "posted"
+            # Track ids as they are sent, so a send that dies halfway leaves
+            # cleanable messages behind rather than untracked orphans.
+            new_ids: List[int] = []
+            try:
+                for chunk in chunks:
+                    embed = discord.Embed(color=color, description=chunk[:4096])
+                    sent = await channel.send(embed=embed)
+                    new_ids.append(sent.id)
+            finally:
+                await group.message_ids.set(new_ids)
+            return "repaired" if repaired else "posted"
 
     async def _delete_tracked(self, guild: discord.Guild, conf: Dict[str, Any]) -> int:
         """Best-effort removal of the messages we posted last time."""
@@ -261,6 +289,29 @@ class CuffChannelList(commands.Cog):
 
         self._pending[guild.id] = asyncio.create_task(later())
 
+    async def _sweep_loop(self) -> None:
+        """Re-apply every posted list on a timer, forever.
+
+        The channel listeners only fire when a channel changes, so they cannot
+        notice a list somebody deleted, an edit the API refused, or anything
+        that happened while the bot was down. The first pass runs as soon as
+        the bot is ready, which covers exactly that downtime gap.
+        """
+        await self.bot.wait_until_red_ready()
+        while True:
+            for guild in list(self.bot.guilds):
+                try:
+                    conf = await self.config.guild(guild).all()
+                    # An empty message_ids means nobody ever ran `post` here —
+                    # the sweep keeps lists alive, it does not start them.
+                    if conf["auto_update"] and conf["message_ids"]:
+                        await self.refresh(guild)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    log.warning("Channel list: sweep failed for %s", guild.id, exc_info=True)
+            await asyncio.sleep(SWEEP_INTERVAL_S)
+
     # ------------------------------------------------------------------
     # Listeners
     # ------------------------------------------------------------------
@@ -279,6 +330,26 @@ class CuffChannelList(commands.Cog):
     async def on_guild_channel_update(self, before, after):
         if getattr(after, "guild", None):
             self.schedule_update(after.guild)
+
+    @commands.Cog.listener()
+    async def on_guild_role_update(self, before, after):
+        """A role's permissions decide what the list shows, so watch them too."""
+        if before.permissions != after.permissions:
+            self.schedule_update(after.guild)
+
+    @commands.Cog.listener()
+    async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
+        """Somebody deleted part of the list — put it back."""
+        if not payload.guild_id:
+            return
+        guild = self.bot.get_guild(payload.guild_id)
+        if guild is None:
+            return
+        conf = await self.config.guild(guild).all()
+        if not conf["auto_update"]:
+            return
+        if payload.message_id in {int(i) for i in conf["message_ids"]}:
+            self.schedule_update(guild, delay=5)
 
     # ------------------------------------------------------------------
     # Commands
@@ -389,6 +460,7 @@ class CuffChannelList(commands.Cog):
         conf = await self.config.guild(ctx.guild).all()
         wording = {
             "posted": "posted",
+            "repaired": "reposted (editing the old messages was refused)",
             "edited": "updated in place",
             "skipped": "already up to date",
         }[result]

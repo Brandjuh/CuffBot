@@ -39,7 +39,16 @@ def format_channel_line(mention: str, topic: Any) -> str:
 
 
 def format_category_header(name: str, emoji: Optional[str] = None) -> str:
-    return f"**[{emoji}] [{name}] [{emoji}]**" if emoji else f"**[{name}]**"
+    """Bracket the category name — but only once.
+
+    Plenty of categories are already named ``[ 🚔 POLITIE ]``; wrapping those
+    again gave ``[[ 🚔 POLITIE ]]``. A name that already carries its own
+    brackets is used as-is, spacing included.
+    """
+    label = str(name).strip()
+    if not (label.startswith("[") and label.endswith("]")):
+        label = f"[{label}]"
+    return f"**[{emoji}] {label} [{emoji}]**" if emoji else f"**{label}**"
 
 
 def group_by_category(
