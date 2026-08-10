@@ -96,7 +96,14 @@ check("two links glued", clean_url("https://a.org/x https://b.org/y") is None)
 check("hostless", clean_url("https://x") is None)
 check("empty", clean_url("") is None)
 check("none", clean_url(None) is None)
-check("over the length cap", clean_url("https://a.org/" + "x" * 500) is None)
+check("over the length cap", clean_url("https://a.org/" + "x" * 1600) is None)
+# The link that started all of this must survive cleaning: ~600 characters of
+# fbcdn signing tokens is a link members really paste.
+check(
+    "a real fbcdn link fits",
+    clean_url("https://scontent-fra5-2.xx.fbcdn.net/v/t39.99422-6/768350885_n.png?" + "&".join(f"tok{i}=AdqaMGSrP6fCi3h32xnkRwrgX1bCwl5j6CH7KJ4idusY" for i in range(12)))
+    is not None,
+)
 
 print("looks_like_image")
 check("jpg", looks_like_image("https://a.org/p.jpg"))
@@ -138,6 +145,12 @@ check("live colour", embed.color.value == 0x2C3E50)
 credited = memorial_embed(sub, credit="Brand")
 check("credit lands in the footer", "Submitted by Brand" in credited.footer.text)
 
+mirrored = memorial_embed(sub, photo_ref="attachment://fallen-hero.jpg")
+check(
+    "a mirrored photo beats the hotlink",
+    mirrored.image.url == "attachment://fallen-hero.jpg",
+)
+
 tested = memorial_embed(sub, test=True)
 check("test posts are marked", tested.footer.text.startswith("TEST POST"))
 check("test posts change colour", tested.color.value != 0x2C3E50)
@@ -163,6 +176,97 @@ check("over-long name is clipped to the title limit", len(huge.title) <= TITLE_L
 check("over-long story is clipped to the description limit", len(huge.description) <= DESCRIPTION_LIMIT)
 check("no photo, no image", huge.image.url is None)
 check("ambulance emoji", "🚑" in huge.title)
+
+print("photo mirroring (photo.py)")
+import asyncio  # noqa: E402
+
+from cufffallen.photo import (  # noqa: E402
+    CONTENT_TYPES,
+    MAX_PHOTO_BYTES,
+    Photo,
+    describe_size,
+    fetch_photo,
+    looks_expiring,
+)
+
+# The link that prompted the mirror: fbcdn, .png path, serves image/jpeg,
+# signed with oh= and an oe= hex expiry four days out.
+FBCDN = (
+    "https://scontent-fra5-2.xx.fbcdn.net/v/t39.99422-6/768350885_n.png"
+    "?stp=dst-jpg_tt6&oh=00_AQES&oe=6A7FCE48"
+)
+check("fbcdn is expiring", looks_expiring(FBCDN))
+check("discord cdn is expiring", looks_expiring("https://cdn.discordapp.com/attachments/1/2/x.png?ex=66&is=66&hm=aa"))
+check("s3 presigned is expiring", looks_expiring("https://x.s3.amazonaws.com/p.jpg?X-Amz-Expires=300"))
+check("odmp is not", not looks_expiring("https://www.odmp.org/media/image/officer.jpg"))
+check("none is not", not looks_expiring(None))
+
+check("jpeg maps to jpg", CONTENT_TYPES["image/jpeg"] == "jpg")
+check("svg is deliberately absent", "image/svg+xml" not in CONTENT_TYPES)
+check("sizes read like sizes", describe_size(206934) == "202 KB", describe_size(206934))
+check("big sizes in MB", describe_size(9 * 1024 * 1024) == "9.0 MB")
+
+photo_obj = Photo(data=b"xx", filename="fallen-hero.jpg", content_type="image/jpeg")
+check("the embed reference", photo_obj.reference == "attachment://fallen-hero.jpg")
+check("a fresh File every send", photo_obj.as_file() is not photo_obj.as_file())
+
+
+class FakeContent:
+    def __init__(self, chunks):
+        self.chunks = chunks
+
+    async def iter_chunked(self, size):
+        for chunk in self.chunks:
+            yield chunk
+
+
+class FakeResponse:
+    def __init__(self, status=200, content_type="image/jpeg", body=b"J" * 100, length=None):
+        self.status = status
+        self.headers = {"Content-Type": content_type}
+        if length is not None:
+            self.headers["Content-Length"] = str(length)
+        self.content = FakeContent([body[i : i + 10] for i in range(0, len(body), 10)])
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class FakeSession:
+    def __init__(self, response):
+        self.response = response
+
+    def get(self, url, **kwargs):
+        return self.response
+
+
+def fetch(response, **kwargs):
+    return asyncio.run(fetch_photo(FakeSession(response), FBCDN, **kwargs))
+
+good_photo, why = fetch(FakeResponse())
+check("a good download becomes a Photo", good_photo is not None and why is None)
+check(
+    "the content type names the file, not the URL's .png lie",
+    good_photo.filename == "fallen-hero.jpg",
+    good_photo.filename,
+)
+check("the bytes are all there", len(good_photo.data) == 100)
+
+nothing, why = fetch(FakeResponse(status=403))
+check("a refusal says the status", nothing is None and "403" in why)
+nothing, why = fetch(FakeResponse(content_type="text/html"))
+check("an article page is named for what it is", nothing is None and "page" in why)
+nothing, why = fetch(FakeResponse(length=MAX_PHOTO_BYTES + 1))
+check("a declared giant is refused before downloading", nothing is None and "limit" in why)
+nothing, why = fetch(FakeResponse(body=b"J" * 200), limit=150)
+check("a lying Content-Length is caught mid-stream", nothing is None and "limit" in why)
+nothing, why = fetch(FakeResponse(body=b""))
+check("an empty file is refused", nothing is None and "empty" in why)
+nothing, why = asyncio.run(fetch_photo(FakeSession(FakeResponse()), ""))
+check("no url, no fetch, no reason", nothing is None and why is None)
 
 print("custom ids")
 check("panel id is stable", PANEL_BUTTON_ID == "cufffallen:panel:submit")

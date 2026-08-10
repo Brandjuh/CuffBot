@@ -32,7 +32,9 @@ TEST_COLOR = 0x9B59B6
 #: regardless. A title holds 256, and the name shares it with an emoji.
 MAX_NAME = 100
 MAX_TEXT = 3500
-MAX_URL = 400
+#: Signed CDN links are long — a real fbcdn photo URL runs past 600 characters
+#: of tokens, so a 400 cap would refuse exactly the links members paste.
+MAX_URL = 1500
 DESCRIPTION_LIMIT = 4096
 TITLE_LIMIT = 256
 FIELD_LIMIT = 1024
@@ -233,6 +235,7 @@ def memorial_embed(
     *,
     credit: Optional[str] = None,
     test: bool = False,
+    photo_ref: Optional[str] = None,
 ) -> discord.Embed:
     """The honour itself — preview, review copy and published post in one.
 
@@ -240,6 +243,11 @@ def memorial_embed(
     footer; pass ``None`` to publish it unattributed. ``test`` only changes
     the colour and stamps the footer, so a test post can never be mistaken
     for the real thing in a channel that holds both.
+
+    ``photo_ref`` is an ``attachment://`` reference to a photo mirrored onto
+    the message this embed rides on. When given it wins over the submission's
+    photo URL, because the mirrored copy cannot expire and the URL — see
+    ``photo.py`` — very much can.
     """
     agency = agency_for(submission.get("agency"))
     name = clip(submission.get("name"), MAX_NAME)
@@ -259,7 +267,9 @@ def memorial_embed(
     if source:
         embed.url = source
     embed.add_field(name="Agency", value=agency.label, inline=True)
-    if photo:
+    if photo_ref:
+        embed.set_image(url=photo_ref)
+    elif photo:
         embed.set_image(url=photo)
 
     footer = FOOTER_LINE

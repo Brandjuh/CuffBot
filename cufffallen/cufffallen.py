@@ -34,14 +34,18 @@ memorial channel.
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+import aiohttp
 import discord
 from redbot.core import Config, checks, commands
 from redbot.core.bot import Red
+
+from .photo import USER_AGENT, fetch_photo, looks_expiring
 
 from .submission import (
     AGENCIES,
@@ -123,9 +127,12 @@ class CuffFallen(commands.Cog):
         )
         #: (guild_id, user_id) -> draft. Deliberately RAM-only: a draft is one
         #: private message in one sitting, and nothing has been promised yet.
+        #: Keys starting with ``_`` (the mirrored photo bytes) never reach
+        #: config — the stored submission is built field by field.
         self._drafts: Dict[Tuple[int, int], Dict[str, Any]] = {}
         self._locks: Dict[str, asyncio.Lock] = {}
         self._registered: set = set()
+        self._session: Optional[aiohttp.ClientSession] = None
 
     async def cog_load(self) -> None:
         """Re-adopt the panel button and every pending review message.
@@ -153,6 +160,13 @@ class CuffFallen(commands.Cog):
 
     async def cog_unload(self) -> None:
         self._drafts.clear()
+        if self._session is not None:
+            asyncio.create_task(self._session.close())
+
+    async def session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(headers={"User-Agent": USER_AGENT})
+        return self._session
 
     async def red_delete_data_for_user(self, *, requester: str, user_id: int) -> None:
         """Forget who wrote what.
@@ -240,14 +254,48 @@ class CuffFallen(commands.Cog):
             return "**This cannot be sent yet:**\n" + "\n".join(f"• {line}" for line in found)
         lines = ["**This is exactly what will be posted.** Read it once more before you send it."]
         photo = clean_url(draft.get("photo"))
-        if photo and not looks_like_image(photo):
+        if draft.get("_photo") is not None:
             lines.append(
-                "• No picture above? Then that photo link is a page, not an image. "
-                "Right-click the image itself → *Copy image address*."
+                f"• Photo saved ({draft['_photo'].size_text}) — it is uploaded with the "
+                "post itself, so it keeps working even after the link dies."
             )
-        elif not photo:
+        elif photo:
+            # The link is being hotlinked, which means its lifetime is the
+            # post's lifetime. Say how that is likely to go.
+            why = draft.get("_photo_error")
+            if why:
+                lines.append(f"• ⚠️ The photo could not be downloaded: {why}.")
+            if looks_expiring(photo):
+                lines.append(
+                    "• ⚠️ That photo link is **signed and will expire** (Facebook/CDN "
+                    "links live days, not years) — the memorial would lose its picture. "
+                    "Better: open the image, save it, upload it to Discord anywhere, "
+                    "and paste that new link here instead."
+                )
+            elif not looks_like_image(photo):
+                lines.append(
+                    "• No picture above? Then that photo link is a page, not an image. "
+                    "Right-click the image itself → *Copy image address*."
+                )
+        else:
             lines.append("• No photo — the post will be text only, which is fine.")
         return "\n".join(lines)
+
+    async def mirror_photo(self, draft: Dict[str, Any]) -> None:
+        """Fetch the draft's photo into ``_photo``, or record why not.
+
+        Runs on every modal submit rather than caching by URL: the fetch is a
+        couple of hundred kilobytes, and a stale copy of a corrected link is
+        worse than the wait.
+        """
+        draft["_photo"] = None
+        draft["_photo_error"] = None
+        url = clean_url(draft.get("photo"))
+        if not url:
+            return
+        photo, why = await fetch_photo(await self.session(), url)
+        draft["_photo"] = photo
+        draft["_photo_error"] = why
 
     # ------------------------------------------------------------------
     # Writing a submission
@@ -322,32 +370,57 @@ class CuffFallen(commands.Cog):
         # not, so the preview can point at what is actually wrong.
         draft["source"] = clean_url(source) or source.strip()
         draft["photo"] = clean_url(photo) or photo.strip()
-        await self.show_preview(interaction, draft)
+        # The download can take longer than the 3 seconds an interaction gets,
+        # so acknowledge first and edit the message when the photo is in hand.
+        try:
+            await interaction.response.defer()
+        except discord.HTTPException:
+            pass
+        await self.mirror_photo(draft)
+        await self.show_preview(interaction, draft, refresh_photo=True)
 
     async def show_preview(
-        self, interaction: discord.Interaction, draft: Dict[str, Any]
+        self,
+        interaction: discord.Interaction,
+        draft: Dict[str, Any],
+        *,
+        refresh_photo: bool = False,
     ) -> None:
-        """Put the finished embed in front of the member, with the controls."""
+        """Put the finished embed in front of the member, with the controls.
+
+        ``refresh_photo`` re-uploads (or strips) the mirrored photo on the
+        preview message. Steps that cannot have changed it — picking a
+        different agency — leave the attachment alone, which is also what
+        keeps ``attachment://`` in the embed pointing at something.
+        """
         view = PreviewView(self, draft)
         blocked = bool(self.problems(draft))
         view.send.disabled = blocked
-        embed = memorial_embed(draft, credit=None)
+        photo = draft.get("_photo")
+        embed = memorial_embed(draft, credit=None, photo_ref=photo.reference if photo else None)
         payload = {
             "content": self.preview_note(draft),
             "embed": embed,
             "view": view,
         }
+        attachments = None
+        if refresh_photo:
+            attachments = [photo.as_file()] if photo else []
         try:
-            await interaction.response.edit_message(**payload)
+            if interaction.response.is_done():
+                await interaction.edit_original_response(
+                    **payload, **({"attachments": attachments} if attachments is not None else {})
+                )
+            else:
+                await interaction.response.edit_message(
+                    **payload, **({"attachments": attachments} if attachments is not None else {})
+                )
         except (discord.InteractionResponded, discord.HTTPException):
-            # A modal opened from a component can normally edit its message;
-            # if Discord will not let it, a fresh private message still gets
-            # the member their preview.
+            # If Discord will not let this interaction edit its message, a
+            # fresh private message still gets the member their preview.
             try:
-                if interaction.response.is_done():
-                    await interaction.followup.send(ephemeral=True, **payload)
-                else:
-                    await interaction.response.send_message(ephemeral=True, **payload)
+                files = [photo.as_file()] if photo else []
+                await interaction.followup.send(ephemeral=True, files=files, **payload)
             except discord.HTTPException:
                 log.exception("cufffallen: could not show a preview")
 
@@ -386,6 +459,7 @@ class CuffFallen(commands.Cog):
             sub_id = str(await self.config.guild(guild).next_id())
             await self.config.guild(guild).next_id.set(int(sub_id) + 1)
 
+        photo = draft.get("_photo")
         submission = {
             "id": sub_id,
             "user_id": interaction.user.id,
@@ -395,6 +469,11 @@ class CuffFallen(commands.Cog):
             "source": clean_url(draft["source"]),
             "text": draft["text"],
             "photo": clean_url(draft.get("photo")) or "",
+            #: The photo's bytes live on the review message as an attachment;
+            #: publishing reads them back from there. The URL above is only
+            #: the fallback for when that read fails.
+            "photo_mirrored": photo is not None,
+            "photo_filename": photo.filename if photo else "",
             "test": test,
             "status": "pending",
             "created_at": time.time(),
@@ -411,9 +490,15 @@ class CuffFallen(commands.Cog):
         try:
             message = await review_channel.send(
                 embeds=[
-                    memorial_embed(submission, credit=None, test=test),
+                    memorial_embed(
+                        submission,
+                        credit=None,
+                        test=test,
+                        photo_ref=photo.reference if photo else None,
+                    ),
                     await self.status_embed(guild, submission),
                 ],
+                files=[photo.as_file()] if photo else [],
                 view=ReviewView(self, sub_id),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
@@ -439,7 +524,14 @@ class CuffFallen(commands.Cog):
                     f"**Sent to the admins.** Reference `#{sub_id}`{where}.\n"
                     "You will get a DM as soon as it is approved or denied."
                 ),
-                embed=memorial_embed(submission, credit=None, test=test),
+                # The preview message already carries the mirrored photo as
+                # its attachment, so the reference keeps resolving here.
+                embed=memorial_embed(
+                    submission,
+                    credit=None,
+                    test=test,
+                    photo_ref=photo.reference if photo else None,
+                ),
                 view=None,
             )
         except discord.HTTPException:
@@ -486,7 +578,19 @@ class CuffFallen(commands.Cog):
             value=publish_channel.mention if publish_channel else "⚠️ channel missing",
         )
         embed.add_field(name="Source", value=f"[link]({sub['source']})" if sub.get("source") else "—")
-        embed.add_field(name="Photo", value=f"[link]({sub['photo']})" if sub.get("photo") else "—")
+        if sub.get("photo_mirrored"):
+            photo_line = f"saved to Discord ([original]({sub['photo']}))" if sub.get("photo") else "saved to Discord"
+        elif sub.get("photo"):
+            # Hotlinked only — worth a warning where the admin will read it,
+            # because a signed CDN link outlives the review, not the memorial.
+            photo_line = f"[link]({sub['photo']})" + (
+                "\n⚠️ expiring link, could not be saved — the picture will die with it"
+                if looks_expiring(sub["photo"])
+                else "\n⚠️ hotlinked, not saved"
+            )
+        else:
+            photo_line = "—"
+        embed.add_field(name="Photo", value=photo_line)
 
         if sub.get("edited_by"):
             embed.add_field(name="Edited by", value=f"<@{sub['edited_by']}>", inline=False)
@@ -506,6 +610,44 @@ class CuffFallen(commands.Cog):
         if sub.get("created_at"):
             embed.timestamp = datetime.fromtimestamp(float(sub["created_at"]), tz=timezone.utc)
         return embed
+
+    @staticmethod
+    def sub_photo_ref(sub: Dict[str, Any]) -> Optional[str]:
+        """The ``attachment://`` reference for a mirrored photo, if there is one.
+
+        Only valid on messages that actually carry the attachment — the review
+        message and the published post — which is exactly where it is used.
+        """
+        if sub.get("photo_mirrored") and sub.get("photo_filename"):
+            return f"attachment://{sub['photo_filename']}"
+        return None
+
+    async def read_review_photo(
+        self, guild: discord.Guild, sub: Dict[str, Any]
+    ) -> Optional[discord.File]:
+        """The mirrored photo's bytes, read back off the review message.
+
+        The review message is the photo's storage: config holds JSON, not
+        megabytes, and a Discord attachment lives exactly as long as the
+        message it is on. Publishing re-uploads a copy, so the memorial does
+        not lose its picture if the review post is ever cleaned up.
+        """
+        if not sub.get("photo_mirrored"):
+            return None
+        channel = self._channel(guild, sub.get("review_channel_id"))
+        if channel is None or not sub.get("review_message_id"):
+            return None
+        try:
+            message = await channel.fetch_message(int(sub["review_message_id"]))
+            for attachment in message.attachments:
+                if attachment.filename == sub.get("photo_filename"):
+                    data = await attachment.read()
+                    return discord.File(io.BytesIO(data), filename=attachment.filename)
+        except discord.HTTPException as error:
+            log.warning(
+                "cufffallen: could not read the mirrored photo for #%s (%s)", sub["id"], error
+            )
+        return None
 
     async def get_submission(
         self, guild: discord.Guild, sub_id: str
@@ -540,7 +682,12 @@ class CuffFallen(commands.Cog):
             # Two admins reached for it at once, or the message is stale.
             await interaction.response.edit_message(
                 embeds=[
-                    memorial_embed(sub, credit=None, test=bool(sub.get("test"))),
+                    memorial_embed(
+                        sub,
+                        credit=None,
+                        test=bool(sub.get("test")),
+                        photo_ref=self.sub_photo_ref(sub),
+                    ),
                     await self.status_embed(guild, sub),
                 ],
                 view=None,
@@ -589,10 +736,28 @@ class CuffFallen(commands.Cog):
                 member = guild.get_member(int(sub["user_id"]))
                 credit = member.display_name if member else sub.get("user_name")
 
+            # The mirrored photo travels as a fresh upload; the stored URL is
+            # only the fallback if reading it back fails, and for a signed CDN
+            # link that fallback is a countdown, so the admin is told.
+            photo_file = await self.read_review_photo(guild, sub)
+            if sub.get("photo_mirrored") and photo_file is None:
+                await interaction.followup.send(
+                    "⚠️ The saved photo could not be read back off the review message, "
+                    "so the memorial hotlinks the original URL instead — if that link "
+                    "expires, the picture goes blank.",
+                    ephemeral=True,
+                )
+
             try:
                 posted = await channel.send(
                     content=f"<@&{role_id}>" if role_id else None,
-                    embed=memorial_embed(sub, credit=credit, test=test),
+                    embed=memorial_embed(
+                        sub,
+                        credit=credit,
+                        test=test,
+                        photo_ref=self.sub_photo_ref(sub) if photo_file else None,
+                    ),
+                    files=[photo_file] if photo_file else [],
                     allowed_mentions=(
                         discord.AllowedMentions(roles=[discord.Object(id=role_id)])
                         if role_id
@@ -704,6 +869,35 @@ class CuffFallen(commands.Cog):
             )
             return
 
+        # A changed photo link means a changed mirror; a kept one means the
+        # attachment on the review message stays exactly as it is.
+        photo_changed = (clean_photo or "") != (sub.get("photo") or "")
+        attachments = None
+        try:
+            await interaction.response.defer()
+        except discord.HTTPException:
+            pass
+        if photo_changed:
+            if clean_photo:
+                mirrored, why = await fetch_photo(await self.session(), clean_photo)
+                if mirrored:
+                    attachments = [mirrored.as_file()]
+                    sub["photo_mirrored"] = True
+                    sub["photo_filename"] = mirrored.filename
+                else:
+                    attachments = []
+                    sub["photo_mirrored"] = False
+                    sub["photo_filename"] = ""
+                    await interaction.followup.send(
+                        f"The new photo could not be saved ({why}) — it will be "
+                        "hotlinked, and dies with the link.",
+                        ephemeral=True,
+                    )
+            else:
+                attachments = []
+                sub["photo_mirrored"] = False
+                sub["photo_filename"] = ""
+
         sub.update(
             {
                 "name": name.strip(),
@@ -715,20 +909,31 @@ class CuffFallen(commands.Cog):
             }
         )
         await self.save_submission(guild, sub)
-        await interaction.response.edit_message(
-            embeds=[
-                memorial_embed(sub, credit=None, test=bool(sub.get("test"))),
-                await self.status_embed(guild, sub),
-            ],
-            view=ReviewView(self, sub_id),
-        )
+        try:
+            await interaction.edit_original_response(
+                embeds=[
+                    memorial_embed(
+                        sub,
+                        credit=None,
+                        test=bool(sub.get("test")),
+                        photo_ref=self.sub_photo_ref(sub),
+                    ),
+                    await self.status_embed(guild, sub),
+                ],
+                view=ReviewView(self, sub_id),
+                **({"attachments": attachments} if attachments is not None else {}),
+            )
+        except discord.HTTPException:
+            log.warning("cufffallen: could not refresh the review post for #%s", sub_id)
 
     async def finish_review(
         self, interaction: discord.Interaction, guild: discord.Guild, sub: Dict[str, Any]
     ) -> None:
         """Close out the review message: final state, buttons gone."""
         embeds = [
-            memorial_embed(sub, credit=None, test=bool(sub.get("test"))),
+            memorial_embed(
+                sub, credit=None, test=bool(sub.get("test")), photo_ref=self.sub_photo_ref(sub)
+            ),
             await self.status_embed(guild, sub),
         ]
         try:
@@ -808,8 +1013,9 @@ class CuffFallen(commands.Cog):
                 "• Their agency — Police, Fire, Correctional or Ambulance\n"
                 "• A link to the source\n"
                 "• The message itself (Discord markdown works)\n"
-                "• Optionally a link to a photo — a **direct image link**, ending in "
-                "`.jpg` or `.png`\n\n"
+                "• Optionally a link to a photo — a **direct image link** (right-click "
+                "the picture → *Copy image address*). The photo is saved with the "
+                "post, so the link only has to work once\n\n"
                 "You get a full preview and can edit it as often as you like before it "
                 "goes to the admins, and a DM when they decide."
             ),
@@ -974,11 +1180,20 @@ class CuffFallen(commands.Cog):
         if sub is None:
             await ctx.send("No submission on file with that number.")
             return
+        # This lands in whatever channel the command ran in, where the review
+        # message's attachment:// cannot resolve — so the photo rides along.
+        photo_file = await self.read_review_photo(ctx.guild, sub)
         await ctx.send(
             embeds=[
-                memorial_embed(sub, credit=None, test=bool(sub.get("test"))),
+                memorial_embed(
+                    sub,
+                    credit=None,
+                    test=bool(sub.get("test")),
+                    photo_ref=self.sub_photo_ref(sub) if photo_file else None,
+                ),
                 await self.status_embed(ctx.guild, sub),
             ],
+            files=[photo_file] if photo_file else [],
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
@@ -1002,7 +1217,12 @@ class CuffFallen(commands.Cog):
                 message = await channel.fetch_message(int(sub["review_message_id"]))
                 await message.edit(
                     embeds=[
-                        memorial_embed(sub, credit=None, test=bool(sub.get("test"))),
+                        memorial_embed(
+                            sub,
+                            credit=None,
+                            test=bool(sub.get("test")),
+                            photo_ref=self.sub_photo_ref(sub),
+                        ),
                         await self.status_embed(ctx.guild, sub),
                     ],
                     view=None,

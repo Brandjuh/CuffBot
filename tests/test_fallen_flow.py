@@ -54,10 +54,22 @@ def check(name, condition, detail=""):
 # ----------------------------------------------------------------------
 
 
+class FakeAttachment:
+    """What a discord.File turns into once it is on a message."""
+
+    def __init__(self, file):
+        self.filename = file.filename
+        self._data = file.fp.read()
+
+    async def read(self):
+        return self._data
+
+
 class FakeMessage:
-    def __init__(self, channel, message_id):
+    def __init__(self, channel, message_id, attachments=()):
         self.id = message_id
         self.channel = channel
+        self.attachments = list(attachments)
         self.edits = []
 
     @property
@@ -74,6 +86,7 @@ class FakeChannel(discord.TextChannel):
     def __init__(self, channel_id):
         self.id = channel_id
         self.sent = []
+        self.messages = {}
         self._next = 9000
 
     @property
@@ -82,12 +95,15 @@ class FakeChannel(discord.TextChannel):
 
     async def send(self, content=None, **kwargs):
         self._next += 1
-        message = FakeMessage(self, self._next)
+        attachments = [FakeAttachment(f) for f in kwargs.get("files") or []]
+        message = FakeMessage(self, self._next, attachments)
+        self.messages[message.id] = message
         self.sent.append({"content": content, **kwargs})
         return message
 
     async def fetch_message(self, message_id):
-        return FakeMessage(self, message_id)
+        found = self.messages.get(message_id)
+        return found if found is not None else FakeMessage(self, message_id)
 
 
 class FakeRole:
@@ -224,6 +240,23 @@ DRAFT = {
     "photo": "https://firehero.org/p.jpg",
 }
 
+# The photo mirror, without the network: fetch_photo is swapped for this in
+# the cog's module. Set ``NEXT_PHOTO`` to steer the outcome.
+from cufffallen.photo import Photo  # noqa: E402
+
+import cufffallen.cufffallen as cog_module  # noqa: E402
+
+NEXT_PHOTO = {"photo": Photo(b"JPEGBYTES", "fallen-hero.jpg", "image/jpeg"), "why": None}
+FETCHES = []
+
+
+async def fake_fetch_photo(session, url, **kwargs):
+    FETCHES.append(url)
+    return NEXT_PHOTO["photo"], NEXT_PHOTO["why"]
+
+
+cog_module.fetch_photo = fake_fetch_photo
+
 
 async def main():
     review = FakeChannel(REVIEW_CHANNEL_ID)
@@ -234,6 +267,8 @@ async def main():
     guild = FakeGuild([review, publish, test_channel], [member, admin])
     bot = FakeBot(guild, owner_id=999)
     cog = CuffFallen(bot)
+    # A stand-in session, so the stubbed fetch never touches aiohttp.
+    cog._session = type("FakeSession", (), {"closed": False})()
     await cog.cog_load()
 
     print("cog_load")
@@ -261,10 +296,22 @@ async def main():
         text=DRAFT["text"],
         photo=DRAFT["photo"],
     )
-    check("the modal turns into a preview", typed.response.kind == "edit_message")
-    preview_embed = typed.response.payload["embed"]
+    check("the modal defers while the photo downloads", typed.response.kind == "defer")
+    check("the photo was fetched once", FETCHES == [DRAFT["photo"]])
+    preview = typed.edits[-1]
+    preview_embed = preview["embed"]
     check("the preview is the memorial", "Firefighter John Doe" in preview_embed.title)
-    check("the preview can be sent", typed.response.payload["view"].send.disabled is False)
+    check("the preview can be sent", preview["view"].send.disabled is False)
+    check("the photo is mirrored into the draft", draft["_photo"] is not None)
+    check(
+        "the preview shows the mirrored copy, not the link",
+        preview_embed.image.url == "attachment://fallen-hero.jpg",
+    )
+    check(
+        "the mirrored file rides on the preview message",
+        len(preview["attachments"]) == 1,
+    )
+    check("and the note says it is safe", "uploaded with the" in preview["content"])
 
     print("a draft that is not ready")
     bad = dict(draft, source="firehero.org")
@@ -287,6 +334,11 @@ async def main():
     check("the review post carries both embeds", len(review.sent[0]["embeds"]) == 2)
     check("the review post cannot ping", review.sent[0]["allowed_mentions"].roles is False)
     check("it has the three buttons", len(review.sent[0]["view"].children) == 3)
+    check("the mirrored photo is on the review post", len(review.sent[0]["files"]) == 1)
+    check(
+        "whose embed shows the copy, not the link",
+        review.sent[0]["embeds"][0].image.url == "attachment://fallen-hero.jpg",
+    )
     check("the member is told", "Sent to the admins" in sent.edits[-1]["content"])
     check("the draft is cleared", (guild.id, member.id) not in cog._drafts)
 
@@ -296,6 +348,9 @@ async def main():
     check("stored as pending", stored["status"] == "pending")
     check("stored against the member", stored["user_id"] == member.id)
     check("stored as live, not test", stored["test"] is False)
+    check("stored as mirrored", stored["photo_mirrored"] is True)
+    check("under its attachment name", stored["photo_filename"] == "fallen-hero.jpg")
+    check("no photo bytes in config", "_photo" not in stored)
     check("the review message id is kept", isinstance(stored["review_message_id"], int))
     check("review view re-registered for restarts", f"{guild.id}:1" in cog._registered)
 
@@ -335,14 +390,16 @@ async def main():
         agency="Fire Department",
         source="https://firehero.org/x",
         text="He went in. Corrected.",
-        photo="",
+        photo=DRAFT["photo"],
     )
-    check("the review post is rewritten", fixed.response.kind == "edit_message")
-    check("the buttons stay", fixed.response.payload["view"] is not None)
+    check("the edit defers, then rewrites the review post", fixed.response.kind == "defer")
+    check("the buttons stay", fixed.edits[-1]["view"] is not None)
+    check("an unchanged photo is left alone", "attachments" not in fixed.edits[-1])
     stored = (await cog.config.guild(guild).submissions())["1"]
     check("the edit is stored", stored["text"].endswith("Corrected."))
     check("a typed agency is understood", stored["agency"] == "fire")
     check("the editor is recorded", stored["edited_by"] == admin.id)
+    check("the mirror survives the edit", stored["photo_mirrored"] is True)
 
     rejected = FakeInteraction(guild, admin)
     await cog.admin_edit_submitted(
@@ -365,6 +422,16 @@ async def main():
     )
     check("the submitter is credited", "Submitted by Brand" in posted["embed"].footer.text)
     check("published in memorial colours", posted["embed"].color.value == 0x2C3E50)
+    published_message = publish.messages[max(publish.messages)]
+    check(
+        "the photo is re-uploaded, read back off the review message",
+        len(posted["files"]) == 1
+        and published_message.attachments[0]._data == b"JPEGBYTES",
+    )
+    check(
+        "the memorial shows its own copy, not the dying link",
+        posted["embed"].image.url == "attachment://fallen-hero.jpg",
+    )
     check("the review post loses its buttons", approving.edits[-1]["view"] is None)
 
     stored = (await cog.config.guild(guild).submissions())["1"]
@@ -436,6 +503,52 @@ async def main():
     await cog.handle_review_action(approve5, "5", "approve")
     check("the role is tagged for real", test_channel.sent[-1]["content"] == "<@&627946690024046675>")
     await cog.config.guild(guild).test_mode.set(False)
+
+    print("a photo that cannot be mirrored")
+    # A realistic fbcdn link: signed (oh=/oe=), .png path, and long. The host
+    # refuses the bot, so the post has to fall back to hotlinking — with
+    # warnings everywhere someone can still do something about it.
+    fb_url = (
+        "https://scontent-fra5-2.xx.fbcdn.net/v/t39.99422-6/768350885_n.png"
+        "?stp=dst-jpg_tt6&_nc_oc=" + "AdqaMGSrP6fCi3h32xnkRwrgX1bCwl5j6CH7K" * 8
+        + "&oh=00_AQESLKFGGG&oe=6A7FCE48"
+    )
+    NEXT_PHOTO["photo"] = None
+    NEXT_PHOTO["why"] = "the server answered `403`"
+    fb_draft = {"agency": "police", "name": "", "source": "", "text": "", "photo": ""}
+    fb = FakeInteraction(guild, member)
+    await cog.details_submitted(
+        fb,
+        fb_draft,
+        name="Officer F. B. Cdn",
+        source="https://odmp.org/officer/1",
+        text="Their story.",
+        photo=fb_url,
+    )
+    fb_preview = fb.edits[-1]
+    check("the failure is reported", "could not be downloaded" in fb_preview["content"])
+    check("and the expiry is explained", "signed and will expire" in fb_preview["content"])
+    check("but the submission is not blocked", fb_preview["view"].send.disabled is False)
+    check("the embed hotlinks meanwhile", fb_preview["embed"].image.url == fb_url)
+    check("no attachment on the preview", fb_preview["attachments"] == [])
+
+    sent_fb = FakeInteraction(guild, member)
+    await cog.submit_for_approval(sent_fb, fb_draft)
+    stored = (await cog.config.guild(guild).submissions())["6"]
+    check("stored as not mirrored", stored["photo_mirrored"] is False)
+    status_fields = {f.name: f.value for f in review.sent[-1]["embeds"][1].fields}
+    check(
+        "the admins are warned it will die",
+        "expiring link" in status_fields["Photo"],
+        status_fields["Photo"],
+    )
+    approve_fb = FakeInteraction(guild, admin)
+    await cog.handle_review_action(approve_fb, "6", "approve")
+    posted_fb = publish.sent[-1]
+    check("published hotlinked", posted_fb["embed"].image.url == fb_url)
+    check("with no file", not posted_fb.get("files"))
+    NEXT_PHOTO["photo"] = Photo(b"JPEGBYTES", "fallen-hero.jpg", "image/jpeg")
+    NEXT_PHOTO["why"] = None
 
     print("data deletion")
     await cog.red_delete_data_for_user(requester="user", user_id=member.id)

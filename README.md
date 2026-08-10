@@ -180,7 +180,7 @@ Then disable the Node counterparts so nothing runs double
   Covered by `tests/test_fallen.py` (the rules, the limits, every modal
   measured against Discord's caps) and `tests/test_fallen_flow.py` (the whole
   route on real Config with Discord stubbed: which interaction is answered how,
-  what lands in which channel, and whether a role is pinged) — 207 checks, no
+  what lands in which channel, and whether a role is pinged) — 251 checks, no
   bot or network needed.
 
 ## Port status — what the Node bot still had that Red does not
@@ -392,6 +392,24 @@ underneath — a lot of work for a game that stops being the game.
     the very screen that exists to show a member what is wrong. A photo link
     that is a page rather than an image shows up as a missing picture, with a
     line under the preview saying so.
+  - **Photos are mirrored, not hotlinked** (owner question 2026-08-10, prompted
+    by an fbcdn link). A Facebook CDN URL is signed: `oe=` is a hex expiry and
+    the link dies within days — an embed pointed at it looks right in the
+    preview, right at approval, and is a blank grey box in the memorial channel
+    by the weekend. It also serves `image/jpeg` from a path ending in `.png`,
+    so the extension is a lie too. So `photo.py` downloads the bytes once at
+    submission (8 MB cap, content type decides the extension, the URL's own is
+    ignored) and uploads them to Discord as an attachment on the review
+    message; the embed points at `attachment://…`, which lives as long as the
+    message does. Approving reads the bytes back off the review message and
+    re-uploads a fresh copy with the memorial, so the published post owns its
+    own picture. When the download fails (host refuses the bot, page instead
+    of image), the submission is *not* blocked: the post hotlinks the URL, the
+    member's preview says why and — for a link that is recognisably signed —
+    warns it will expire, and the review post tells the admins the picture
+    will die with the link. `MAX_URL` is 1500 because a real fbcdn link runs
+    past 600 characters of tokens; a 400 cap would refuse exactly the links
+    members paste.
   - **Test mode is stamped on the submission, not read at approval time.**
     `!fallenhero test on` (admins only) routes both the review post and the
     published post to <#412334189879230474>; a submission sent while it was on
