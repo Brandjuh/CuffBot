@@ -27,6 +27,7 @@ import discord
 from .submission import (
     AGENCY_ORDER,
     AGENCIES,
+    MAX_EOW,
     MAX_NAME,
     MAX_TEXT,
     MAX_URL,
@@ -109,7 +110,9 @@ class AgencySelectView(discord.ui.View):
 
 
 class DetailsModal(discord.ui.Modal):
-    """The four written fields. The agency is already chosen by this point.
+    """The five written fields — a modal's maximum. The agency is already
+    chosen by this point, which is what makes the fifth slot free for the
+    End of watch.
 
     ``max_length`` on every field is Discord enforcing the limits for us —
     a member finds out they are over while typing, not after submitting.
@@ -127,6 +130,13 @@ class DetailsModal(discord.ui.Modal):
             max_length=MAX_NAME,
             default=draft.get("name") or None,
             required=True,
+        )
+        self.eow_field = discord.ui.TextInput(
+            label="End of watch (optional)",
+            placeholder="The date they died: 2026-08-03, or August 3, 2026",
+            max_length=MAX_EOW,
+            default=draft.get("eow") or None,
+            required=False,
         )
         self.source_field = discord.ui.TextInput(
             label="Link to source",
@@ -150,7 +160,13 @@ class DetailsModal(discord.ui.Modal):
             default=draft.get("photo") or None,
             required=False,
         )
-        for item in (self.name_field, self.source_field, self.text_field, self.photo_field):
+        for item in (
+            self.name_field,
+            self.eow_field,
+            self.source_field,
+            self.text_field,
+            self.photo_field,
+        ):
             self.add_item(item)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
@@ -158,6 +174,7 @@ class DetailsModal(discord.ui.Modal):
             interaction,
             self.draft,
             name=str(self.name_field.value),
+            eow=str(self.eow_field.value or ""),
             source=str(self.source_field.value),
             text=str(self.text_field.value),
             photo=str(self.photo_field.value or ""),
@@ -224,6 +241,7 @@ class ReviewButton(discord.ui.Button):
             style=style,
             emoji=emoji,
             custom_id=f"{REVIEW_PREFIX}{sub_id}:{action}",
+            row=1,
         )
         self.action = action
         self.sub_id = sub_id
@@ -233,25 +251,57 @@ class ReviewButton(discord.ui.Button):
         await view.cog.handle_review_action(interaction, self.sub_id, self.action)
 
 
-class ReviewView(discord.ui.View):
-    """Approve / Edit / Deny, re-registered for every pending submission on load."""
+class ReviewAgencySelect(discord.ui.Select):
+    """The agency, changeable in place on the review message.
 
-    def __init__(self, cog: "CuffFallen", sub_id: str) -> None:
+    This lives here rather than in the edit modal because a modal holds five
+    fields and the written ones need all five. It is the better home anyway:
+    the agency decides which role gets pinged, so admins pick it from the
+    four that exist — same rule as the member flow.
+    """
+
+    def __init__(self, sub_id: str, current: Optional[str]) -> None:
+        options = [
+            discord.SelectOption(
+                label=f"Agency: {AGENCIES[key].label}",
+                value=key,
+                emoji=AGENCIES[key].emoji,
+                default=key == current,
+            )
+            for key in AGENCY_ORDER
+        ]
+        super().__init__(
+            options=options,
+            row=0,
+            custom_id=f"{REVIEW_PREFIX}{sub_id}:agencypick",
+        )
+        self.sub_id = sub_id
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        view: "ReviewView" = self.view  # type: ignore[assignment]
+        await view.cog.review_agency_set(interaction, self.sub_id, self.values[0])
+
+
+class ReviewView(discord.ui.View):
+    """The agency picker over Approve / Edit / Deny, re-registered for every
+    pending submission on load."""
+
+    def __init__(self, cog: "CuffFallen", sub_id: str, agency: Optional[str] = None) -> None:
         super().__init__(timeout=None)
         self.cog = cog
         self.sub_id = sub_id
+        self.add_item(ReviewAgencySelect(sub_id, agency))
         self.add_item(ReviewButton("approve", "Approve", discord.ButtonStyle.success, "✅", sub_id))
         self.add_item(ReviewButton("edit", "Edit", discord.ButtonStyle.secondary, "✏️", sub_id))
         self.add_item(ReviewButton("deny", "Deny", discord.ButtonStyle.danger, "🚫", sub_id))
 
 
 class AdminEditModal(discord.ui.Modal):
-    """An admin's correction of a pending submission — all five fields at once.
+    """An admin's correction of a pending submission.
 
-    The agency is typed here rather than picked, because this modal is opened
-    straight off the review message and admins are few; ``parse_agency``
-    accepts "EMS", "fire department" and the like, and an unreadable value is
-    refused without touching the stored submission.
+    The same five written fields the member filled in. The agency is *not*
+    here — five fields is a modal's ceiling and the review message carries an
+    agency dropdown of its own, one click instead of a modal round-trip.
     """
 
     def __init__(self, cog: "CuffFallen", sub_id: str, submission: Dict[str, Any]) -> None:
@@ -265,14 +315,12 @@ class AdminEditModal(discord.ui.Modal):
             default=submission.get("name") or None,
             required=True,
         )
-        self.agency_field = discord.ui.TextInput(
-            # 45 characters is Discord's ceiling for a field label, so the
-            # four options go in the placeholder rather than the label.
-            label="Agency",
-            placeholder="fire / police / correctional / ambulance",
-            max_length=32,
-            default=agency_for(submission.get("agency")).label,
-            required=True,
+        self.eow_field = discord.ui.TextInput(
+            label="End of watch (optional)",
+            placeholder="2026-08-03, or August 3, 2026",
+            max_length=MAX_EOW,
+            default=submission.get("eow") or None,
+            required=False,
         )
         self.source_field = discord.ui.TextInput(
             label="Link to source",
@@ -295,7 +343,7 @@ class AdminEditModal(discord.ui.Modal):
         )
         for item in (
             self.name_field,
-            self.agency_field,
+            self.eow_field,
             self.source_field,
             self.text_field,
             self.photo_field,
@@ -307,7 +355,7 @@ class AdminEditModal(discord.ui.Modal):
             interaction,
             self.sub_id,
             name=str(self.name_field.value),
-            agency=str(self.agency_field.value),
+            eow=str(self.eow_field.value or ""),
             source=str(self.source_field.value),
             text=str(self.text_field.value),
             photo=str(self.photo_field.value or ""),

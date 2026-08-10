@@ -40,9 +40,13 @@ from cufffallen.submission import (
     build_description,
     clean_url,
     clip,
+    eow_ambiguous,
+    eow_problem,
+    format_eow,
     looks_like_image,
     memorial_embed,
     parse_agency,
+    parse_eow,
     role_id_for,
 )
 from cufffallen.views import PANEL_BUTTON_ID, REVIEW_PREFIX
@@ -112,6 +116,42 @@ check("webp", looks_like_image("https://a.org/p.webp"))
 check("article page", not looks_like_image("https://a.org/officer/1"))
 check("none", not looks_like_image(None))
 
+print("parse_eow / format_eow")
+check("iso", parse_eow("2026-08-03") == "2026-08-03")
+check("iso with slashes", parse_eow("2026/8/3") == "2026-08-03")
+check("iso with dots", parse_eow("2026.08.03") == "2026-08-03")
+check("day first, unambiguous", parse_eow("23/8/2026") == "2026-08-23")
+check("month first, unambiguous", parse_eow("8/23/2026") == "2026-08-23")
+check("same number twice is safe", parse_eow("3/3/2026") == "2026-03-03")
+check("ambiguous numeric is refused", parse_eow("3/8/2026") is None)
+check("and named as ambiguous", eow_ambiguous("3/8/2026"))
+check("iso is never ambiguous", not eow_ambiguous("2026-08-03"))
+check("month written out", parse_eow("August 3, 2026") == "2026-08-03")
+check("month abbreviated", parse_eow("aug 3 2026") == "2026-08-03")
+check("day before month", parse_eow("3 August 2026") == "2026-08-03")
+check("ordinal suffix", parse_eow("August 3rd, 2026") == "2026-08-03")
+check("september's four-letter habit", parse_eow("sept 3 2026") == "2026-09-03")
+check("stray spacing", parse_eow("  3   august   2026 ") == "2026-08-03")
+check("not a date", parse_eow("last tuesday") is None)
+check("not a real day", parse_eow("2026-02-30") is None)
+check("thirteenth month", parse_eow("2026-13-01") is None)
+check("prehistoric typo", parse_eow("226-08-03") is None)
+check("empty", parse_eow("") is None)
+check("none", parse_eow(None) is None)
+check(
+    "formatted the way ODMP writes one",
+    format_eow("2026-08-03") == "Monday, August 3, 2026",
+    str(format_eow("2026-08-03")),
+)
+check("format of nonsense is None", format_eow("nope") is None)
+
+check("no date, no problem", eow_problem("") is None and eow_problem(None) is None)
+check("a good date, no problem", eow_problem("2026-08-03") is None)
+check("ambiguity is called out by name", "two ways" in eow_problem("3/8/2026"))
+check("nonsense gets the format hint", "YYYY-MM-DD" in eow_problem("someday"))
+check("the future is refused", "future" in eow_problem("2030-01-01"))
+check("yesterday's heroes are not", eow_problem("1791-05-17") is None)
+
 print("clip / build_description")
 check("short text untouched", clip("hello", 10) == "hello")
 check("long text is cut", len(clip("x" * 50, 10)) == 10)
@@ -144,6 +184,13 @@ check("live colour", embed.color.value == 0x2C3E50)
 
 credited = memorial_embed(sub, credit="Brand")
 check("credit lands in the footer", "Submitted by Brand" in credited.footer.text)
+
+dated = memorial_embed({**sub, "eow": "2026-08-03"})
+check(
+    "an End of watch becomes the cuffmemorial field",
+    any(f.name == "End of watch" and f.value == "Monday, August 3, 2026" for f in dated.fields),
+)
+check("no date, no field", not any(f.name == "End of watch" for f in embed.fields))
 
 mirrored = memorial_embed(sub, photo_ref="attachment://fallen-hero.jpg")
 check(
@@ -335,6 +382,9 @@ check("bad source", any("source link" in p for p in cog.problems({**good, "sourc
 check("bad photo", any("photo link" in p for p in cog.problems({**good, "photo": "nope"})))
 check("empty photo is fine", cog.problems({**good, "photo": ""}) == [])
 check("good photo is fine", cog.problems({**good, "photo": "https://a.org/p.jpg"}) == [])
+check("good date is fine", cog.problems({**good, "eow": "August 3, 2026"}) == [])
+check("ambiguous date blocks", any("two ways" in p for p in cog.problems({**good, "eow": "3/8/2026"})))
+check("future date blocks", any("future" in p for p in cog.problems({**good, "eow": "2031-01-01"})))
 
 note = cog.preview_note({**good, "photo": "https://a.org/officer/1"})
 check("a non-image photo link is called out", "not an image" in note or "page, not an image" in note)
@@ -345,14 +395,26 @@ from cufffallen.views import PreviewView, ReviewView  # noqa: E402
 
 preview = PreviewView(cog, good)
 check("preview has a disablable submit button", isinstance(preview.send, discord.ui.Button))
-review = ReviewView(cog, "7")
+review = ReviewView(cog, "7", "fire")
 ids = {item.custom_id for item in review.children}
 check(
-    "review buttons address the submission",
-    ids == {"cufffallen:review:7:approve", "cufffallen:review:7:edit", "cufffallen:review:7:deny"},
+    "review controls address the submission",
+    ids
+    == {
+        "cufffallen:review:7:agencypick",
+        "cufffallen:review:7:approve",
+        "cufffallen:review:7:edit",
+        "cufffallen:review:7:deny",
+    },
     str(ids),
 )
 check("review view never times out", review.timeout is None)
+picker = next(i for i in review.children if isinstance(i, discord.ui.Select))
+check(
+    "the picker marks the current agency",
+    [o.value for o in picker.options if o.default] == ["fire"],
+)
+check("the picker sits above the buttons", picker.row == 0)
 
 # Discord rejects an over-long modal title, label or placeholder at send time,
 # which is exactly where it would be invisible until a member pressed the
@@ -377,11 +439,22 @@ for modal in (DetailsModal(cog, full), AdminEditModal(cog, "7", full), DenyModal
 
 details = DetailsModal(cog, full)
 check("the modal prefills what was typed before", details.name_field.default == "John Doe")
-check("the agency is not a modal field", len(details.children) == 4)
+check("five fields — a modal's maximum, with End of watch in", len(details.children) == 5)
+check("End of watch is one of them", details.eow_field.label.startswith("End of watch"))
+check("and it is optional", details.eow_field.required is False)
 check(
     "the modal names the agency already picked",
     "Police" in details.title,
     details.title,
+)
+admin_modal = AdminEditModal(cog, "7", full)
+check(
+    "the admin modal has no agency field — the review dropdown owns it",
+    all("agency" not in (i.label or "").lower() for i in admin_modal.children),
+)
+check(
+    "but it can fix the End of watch",
+    any((i.label or "").startswith("End of watch") for i in admin_modal.children),
 )
 
 shutil.rmtree(DATA, ignore_errors=True)

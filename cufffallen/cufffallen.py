@@ -58,9 +58,12 @@ from .submission import (
     agency_for,
     clean_url,
     clip,
+    eow_problem,
+    format_eow,
     looks_like_image,
     memorial_embed,
     parse_agency,
+    parse_eow,
     role_id_for,
 )
 from .views import (
@@ -154,7 +157,8 @@ class CuffFallen(commands.Cog):
                 if key in self._registered:
                     continue
                 self.bot.add_view(
-                    ReviewView(self, str(sub_id)), message_id=int(sub["review_message_id"])
+                    ReviewView(self, str(sub_id), sub.get("agency")),
+                    message_id=int(sub["review_message_id"]),
                 )
                 self._registered.add(key)
 
@@ -245,6 +249,9 @@ class CuffFallen(commands.Cog):
             found.append(
                 "The photo link is not a working `http(s)://` link — fix it or clear the field."
             )
+        date_complaint = eow_problem(draft.get("eow"))
+        if date_complaint:
+            found.append(date_complaint)
         return found
 
     def preview_note(self, draft: Dict[str, Any]) -> str:
@@ -334,7 +341,7 @@ class CuffFallen(commands.Cog):
         # cost someone the paragraph they just wrote.
         draft = self._drafts.setdefault(
             (guild.id, interaction.user.id),
-            {"agency": None, "name": "", "source": "", "text": "", "photo": ""},
+            {"agency": None, "name": "", "eow": "", "source": "", "text": "", "photo": ""},
         )
         await interaction.response.send_message(
             content=(
@@ -360,14 +367,18 @@ class CuffFallen(commands.Cog):
         draft: Dict[str, Any],
         *,
         name: str,
+        eow: str,
         source: str,
         text: str,
         photo: str,
     ) -> None:
         draft["name"] = name.strip()
         draft["text"] = text.strip()
-        # Store the cleaned link when it is usable and the raw one when it is
-        # not, so the preview can point at what is actually wrong.
+        # Store the cleaned form when it is usable and the raw one when it is
+        # not, so the preview can point at what is actually wrong. Same deal
+        # for the date: a readable one is normalised to ISO, an unreadable one
+        # comes back in the modal exactly as it was typed.
+        draft["eow"] = parse_eow(eow) or eow.strip()
         draft["source"] = clean_url(source) or source.strip()
         draft["photo"] = clean_url(photo) or photo.strip()
         # The download can take longer than the 3 seconds an interaction gets,
@@ -466,6 +477,7 @@ class CuffFallen(commands.Cog):
             "user_name": str(interaction.user),
             "name": draft["name"],
             "agency": draft["agency"],
+            "eow": parse_eow(draft.get("eow")) or "",
             "source": clean_url(draft["source"]),
             "text": draft["text"],
             "photo": clean_url(draft.get("photo")) or "",
@@ -499,7 +511,7 @@ class CuffFallen(commands.Cog):
                     await self.status_embed(guild, submission),
                 ],
                 files=[photo.as_file()] if photo else [],
-                view=ReviewView(self, sub_id),
+                view=ReviewView(self, sub_id, submission["agency"]),
                 allowed_mentions=discord.AllowedMentions.none(),
             )
         except discord.HTTPException as error:
@@ -823,13 +835,51 @@ class CuffFallen(commands.Cog):
             color=DENIED_COLOR,
         )
 
+    async def review_agency_set(
+        self, interaction: discord.Interaction, sub_id: str, key: str
+    ) -> None:
+        """The dropdown on the review message: the agency, changed in place."""
+        guild = interaction.guild
+        if guild is None:
+            return
+        if not await self.is_admin(interaction.user):
+            await interaction.response.send_message(
+                "Only the admins decide on these.", ephemeral=True
+            )
+            return
+        sub = await self.get_submission(guild, sub_id)
+        if sub is None or sub.get("status") != "pending":
+            await interaction.response.send_message(
+                "That submission is no longer pending.", ephemeral=True
+            )
+            return
+        if key not in AGENCIES:
+            return
+        sub["agency"] = key
+        sub["edited_by"] = interaction.user.id
+        await self.save_submission(guild, sub)
+        # Redrawn whole so the status embed's "ping on approval" line follows
+        # the new agency immediately — that line is why the picker exists.
+        await interaction.response.edit_message(
+            embeds=[
+                memorial_embed(
+                    sub,
+                    credit=None,
+                    test=bool(sub.get("test")),
+                    photo_ref=self.sub_photo_ref(sub),
+                ),
+                await self.status_embed(guild, sub),
+            ],
+            view=ReviewView(self, sub_id, key),
+        )
+
     async def admin_edit_submitted(
         self,
         interaction: discord.Interaction,
         sub_id: str,
         *,
         name: str,
-        agency: str,
+        eow: str,
         source: str,
         text: str,
         photo: str,
@@ -845,17 +895,14 @@ class CuffFallen(commands.Cog):
             )
             return
 
-        agency_key = parse_agency(agency)
         clean_source = clean_url(source)
         raw_photo = photo.strip()
         clean_photo = clean_url(raw_photo) if raw_photo else None
 
         complaints = []
-        if agency_key is None:
-            complaints.append(
-                "Agency must be one of fire / police / correctional / ambulance — "
-                f"`{clip(agency, 40)}` is none of them."
-            )
+        date_complaint = eow_problem(eow)
+        if date_complaint:
+            complaints.append(date_complaint)
         if not clean_source:
             complaints.append("The source link is not a working `http(s)://` link.")
         if raw_photo and not clean_photo:
@@ -901,7 +948,7 @@ class CuffFallen(commands.Cog):
         sub.update(
             {
                 "name": name.strip(),
-                "agency": agency_key,
+                "eow": parse_eow(eow) or "",
                 "source": clean_source,
                 "text": text.strip(),
                 "photo": clean_photo or "",
@@ -920,7 +967,7 @@ class CuffFallen(commands.Cog):
                     ),
                     await self.status_embed(guild, sub),
                 ],
-                view=ReviewView(self, sub_id),
+                view=ReviewView(self, sub_id, sub.get("agency")),
                 **({"attachments": attachments} if attachments is not None else {}),
             )
         except discord.HTTPException:
@@ -1011,6 +1058,7 @@ class CuffFallen(commands.Cog):
                 "**You will be asked for**\n"
                 "• Their name\n"
                 "• Their agency — Police, Fire, Correctional or Ambulance\n"
+                "• Their end of watch — the date they died (optional)\n"
                 "• A link to the source\n"
                 "• The message itself (Discord markdown works)\n"
                 "• Optionally a link to a photo — a **direct image link** (right-click "

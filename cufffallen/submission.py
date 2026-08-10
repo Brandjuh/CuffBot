@@ -12,6 +12,8 @@ different from the thing that was approved.
 
 from __future__ import annotations
 
+import datetime as dt
+import re
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
@@ -31,6 +33,7 @@ TEST_COLOR = 0x9B59B6
 #: source line always fits under it, and a modal paragraph field caps at 4000
 #: regardless. A title holds 256, and the name shares it with an emoji.
 MAX_NAME = 100
+MAX_EOW = 40
 MAX_TEXT = 3500
 #: Signed CDN links are long — a real fbcdn photo URL runs past 600 characters
 #: of tokens, so a 400 cap would refuse exactly the links members paste.
@@ -193,6 +196,129 @@ def clean_url(raw: Optional[str]) -> Optional[str]:
     return text
 
 
+# ----------------------------------------------------------------------
+# End of watch
+# ----------------------------------------------------------------------
+
+#: Hardcoded rather than strftime'd: %A/%B follow the process locale, and a
+#: memorial must read "Sunday, August 3, 2026" whatever machine the bot is on.
+WEEKDAY_LABELS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+MONTH_LABELS = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
+_MONTHS_BY_NAME: Dict[str, int] = {}
+for _index, _label in enumerate(MONTH_LABELS, start=1):
+    _MONTHS_BY_NAME[_label.lower()] = _index
+    _MONTHS_BY_NAME[_label.lower()[:3]] = _index
+_MONTHS_BY_NAME["sept"] = 9
+
+#: ODMP has officers back to the 1790s; anything before that is a typo.
+EOW_FIRST_YEAR = 1700
+
+_EOW_NUMERIC = re.compile(r"^(\d{1,4})[-/. ](\d{1,2})[-/. ](\d{1,4})$")
+#: "August 3, 2026" / "Aug 3rd 2026"
+_EOW_MONTH_FIRST = re.compile(r"^([a-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$")
+#: "3 August 2026" / "3rd aug 2026"
+_EOW_DAY_FIRST = re.compile(r"^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\.?,?\s+(\d{4})$")
+
+
+def _eow_iso(year: int, month: int, day: int) -> Optional[str]:
+    if year < EOW_FIRST_YEAR:
+        return None
+    try:
+        return dt.date(year, month, day).isoformat()
+    except ValueError:
+        return None
+
+
+def eow_ambiguous(raw: Optional[str]) -> bool:
+    """Whether a numeric date could honestly be read two ways.
+
+    ``3/8/2026`` is March 8 to an American and August 3 to a European, and a
+    memorial is the wrong place to guess. Its own predicate so the refusal
+    can say *that* instead of a generic "could not be read".
+    """
+    if not raw:
+        return False
+    match = _EOW_NUMERIC.match(" ".join(str(raw).strip().lower().split()))
+    if not match or len(match.group(1)) == 4 or len(match.group(3)) != 4:
+        return False
+    first, second = int(match.group(1)), int(match.group(2))
+    return first <= 12 and second <= 12 and first != second
+
+
+def parse_eow(raw: Optional[str]) -> Optional[str]:
+    """The date behind whatever was typed, as ISO ``YYYY-MM-DD``, or ``None``.
+
+    Accepted: ISO (``2026-08-03``), unambiguous numeric (``23/8/2026`` — one
+    of the two numbers must be >12, or they must be equal), and written-out
+    months either way around (``August 3, 2026`` / ``3 Aug 2026``). A date
+    that could be read two ways is refused, not guessed — see
+    ``eow_ambiguous``.
+    """
+    if not raw:
+        return None
+    text = " ".join(str(raw).strip().lower().split())
+    if not text:
+        return None
+
+    match = _EOW_NUMERIC.match(text)
+    if match:
+        first, second, third = (int(g) for g in match.groups())
+        if len(match.group(1)) == 4:
+            return _eow_iso(first, second, third)
+        if len(match.group(3)) == 4:
+            if first > 12 >= second:
+                return _eow_iso(third, second, first)
+            if second > 12 >= first:
+                return _eow_iso(third, first, second)
+            if first == second:
+                return _eow_iso(third, first, second)
+        return None
+
+    match = _EOW_MONTH_FIRST.match(text)
+    if match and match.group(1) in _MONTHS_BY_NAME:
+        return _eow_iso(int(match.group(3)), _MONTHS_BY_NAME[match.group(1)], int(match.group(2)))
+
+    match = _EOW_DAY_FIRST.match(text)
+    if match and match.group(2) in _MONTHS_BY_NAME:
+        return _eow_iso(int(match.group(3)), _MONTHS_BY_NAME[match.group(2)], int(match.group(1)))
+
+    return None
+
+
+def format_eow(raw: Optional[str]) -> Optional[str]:
+    """The date the way ODMP writes one: ``Sunday, August 3, 2026``."""
+    iso = parse_eow(raw)
+    if not iso:
+        return None
+    date = dt.date.fromisoformat(iso)
+    return f"{WEEKDAY_LABELS[date.weekday()]}, {MONTH_LABELS[date.month - 1]} {date.day}, {date.year}"
+
+
+def eow_problem(raw: Optional[str]) -> Optional[str]:
+    """What is wrong with a typed End of watch, or ``None``. Empty is fine."""
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    if eow_ambiguous(text):
+        return (
+            f"`{clip(text, 40)}` could be read two ways (day/month or month/day) — "
+            "write the month out, like `August 3, 2026`."
+        )
+    iso = parse_eow(text)
+    if iso is None:
+        return (
+            "The End of watch date could not be read — use `YYYY-MM-DD`, "
+            "or write the month out (`August 3, 2026`)."
+        )
+    if iso > dt.date.today().isoformat():
+        return "The End of watch date is in the future."
+    return None
+
+
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
 
 
@@ -267,6 +393,10 @@ def memorial_embed(
     if source:
         embed.url = source
     embed.add_field(name="Agency", value=agency.label, inline=True)
+    # The same field cuffmemorial's feeds carry, worded the same way.
+    eow_text = format_eow(submission.get("eow"))
+    if eow_text:
+        embed.add_field(name="End of watch", value=eow_text, inline=True)
     if photo_ref:
         embed.set_image(url=photo_ref)
     elif photo:

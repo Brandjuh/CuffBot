@@ -180,7 +180,7 @@ Then disable the Node counterparts so nothing runs double
   Covered by `tests/test_fallen.py` (the rules, the limits, every modal
   measured against Discord's caps) and `tests/test_fallen_flow.py` (the whole
   route on real Config with Discord stubbed: which interaction is answered how,
-  what lands in which channel, and whether a role is pinged) — 251 checks, no
+  what lands in which channel, and whether a role is pinged) — 304 checks, no
   bot or network needed.
 
 ## Port status — what the Node bot still had that Red does not
@@ -375,9 +375,19 @@ underneath — a lot of work for a game that stops being the game.
   <#411637334778576896>. Four decisions worth knowing:
   - **The agency is a dropdown, not a modal field.** It decides which role gets
     tagged in front of the whole guild, so it is picked from the four that
-    exist. That also keeps the modal at four fields instead of Discord's
-    maximum of five. Admins editing a submission *do* type it, and
-    `parse_agency` accepts "EMS", "fire department", "Correctional Officer".
+    exist — members in the private flow, admins via a dropdown row on the
+    review message itself (one click, and the status embed's "ping on
+    approval" line follows immediately). Keeping it out of the modals is also
+    what frees the fifth and last modal slot for the End of watch.
+  - **End of watch is parsed, not pasted.** The optional date field takes ISO
+    (`2026-08-03`), unambiguous numerics (`23/8/2026`) and written-out months
+    either way around (`August 3, 2026` / `3 aug 2026`), normalises to ISO in
+    storage and renders the way ODMP writes one: *Monday, August 3, 2026*, in
+    the same inline `End of watch` field cuffmemorial's feeds use. A date that
+    could honestly be read two ways (`3/8/2026` — March 8 to an American,
+    August 3 to a European) is refused by name rather than guessed, and future
+    dates are refused too. Month/weekday names are hardcoded, not strftime'd,
+    so the wording survives whatever locale the Pi boots with.
   - **The ping roles are `cuffmemorial`'s roles**, so a member submission and a
     feed post reach the same people: police `627946543273738240`, firefighter
     `627946690024046675`, correctional `1533202959624830976`. **Ambulance has no

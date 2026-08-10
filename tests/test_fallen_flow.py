@@ -292,6 +292,7 @@ async def main():
         typed,
         draft,
         name=DRAFT["name"],
+        eow="3 August 2026",
         source=DRAFT["source"],
         text=DRAFT["text"],
         photo=DRAFT["photo"],
@@ -303,6 +304,14 @@ async def main():
     check("the preview is the memorial", "Firefighter John Doe" in preview_embed.title)
     check("the preview can be sent", preview["view"].send.disabled is False)
     check("the photo is mirrored into the draft", draft["_photo"] is not None)
+    check("the typed date is normalised", draft["eow"] == "2026-08-03")
+    check(
+        "and shown the way ODMP writes one",
+        any(
+            f.name == "End of watch" and f.value == "Monday, August 3, 2026"
+            for f in preview_embed.fields
+        ),
+    )
     check(
         "the preview shows the mirrored copy, not the link",
         preview_embed.image.url == "attachment://fallen-hero.jpg",
@@ -333,7 +342,10 @@ async def main():
     check("nothing in the test channel", test_channel.sent == [])
     check("the review post carries both embeds", len(review.sent[0]["embeds"]) == 2)
     check("the review post cannot ping", review.sent[0]["allowed_mentions"].roles is False)
-    check("it has the three buttons", len(review.sent[0]["view"].children) == 3)
+    check(
+        "it has the agency dropdown and the three buttons",
+        len(review.sent[0]["view"].children) == 4,
+    )
     check("the mirrored photo is on the review post", len(review.sent[0]["files"]) == 1)
     check(
         "whose embed shows the copy, not the link",
@@ -387,7 +399,7 @@ async def main():
         fixed,
         "1",
         name="Firefighter John Doe",
-        agency="Fire Department",
+        eow="August 4, 2026",
         source="https://firehero.org/x",
         text="He went in. Corrected.",
         photo=DRAFT["photo"],
@@ -397,17 +409,48 @@ async def main():
     check("an unchanged photo is left alone", "attachments" not in fixed.edits[-1])
     stored = (await cog.config.guild(guild).submissions())["1"]
     check("the edit is stored", stored["text"].endswith("Corrected."))
-    check("a typed agency is understood", stored["agency"] == "fire")
+    check("the corrected date is stored normalised", stored["eow"] == "2026-08-04")
     check("the editor is recorded", stored["edited_by"] == admin.id)
     check("the mirror survives the edit", stored["photo_mirrored"] is True)
 
     rejected = FakeInteraction(guild, admin)
     await cog.admin_edit_submitted(
-        rejected, "1", name="X", agency="Navy", source="nope", text="t", photo=""
+        rejected, "1", name="X", eow="3/8/2026", source="nope", text="t", photo=""
     )
     check("a nonsense edit is refused", "Not saved" in rejected.response.payload["content"])
+    check("the ambiguous date is named", "two ways" in rejected.response.payload["content"])
     stored = (await cog.config.guild(guild).submissions())["1"]
     check("and changes nothing", stored["name"] == "Firefighter John Doe")
+
+    print("the agency dropdown on the review post")
+    nosy_pick = FakeInteraction(guild, member)
+    await cog.review_agency_set(nosy_pick, "1", "police")
+    check(
+        "a member cannot retag a memorial",
+        "Only the admins" in nosy_pick.response.payload["content"],
+    )
+    picked = FakeInteraction(guild, admin)
+    await cog.review_agency_set(picked, "1", "police")
+    check("the pick redraws the review post", picked.response.kind == "edit_message")
+    stored = (await cog.config.guild(guild).submissions())["1"]
+    check("the agency changed", stored["agency"] == "police")
+    status_fields = {f.name: f.value for f in picked.response.payload["embeds"][1].fields}
+    check(
+        "the ping line follows it immediately",
+        "627946543273738240" in status_fields["Ping on approval"],
+    )
+    fresh_picker = next(
+        i
+        for i in picked.response.payload["view"].children
+        if isinstance(i, discord.ui.Select)
+    )
+    check(
+        "the dropdown marks the new agency",
+        [o.value for o in fresh_picker.options if o.default] == ["police"],
+    )
+    back = FakeInteraction(guild, admin)
+    await cog.review_agency_set(back, "1", "fire")
+    check("and back again", (await cog.config.guild(guild).submissions())["1"]["agency"] == "fire")
 
     print("approving it")
     approving = FakeInteraction(guild, admin)
@@ -521,6 +564,7 @@ async def main():
         fb,
         fb_draft,
         name="Officer F. B. Cdn",
+        eow="",
         source="https://odmp.org/officer/1",
         text="Their story.",
         photo=fb_url,
