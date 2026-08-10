@@ -1,0 +1,9 @@
+{
+    "author": ["Brandjuh"],
+    "name": "CuffFallen",
+    "short": "Members submit a fallen hero from a panel; admins approve it before it is posted.",
+    "description": "Member-submitted memorials for the fallen, published only after an admin says so. A panel in the server information channel opens a private flow: pick the agency (Police, Fire, Correctional or Ambulance), fill in the name, source link, message and an optional photo, then read the finished embed back as a preview that can be edited as often as needed before it is sent. Submitting posts it to the admin review channel, where it can be approved, denied with a reason the submitter is DM'd, or edited on the spot to fix a typo instead of bouncing it back. Approving publishes it in the memorial channel and tags the agency's role — the same roles cuffmemorial uses for its feeds — except ambulance, which has no role in this guild and publishes silently. An admin-only test mode routes both the review post and the published post to the test channel instead, coloured and footered as a test, and the flag is stamped on the submission when it is sent so a rehearsal can never surface in the real memorial channel later.",
+    "end_user_data_statement": "This cog stores the Discord user ID and name of the member who submitted a memorial, together with the text, links and agency they entered, for as long as the submission is pending plus the last 50 decided submissions kept as an approval record. Data deletion requests cancel that member's pending submissions and strip their ID and name from the records kept.",
+    "tags": ["memorial", "submissions", "approval", "moderation", "buttons"],
+    "min_bot_version": "3.5.0"
+}

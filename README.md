@@ -30,6 +30,7 @@ own cog. All strings are English, faithful to the Node originals.
 | `cuffminigames` | CuffMinigames | `$connect4` / `$c4`, `$tictactoe` / `$ttt`, `$minigamesset …` | — (fork of crab-cogs `minigames`, replaces it) |
 | `cuffidwatch` | CuffIdWatch | `$idwatch ping/dm/on/off`, `$idwatchset list/user` | — (new) ping/DM you when your raw user ID is used |
 | `cuffsay` | CuffSay | `$say <text>` (mod/admin) | — (new) bot repeats it anonymously, invoking message deleted |
+| `cufffallen` | CuffFallen | `$fallenhero panel/test/testping/channel/role/credit/maxpending/enable/pending/show/cancel/settings` (alias `$fallen`) | — (new) members submit a fallen hero, admins approve before it is posted |
 
 > **Prefix note (2026-07-29, done):** the prefixes were SWAPPED — the Node bot
 > took `$` and Red now runs on `!` (verified in `core/settings.json`). Read every
@@ -49,6 +50,8 @@ $load cuffselfroles cuffchannellist cuffmemorial cuffrecords
 $load cuffembed                       ← stock cogs answer in embeds from here on
 $unload minigames                     ← crab-cogs original out first ($c4/$ttt name clash)
 $load cuffminigames
+$load cufffallen
+$fallenhero panel                     ← posts the button in #server-information
 ```
 
 > **Name note:** Red's core `admin` cog owns `$selfrole` (singular) — its own
@@ -166,6 +169,19 @@ Then disable the Node counterparts so nothing runs double
 - `!payday` and `!freecredits all` come back as embeds; `!cuffembed preview`
   renders all five sample messages without waiting out a cooldown, and
   `!cuffembed` shows which cogs are covered
+- `!fallenhero test on` → press **Submit Fallen Hero** on the panel → pick an
+  agency, fill the modal, check the preview, send it. The review post and,
+  after **Approve**, the memorial itself both land in the test channel
+  (<#412334189879230474>), coloured purple and footered `TEST POST`. Then
+  `!fallenhero test off` and do it once for real. Also worth pressing: **Deny**
+  with a reason (the submitter gets it by DM) and **Edit** on the review post
+  (fixes a typo without bouncing the submission back). `!fallenhero settings`
+  shows which channel each stage uses and which role each agency will tag.
+  Covered by `tests/test_fallen.py` (the rules, the limits, every modal
+  measured against Discord's caps) and `tests/test_fallen_flow.py` (the whole
+  route on real Config with Discord stubbed: which interaction is answered how,
+  what lands in which channel, and whether a role is pinged) — 207 checks, no
+  bot or network needed.
 
 ## Port status — what the Node bot still had that Red does not
 
@@ -351,3 +367,39 @@ underneath — a lot of work for a game that stops being the game.
   `~/cuffenv/bin/python tests/test_wrap.py` (the decisions, the rules, the patch)
   and `tests/test_cog.py` (the real cog on real Config, in a throwaway data dir)
   — 64 checks, no bot or network needed.
+- `cufffallen` (owner request 2026-08-10) is the member-facing counterpart to
+  `cuffmemorial`: the tracker honours the fallen the feeds report, this one
+  honours the ones they miss. A panel in <#670776730570719232> opens a private
+  flow — agency, then name / source link / message / optional photo — and
+  nothing reaches <#451095508560379934> until an admin approves it in
+  <#411637334778576896>. Four decisions worth knowing:
+  - **The agency is a dropdown, not a modal field.** It decides which role gets
+    tagged in front of the whole guild, so it is picked from the four that
+    exist. That also keeps the modal at four fields instead of Discord's
+    maximum of five. Admins editing a submission *do* type it, and
+    `parse_agency` accepts "EMS", "fire department", "Correctional Officer".
+  - **The ping roles are `cuffmemorial`'s roles**, so a member submission and a
+    feed post reach the same people: police `627946543273738240`, firefighter
+    `627946690024046675`, correctional `1533202959624830976`. **Ambulance has no
+    role** — this guild has no EMS role, so those publish silently. Re-aim any
+    of them with `!fallenhero role <agency> [@role]`; leaving the role off is
+    how "never ping for this agency" is set.
+  - **The preview is the validation.** The embed the member reads back is the
+    same object the admins weigh up and the same one that gets posted — one
+    builder, so a post can never differ from the thing that was approved. That
+    builder re-cleans both links itself rather than trusting them, because
+    Discord rejects a whole embed over one malformed URL, and that would break
+    the very screen that exists to show a member what is wrong. A photo link
+    that is a page rather than an image shows up as a missing picture, with a
+    line under the preview saying so.
+  - **Test mode is stamped on the submission, not read at approval time.**
+    `!fallenhero test on` (admins only) routes both the review post and the
+    published post to <#412334189879230474>; a submission sent while it was on
+    stays a test even if someone flips the switch while it sits in the queue,
+    so a rehearsal can never surface in the real memorial channel later. Test
+    posts do not tag the role unless `!fallenhero testping on` — a rehearsal
+    that pings a whole role is not a rehearsal.
+
+  The panel button and every pending review message are re-registered on load,
+  so their buttons survive a restart; drafts in progress are deliberately
+  RAM-only, because nothing has been promised until Submit is pressed.
