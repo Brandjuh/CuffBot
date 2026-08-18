@@ -11,11 +11,13 @@ loses is one point in a game, and persisting a countdown would mean a disk
 write on every message. Ported from the CuffBot Node module
 ``src/modules/killcounter`` — strings and behavior are kept verbatim.
 
-One deliberate departure from the Node module: a scored kill is **announced**
-in the channel that died. The Node version scored in complete silence, so the
-board only moved for people who thought to run the command. Announcing there
-is safe because the bot's own message is not activity — `_note_message` drops
-bot authors — so the announcement cannot arm a fresh kill on itself.
+One optional departure from the Node module: a scored kill can be **announced**
+in the channel that died, so the board moves visibly instead of only for people
+who think to run the command. It is **off by default** — the announcement is
+chatty in a busy guild — and is switched per guild with
+``[p]killcounter announce``. Announcing is safe because the bot's own message is
+not activity — `_note_message` drops bot authors — so the announcement cannot
+arm a fresh kill on itself.
 """
 
 import asyncio
@@ -113,7 +115,7 @@ def standing_for(scores: dict, user_id) -> tuple[int, Optional[int], int]:
 class KillCounter(commands.Cog):
     """Chat kills: go quiet after someone speaks and the last word scores."""
 
-    __version__ = "1.1.0"
+    __version__ = "1.2.0"
     __author__ = "Brandjuh"
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
@@ -128,7 +130,7 @@ class KillCounter(commands.Cog):
             silence_ms=30000,
             channel_ids=[],  # channel ids as str; empty = every channel
             ignore_commands=True,
-            announce=True,
+            announce=False,  # off by default: the kill lands quietly on the board
         )
         self.config.register_member(
             kills=0,
@@ -341,9 +343,15 @@ class KillCounter(commands.Cog):
 
     @killcounter.command(name="announce")
     @checks.admin_or_permissions(manage_guild=True)
-    async def killcounter_announce(self, ctx: commands.Context, state: bool):
-        """Post a message in the channel whenever someone scores a kill."""
-        await self.config.guild(ctx.guild).announce.set(state)
+    async def killcounter_announce(self, ctx: commands.Context, state: bool = None):
+        """Post a message in the channel whenever someone scores a kill.
+
+        `on`/`off` sets it; with no argument it flips the current setting.
+        """
+        gconf = self.config.guild(ctx.guild)
+        if state is None:
+            state = not await gconf.announce()
+        await gconf.announce.set(state)
         await ctx.send(
             "💀 Kills are announced in the channel that died."
             if state
