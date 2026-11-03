@@ -3,6 +3,10 @@
 Ask with the detective command or by @mentioning the bot. One shared,
 process-global rate budget for the whole precinct; over-budget questions
 land on the "desk pile" and are answered automatically.
+
+Admins feed its long-term memory by posting in the case-file channel: posting
+adds a fact, editing changes it and deleting forgets it. The channel itself is
+the storage, so there is nothing to keep in sync.
 """
 
 import asyncio
@@ -19,6 +23,7 @@ import discord
 from discord.ext import tasks
 from redbot.core import Config, checks, commands
 from redbot.core.bot import Red
+from redbot.core.utils.chat_formatting import pagify
 
 from .limiter import RateLimiter, estimate_tokens, human_wait
 
@@ -40,23 +45,26 @@ MAX_HISTORY_ENTRIES = 40
 HISTORY_TTL_MS = 86_400_000  # 24 h
 DISCORD_MESSAGE_LIMIT = 2000
 MAX_REPLY_CHARS = 1900
-MAX_HISTORY_TOKENS = 3000
+MAX_HISTORY_TOKENS = 2000
+MAX_KNOWLEDGE_TOKENS = 1000  # sent with every question, so it spends the free budget
+MAX_KNOWLEDGE_MESSAGES = 200
 MAX_OUTPUT_TOKENS = 550  # roughly MAX_REPLY_CHARS; the model overshoots what it is told
 
 QUEUE_CAP = 5
 MAX_QUEUE_WAIT_MS = 3_600_000
 
 PERSONA = (
-    "You are CuffBot, the precinct detective of a police-themed Discord server "
-    "called the precinct. Stay in light police flavor (detective, dispatch, "
-    "precinct) without overdoing it. Answer in the language the user writes in "
-    "(often Dutch or English). Be helpful and factual. Give as much detail as "
-    "the question deserves, but never more than 250 words because Discord "
-    "cuts off longer messages. No markdown headers. Never invent facts "
-    "about server members; if asked for personal data, advice on wrongdoing, "
-    "or anything hateful, decline briefly and in character. You cannot "
-    "moderate, run commands, or change server settings — if asked, point to "
-    "the relevant /command instead."
+    "You are CuffBot, the wisecracking precinct detective of a police-themed "
+    "Discord server called the precinct. Be funny: dry one-liners, mock-serious "
+    "case talk and gentle roasts are your style, but the actual answer must "
+    "still be right and come through clearly. Always answer in English. Give as "
+    "much detail as the question deserves, but never more than 250 words because "
+    "Discord cuts off longer messages. No markdown headers. Never invent facts "
+    "about this server, its members, rules or commands: if the case file does "
+    "not cover it, say you have no intel on it and make a joke of that instead. "
+    "If asked for personal data, advice on wrongdoing, or anything hateful, "
+    "decline briefly and in character. You cannot moderate, run commands, or "
+    "change server settings."
 )
 
 WAIT_STORIES = [
@@ -68,11 +76,19 @@ WAIT_STORIES = [
     "The detective is at the coffee machine. Some cases simply cannot start without it.",
 ]
 
+KNOWLEDGE_HEADER = (
+    "The precinct's case file, written by the server's admins. These are facts "
+    "about this server; rely on them when they are relevant:"
+)
+KNOWLEDGE_ADDED_EMOJI = "🧠"
+KNOWLEDGE_FULL_EMOJI = "⚠️"
+
 EVERYONE_RE = re.compile(r"@(everyone|here)")
 
 DEFAULT_GUILD = {
     "enabled": True,
     "channel_id": 412354971170897921,
+    "knowledge_channel_id": 1567248111028412426,
 }
 
 
@@ -119,6 +135,11 @@ class CuffDetective(commands.Cog):
         #: fallback in _is_followup takes over.
         self._answer_ids: deque = deque(maxlen=500)
         self.queue: list[dict] = []  # desk pile, RAM-only
+        #: guild_id -> {"entries": [(message_id, text)], "skipped": [message_id],
+        #: "tokens": int, "error": Optional[str]}. A copy of the case-file
+        #: channel, re-read after any change there.
+        self._knowledge: dict[int, dict] = {}
+        self._knowledge_dirty: set[int] = set()
         self._story_counter = 0
         self._session: Optional[aiohttp.ClientSession] = None
         self.queue_flusher.start()
@@ -173,6 +194,116 @@ class CuffDetective(commands.Cog):
         return data["choices"][0]["message"]["content"]
 
     # --------------------------------------------------------------- #
+    # Case file (admin-fed long-term memory)                            #
+    # --------------------------------------------------------------- #
+
+    async def _is_knowledge_admin(self, member: discord.Member) -> bool:
+        """Same bar as the ``ai`` config commands."""
+        return member.guild_permissions.manage_guild or await self.bot.is_admin(member)
+
+    async def _knowledge_author(
+        self, guild: discord.Guild, message: discord.Message
+    ) -> Optional[discord.Member]:
+        member = guild.get_member(message.author.id)
+        if member is not None:
+            return member
+        try:
+            return await guild.fetch_member(message.author.id)
+        except discord.HTTPException:
+            return None  # left the server: their entries lapse with them
+
+    async def _is_knowledge_entry(self, guild: discord.Guild, message: discord.Message) -> bool:
+        if message.author.bot or message.is_system() or not message.clean_content.strip():
+            return False
+        member = await self._knowledge_author(guild, message)
+        if member is None or not await self._is_knowledge_admin(member):
+            return False
+        return not (await self.bot.get_context(message)).valid
+
+    async def _refresh_knowledge(self, guild: discord.Guild) -> dict:
+        """Re-read the case-file channel if it changed since the last read.
+
+        Oldest entries win when the file is full, so a new post can never
+        silently push out an established fact: it gets the warning reaction.
+        """
+        current = self._knowledge.get(guild.id)
+        if current is not None and guild.id not in self._knowledge_dirty:
+            return current
+        # Cleared first: a change that lands during the read marks it dirty again.
+        self._knowledge_dirty.discard(guild.id)
+        state = {"entries": [], "skipped": [], "tokens": 0, "error": None}
+        channel_id = await self.config.guild(guild).knowledge_channel_id()
+        if channel_id:
+            channel = guild.get_channel(channel_id)
+            try:
+                if channel is None:
+                    raise LookupError(f"channel {channel_id} is not visible to the bot")
+                async for message in channel.history(
+                    limit=MAX_KNOWLEDGE_MESSAGES, oldest_first=True
+                ):
+                    if not await self._is_knowledge_entry(guild, message):
+                        continue
+                    text = message.clean_content.strip()
+                    cost = estimate_tokens(text)
+                    if state["tokens"] + cost > MAX_KNOWLEDGE_TOKENS:
+                        state["skipped"].append(message.id)
+                        continue
+                    state["entries"].append((message.id, text))
+                    state["tokens"] += cost
+            except (discord.HTTPException, LookupError) as exc:
+                log.warning("Could not read the case file: %s", exc)
+                # Keep what we know, and try again on the next question.
+                self._knowledge_dirty.add(guild.id)
+                state = {**(current or state), "error": str(exc)}
+        self._knowledge[guild.id] = state
+        return state
+
+    def _knowledge_message(self, guild_id: int) -> list[dict]:
+        state = self._knowledge.get(guild_id)
+        if not state or not state["entries"]:
+            return []
+        lines = "\n".join(f"- {text}" for _, text in state["entries"])
+        return [{"role": "system", "content": f"{KNOWLEDGE_HEADER}\n{lines}"}]
+
+    async def _mark_knowledge_changed(self, guild_id: Optional[int], channel_id: int) -> None:
+        if guild_id is None:
+            return
+        if channel_id == await self.config.guild_from_id(guild_id).knowledge_channel_id():
+            self._knowledge_dirty.add(guild_id)
+
+    @commands.Cog.listener("on_message_without_command")
+    async def _on_knowledge_post(self, message: discord.Message):
+        if message.guild is None:
+            return
+        guild = message.guild
+        if message.channel.id != await self.config.guild(guild).knowledge_channel_id():
+            return
+        self._knowledge_dirty.add(guild.id)
+        state = await self._refresh_knowledge(guild)
+        if any(entry_id == message.id for entry_id, _ in state["entries"]):
+            emoji = KNOWLEDGE_ADDED_EMOJI
+        elif message.id in state["skipped"]:
+            emoji = KNOWLEDGE_FULL_EMOJI
+        else:
+            return
+        try:
+            await message.add_reaction(emoji)
+        except discord.HTTPException:
+            pass
+
+    @commands.Cog.listener()
+    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
+        await self._mark_knowledge_changed(payload.guild_id, payload.channel_id)
+
+    @commands.Cog.listener()
+    async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
+        await self._mark_knowledge_changed(payload.guild_id, payload.channel_id)
+
+    @commands.Cog.listener()
+    async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent):
+        await self._mark_knowledge_changed(payload.guild_id, payload.channel_id)
+
+    # --------------------------------------------------------------- #
     # Conversation memory (RAM-only)                                    #
     # --------------------------------------------------------------- #
 
@@ -183,18 +314,21 @@ class CuffDetective(commands.Cog):
         self.history[channel_id] = entries
         return entries
 
-    def _build_messages(self, channel_id: int, asker_name: str, question: str) -> list[dict]:
+    def _build_messages(
+        self, guild_id: int, channel_id: int, asker_name: str, question: str
+    ) -> list[dict]:
         now_ms = time.time() * 1000
         entries = list(self._prune_history(channel_id, now_ms))
         while entries and sum(estimate_tokens(e["content"]) for e in entries) > MAX_HISTORY_TOKENS:
             entries.pop(0)
-        messages = [{"role": e["role"], "content": e["content"]} for e in entries]
+        messages = self._knowledge_message(guild_id)
+        messages.extend({"role": e["role"], "content": e["content"]} for e in entries)
         messages.append({"role": "user", "content": f"{asker_name}: {question}"})
         return messages
 
-    def _request_tokens(self, channel_id: int, question: str) -> int:
-        """Prompt, remembered conversation and the reserved reply, as Groq counts them."""
-        messages = self._build_messages(channel_id, "", question)
+    def _request_tokens(self, guild_id: int, channel_id: int, question: str) -> int:
+        """Prompt, case file, remembered conversation and the reserved reply, as Groq counts them."""
+        messages = self._build_messages(guild_id, channel_id, "", question)
         return (
             estimate_tokens(PERSONA)
             + sum(estimate_tokens(m["content"]) for m in messages)
@@ -286,7 +420,8 @@ class CuffDetective(commands.Cog):
         if not conf["enabled"]:
             self.queue.pop(0)  # AI got disabled meanwhile: drop silently
             return
-        tokens = self._request_tokens(item["channel_id"], item["question"])
+        await self._refresh_knowledge(channel.guild)
+        tokens = self._request_tokens(channel.guild.id, item["channel_id"], item["question"])
         verdict = self.limiter.take(
             tokens=tokens, max_per_day=DAILY_LIMIT, tpm=TPM, tpd=TPD
         )
@@ -295,7 +430,7 @@ class CuffDetective(commands.Cog):
         self.queue.pop(0)
         try:
             messages = self._build_messages(
-                item["channel_id"], item["asker_name"], item["question"]
+                channel.guild.id, item["channel_id"], item["asker_name"], item["question"]
             )
             reply = normalize_reply(await self._complete(messages))
             self._remember(item["channel_id"], item["asker_name"], item["question"], reply)
@@ -348,7 +483,8 @@ class CuffDetective(commands.Cog):
                 "`[p]set api groq api_key,<key>` first."
             )
             return
-        tokens = self._request_tokens(channel.id, question)
+        await self._refresh_knowledge(channel.guild)
+        tokens = self._request_tokens(channel.guild.id, channel.id, question)
         verdict = self.limiter.take(tokens=tokens, max_per_day=DAILY_LIMIT, tpm=TPM, tpd=TPD)
         if not verdict.ok:
             if self._should_queue(verdict.reason, verdict.retry_after_ms):
@@ -366,7 +502,9 @@ class CuffDetective(commands.Cog):
             return
         try:
             async with channel.typing():
-                messages = self._build_messages(channel.id, author.display_name, question)
+                messages = self._build_messages(
+                    channel.guild.id, channel.id, author.display_name, question
+                )
                 reply = normalize_reply(await self._complete(messages))
         except RuntimeError as exc:
             if str(exc) == "http-429":
@@ -453,7 +591,7 @@ class CuffDetective(commands.Cog):
         if not await self.bot.allowed_by_whitelist_blacklist(message.author):
             return
         conf = await self.config.guild(message.guild).all()
-        if not conf["enabled"]:
+        if not conf["enabled"] or message.channel.id == conf["knowledge_channel_id"]:
             return
         stripped = message.content
         for form in (*mention_forms, f"<@&{self.bot.user.id}>"):
@@ -484,6 +622,7 @@ class CuffDetective(commands.Cog):
         conf = await self.config.guild(ctx.guild).all()
         key_set = bool(await self._api_key())
         channel = f"<#{conf['channel_id']}>" if conf["channel_id"] else "everywhere"
+        case_file = await self._refresh_knowledge(ctx.guild)
         lines = [
             f"Enabled: **{conf['enabled']}**, desk: {channel}",
             f"Provider: **{PROVIDER_NAME}** (`{GROQ_MODEL}`), key configured: **{key_set}**",
@@ -494,6 +633,8 @@ class CuffDetective(commands.Cog):
             f"Desk pile: **{len(self.queue)}/{QUEUE_CAP}** cases waiting",
             f"Memory: last {MAX_HISTORY_ENTRIES} entries per channel, "
             f"{HISTORY_TTL_MS // 60_000} min TTL",
+            f"Case file: **{len(case_file['entries'])}** entries, "
+            f"~{case_file['tokens']}/{MAX_KNOWLEDGE_TOKENS} tokens — details: `{ctx.clean_prefix}ai memory`",
         ]
         await ctx.send("\n".join(lines))
 
@@ -519,6 +660,38 @@ class CuffDetective(commands.Cog):
     async def ai_everywhere(self, ctx: commands.Context):
         """Lift the channel restriction."""
         await self.config.guild(ctx.guild).channel_id.set(None)
+        await ctx.tick()
+
+    @ai.command(name="memory")
+    async def ai_memory(self, ctx: commands.Context):
+        """Show what the detective has in its case file."""
+        channel_id = await self.config.guild(ctx.guild).knowledge_channel_id()
+        if not channel_id:
+            await ctx.send(f"No case-file channel set. Use `{ctx.clean_prefix}ai memorychannel`.")
+            return
+        self._knowledge_dirty.add(ctx.guild.id)
+        state = await self._refresh_knowledge(ctx.guild)
+        link = f"https://discord.com/channels/{ctx.guild.id}/{channel_id}"
+        lines = [
+            f"Case file: <#{channel_id}> — **{len(state['entries'])}** entries, "
+            f"~{state['tokens']}/{MAX_KNOWLEDGE_TOKENS} tokens"
+        ]
+        if state["error"]:
+            lines.append(f"⚠️ Could not read the channel: {state['error']}")
+        for entry_id, text in state["entries"]:
+            short = " ".join(text.split())
+            short = short[:80] + ("…" if len(short) > 80 else "")
+            lines.append(f"{KNOWLEDGE_ADDED_EMOJI} {link}/{entry_id} {short}")
+        for entry_id in state["skipped"]:
+            lines.append(f"{KNOWLEDGE_FULL_EMOJI} did not fit: {link}/{entry_id}")
+        for page in pagify("\n".join(lines)):
+            await ctx.send(page, allowed_mentions=discord.AllowedMentions.none())
+
+    @ai.command(name="memorychannel")
+    async def ai_memorychannel(self, ctx: commands.Context, channel: discord.TextChannel):
+        """The channel whose admin posts feed the detective's case file."""
+        await self.config.guild(ctx.guild).knowledge_channel_id.set(channel.id)
+        self._knowledge_dirty.add(ctx.guild.id)
         await ctx.tick()
 
     @ai.command(name="migratecuff", hidden=True)

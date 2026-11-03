@@ -7,7 +7,7 @@ own cog. All strings are English, faithful to the Node originals.
 | Package | Cog | Commands | Ported from (Node) |
 |---|---|---|---|
 | `cufflevels` | CuffLevels | `$level`, `$levels`, `$xp …` | leveling + academy ladder |
-| `cuffdetective` | CuffDetective | `$detective`, `$ai …`, @mention | detective (Groq AI) |
+| `cuffdetective` | CuffDetective | `$detective`, `$ai …`, @mention | detective (Groq AI), fed by an admin case-file channel |
 | `cufftranscribe` | CuffTranscribe | `$transcribe …` | transcribe (Whisper voice memos, audio files AND live voice) |
 | `cuffstarboard` | CuffStarboard | `$starboard …` | starboard |
 | `killcounter` | KillCounter | `$killcounter` / `$kills …` | killcounter |
@@ -105,6 +105,8 @@ Then disable the Node counterparts so nothing runs double
 
 - `$level`, `$levels`, `$xp ladder` (25 ranks, thresholds 1000 → 328 316)
 - `$detective test` in the AI channel; @mention the bot; ask twice fast (7 s cooldown → desk pile)
+- post a fact in the case-file channel as an admin (🧠 reaction) and ask about it; edit it and
+  ask again; delete it and ask again; `$ai memory` lists what the detective knows
 - send a voice memo (auto-transcribes); `$transcribe now` on a reply;
   `$transcribe join` in a VC → speak → transcript lines in the paired channel
 - react with the custom star emoji ×5 → Commendation Board post
