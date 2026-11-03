@@ -82,6 +82,25 @@ KNOWLEDGE_HEADER = (
 )
 KNOWLEDGE_ADDED_EMOJI = "🧠"
 KNOWLEDGE_FULL_EMOJI = "⚠️"
+KNOWLEDGE_GUIDE = (
+    "🗂️ **The Detective's Case File**\n"
+    "This channel is the detective's long-term memory. Whatever admins post here goes "
+    "along with every question it is asked, so it can use those facts in its answers.\n\n"
+    "**Managing it**\n"
+    "• **Add a fact:** post a message. {added} means it is on file.\n"
+    "• **Change a fact:** edit your message.\n"
+    "• **Forget a fact:** delete your message.\n"
+    "• **See what is on file:** `{prefix}ai memory`\n"
+    "• **Move the case file:** `{prefix}ai memorychannel #channel`\n"
+    "Changes count from the next question on, and survive restarts.\n\n"
+    "**Good to know**\n"
+    "• Only admins can add facts. Other members, bots and commands are ignored.\n"
+    "• There is room for about {chars:,} characters, so keep facts short and separate.\n"
+    "• {full} means the file is full and that post is not on file. Delete or shorten "
+    "something older and it gets in by itself; `{prefix}ai memory` shows where it stands.\n"
+    "• The detective can repeat anything here to anyone, and it is sent to its AI "
+    "provider, so keep private information out."
+)
 
 EVERYONE_RE = re.compile(r"@(everyone|here)")
 
@@ -692,6 +711,35 @@ class CuffDetective(commands.Cog):
         """The channel whose admin posts feed the detective's case file."""
         await self.config.guild(ctx.guild).knowledge_channel_id.set(channel.id)
         self._knowledge_dirty.add(ctx.guild.id)
+        perms = channel.permissions_for(ctx.guild.me)
+        missing = [
+            label
+            for label, granted in (
+                ("View Channel", perms.view_channel),
+                ("Send Messages", perms.send_messages),
+                ("Read Message History", perms.read_message_history),
+                ("Add Reactions", perms.add_reactions),
+            )
+            if not granted
+        ]
+        guide = KNOWLEDGE_GUIDE.format(
+            prefix=ctx.clean_prefix,
+            added=KNOWLEDGE_ADDED_EMOJI,
+            full=KNOWLEDGE_FULL_EMOJI,
+            chars=MAX_KNOWLEDGE_TOKENS * 4,
+        )
+        try:
+            await channel.send(guide, allowed_mentions=discord.AllowedMentions.none())
+        except discord.HTTPException as exc:
+            log.warning("Could not post the case-file guide: %s", exc)
+            if "Send Messages" not in missing and "View Channel" not in missing:
+                await ctx.send(f"Case file set to {channel.mention}, but posting the guide failed.")
+                return
+        if missing:
+            await ctx.send(
+                f"Case file set to {channel.mention}, but I am missing: {', '.join(missing)}."
+            )
+            return
         await ctx.tick()
 
     @ai.command(name="migratecuff", hidden=True)

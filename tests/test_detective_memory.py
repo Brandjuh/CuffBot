@@ -79,6 +79,26 @@ class FakeChannel:
         self.messages = []
         self.reads = 0
         self.broken = False
+        self.sent = []
+        self.mention = f"<#{channel_id}>"
+        self.perms = SimpleNamespace(
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True,
+            add_reactions=True,
+        )
+        self.send_fails = False
+
+    def permissions_for(self, member):
+        return self.perms
+
+    async def send(self, content, **kwargs):
+        if self.send_fails:
+            raise discord.HTTPException(SimpleNamespace(status=403, reason="nope"), "no access")
+        self.sent.append(content)
+        message = FakeMessage(9_000 + len(self.sent), self, BOT, content, bot=True)
+        self.messages.append(message)
+        return message
 
     async def history(self, *, limit, oldest_first):
         self.reads += 1
@@ -93,8 +113,24 @@ class FakeChannel:
         return message
 
 
+class FakeContext:
+    clean_prefix = "!"
+
+    def __init__(self, guild):
+        self.guild = guild
+        self.replies = []
+        self.ticks = 0
+
+    async def send(self, content):
+        self.replies.append(content)
+
+    async def tick(self):
+        self.ticks += 1
+
+
 class FakeGuild:
     id = GUILD_ID
+    me = SimpleNamespace(id=BOT)
 
     def __init__(self):
         self.channel = FakeChannel(self, FILE_ID)
@@ -113,6 +149,9 @@ class FakeGuild:
 
 
 class FakeBot:
+    async def wait_until_ready(self):
+        pass
+
     async def is_admin(self, member):
         return False
 
@@ -249,7 +288,44 @@ async def main():
         await cog._on_knowledge_post(short)
         check("a shorter later post can still fit", short.content in entries(cog))
 
+        print("setting the channel")
+        channel.messages.clear()
+        await cog.config.guild(guild).knowledge_channel_id.clear()
+        setter = cog.ai_memorychannel.callback
+        ctx = FakeContext(guild)
+        await setter(cog, ctx, channel)
+        check("the command saves the channel", await cog.config.guild(guild).knowledge_channel_id() == FILE_ID)
+        check("and posts one guide there", len(channel.sent) == 1)
+        guide = channel.sent[0]
+        for piece in ("post a message", "edit your message", "delete your message", "!ai memory"):
+            check(f"the guide explains {piece!r}", piece in guide)
+        check("the guide fits a Discord message", len(guide) <= 2000, f"{len(guide)} chars")
+        check("and all is well", ctx.ticks == 1 and not ctx.replies)
+        await cog._refresh_knowledge(guild)
+        check("the guide itself is not a fact", entries(cog) == [])
+
+        ctx = FakeContext(guild)
+        channel.perms.add_reactions = False
+        await setter(cog, ctx, channel)
+        check("a missing permission is named", "Add Reactions" in ctx.replies[0])
+        channel.perms.add_reactions = True
+
+        ctx = FakeContext(guild)
+        channel.perms.send_messages = False
+        channel.send_fails = True
+        await setter(cog, ctx, channel)
+        check("no guide without Send Messages, and it says so", "Send Messages" in ctx.replies[0])
+        channel.perms.send_messages = True
+
+        ctx = FakeContext(guild)
+        await setter(cog, ctx, channel)
+        check("a failed post is reported even with permissions", "failed" in ctx.replies[0])
+        channel.send_fails = False
+
         print("when the channel cannot be read")
+        channel.messages.append(old)
+        cog._knowledge_dirty.add(GUILD_ID)
+        await cog._refresh_knowledge(guild)
         channel.broken = True
         cog._knowledge_dirty.add(GUILD_ID)
         await cog._refresh_knowledge(guild)
