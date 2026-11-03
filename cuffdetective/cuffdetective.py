@@ -28,7 +28,7 @@ NODE_DATA_DEFAULT = "/home/brand/CuffBot/data/411157175948541954.json"
 NODE_ENV_DEFAULT = "/home/brand/CuffBot/.env"
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL = "qwen/qwen3.8-27b"
 PROVIDER_NAME = "groq"
 DAILY_LIMIT = 14_400
 TPM = 6_000
