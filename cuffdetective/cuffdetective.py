@@ -36,11 +36,12 @@ TPD = 200_000
 REQUEST_TIMEOUT_S = 20
 
 MAX_QUESTION_CHARS = 1000
-MAX_HISTORY_ENTRIES = 8
-HISTORY_TTL_MS = 1_800_000  # 30 min
+MAX_HISTORY_ENTRIES = 40
+HISTORY_TTL_MS = 86_400_000  # 24 h
+DISCORD_MESSAGE_LIMIT = 2000
 MAX_REPLY_CHARS = 1900
-MAX_HISTORY_TOKENS = 1200
-MAX_OUTPUT_TOKENS = 400
+MAX_HISTORY_TOKENS = 3000
+MAX_OUTPUT_TOKENS = 550  # roughly MAX_REPLY_CHARS; the model overshoots what it is told
 
 QUEUE_CAP = 5
 MAX_QUEUE_WAIT_MS = 3_600_000
@@ -49,8 +50,9 @@ PERSONA = (
     "You are CuffBot, the precinct detective of a police-themed Discord server "
     "called the precinct. Stay in light police flavor (detective, dispatch, "
     "precinct) without overdoing it. Answer in the language the user writes in "
-    "(often Dutch or English). Be helpful, factual, and concise: a few "
-    "sentences, at most ~150 words, no markdown headers. Never invent facts "
+    "(often Dutch or English). Be helpful and factual. Give as much detail as "
+    "the question deserves, but never more than 250 words because Discord "
+    "cuts off longer messages. No markdown headers. Never invent facts "
     "about server members; if asked for personal data, advice on wrongdoing, "
     "or anything hateful, decline briefly and in character. You cannot "
     "moderate, run commands, or change server settings — if asked, point to "
@@ -83,14 +85,23 @@ def normalize_question(text: str) -> Optional[str]:
     return text
 
 
+def fit_text(text: str, limit: int) -> str:
+    """Cut to ``limit`` on the last finished sentence, if one ends in the second half."""
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1]
+    end = max(cut.rfind(mark) for mark in (". ", "! ", "? ", ".\n", "!\n", "?\n"))
+    if end >= limit // 2:
+        return cut[: end + 1] + " …"
+    return cut + "…"
+
+
 def normalize_reply(text: str) -> str:
     text = (text or "").strip()
     text = EVERYONE_RE.sub("@​\\1", text)
     if not text:
         return "…the detective stares silently at the case board. (Empty reply — try again.)"
-    if len(text) > MAX_REPLY_CHARS:
-        return text[: MAX_REPLY_CHARS - 1] + "…"
-    return text
+    return fit_text(text, MAX_REPLY_CHARS)
 
 
 class CuffDetective(commands.Cog):
@@ -181,6 +192,15 @@ class CuffDetective(commands.Cog):
         messages.append({"role": "user", "content": f"{asker_name}: {question}"})
         return messages
 
+    def _request_tokens(self, channel_id: int, question: str) -> int:
+        """Prompt, remembered conversation and the reserved reply, as Groq counts them."""
+        messages = self._build_messages(channel_id, "", question)
+        return (
+            estimate_tokens(PERSONA)
+            + sum(estimate_tokens(m["content"]) for m in messages)
+            + MAX_OUTPUT_TOKENS
+        )
+
     def _remember(self, channel_id: int, asker_name: str, question: str, reply: str):
         now_ms = time.time() * 1000
         entries = self._prune_history(channel_id, now_ms)
@@ -266,7 +286,7 @@ class CuffDetective(commands.Cog):
         if not conf["enabled"]:
             self.queue.pop(0)  # AI got disabled meanwhile: drop silently
             return
-        tokens = estimate_tokens(PERSONA) + estimate_tokens(item["question"]) + MAX_OUTPUT_TOKENS
+        tokens = self._request_tokens(item["channel_id"], item["question"])
         verdict = self.limiter.take(
             tokens=tokens, max_per_day=DAILY_LIMIT, tpm=TPM, tpd=TPD
         )
@@ -281,8 +301,9 @@ class CuffDetective(commands.Cog):
             self._remember(item["channel_id"], item["asker_name"], item["question"], reply)
             q = item["question"]
             q_short = q[:150] + ("…" if len(q) > 150 else "")
+            header = f"🕵️ <@{item['user_id']}> Case reopened — you asked: “{q_short}”\n"
             sent = await channel.send(
-                f"🕵️ <@{item['user_id']}> Case reopened — you asked: “{q_short}”\n{reply}",
+                header + fit_text(reply, DISCORD_MESSAGE_LIMIT - len(header)),
                 allowed_mentions=discord.AllowedMentions(
                     users=[discord.Object(item["user_id"])]
                 ),
@@ -327,7 +348,7 @@ class CuffDetective(commands.Cog):
                 "`[p]set api groq api_key,<key>` first."
             )
             return
-        tokens = estimate_tokens(PERSONA) + estimate_tokens(question) + MAX_OUTPUT_TOKENS
+        tokens = self._request_tokens(channel.id, question)
         verdict = self.limiter.take(tokens=tokens, max_per_day=DAILY_LIMIT, tpm=TPM, tpd=TPD)
         if not verdict.ok:
             if self._should_queue(verdict.reason, verdict.retry_after_ms):

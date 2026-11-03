@@ -68,7 +68,7 @@ AI_PROMPT = (
     "emoji spam. It must be a question anyone can answer regardless of background."
 )
 #: The tiny prompt plus the detective's reserved output allowance.
-AI_TOKEN_ESTIMATE = 550
+AI_TOKEN_ESTIMATE = 700
 
 
 class CuffChatStarter(commands.Cog):
