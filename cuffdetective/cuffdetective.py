@@ -30,9 +30,9 @@ NODE_ENV_DEFAULT = "/home/brand/CuffBot/.env"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "qwen/qwen3.8-27b"
 PROVIDER_NAME = "groq"
-DAILY_LIMIT = 14_400
-TPM = 6_000
-TPD = 500_000
+DAILY_LIMIT = 1_000
+TPM = 8_000
+TPD = 200_000
 REQUEST_TIMEOUT_S = 20
 
 MAX_QUESTION_CHARS = 1000
